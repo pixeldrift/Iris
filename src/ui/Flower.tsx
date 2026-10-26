@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from 'react'
+import type { FlowerShape } from '../core/types'
 
 /**
  * Folder flowers. The artwork lives in real SVG files, one per shape, in `src/assets/flowers/`:
@@ -10,20 +11,7 @@ import { useMemo, type CSSProperties } from 'react'
  * repeated petals take a `petals` count, so the count could later carry meaning (e.g. priority)
  * without redrawing anything.
  */
-export type FlowerShape =
-  | 'blossom'
-  | 'daisy'
-  | 'rose'
-  | 'lily'
-  | 'iris'
-  | 'tulip'
-  | 'poppy'
-  | 'cosmos'
-  | 'pinwheel'
-  | 'lavender'
-  | 'sunflower'
-  | 'hibiscus'
-  | 'bell'
+export type { FlowerShape }
 
 export const FLOWER_SHAPES: { id: FlowerShape; label: string; petals?: number }[] = [
   { id: 'blossom', label: 'Blossom', petals: 5 },

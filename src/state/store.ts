@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { addDays, today } from '../core/dates'
-import { canReparent, descendantIds, nextHue, pathOf, reorder } from '../core/folders'
+import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '../core/folders'
 import { sameName } from '../core/fuzzy'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { seedData } from '../core/seed'
@@ -314,6 +314,7 @@ export const useStore = create<State>()(
           name: name.trim() || 'Untitled',
           parentId,
           hue: nextHue(folders.length),
+          shape: shapeFor(folders.length),
           sort: sibs.length ? Math.max(...sibs.map((f) => f.sort)) + 1 : 0,
           createdAt: Date.now(),
         }
@@ -435,7 +436,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 4,
+      version: 5,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -454,6 +455,10 @@ export const useStore = create<State>()(
         }
         if (from < 3) {
           p.tasks = (p.tasks ?? []).map((t) => ({ ...t, day: t.day ?? null, rollover: t.rollover ?? true, days: t.days ?? null }))
+        }
+        if (from < 5) {
+          // folders saved before flowers existed get a spread of shapes, in their existing order
+          p.folders = (p.folders ?? []).map((f, i) => ({ ...f, shape: f.shape ?? shapeFor(i) }))
         }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
         return p as State

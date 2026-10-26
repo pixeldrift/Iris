@@ -1,4 +1,4 @@
-import type { Folder } from './types'
+import type { Folder, FlowerShape } from './types'
 
 export function childrenOf(folders: Folder[], parentId: string | null): Folder[] {
   return folders
@@ -62,3 +62,12 @@ export function reorder(folders: Folder[], id: string, parentId: string | null, 
   ids.splice(at < 0 ? ids.length : at, 0, id)
   return new Map(ids.map((fid, i) => [fid, i]))
 }
+
+/**
+ * The order new folders cycle through. Neighbouring entries differ a lot in silhouette, and
+ * 13 shapes against 8 hues means the same pairing only repeats after 104 folders.
+ */
+export const SHAPE_CYCLE: FlowerShape[] = ['blossom', 'tulip', 'daisy', 'lavender', 'rose', 'bell', 'lily', 'poppy', 'sunflower', 'iris', 'pinwheel', 'hibiscus', 'cosmos']
+
+/** The flower a new folder gets by default (the user can change it). */
+export const shapeFor = (count: number): FlowerShape => SHAPE_CYCLE[count % SHAPE_CYCLE.length]

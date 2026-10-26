@@ -148,6 +148,18 @@ describe('grouping & flocking', () => {
   })
 })
 
+describe('folder flowers', () => {
+  it('cycles through every shape before repeating', async () => {
+    const { SHAPE_CYCLE, shapeFor } = await import('./folders')
+    const first = Array.from({ length: 13 }, (_, i) => shapeFor(i))
+    expect(new Set(first).size).toBe(13)
+    expect(shapeFor(13)).toBe(SHAPE_CYCLE[0])
+  })
+  it('gives every seed folder a shape', () => {
+    for (const f of seedData().folders) expect(f.shape).toBeTruthy()
+  })
+})
+
 describe('folder ordering', () => {
   it('inserts before a sibling', () => {
     const { folders } = seedData()

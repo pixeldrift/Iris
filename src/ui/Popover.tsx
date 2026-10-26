@@ -39,13 +39,15 @@ export function Popover({
 
   if (!mounted || !anchor.current) return null
   const r = anchor.current.getBoundingClientRect()
-  const below = r.bottom + 8
+  // open below the anchor, or above it when there isn't room below
+  const spaceBelow = window.innerHeight - r.bottom - 12
+  const spaceAbove = r.top - 12
+  const up = spaceBelow < 320 && spaceAbove > spaceBelow
   const style: React.CSSProperties = {
-    top: below,
-    maxHeight: Math.max(160, window.innerHeight - below - 12),
+    ...(up ? { bottom: window.innerHeight - r.top + 8, maxHeight: Math.max(160, spaceAbove - 8) } : { top: r.bottom + 8, maxHeight: Math.max(160, spaceBelow - 8) }),
     ...(align === 'end' ? { right: Math.max(8, window.innerWidth - r.right) } : { left: Math.max(8, Math.min(r.left, window.innerWidth - 240)) }),
     ['--ox' as string]: align === 'end' ? '90%' : '10%',
-    ['--oy' as string]: '0%',
+    ['--oy' as string]: up ? '100%' : '0%',
   }
   return createPortal(
     <div
