@@ -18,7 +18,7 @@ export const KINDS = [
   { id: 'reminder', label: 'Reminder' },
 ] as const
 
-export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
+export function DoneButton({ task, size = 22, soft = false }: { task: Task; size?: number; soft?: boolean }) {
   const toggle = useStore((s) => s.toggleDone)
   const done = task.status === 'done'
   return (
@@ -29,7 +29,7 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
         toggle(task.id)
       }}
       style={{ width: size, height: size }}
-      className={`well-circle grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-transparent hover:text-lilac-400'}`}
+      className={`well-circle ${soft ? 'soft' : ''} grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-transparent hover:text-lilac-400'}`}
       aria-label={done ? 'Mark not done' : 'Mark done'}
       aria-pressed={done}
     >
