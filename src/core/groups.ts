@@ -1,6 +1,5 @@
 import { diffDays, today } from './dates'
 import { pathOf } from './folders'
-import { weightOf } from './tasks'
 import type { Folder, Person, PondGroup, Task } from './types'
 
 export interface Group {
@@ -9,8 +8,6 @@ export interface Group {
   taskIds: string[]
 }
 
-const WEIGHT_LABELS = ['Weighty', 'Steady', 'Feather-light']
-const STAGE_LABELS = { todo: 'Seeds', doing: 'Growing', done: 'Bloomed' } as const
 const KIND_LABELS = { task: 'Tasks', idea: 'Ideas', reminder: 'Reminders' } as const
 
 function bucket(t: Task, ctx: { folders: Folder[]; people: Person[]; now: string }, mode: PondGroup): [string, string, number] {
@@ -26,22 +23,16 @@ function bucket(t: Task, ctx: { folders: Folder[]; people: Person[]; now: string
       return p ? [p.id, p.name, 0] : ['none', 'Just me', 99]
     }
     case 'due': {
-      if (!t.due) return ['someday', 'Someday', 4]
-      const d = diffDays(ctx.now, t.due)
+      const when = t.due ?? t.day
+      if (!when) return ['someday', 'Someday', 4]
+      const d = diffDays(ctx.now, when)
       if (d < 0) return ['late', 'Overdue', 0]
       if (d === 0) return ['today', 'Today', 1]
       if (d <= 7) return ['week', 'This week', 2]
       return ['later', 'Later', 3]
     }
-    case 'weight': {
-      const w = weightOf(t)
-      const i = w > 0.62 ? 0 : w > 0.38 ? 1 : 2
-      return [`w${i}`, WEIGHT_LABELS[i], i]
-    }
     case 'kind':
       return [t.kind, KIND_LABELS[t.kind], ['task', 'idea', 'reminder'].indexOf(t.kind)]
-    case 'stage':
-      return [t.status, STAGE_LABELS[t.status], ['todo', 'doing', 'done'].indexOf(t.status)]
     default:
       return ['all', '', 0]
   }
@@ -60,19 +51,29 @@ export function groupTasks(tasks: Task[], mode: PondGroup, folders: Folder[], pe
 
 /**
  * Centres (px, relative to the middle of the layout) for clusters of the given
- * radii, in a loose grid with enough pitch that no two clusters touch.
+ * radii. Columns and rows are only as wide/tall as their biggest cluster, so
+ * small clusters tuck in close without ever touching.
  */
-export function layoutClusters(radii: number[], aspect: number, gap = 110): { x: number; y: number }[] {
+export function layoutClusters(radii: number[], aspect: number, gap = 44): { x: number; y: number }[] {
   const n = radii.length
   if (!n) return []
   const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt(n * aspect))))
   const rows = Math.ceil(n / cols)
-  const pitch = 2 * Math.max(...radii) + gap
-  return radii.map((_, i) => {
-    const r = Math.floor(i / cols)
-    const inRow = r === rows - 1 ? n - cols * (rows - 1) : cols
-    return { x: ((i % cols) - (inRow - 1) / 2) * pitch, y: (r - (rows - 1) / 2) * pitch * 0.92 }
-  })
+  const colW = Array.from({ length: cols }, (_, c) => Math.max(0, ...radii.filter((_, i) => i % cols === c)) * 2 + gap)
+  const rowH = Array.from({ length: rows }, (_, r) => Math.max(0, ...radii.slice(r * cols, r * cols + cols)) * 2 + gap)
+  const xs: number[] = []
+  let x = 0
+  for (const w of colW) {
+    xs.push(x + w / 2)
+    x += w
+  }
+  const ys: number[] = []
+  let y = 0
+  for (const h of rowH) {
+    ys.push(y + h / 2)
+    y += h
+  }
+  return radii.map((_, i) => ({ x: xs[i % cols] - x / 2, y: ys[Math.floor(i / cols)] - y / 2 }))
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { WEEKDAYS } from '../core/dates'
 import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
@@ -40,7 +41,7 @@ export function TaskDetail() {
   const { mounted, closing } = useExit(!!id && !!live, 240)
 
   // "Saved" blinks whenever something about the task changes
-  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.status, task.importance, task.urgency, task.start, task.due, task.folderIds, task.personIds]) : ''
+  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
   const [savedTick, setSavedTick] = useState(0)
   const firstSig = useRef(sig)
   useEffect(() => {
@@ -128,9 +129,53 @@ export function TaskDetail() {
             <SoftSlider label="How pressing it feels" left="whenever" right="the tide is coming" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <DatePicker label="Begins" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
-            <DatePicker label="Due" value={task.due} onChange={(v) => setDue(task.id, v)} />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <DatePicker label="Do on" value={task.day} onChange={(v) => update(task.id, { day: v })} />
+              <DatePicker label="Due by" value={task.due} onChange={(v) => setDue(task.id, v)} />
+              <DatePicker label="Begins (timeline)" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
+              <div className="text-xs font-medium text-ink-soft">
+                If I don’t finish
+                <button
+                  type="button"
+                  onClick={() => update(task.id, { rollover: !task.rollover })}
+                  aria-pressed={task.rollover}
+                  className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
+                >
+                  {task.rollover ? 'Carry to next day' : 'Leave it here'}
+                  <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
+                    <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div>
+              <span className="mb-1 block text-xs font-medium text-ink-soft">
+                Only on these days <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
+              </span>
+              <div className="flex gap-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => {
+                  const on = !!task.days?.includes(i)
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      aria-pressed={on}
+                      aria-label={WEEKDAYS[i]}
+                      onClick={() => {
+                        const cur = task.days ?? []
+                        const next = on ? cur.filter((d) => d !== i) : [...cur, i].sort()
+                        update(task.id, { days: next.length ? next : null })
+                      }}
+                      className={`grid h-8 flex-1 place-items-center rounded-full text-xs transition ${on ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
+                    >
+                      {l}
+                    </button>
+                  )
+                })}
+              </div>
+              {!!task.days?.length && task.rollover && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
+            </div>
           </div>
 
           <div>

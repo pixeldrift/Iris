@@ -56,7 +56,7 @@ describe('tasks', () => {
   const { folders, tasks } = seedData()
   it('shows a parent folder\'s descendants', () => {
     const got = filterTasks(tasks, { type: 'folder', id: 'school' }, folders, true)
-    expect(got.length).toBe(3)
+    expect(got.length).toBe(4)
   })
   it('hides done by default', () => {
     expect(filterTasks(tasks, { type: 'all' }, folders, false).some((t) => t.status === 'done')).toBe(false)
@@ -105,7 +105,7 @@ describe('grouping & flocking', () => {
   const { tasks, folders, people } = seedData()
   it('groups tasks by top-level folder', () => {
     const g = groupTasks(tasks, 'folder', folders, people, '2026-10-26')
-    expect(g.find((x) => x.label === 'School')?.taskIds.length).toBe(3)
+    expect(g.find((x) => x.label === 'School')?.taskIds.length).toBe(4)
     expect(g.reduce((n, x) => n + x.taskIds.length, 0)).toBe(tasks.length)
   })
   it('lays out clusters so no two touch', () => {
@@ -148,5 +148,43 @@ describe('folder ordering', () => {
     const order = reorder(folders, 'life', null, 'school')
     expect(order.get('life')).toBe(0)
     expect(order.get('school')).toBe(1)
+  })
+})
+
+import { nextAllowedDay, plannedDate, rolloverDay, matchesScope } from './tasks'
+
+describe('day planning & rollover', () => {
+  const base = seedData().tasks[0]
+  // 2026-10-26 is a Monday
+  const class_ = { ...base, status: 'todo' as const, day: '2026-10-26', due: '2026-11-06', days: [1, 3, 5], rollover: true }
+  it('keeps the planned day separate from the deadline', () => {
+    expect(plannedDate({ day: '2026-10-27', due: '2026-11-01' })).toBe('2026-10-27')
+    expect(plannedDate({ day: null, due: '2026-11-01' })).toBe('2026-11-01')
+    expect(matchesScope({ ...class_, day: '2026-10-27' }, { type: 'day', date: '2026-10-27' }, [])).toBe(true)
+    expect(matchesScope({ ...class_, day: '2026-10-27' }, { type: 'day', date: '2026-11-06' }, [])).toBe(false)
+  })
+  it('does not move anything planned for today or later', () => {
+    expect(rolloverDay(class_, '2026-10-26')).toBeNull()
+    expect(rolloverDay({ ...class_, day: '2026-10-30' }, '2026-10-26')).toBeNull()
+  })
+  it('carries an unfinished task to today when unrestricted', () => {
+    expect(rolloverDay({ ...class_, days: null }, '2026-10-27')).toBe('2026-10-27')
+  })
+  it('moves a Mon/Wed/Fri task to the next class day, never a skipped one', () => {
+    expect(rolloverDay(class_, '2026-10-27')).toBe('2026-10-28') // Tue -> Wed
+    expect(rolloverDay(class_, '2026-10-29')).toBe('2026-10-30') // Thu -> Fri
+    expect(rolloverDay(class_, '2026-10-31')).toBe('2026-11-02') // Sat -> Mon
+  })
+  it('leaves it put when the next available day is past the deadline', () => {
+    expect(rolloverDay({ ...class_, due: '2026-10-29' }, '2026-10-30')).toBeNull()
+    expect(rolloverDay({ ...class_, due: '2026-10-27' }, '2026-10-27')).toBeNull()
+  })
+  it('respects "stay put" and finished tasks', () => {
+    expect(rolloverDay({ ...class_, rollover: false }, '2026-10-28')).toBeNull()
+    expect(rolloverDay({ ...class_, status: 'done' }, '2026-10-28')).toBeNull()
+  })
+  it('finds the next allowed weekday', () => {
+    expect(nextAllowedDay('2026-10-27', [1, 3, 5])).toBe('2026-10-28')
+    expect(nextAllowedDay('2026-10-27', null)).toBe('2026-10-27')
   })
 })

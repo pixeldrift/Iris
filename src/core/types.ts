@@ -18,7 +18,14 @@ export interface Task {
   y: number
   /** Local calendar dates, `YYYY-MM-DD`. */
   start: string | null
+  /** The deadline. */
   due: string | null
+  /** The day you plan to do it. Optional and separate from `due`; falls back to `due`. */
+  day: string | null
+  /** Carry over to the next day when not finished. Defaults to on. */
+  rollover: boolean
+  /** Weekdays (0 = Sunday) it can be done on, e.g. a class that meets Mon/Wed/Fri. null = any day. */
+  days: number[] | null
   /** Folder ids. A task can live in many folders (tags). */
   folderIds: string[]
   /** People tagged on this task. */
@@ -64,4 +71,4 @@ export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'time
 export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency'
 
 /** How the pond clusters its bubbles. `free` keeps your own placement. */
-export type PondGroup = 'free' | 'folder' | 'due' | 'weight' | 'kind' | 'person' | 'stage'
+export type PondGroup = 'free' | 'folder' | 'due' | 'kind' | 'person'

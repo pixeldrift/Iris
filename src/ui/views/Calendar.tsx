@@ -5,9 +5,10 @@ import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
 import { IconChevron, IconPlus } from '../icons'
 import { useTaskDrag } from '../shared'
+import { plannedDate } from '../../core/tasks'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
-function Chip({ task }: { task: Task }) {
+function Chip({ task, deadline = false }: { task: Task; deadline?: boolean }) {
   const onPointerDown = useTaskDrag(task)
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
@@ -19,15 +20,16 @@ function Chip({ task }: { task: Task }) {
         onPointerDown(e, true)
       }}
       className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${task.status === 'done' ? 'line-through opacity-60' : ''} ${leave}`}
-      style={{ background: `hsla(${hue},70%,87%,.9)`, color: `hsl(${hue},35%,28%)` }}
-      title={task.title}
+      style={deadline ? { background: 'transparent', boxShadow: `inset 0 0 0 1px hsla(${hue},45%,60%,.55)`, color: `hsl(${hue},35%,35%)` } : { background: `hsla(${hue},70%,87%,.9)`, color: `hsl(${hue},35%,28%)` }}
+      title={deadline ? `${task.title} (due)` : task.title}
     >
+      {deadline ? '⚑ ' : ''}
       {task.title}
     </div>
   )
 }
 
-function Cell({ date, tasks, month, tall }: { date: string; tasks: Task[]; month: number | null; tall: boolean }) {
+function Cell({ date, tasks, month, tall }: { date: string; tasks: { task: Task; deadline: boolean }[]; month: number | null; tall: boolean }) {
   const { over, active, props } = useDropTarget(`day:${date}`)
   const addTask = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
@@ -41,7 +43,7 @@ function Cell({ date, tasks, month, tall }: { date: string; tasks: Task[]; month
       {...props}
       className={`group relative flex min-h-0 flex-col gap-1 overflow-hidden rounded-2xl border p-1.5 transition ${
         over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? 'border-lilac-300 bg-white/70' : 'border-white/60 bg-white/35'
-      } ${dim ? 'opacity-50' : ''} ${active && !over ? 'border-dashed border-lilac-300' : ''}`}
+      } ${dim ? 'opacity-50' : ''} ${active && !over ? 'border-dotted border-lilac-300' : ''}`}
     >
       <div className="flex items-center">
         <button
@@ -60,7 +62,7 @@ function Cell({ date, tasks, month, tall }: { date: string; tasks: Task[]; month
       </div>
       <div className="scroll-soft flex min-h-0 flex-col gap-1 overflow-y-auto">
         {tasks.slice(0, max).map((t) => (
-          <Chip key={t.id} task={t} />
+          <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} />
         ))}
         {tasks.length > max && <span className="px-1 text-[0.68rem] text-ink-faint">+{tasks.length - max} more</span>}
       </div>
@@ -74,11 +76,17 @@ export function CalendarView() {
   const [anchor, setAnchor] = useState(today())
 
   const byDate = useMemo(() => {
-    const m = new Map<string, Task[]>()
-    for (const t of visible) if (t.due) m.set(t.due, [...(m.get(t.due) ?? []), t])
+    // a task sits on the day you planned it; if its deadline is a different day, a faint flag marks that too
+    const m = new Map<string, { task: Task; deadline: boolean }[]>()
+    const put = (d: string, task: Task, deadline: boolean) => m.set(d, [...(m.get(d) ?? []), { task, deadline }])
+    for (const t of visible) {
+      const when = plannedDate(t)
+      if (when) put(when, t, false)
+      if (t.day && t.due && t.due !== t.day) put(t.due, t, true)
+    }
     return m
   }, [visible])
-  const unscheduled = visible.filter((t) => !t.due && t.status !== 'done')
+  const unscheduled = visible.filter((t) => !plannedDate(t) && t.status !== 'done')
 
   const a = fromISO(anchor)
   const cells = mode === 'month' ? monthGrid(a.getFullYear(), a.getMonth()) : Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i))

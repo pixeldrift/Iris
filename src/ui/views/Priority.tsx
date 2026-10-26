@@ -62,7 +62,7 @@ export function Priority() {
             style={{ padding: 0 }}
           >
             <div ref={ref} className="absolute inset-[34px] md:inset-[40px]">
-              <div className="pointer-events-none absolute inset-0 rounded-3xl border border-dashed border-lilac-300/60" />
+              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgba(205,177,235,0.35)]" />
               <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
               <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
               {QUADS.map((q) => (

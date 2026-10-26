@@ -13,6 +13,9 @@ const mk = (partial: Partial<Task> & { title: string }): Task => ({
   y: 0.5,
   start: null,
   due: null,
+  day: null,
+  rollover: true,
+  days: null,
   folderIds: [],
   personIds: [],
   createdAt: 1_700_000_000_000 + n,
@@ -43,6 +46,7 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
     mk({ title: 'Book dentist', folderIds: ['life'], importance: 0.45, urgency: 0.55, due: addDays(t, 8), x: 0.33, y: 0.78 }),
     mk({ title: 'Plan weekend picnic', folderIds: ['life', 'garden'], importance: 0.35, urgency: 0.25, due: addDays(t, 4), start: addDays(t, 2), x: 0.7, y: 0.82, kind: 'idea' }),
     mk({ title: 'Return library books', importance: 0.25, urgency: 0.7, due: addDays(t, 0), x: 0.88, y: 0.4 }),
+    mk({ title: 'Attend English 101 class', folderIds: ['eng101'], importance: 0.6, urgency: 0.5, day: t, due: addDays(t, 12), days: [1, 3, 5], x: 0.58, y: 0.12 }),
     mk({ title: 'Water the ferns', folderIds: ['garden'], status: 'done', completedAt: Date.now(), importance: 0.2, urgency: 0.2, x: 0.1, y: 0.42 }),
   ]
   const people: Person[] = [

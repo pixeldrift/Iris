@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { dayLabel, shortDate } from '../core/dates'
+import { dayLabel, shortDate, weekdayName } from '../core/dates'
 import { pathOf } from '../core/folders'
 import type { PondGroup } from '../core/types'
 import { unlock } from '../audio/engine'
@@ -11,12 +11,10 @@ import { Tip } from './Tip'
 
 const GROUPS: { id: PondGroup; label: string }[] = [
   { id: 'free', label: 'Free' },
-  { id: 'folder', label: 'Folders' },
-  { id: 'due', label: 'When' },
-  { id: 'weight', label: 'Weight' },
-  { id: 'kind', label: 'Kind' },
-  { id: 'person', label: 'People' },
-  { id: 'stage', label: 'Stage' },
+  { id: 'folder', label: 'Folder' },
+  { id: 'due', label: 'Due date' },
+  { id: 'kind', label: 'Item type' },
+  { id: 'person', label: 'Person' },
 ]
 
 const btn = (on: boolean) =>
@@ -137,11 +135,11 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       : scope.type === 'inbox'
         ? 'Inbox'
         : scope.type === 'day'
-          ? dayLabel(scope.date)
+          ? weekdayName(scope.date)
           : scope.type === 'person'
             ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
             : pathOf(folders, scope.id).map((f) => f.name).join(' › ') || 'Folder'
-  const sub = scope.type === 'day' ? shortDate(scope.date) : VIEWS.find((v) => v.id === view)?.hint
+  const sub = scope.type === 'day' ? [dayLabel(scope.date), shortDate(scope.date)].filter((x, i) => i === 1 || x !== weekdayName(scope.date)).join(' · ') : VIEWS.find((v) => v.id === view)?.hint
   const flip = <K extends keyof Settings>(k: K) => set(k, !settings[k] as Settings[K])
 
   return (

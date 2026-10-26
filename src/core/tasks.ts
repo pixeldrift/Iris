@@ -1,4 +1,4 @@
-import { addDays, diffDays, today } from './dates'
+import { addDays, diffDays, fromISO, today } from './dates'
 import { descendantIds } from './folders'
 import type { Folder, Scope, SortKey, Task } from './types'
 
@@ -19,14 +19,17 @@ export function urgencyForDue(current: number, due: string | null, now = today()
   return current
 }
 
+/** The day a task shows up on in the calendar: the day you chose, else its deadline. */
+export const plannedDate = (t: Pick<Task, 'day' | 'due'>): string | null => t.day ?? t.due ?? null
+
 export function matchesScope(task: Task, scope: Scope, folders: Folder[]): boolean {
   switch (scope.type) {
     case 'all':
       return true
     case 'inbox':
-      return task.folderIds.length === 0 && !task.due
+      return task.folderIds.length === 0 && !task.due && !task.day
     case 'day':
-      return task.due === scope.date
+      return plannedDate(task) === scope.date
     case 'person':
       return task.personIds.includes(scope.id)
     case 'folder': {
@@ -40,7 +43,7 @@ export function filterTasks(tasks: Task[], scope: Scope, folders: Folder[], show
   return tasks.filter((t) => (showDone || t.status !== 'done') && matchesScope(t, scope, folders))
 }
 
-const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999')
+const byDue = (a: Task, b: Task) => (a.due ?? a.day ?? '9999').localeCompare(b.due ?? b.day ?? '9999')
 
 export function sortTasks(tasks: Task[], key: SortKey, desc: boolean): Task[] {
   const dir = desc ? -1 : 1
@@ -62,13 +65,36 @@ export function bubbleRadius(t: Task, scale: boolean): number {
 }
 
 export function isOverdue(t: Task, now = today()): boolean {
-  return !!t.due && t.status !== 'done' && t.due < now
+  return t.status !== 'done' && ((!!t.due && t.due < now) || (!!t.day && t.day < now))
+}
+
+/** First date on or after `from` that falls on one of `days` (0 = Sunday). Any day when unrestricted. */
+export function nextAllowedDay(from: string, days: number[] | null | undefined): string {
+  if (!days || days.length === 0) return from
+  for (let i = 0; i < 14; i++) {
+    const d = addDays(from, i)
+    if (days.includes(fromISO(d).getDay())) return d
+  }
+  return from
+}
+
+/**
+ * Where an unfinished task planned for a past day should move to, or null to
+ * leave it alone. It lands on the next day it can be done (today at the
+ * earliest), unless that would be after its deadline: then it stays put and
+ * shows as overdue.
+ */
+export function rolloverDay(t: Task, now = today()): string | null {
+  if (t.status === 'done' || !t.day || t.rollover === false || t.day >= now) return null
+  const next = nextAllowedDay(now, t.days)
+  if (t.due && next > t.due) return null
+  return next
 }
 
 /** Effective start/end for the timeline; falls back to a gentle 1-day span. */
 export function spanOf(t: Task): { start: string; end: string } | null {
-  if (!t.due && !t.start) return null
-  const end = t.due ?? addDays(t.start!, 1)
+  if (!t.due && !t.start && !t.day) return null
+  const end = t.due ?? t.day ?? addDays(t.start!, 1)
   let start = t.start ?? end
   if (start > end) start = end
   return { start, end }

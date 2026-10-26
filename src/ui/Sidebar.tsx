@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { addDays, dayLabel, shortDate, today } from '../core/dates'
+import { addDays, diffDays, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds } from '../core/folders'
+import { plannedDate } from '../core/tasks'
 import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, useDropTarget, usePointerDrag } from './dnd'
@@ -100,7 +101,7 @@ export function Sidebar() {
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
   const t0 = today()
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
-  const dueCount = (d: string) => live.filter((t) => t.due === d).length
+  const dueCount = (d: string) => live.filter((t) => plannedDate(t) === d).length
   const folderCount = (id: string) => {
     const ids = descendantIds(folders, id)
     return live.filter((t) => t.folderIds.some((f) => ids.has(f))).length
@@ -159,7 +160,7 @@ export function Sidebar() {
               dropId="inbox"
               icon={<IconInbox />}
               label="Inbox"
-              count={live.filter((t) => !t.due && t.folderIds.length === 0).length}
+              count={live.filter((t) => !t.due && !t.day && t.folderIds.length === 0).length}
             />
           </Section>
 
@@ -190,8 +191,12 @@ export function Sidebar() {
                 onClick={() => setScope({ type: 'day', date: d })}
                 dropId={`day:${d}`}
                 icon={<span className="inline-block w-[18px] text-center text-[0.7rem] font-semibold tabular-nums">{d.slice(8)}</span>}
-                label={dayLabel(d, t0)}
-                sub={d === t0 || d === addDays(t0, 1) ? shortDate(d) : undefined}
+                label={
+                  <>
+                    {weekdayName(d)}
+                    {diffDays(t0, d) <= 1 && <i className="ml-1.5 text-[0.82em] font-normal italic text-ink-faint">({diffDays(t0, d) === 0 ? 'today' : 'tomorrow'})</i>}
+                  </>
+                }
                 count={dueCount(d)}
               />
             ))}

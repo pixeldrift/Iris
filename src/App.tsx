@@ -6,6 +6,7 @@ import { Decor } from './ui/Decor'
 import { DialogHost } from './ui/dialogs'
 import { DragLayer } from './ui/dnd'
 import { ContactPromptHost, PersonDialog } from './ui/PeopleDialogs'
+import { ToastHost } from './ui/Toast'
 import { UpdateBubble } from './ui/UpdateBubble'
 import { NewTask } from './ui/NewTask'
 import { Sidebar } from './ui/Sidebar'
@@ -36,6 +37,19 @@ export default function App() {
     return () => window.removeEventListener('pointerdown', first)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Unfinished tasks planned for earlier days move forward: now, on return to the app, and each minute.
+  useEffect(() => {
+    const run = () => useStore.getState().rollover()
+    run()
+    const iv = window.setInterval(run, 60_000)
+    const vis = () => document.visibilityState === 'visible' && run()
+    document.addEventListener('visibilitychange', vis)
+    return () => {
+      window.clearInterval(iv)
+      document.removeEventListener('visibilitychange', vis)
+    }
+  }, [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
@@ -64,6 +78,7 @@ export default function App() {
       <PersonDialog />
       <ContactPromptHost />
       <DialogHost />
+      <ToastHost />
       <UpdateBubble />
       <DragLayer />
     </div>
