@@ -21,7 +21,26 @@ export interface SimParams {
   home: number
   /** Attraction between related pairs (0 disables). */
   magnet: number
+  /** Share of speed kept each step (0..1). Lower = thicker water: motion dies away instead of rebounding. */
   damping: number
+  /** How firmly overlapping nodes are pushed apart (default 0.12). */
+  push?: number
+}
+
+/**
+ * How the pond's water feels. At home = 0.012 a damping of 0.88 leaves a spring about half
+ * damped (it overshoots and wobbles); around 0.78 is critically damped (it eases in with no
+ * bounce at all). Free-mode bubbles are overdamped on purpose: slow and syrupy.
+ */
+export const WATER_FEEL = {
+  /** Gathered clusters (a stronger spring): about critical damping, so they ease in without rebounding. */
+  damping: 0.79,
+  /** Free bubbles (a very weak spring): overdamped, but not so much that they crawl. */
+  dampingFree: 0.865,
+  homeFree: 0.002,
+  homeGrouped: 0.011,
+  magnet: 0.06,
+  push: 0.085,
 }
 
 export interface Bump {
@@ -79,7 +98,7 @@ export function stepSim(
 
       if (dist < min) {
         const overlap = min - dist
-        const push = overlap * 0.12 * dt
+        const push = overlap * (p.push ?? 0.12) * dt
         const aw = a.pinned ? 0 : b.pinned ? 1 : 0.5
         const bw = b.pinned ? 0 : a.pinned ? 1 : 0.5
         a.vx -= nx * push * aw * 2

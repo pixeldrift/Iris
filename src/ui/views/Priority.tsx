@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { stepSim, type SimNode } from '../../core/flock'
+import { stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { bubbleRadius, clamp01 } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -68,19 +68,53 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
   )
 })
 
-/** A soft, glowing dot: where a bubble's real urgency and importance actually are. */
-function Glow({ x, y, hue }: { x: number; y: number; hue: number }) {
+/**
+ * A soft, glowing dot: where a bubble's real urgency and importance actually are. Drag it to set the
+ * values directly (continuously, no steps); it glides when they change any other way.
+ */
+function Glow({ x, y, hue, task, field }: { x: number; y: number; hue: number; task: Task; field: React.RefObject<HTMLDivElement | null> }) {
+  const update = useStore((s) => s.updateTask)
+  const [held, setHeld] = useState(false)
+
+  const grab = (e: React.PointerEvent) => {
+    e.stopPropagation()
+    const el = field.current
+    if (!el) return
+    setHeld(true)
+    document.body.classList.add('dragging')
+    const move = (ev: PointerEvent) => {
+      const r = el.getBoundingClientRect()
+      update(task.id, { urgency: clamp01((ev.clientX - r.left) / r.width), importance: clamp01(1 - (ev.clientY - r.top) / r.height) })
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      document.body.classList.remove('dragging')
+      setHeld(false)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+  }
+
   return (
     <div
-      className="pointer-events-none absolute left-0 top-0 transition-[left,top] duration-300"
-      style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
-      aria-hidden
+      className="pointer-events-none absolute left-0 top-0"
+      // follows 1:1 while held; otherwise a short glide so it never jumps
+      style={{ left: x, top: y, transform: 'translate(-50%, -50%)', transition: held ? 'none' : 'left .22s ease-out, top .22s ease-out' }}
     >
       <div
         className="glow-breathe h-14 w-14 rounded-full"
         style={{ background: `radial-gradient(circle, hsla(${hue}, 85%, 62%, 0.95) 0%, hsla(${hue}, 85%, 66%, 0.5) 28%, hsla(${hue}, 85%, 70%, 0.18) 55%, transparent 72%)`, filter: 'blur(2.5px)' }}
       />
-      <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: `hsl(${hue}, 80%, 55%)`, boxShadow: `0 0 10px 3px hsla(${hue}, 85%, 60%, 0.8)` }} />
+      <div
+        onPointerDown={grab}
+        title="Drag to set the real value"
+        className="pointer-events-auto absolute left-1/2 top-1/2 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none place-items-center rounded-full active:cursor-grabbing"
+      >
+        <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${hue}, 80%, 55%)`, boxShadow: `0 0 10px 3px hsla(${hue}, 85%, 60%, 0.8)` }} />
+      </div>
     </div>
   )
 }
@@ -126,7 +160,7 @@ export function Priority() {
     const tick = () => {
       const { w, h } = dims.current
       const list = [...nodes.current.values()]
-      const { energy } = stepSim(list, { home: 0.013, magnet: 0, damping: 0.84 }, () => false)
+      const { energy } = stepSim(list, { home: 0.013, magnet: 0, damping: WATER_FEEL.damping, push: WATER_FEEL.push }, () => false)
       for (const n of list) {
         // stay on the grid
         n.x = Math.min(w - n.r, Math.max(n.r, n.x))
@@ -224,7 +258,7 @@ export function Priority() {
                 </div>
               ))}
               {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} />)}
-              {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} />}
+              {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} />}
             </div>
           </div>
           <p className="py-1.5 text-center text-xs tracking-wide text-ink-faint">less pressing → more pressing</p>

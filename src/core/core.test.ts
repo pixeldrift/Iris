@@ -74,7 +74,7 @@ describe('tasks', () => {
 import { detectContactIntent, matchPerson, contactLink, parseVCards } from './people'
 import { groupTasks, layoutClusters, relations } from './groups'
 import { reorder } from './folders'
-import { boundsOf, fitView, stepSim, type SimNode } from './flock'
+import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from './flock'
 
 describe('people', () => {
   it('detects who to call, email or text', () => {
@@ -145,6 +145,34 @@ describe('grouping & flocking', () => {
     const v = fitView(b, 1000, 600)
     expect(v.scale).toBeLessThan(1)
     expect(-500 * v.scale + v.tx).toBeGreaterThan(0)
+  })
+})
+
+describe('water feel', () => {
+  // pull a node 100px from home and watch it return; report the overshoot and settling time
+  const run = (home: number, damping: number) => {
+    const n: SimNode = { id: 'a', x: 100, y: 0, vx: 0, vy: 0, hx: 0, hy: 0, r: 30, pinned: false }
+    let minX = 0
+    let settled = -1
+    for (let i = 0; i < 600; i++) {
+      stepSim([n], { home, magnet: 0, damping }, () => false)
+      minX = Math.min(minX, n.x)
+      if (settled < 0 && Math.abs(n.x) < 2 && Math.abs(n.vx) < 0.05) settled = i
+    }
+    return { overshoot: -minX, settled }
+  }
+  it('used to rebound; the new water does not', () => {
+    const old = run(0.012, 0.88)
+    const now = run(WATER_FEEL.homeGrouped, WATER_FEEL.damping)
+    expect(old.overshoot).toBeGreaterThan(5) // 0.88 bounced past home by ~9% of the pull
+    expect(now.overshoot).toBeLessThan(2) // thick water: it eases in
+    expect(now.settled).toBeGreaterThan(0)
+    expect(now.settled).toBeLessThan(150) // ...and still arrives in a couple of seconds
+  })
+  it('free-mode bubbles are overdamped too', () => {
+    const free = run(WATER_FEEL.homeFree, WATER_FEEL.dampingFree)
+    expect(free.overshoot).toBeLessThan(1)
+    expect(free.settled).toBeLessThan(420) // under ~7s even from a 100px shove
   })
 })
 

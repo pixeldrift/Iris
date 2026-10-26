@@ -315,21 +315,23 @@ input[type='date'] {
 }
 .well::placeholder { color: var(--color-ink-faint); }
 
-/* the round version, for check boxes */
+/* the round version, for check boxes: a soft dent in the surface, not a punched-out hole */
 .well-circle {
-  background: radial-gradient(circle at 65% 70%, rgba(255, 255, 255, 0.55), rgba(107, 68, 145, 0.09) 85%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: radial-gradient(circle at 60% 66%, rgba(255, 255, 255, 0.3), rgba(107, 68, 145, 0.025) 90%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow:
-    inset 2px 2px 4px rgba(107, 68, 145, 0.34),
-    inset -1px -1px 2px rgba(255, 255, 255, 0.9),
-    0 1px 0 rgba(255, 255, 255, 0.95);
-  transition: box-shadow 0.2s ease, background 0.2s ease;
+    inset 2px 3px 7px rgba(107, 68, 145, 0.12),
+    inset -1px -2px 5px rgba(255, 255, 255, 0.55),
+    0 1px 1px rgba(255, 255, 255, 0.6);
+  transition: box-shadow 0.25s ease, background 0.25s ease;
 }
-.well-circle:hover { box-shadow: inset 2px 2px 4px rgba(107, 68, 145, 0.42), inset -1px -1px 2px rgba(255, 255, 255, 0.9), 0 1px 0 rgba(255, 255, 255, 0.95); }
+.well-circle:hover {
+  box-shadow: inset 2px 3px 7px rgba(107, 68, 145, 0.17), inset -1px -2px 5px rgba(255, 255, 255, 0.55), 0 1px 1px rgba(255, 255, 255, 0.6);
+}
 .well-circle.is-on {
-  background: radial-gradient(circle at 35% 30%, #c9a6e8, #9f6fcd);
-  border-color: rgba(159, 111, 205, 0.6);
-  box-shadow: inset 2px 3px 5px rgba(70, 35, 110, 0.45), inset -1px -1px 2px rgba(255, 255, 255, 0.35), 0 1px 0 rgba(255, 255, 255, 0.95);
+  background: radial-gradient(circle at 36% 30%, #cdb0ea, #a67bd2);
+  border-color: rgba(159, 111, 205, 0.35);
+  box-shadow: inset 2px 3px 6px rgba(70, 35, 110, 0.22), inset -1px -2px 4px rgba(255, 255, 255, 0.3), 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 
 /* hue slider for folder colours */
@@ -348,18 +350,3 @@ input[type='range'].hue::-moz-range-track {
 .glow-breathe { animation: glow-breathe 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .glow-breathe { animation: none; } }
 
-/* a gentler well for the check circle inside bubbles: more transparent, softer shadow */
-.well-circle.soft {
-  background: radial-gradient(circle at 65% 70%, rgba(255, 255, 255, 0.3), rgba(107, 68, 145, 0.035) 85%);
-  border-color: rgba(255, 255, 255, 0.6);
-  box-shadow:
-    inset 1.5px 1.5px 3px rgba(107, 68, 145, 0.14),
-    inset -1px -1px 2px rgba(255, 255, 255, 0.7),
-    0 1px 0 rgba(255, 255, 255, 0.8);
-}
-.well-circle.soft:hover { box-shadow: inset 1.5px 1.5px 3px rgba(107, 68, 145, 0.2), inset -1px -1px 2px rgba(255, 255, 255, 0.7), 0 1px 0 rgba(255, 255, 255, 0.8); }
-.well-circle.soft.is-on {
-  background: radial-gradient(circle at 35% 30%, #cdb0ea, #a67bd2);
-  border-color: rgba(159, 111, 205, 0.45);
-  box-shadow: inset 1.5px 2px 3px rgba(70, 35, 110, 0.26), inset -1px -1px 2px rgba(255, 255, 255, 0.3), 0 1px 0 rgba(255, 255, 255, 0.8);
-}

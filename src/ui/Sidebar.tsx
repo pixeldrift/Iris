@@ -212,6 +212,8 @@ export function Sidebar() {
 
   // Dragging a bubble onto the left edge pulls the drawer open under it, so it can be dropped into a folder.
   const mobile = useIsMobile()
+  // The sliver is a drop zone, so it only stays where items can be dragged to folders (not the timeline).
+  const sliver = mobile && view !== 'timeline'
   const dragX = useDnd((st) => (st.drag?.payload.type === 'task' ? st.drag.x : null))
   const openedByDrag = useRef(false)
   useEffect(() => {
@@ -348,19 +350,23 @@ export function Sidebar() {
     <>
       {open && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
       <aside
-        onClick={() => mobile && !open && setSidebar(true)}
         className={`glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
-          open ? 'translate-x-0' : '-translate-x-[calc(100%-1.15rem)]'
+          open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
         }`}
         style={{ paddingTop: 'env(safe-area-inset-top)', transitionTimingFunction: SPRING }}
       >
-        {/* On a phone only a sliver of the sidebar shows beside the pond: tap it, or drag a bubble onto it, to open the drawer. */}
-        {mobile && !open && (
-          <span className="pointer-events-none absolute inset-y-0 right-0 flex w-[1.15rem] flex-col items-center justify-center gap-1 text-lilac-400" aria-hidden>
-            <IconChevronDown size={14} />
-          </span>
+        {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
+            tap it, or drag an item onto it, to open the drawer. */}
+        {sliver && !open && (
+          // the whole visible edge is one real button, so a tap anywhere along it works like the hamburger
+          <button
+            type="button"
+            onClick={() => setSidebar(true)}
+            aria-label="Open menu"
+            className="absolute inset-y-0 right-0 z-10 w-[1.15rem] cursor-pointer touch-manipulation rounded-r-3xl"
+          />
         )}
-        <div inert={mobile && !open} className="flex min-h-0 flex-1 flex-col">
+        <div inert={mobile && !open} className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}>
         <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
           <Logo />
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
