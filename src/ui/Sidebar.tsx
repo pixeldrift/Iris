@@ -350,7 +350,6 @@ export function Sidebar() {
     <>
       {open && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
       <aside
-        onClick={() => sliver && !open && setSidebar(true)}
         className={`glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
           open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
         }`}
@@ -358,6 +357,15 @@ export function Sidebar() {
       >
         {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
             tap it, or drag an item onto it, to open the drawer. */}
+        {sliver && !open && (
+          // the whole visible edge is one real button, so a tap anywhere along it works like the hamburger
+          <button
+            type="button"
+            onClick={() => setSidebar(true)}
+            aria-label="Open menu"
+            className="absolute inset-y-0 right-0 z-10 w-[1.15rem] cursor-pointer touch-manipulation rounded-r-3xl"
+          />
+        )}
         <div inert={mobile && !open} className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}>
         <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
           <Logo />
