@@ -66,7 +66,7 @@ float rippleHeight(vec2 p, vec4 A, vec4 B, inout float near) {
   float lo = r - max(A.z, A.w) - 30.0;
   float hi = r - min(A.z, A.w) + 30.0;
   float any = 0.0;
-  for (int n = 0; n < 6; n++) {
+  for (int n = 0; n < 1; n++) {
     float fn = float(n);
     float a = B.x - fn * (0.46 + 0.13 * fn);
     float front = uSpeed * a;
@@ -81,10 +81,10 @@ float rippleHeight(vec2 p, vec4 A, vec4 B, inout float near) {
   float lump2 = vnoise(dir * 3.3 + B.z * 1.9) - 0.5;
   d += (lump * 18.0 + lump2 * 7.0) * smoothstep(0.0, 220.0, d);
   float strength = B.y * (0.78 + 0.5 * vnoise(dir * 2.3 + B.z * 3.1));
-  float lifeFade = 1.0 - smoothstep(uLife - 2.5, uLife, B.x);
+  float lifeFade = 1.0 - smoothstep(uLife - 1.8, uLife, B.x);
 
   float h = 0.0;
-  for (int n = 0; n < 6; n++) {
+  for (int n = 0; n < 1; n++) {
     float fn = float(n);
     float a = B.x - fn * (0.46 + 0.13 * fn);     // each ring leaves a little later than the last
     if (a <= 0.0) continue;
@@ -93,7 +93,7 @@ float rippleHeight(vec2 p, vec4 A, vec4 B, inout float near) {
     float x = u / sigma;
     if (abs(x) > 3.6) continue;
     near = 1.0;
-    float amp = strength * pow(0.66, fn) * exp(-a / 3.1) / (1.0 + d / 120.0) * smoothstep(0.0, 0.5, a) * lifeFade;
+    float amp = strength * pow(0.66, fn) * exp(-a / 1.5) / (1.0 + d / 60.0) * smoothstep(0.0, 0.5, a) * lifeFade;
     h += amp * -x * exp(-0.5 * x * x);           // crest in front, trough behind
   }
   return h;
