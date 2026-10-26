@@ -122,14 +122,15 @@ const SHAPES: Record<FlowerShape, Draw> = {
     </>
   ),
 
-  // a cup (not radial): three overlapping petals and a stem
+  // a big full cup (not radial): three overlapping petals, a thick stem and two leaves
   tulip: (t) => (
     <>
-      <path d="M0 3.5L0 11" stroke={t.deep} strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M0 8c-3.5-.4-5-2-5.5-3.5 2.5.2 4.2 1.4 5.5 3.5Z" fill={t.deep} opacity=".8" />
-      <path d="M-6.2-6.4C-8.2-.6-4.6 3.6 0 3.8C-2.7.2-3.6-3.6-6.2-6.4Z" fill={t.base} />
-      <path d="M6.2-6.4C8.2-.6 4.6 3.6 0 3.8C2.7.2 3.6-3.6 6.2-6.4Z" fill={t.base} />
-      <path d="M0-10C4-6.8 5.2-1.4 0 3.8C-5.2-1.4-4-6.8 0-10Z" fill={t.light} stroke={t.base} strokeWidth=".5" />
+      <path d="M0 4.4L0 11.6" stroke={t.deep} strokeWidth="2" strokeLinecap="round" />
+      <path d="M0 10C-4.8 10-7.4 7.4-7.8 4.4 -4 5-1.6 7 0 10Z" fill={t.deep} opacity=".85" />
+      <path d="M0 10C4.8 10 7.4 7.4 7.8 4.4 4 5 1.6 7 0 10Z" fill={t.deep} opacity=".85" />
+      <path d="M-7.6-7C-10-.2-5.8 5.2 0 5.4C-3.4.8-4.2-4.2-7.6-7Z" fill={t.base} stroke={t.base} strokeWidth="1" strokeLinejoin="round" />
+      <path d="M7.6-7C10-.2 5.8 5.2 0 5.4C3.4.8 4.2-4.2 7.6-7Z" fill={t.base} stroke={t.base} strokeWidth="1" strokeLinejoin="round" />
+      <path d="M0-11.4C5.6-7.4 7.2-1.2 0 5.4C-7.2-1.2-5.6-7.4 0-11.4Z" fill={t.light} stroke={t.base} strokeWidth=".7" strokeLinejoin="round" />
     </>
   ),
 
@@ -156,34 +157,45 @@ const SHAPES: Record<FlowerShape, Draw> = {
     </>
   ),
 
-  // curved blades that make it look like it is spinning
+  // fat curved blades that make it look like it is spinning
   pinwheel: (t, n) => (
     <>
       {spin(n).map((a) => (
-        <path key={a} d="M0 0C4.2-1.6 7.6-5.6 3.6-10.6C1.2-6.8 0-3.6 0 0Z" fill={t.base} transform={`rotate(${a})`} />
+        <path
+          key={a}
+          d="M0 0C6.4-1.6 10.4-6.8 4.8-11C.8-8.6-1.4-4.2 0 0Z"
+          fill={t.base}
+          stroke={t.base}
+          strokeWidth=".7"
+          strokeLinejoin="round"
+          transform={`rotate(${a})`}
+        />
       ))}
       {spin(n).map((a) => (
-        <path key={`l${a}`} d="M.6-1.2C2.6-3.4 3.6-6 2.6-8.4" fill="none" stroke={t.light} strokeWidth=".6" strokeLinecap="round" transform={`rotate(${a})`} />
+        <path key={`l${a}`} d="M.8-1.6C3.4-3.6 4.8-6.4 3.8-9" fill="none" stroke={t.light} strokeWidth=".8" strokeLinecap="round" transform={`rotate(${a})`} />
       ))}
-      <circle r="1.5" fill="#fff" opacity=".92" />
+      <circle r="2.4" fill={t.light} />
+      <circle r="1.4" fill="#fff" opacity=".95" />
     </>
   ),
 
-  // a vertical spike of small buds (not radial at all)
+  // a chunky spike of big overlapping buds that tapers to a tip (not radial at all)
   lavender: (t) => (
     <>
-      <path d="M0 11L0-2" stroke={t.deep} strokeWidth="1" strokeLinecap="round" opacity=".8" />
-      {Array.from({ length: 7 }, (_, i) => {
-        const y = 7.6 - i * 2.55
-        const r = 2.3 - i * 0.18
+      <path d="M0 12L0 6" stroke={t.deep} strokeWidth="1.8" strokeLinecap="round" opacity=".85" />
+      {Array.from({ length: 5 }, (_, i) => {
+        const y = 5.2 - i * 3.5 // bottom row first
+        const rx = 3.95 - i * 0.44
+        const ry = rx * 0.82
+        const dx = 3.4 - i * 0.42
         return (
           <g key={i}>
-            <ellipse cx={-1.5 - (6 - i) * 0.05} cy={y} rx={r} ry={r * 0.72} fill={i % 2 ? t.base : t.light} transform={`rotate(-28 ${-1.5} ${y})`} />
-            <ellipse cx={1.5 + (6 - i) * 0.05} cy={y - 0.9} rx={r} ry={r * 0.72} fill={i % 2 ? t.light : t.base} transform={`rotate(28 ${1.5} ${y - 0.9})`} />
+            <ellipse cx={-dx} cy={y} rx={rx} ry={ry} fill={i % 2 ? t.light : t.base} stroke={t.base} strokeWidth=".6" transform={`rotate(-24 ${-dx} ${y})`} />
+            <ellipse cx={dx} cy={y - 1.2} rx={rx} ry={ry} fill={i % 2 ? t.base : t.light} stroke={t.base} strokeWidth=".6" transform={`rotate(24 ${dx} ${y - 1.2})`} />
           </g>
         )
       })}
-      <ellipse cx="0" cy="-10.4" rx="1.3" ry="1.8" fill={t.deep} />
+      <ellipse cx="0" cy="-10.2" rx="2.2" ry="2.9" fill={t.deep} />
     </>
   ),
 
