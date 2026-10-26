@@ -1,7 +1,9 @@
 import type { Folder } from './types'
 
 export function childrenOf(folders: Folder[], parentId: string | null): Folder[] {
-  return folders.filter((f) => f.parentId === parentId).sort((a, b) => a.createdAt - b.createdAt)
+  return folders
+    .filter((f) => f.parentId === parentId)
+    .sort((a, b) => a.sort - b.sort || a.createdAt - b.createdAt)
 }
 
 /** The folder plus every descendant: a task in "Essays" also shows under "English 101". */
@@ -47,4 +49,16 @@ export function canReparent(folders: Folder[], id: string, newParent: string | n
 const HUES = [285, 320, 345, 20, 150, 200, 255, 40]
 export function nextHue(count: number): number {
   return HUES[count % HUES.length]
+}
+
+/**
+ * New `sort` values for the children of `parentId` after inserting `id` before
+ * `beforeId` (or last when null). Returns id -> sort for every affected folder.
+ */
+export function reorder(folders: Folder[], id: string, parentId: string | null, beforeId: string | null): Map<string, number> {
+  const sibs = childrenOf(folders, parentId).filter((f) => f.id !== id)
+  const at = beforeId ? sibs.findIndex((f) => f.id === beforeId) : -1
+  const ids = sibs.map((f) => f.id)
+  ids.splice(at < 0 ? ids.length : at, 0, id)
+  return new Map(ids.map((fid, i) => [fid, i]))
 }

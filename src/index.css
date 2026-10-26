@@ -199,3 +199,66 @@ input[type='range'].soft::-moz-range-thumb {
 input[type='date'] {
   font-family: inherit;
 }
+
+/* ---------- gentle springy motion: nothing just appears or disappears ---------- */
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.82); }
+  55% { opacity: 1; transform: scale(1.045); }
+  78% { transform: scale(0.988); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pop-out {
+  0% { opacity: 1; transform: scale(1); }
+  30% { transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+.pop-in { animation: pop-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; transform-origin: var(--ox, 50%) var(--oy, 50%); }
+.pop-out { animation: pop-out 0.22s ease-in both; transform-origin: var(--ox, 50%) var(--oy, 50%); }
+
+/* a bubble being deleted swells and pops */
+@keyframes burst {
+  0% { opacity: 1; transform: scale(1); filter: blur(0); }
+  35% { opacity: 1; transform: scale(1.16); }
+  100% { opacity: 0; transform: scale(1.55); filter: blur(5px); }
+}
+.burst { animation: burst 0.42s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+
+@keyframes burst-ring {
+  0% { opacity: 0.8; transform: scale(0.7); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+.burst-ring { animation: burst-ring 0.45s ease-out both; }
+
+/* a finished task blooms, then drifts away */
+@keyframes bloom-out {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.82) translateY(-14px); }
+}
+.bloom-out { animation: bloom-out 0.8s ease-in 0.6s both; }
+
+@keyframes slide-out-right {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(24px); }
+}
+.slide-out-right { animation: slide-out-right 0.22s ease-in both; }
+
+@keyframes tip-float {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.9); }
+  14% { opacity: 1; transform: translate(-50%, 0) scale(1.02); }
+  62% { opacity: 1; transform: translate(-50%, -3px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -20px) scale(0.96); }
+}
+.tip-float { animation: tip-float 1.7s ease-out both; }
+
+@keyframes saved-blink {
+  0% { opacity: 0.2; transform: scale(0.9); }
+  40% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.saved-blink { animation: saved-blink 0.5s ease-out both; }
+
+@keyframes thread-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pop-in, .pop-out, .burst, .bloom-out, .tip-float { animation-duration: 0.01s; animation-delay: 0s; }
+}

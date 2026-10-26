@@ -70,3 +70,83 @@ describe('tasks', () => {
     expect(weightOf(sorted[0])).toBeGreaterThanOrEqual(weightOf(sorted[1]))
   })
 })
+
+import { detectContactIntent, matchPerson, contactLink, parseVCards } from './people'
+import { groupTasks, layoutClusters, relations } from './groups'
+import { reorder } from './folders'
+import { boundsOf, fitView, stepSim, type SimNode } from './flock'
+
+describe('people', () => {
+  it('detects who to call, email or text', () => {
+    expect(detectContactIntent('Call Sarah about the lease')).toEqual({ verb: 'call', name: 'Sarah' })
+    expect(detectContactIntent('email Dr Patel re: results')).toEqual({ verb: 'email', name: 'Dr Patel' })
+    expect(detectContactIntent('Call mom tomorrow')).toEqual({ verb: 'call', name: 'mom' })
+    expect(detectContactIntent('Text Sarah Lee')).toEqual({ verb: 'text', name: 'Sarah Lee' })
+    expect(detectContactIntent('Buy milk')).toBeNull()
+    expect(detectContactIntent('Call about the lease')).toBeNull()
+  })
+  it('matches known people by first name, with typos', () => {
+    const { people } = seedData()
+    expect(matchPerson(people, 'grandma')?.id).toBe('p-grandma')
+    expect(matchPerson(people, 'Rose')?.id).toBe('p-grandma')
+    expect(matchPerson(people, 'Zed')).toBeNull()
+  })
+  it('builds tel/mailto links', () => {
+    expect(contactLink('call', { phone: '+1 (555) 010-2030', email: '' })?.href).toBe('tel:+15550102030')
+    expect(contactLink('email', { phone: '1', email: '' })).toBeNull()
+  })
+  it('reads vCards', () => {
+    const v = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ada Lovelace\r\nTEL;TYPE=CELL:+44 20 7946 0000\r\nEMAIL:ada@example.com\r\nADR:;;1 Analytical St;London;;N1;UK\r\nEND:VCARD'
+    expect(parseVCards(v)).toEqual([{ name: 'Ada Lovelace', phone: '+44 20 7946 0000', email: 'ada@example.com', address: '1 Analytical St, London, N1, UK' }])
+  })
+})
+
+describe('grouping & flocking', () => {
+  const { tasks, folders, people } = seedData()
+  it('groups tasks by top-level folder', () => {
+    const g = groupTasks(tasks, 'folder', folders, people, '2026-10-26')
+    expect(g.find((x) => x.label === 'School')?.taskIds.length).toBe(3)
+    expect(g.reduce((n, x) => n + x.taskIds.length, 0)).toBe(tasks.length)
+  })
+  it('lays out clusters so no two touch', () => {
+    const radii = [120, 80, 100, 60, 90]
+    const c = layoutClusters(radii, 1.6)
+    for (let i = 0; i < c.length; i++)
+      for (let j = i + 1; j < c.length; j++) expect(Math.hypot(c[i].x - c[j].x, c[i].y - c[j].y)).toBeGreaterThan(radii[i] + radii[j])
+  })
+  it('relates tasks sharing a tag and links them as a tree', () => {
+    const r = relations(tasks)
+    expect(r.related.size).toBeGreaterThan(0)
+    expect(r.links.length).toBeLessThan(r.related.size + 1)
+  })
+  it('pulls related nodes together and keeps unrelated ones apart', () => {
+    const mk = (id: string, x: number): SimNode => ({ id, x, y: 0, vx: 0, vy: 0, hx: x, hy: 0, r: 30, pinned: false })
+    const nodes = [mk('a', 0), mk('b', 400), mk('c', 800)]
+    for (let i = 0; i < 400; i++) stepSim(nodes, { home: 0.002, magnet: 0.1, damping: 0.88 }, (x, y) => [x, y].sort().join() === 'a,b')
+    expect(nodes[1].x - nodes[0].x).toBeLessThan(380)
+    expect(Math.abs(nodes[2].x - 800)).toBeLessThan(5)
+  })
+  it('keeps overlapping nodes from stacking and reports bumps', () => {
+    const mk = (id: string, x: number, vx: number): SimNode => ({ id, x, y: 0, vx, vy: 0, hx: x, hy: 0, r: 30, pinned: false })
+    const nodes = [mk('a', 0, 3), mk('b', 50, -3)]
+    let bumped = false
+    for (let i = 0; i < 60; i++) bumped = stepSim(nodes, { home: 0.002, magnet: 0, damping: 0.88 }, () => false).bumps.length > 0 || bumped
+    expect(bumped).toBe(true)
+    expect(Math.abs(nodes[1].x - nodes[0].x)).toBeGreaterThan(50)
+  })
+  it('frames bounds into the viewport', () => {
+    const b = boundsOf([{ x: -500, y: 0, r: 50 }, { x: 1500, y: 800, r: 50 }])!
+    const v = fitView(b, 1000, 600)
+    expect(v.scale).toBeLessThan(1)
+    expect(-500 * v.scale + v.tx).toBeGreaterThan(0)
+  })
+})
+
+describe('folder ordering', () => {
+  it('inserts before a sibling', () => {
+    const { folders } = seedData()
+    const order = reorder(folders, 'life', null, 'school')
+    expect(order.get('life')).toBe(0)
+    expect(order.get('school')).toBe(1)
+  })
+})

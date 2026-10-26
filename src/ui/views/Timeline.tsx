@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { addDays, diffDays, fromISO, MONTHS, today } from '../../core/dates'
-import { filterTasks, spanOf } from '../../core/tasks'
+import { spanOf } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { IconChevron } from '../icons'
+import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 const DAY_W = 38
 const DAYS = 70
@@ -16,6 +17,7 @@ function Bar({ task, winStart, onPreview, preview }: { task: Task; winStart: str
   const select = useStore((s) => s.select)
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
+  const leave = useLeaveClass(task)
   const base = spanOf(task)!
   const span = preview && preview.id === task.id ? preview : { start: base.start, end: base.end }
   const left = diffDays(winStart, span.start) * DAY_W
@@ -58,7 +60,7 @@ function Bar({ task, winStart, onPreview, preview }: { task: Task; winStart: str
   return (
     <div
       onPointerDown={begin('move')}
-      className={`absolute top-1.5 flex h-8 cursor-grab touch-none items-center overflow-hidden rounded-full px-3 text-xs shadow-sm ring-1 ring-white/80 transition-[box-shadow] hover:shadow-md ${task.status === 'done' ? 'opacity-50' : ''}`}
+      className={`absolute top-1.5 flex h-8 cursor-grab touch-none items-center overflow-hidden rounded-full px-3 text-xs shadow-sm ring-1 ring-white/80 transition-[box-shadow] hover:shadow-md ${task.status === 'done' ? 'opacity-50' : ''} ${leave}`}
       style={{
         left,
         width,
@@ -74,10 +76,7 @@ function Bar({ task, winStart, onPreview, preview }: { task: Task; winStart: str
 }
 
 export function Timeline() {
-  const tasks = useStore((s) => s.tasks)
-  const folders = useStore((s) => s.folders)
-  const scope = useStore((s) => s.scope)
-  const showDone = useStore((s) => s.settings.showDone)
+  const visible = useVisibleTasks()
   const update = useStore((s) => s.updateTask)
   const select = useStore((s) => s.select)
   const t0 = today()
@@ -86,11 +85,11 @@ export function Timeline() {
   const scroller = useRef<HTMLDivElement>(null)
 
   const rows = useMemo(() => {
-    const vis = filterTasks(tasks, scope, folders, showDone)
+    const vis = visible
     const dated = vis.filter((t) => spanOf(t)).sort((a, b) => spanOf(a)!.start.localeCompare(spanOf(b)!.start))
     const undated = vis.filter((t) => !spanOf(t) && t.status !== 'done')
     return [...dated, ...undated]
-  }, [tasks, folders, scope, showDone])
+  }, [visible])
 
   const days = Array.from({ length: DAYS }, (_, i) => addDays(winStart, i))
   const todayX = diffDays(winStart, t0) * DAY_W + DAY_W / 2

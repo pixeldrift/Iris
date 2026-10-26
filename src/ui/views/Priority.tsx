@@ -1,8 +1,9 @@
-import { useMemo, useRef } from 'react'
-import { clamp01, bubbleRadius, filterTasks } from '../../core/tasks'
+import { useRef } from 'react'
+import { clamp01, bubbleRadius } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useFloatDrag } from '../useFloatDrag'
+import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 const QUADS = [
   { label: 'Tend now', sub: 'matters · pressing', cls: 'right-0 top-0 items-end justify-start text-right', hue: 345 },
@@ -17,15 +18,18 @@ function Dot({ task, containerRef }: { task: Task; containerRef: React.RefObject
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
   const r = Math.round(bubbleRadius(task, true) * 0.62)
   const frac = { x: task.urgency, y: 1 - task.importance }
-  const { onPointerDown, dragging } = useFloatDrag(task, containerRef, frac, (x, y) =>
+  const { onPointerDown, dragging } = useFloatDrag(task, containerRef, () => frac, (x, y) =>
     update(task.id, { urgency: clamp01(x), importance: clamp01(1 - y) }),
+    { selfGhost: true },
   )
   const done = task.status === 'done'
+  const leave = useLeaveClass(task)
   const style: React.CSSProperties = dragging
     ? { position: 'fixed', left: dragging.cx, top: dragging.cy, zIndex: 90 }
     : { position: 'absolute', left: `${frac.x * 100}%`, top: `${frac.y * 100}%`, transition: 'left .4s ease, top .4s ease' }
   return (
     <div style={{ ...style, transform: 'translate(-50%, -50%)' }}>
+      <div className={`bloom-in ${leave}`}>
       <div
         role="button"
         tabIndex={0}
@@ -37,17 +41,14 @@ function Dot({ task, containerRef }: { task: Task; containerRef: React.RefObject
       >
         <span className="line-clamp-3 break-words font-display text-[0.7rem] leading-[1.1]">{task.title}</span>
       </div>
+      </div>
     </div>
   )
 }
 
 export function Priority() {
-  const tasks = useStore((s) => s.tasks)
-  const folders = useStore((s) => s.folders)
-  const scope = useStore((s) => s.scope)
-  const showDone = useStore((s) => s.settings.showDone)
   const ref = useRef<HTMLDivElement>(null)
-  const visible = useMemo(() => filterTasks(tasks, scope, folders, showDone), [tasks, scope, folders, showDone])
+  const visible = useVisibleTasks()
 
   return (
     <div className="flex h-full flex-col">

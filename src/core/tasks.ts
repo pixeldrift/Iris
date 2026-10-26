@@ -27,6 +27,8 @@ export function matchesScope(task: Task, scope: Scope, folders: Folder[]): boole
       return task.folderIds.length === 0 && !task.due
     case 'day':
       return task.due === scope.date
+    case 'person':
+      return task.personIds.includes(scope.id)
     case 'folder': {
       const ids = descendantIds(folders, scope.id)
       return task.folderIds.some((f) => ids.has(f))

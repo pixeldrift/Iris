@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { addDays, dayLabel, shortDate, today } from '../core/dates'
 import { childrenOf, descendantIds } from '../core/folders'
-import type { Folder, ViewId } from '../core/types'
+import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, useDropTarget, usePointerDrag } from './dnd'
 import { Logo } from './Decor'
+import { askConfirm } from './dialogs'
+import { Flower } from './Flower'
+import { openPerson } from './PeopleDialogs'
+import { Tip } from './Tip'
 import {
   IconAll,
   IconBoard,
@@ -85,6 +89,7 @@ export function Sidebar() {
   const setScope = useStore((s) => s.setScope)
   const tasks = useStore((s) => s.tasks)
   const folders = useStore((s) => s.folders)
+  const people = useStore((s) => s.people)
   const open = useStore((s) => s.sidebarOpen)
   const setSidebar = useStore((s) => s.setSidebar)
   const addFolder = useStore((s) => s.addFolder)
@@ -158,6 +163,25 @@ export function Sidebar() {
             />
           </Section>
 
+          <Section
+            title="People"
+            action={
+              <Tip label="Add a person">
+                <button
+                  onClick={() => openPerson()}
+                  className="rounded-lg p-1 text-ink-faint transition hover:bg-white/60 hover:text-lilac-600"
+                >
+                  <IconPlus size={16} />
+                </button>
+              </Tip>
+            }
+          >
+            {people.map((p) => (
+              <PersonRow key={p.id} person={p} count={live.filter((t) => t.personIds.includes(p.id)).length} />
+            ))}
+            {people.length === 0 && <p className="px-3 py-1.5 text-sm text-ink-faint">Tag people on tasks, then call or email in a tap.</p>}
+          </Section>
+
           <Section title="This week">
             {days.map((d) => (
               <ScopeRow
@@ -176,17 +200,17 @@ export function Sidebar() {
           <Section
             title="Folders"
             action={
-              <button
-                {...rootDrop.props}
-                onClick={() => newFolder(null)}
-                className={`rounded-lg p-1 text-ink-faint transition hover:bg-white/60 hover:text-lilac-600 ${
-                  rootDrop.over ? 'bg-lilac-200 text-lilac-700' : ''
-                }`}
-                aria-label="New folder"
-                title="New folder (drop a folder here to make it top-level)"
-              >
-                <IconPlus size={16} />
-              </button>
+              <Tip label="New folder · drop a folder here to make it top-level">
+                <button
+                  {...rootDrop.props}
+                  onClick={() => newFolder(null)}
+                  className={`rounded-lg p-1 text-ink-faint transition hover:bg-white/60 hover:text-lilac-600 ${
+                    rootDrop.over ? 'bg-lilac-200 text-lilac-700' : ''
+                  }`}
+                >
+                  <IconPlus size={16} />
+                </button>
+              </Tip>
             }
           >
             {childrenOf(folders, null).map((f) => (
@@ -219,6 +243,51 @@ export function Sidebar() {
   )
 }
 
+function PersonRow({ person, count }: { person: Person; count: number }) {
+  const scope = useStore((s) => s.scope)
+  const setScope = useStore((s) => s.setScope)
+  const { over, active, props } = useDropTarget(`person:${person.id}`)
+  const on = scope.type === 'person' && scope.id === person.id
+  return (
+    <div
+      {...props}
+      onClick={() => setScope({ type: 'person', id: person.id })}
+      className={`${rowBase} cursor-pointer ${on ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
+        over ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : active ? 'ring-1 ring-lilac-300/50' : ''
+      }`}
+    >
+      <span
+        className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full text-[0.62rem] font-semibold"
+        style={{ background: `hsl(${person.hue},65%,86%)`, color: `hsl(${person.hue},38%,32%)` }}
+      >
+        {person.name[0]?.toUpperCase()}
+      </span>
+      <span className="truncate">{person.name}</span>
+      <Count n={count} />
+      <span className="absolute right-1.5 flex rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
+        <Tip label="Edit details">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              openPerson({ id: person.id })
+            }}
+            className="rounded-md p-1 text-ink-faint hover:bg-lilac-100 hover:text-lilac-600"
+          >
+            <IconPencil size={14} />
+          </button>
+        </Tip>
+      </span>
+    </div>
+  )
+}
+
+type Zone = 'before' | 'into' | 'after'
+const zoneAt = (el: Element, y: number): Zone => {
+  const r = el.getBoundingClientRect()
+  const f = (y - r.top) / r.height
+  return f < 0.27 ? 'before' : f > 0.73 ? 'after' : 'into'
+}
+
 interface NodeProps {
   folder: Folder
   depth: number
@@ -241,18 +310,37 @@ function FolderNode(props: NodeProps) {
   const kids = childrenOf(folders, folder.id)
   const isOpen = !collapsed.has(folder.id)
   const active = scope.type === 'folder' && scope.id === folder.id
+  const rowRef = useRef<HTMLDivElement>(null)
   const { over, active: dragging, props: dropProps } = useDropTarget(`folder:${folder.id}`)
   const dragPayload = useDnd((s) => s.drag?.payload)
   const isSelfDrag = dragPayload?.type === 'folder' && dragPayload.id === folder.id
+  // where a dragged folder would land relative to this row
+  const zone = useDnd((s): Zone | null =>
+    s.over === `folder:${folder.id}` && s.drag?.payload.type === 'folder' && s.drag.payload.id !== folder.id && rowRef.current
+      ? zoneAt(rowRef.current, s.drag.y)
+      : null,
+  )
 
   const onPointerDown = usePointerDrag({
     payload: { type: 'folder', id: folder.id },
     label: folder.name,
-    onClick: () => setScope({ type: 'folder', id: folder.id }),
-    onEnd: ({ target }) => {
+    touchNeedsHandle: true,
+    onEnd: ({ target, y }) => {
       if (!target) return
-      if (target === 'froot') moveFolder(folder.id, null)
-      else if (target.startsWith('folder:')) moveFolder(folder.id, target.slice(7))
+      if (target === 'froot') return moveFolder(folder.id, null)
+      if (!target.startsWith('folder:')) return
+      const tid = target.slice(7)
+      const el = document.querySelector(`[data-drop="${target}"]`)
+      const t = folders.find((f) => f.id === tid)
+      if (!el || !t || tid === folder.id) return
+      const z = zoneAt(el, y)
+      if (z === 'into') moveFolder(folder.id, tid)
+      else if (z === 'before') moveFolder(folder.id, t.parentId, tid)
+      else {
+        const sibs = childrenOf(folders, t.parentId).filter((f) => f.id !== folder.id)
+        const next = sibs[sibs.findIndex((f) => f.id === tid) + 1]
+        moveFolder(folder.id, t.parentId, next?.id ?? null)
+      }
     },
   })
 
@@ -267,26 +355,33 @@ function FolderNode(props: NodeProps) {
     {
       label: 'Delete folder',
       icon: <IconTrash size={14} />,
-      run: () => {
-        if (confirm(`Delete “${folder.name}”? Tasks stay, they just lose this tag.`)) deleteFolder(folder.id)
+      run: async () => {
+        if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
       },
     },
   ]
 
   return (
-    <div>
+    <div className="rise-in">
       <div
+        ref={rowRef}
         {...dropProps}
         onPointerDown={(e) => editing !== folder.id && onPointerDown(e)}
+        onClick={() => setScope({ type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
-          over && !isSelfDrag ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
+          over && !isSelfDrag && zone !== 'before' && zone !== 'after' ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
         style={{ paddingLeft: `${0.6 + depth * 0.95}rem` }}
       >
+        {zone === 'before' && <span className="pointer-events-none absolute inset-x-2 -top-px h-[3px] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(159,111,205,0.8)]" />}
+        {zone === 'after' && <span className="pointer-events-none absolute inset-x-2 -bottom-px h-[3px] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(159,111,205,0.8)]" />}
         <button
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => toggle(folder.id)}
+          onClick={(e) => {
+            e.stopPropagation()
+            toggle(folder.id)
+          }}
           className={`grid h-5 w-5 shrink-0 place-items-center rounded-md text-ink-faint transition hover:bg-white/60 ${kids.length ? '' : 'invisible'}`}
           aria-label={isOpen ? 'Collapse' : 'Expand'}
         >
@@ -294,13 +389,23 @@ function FolderNode(props: NodeProps) {
             <IconChevron size={14} />
           </span>
         </button>
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: `hsl(${folder.hue},62%,74%)` }} />
+        <span
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            if (editing !== folder.id) onPointerDown(e, true)
+          }}
+          className="grid h-6 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
+          title="Drag to move or nest"
+        >
+          <Flower hue={folder.hue} size={18} />
+        </span>
         {editing === folder.id ? (
           <input
             ref={inputRef}
             autoFocus
             defaultValue={folder.name}
             onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             onBlur={(e) => {
               renameFolder(folder.id, e.target.value)
               setEditing(null)
@@ -317,19 +422,18 @@ function FolderNode(props: NodeProps) {
         {editing !== folder.id && (
           <span className="absolute right-1.5 flex items-center gap-0.5 rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
             {actions.map((b) => (
-              <button
-                key={b.label}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  b.run()
-                }}
-                className="rounded-md p-1 text-ink-faint hover:bg-lilac-100 hover:text-lilac-600"
-                aria-label={b.label}
-                title={b.label}
-              >
-                {b.icon}
-              </button>
+              <Tip key={b.label} label={b.label}>
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    b.run()
+                  }}
+                  className="rounded-md p-1 text-ink-faint hover:bg-lilac-100 hover:text-lilac-600"
+                >
+                  {b.icon}
+                </button>
+              </Tip>
             ))}
           </span>
         )}
