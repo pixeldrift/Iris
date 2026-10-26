@@ -760,7 +760,10 @@ export function Pond() {
       }
       const dx = pts[0].x - base.x
       const dy = pts[0].y - base.y
-      if (mode === 'tap' && Math.hypot(dx, dy) > 6) mode = 'pan'
+      if (mode === 'tap' && Math.hypot(dx, dy) > 6) {
+        mode = 'pan'
+        el.style.cursor = 'grabbing'
+      }
       if (mode === 'pan') {
         view.current = { ...base.v, tx: base.v.tx + dx, ty: base.v.ty + dy }
         applyView()
@@ -780,6 +783,7 @@ export function Pond() {
           else openBubble(p.x, p.y)
         }
         mode = 'none'
+        el.style.cursor = ''
         checkOffscreen()
       } else {
         mode = 'pan' // lifted one finger of a pinch: carry on panning, never create
@@ -802,12 +806,18 @@ export function Pond() {
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
-      if (e.ctrlKey || e.metaKey) zoomAbout(Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top)
-      else {
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        // Shift + wheel (or a sideways scroll) slides the view
         const v = view.current
-        view.current = { ...v, tx: v.tx - e.deltaX, ty: v.ty - e.deltaY }
+        view.current = { ...v, tx: v.tx - (e.deltaX || e.deltaY) * unit, ty: v.ty - (e.deltaX ? e.deltaY : 0) * unit }
         applyView()
+        return
       }
+      // The wheel zooms about the cursor (one mouse notch is a gentle step); a trackpad pinch arrives as ctrl + wheel
+      const k = e.ctrlKey ? 0.01 : 0.0018
+      const factor = Math.min(1.45, Math.max(0.69, Math.exp(-e.deltaY * unit * k)))
+      zoomAbout(factor, e.clientX - r.left, e.clientY - r.top)
     }
     el.addEventListener('pointerdown', down)
     el.addEventListener('wheel', wheel, { passive: false })
@@ -951,7 +961,7 @@ export function Pond() {
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to plant a thought</p>
       )}
       {visible.length > 0 && !bubble && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">Tap the water to add · drag to wander · pinch to zoom · drop a lily on a folder to tag it</p>
+        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a folder to tag it</p>
       )}
 
       <div data-ui className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5">

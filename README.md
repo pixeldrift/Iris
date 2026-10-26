@@ -38,7 +38,7 @@ the browser supports it, or import a shared `.vcf` card). Tag them on tasks with
 Sarah" or "Email Dr Patel" in a task and Lilac links an existing contact or offers to add one (or "No
 thanks"); the bubble then gets a one-tap Call / Text / Email link.
 
-**Pond navigation.** Drag the water to wander, pinch (or Ctrl/⌘ + wheel) to zoom, *Frame all* to bring
+**Pond navigation.** Drag the water to wander, scroll the mouse wheel (or pinch) to zoom about the cursor (Shift + wheel slides the view), *Frame all* to bring
 every bubble back. *Gather by* chips (folders, when, weight, kind, people, stage) make related bubbles
 float together; in *Free* mode related bubbles lean toward each other and are joined by dotted threads.
 
