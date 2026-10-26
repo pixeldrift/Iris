@@ -5,9 +5,10 @@ import { useStore } from '../state/store'
 import { useExit } from './anim'
 import { DatePicker } from './DatePicker'
 import { askConfirm } from './dialogs'
-import { IconCheck, IconTrash } from './icons'
+import { IconCheck, IconClose, IconTrash } from './icons'
 import { DoneButton, KINDS, STATUSES } from './shared'
 import { TagInput } from './TagInput'
+import { Tip } from './Tip'
 
 function SoftSlider({ label, left, right, value, onChange }: { label: string; left: string; right: string; value: number; onChange: (v: number) => void }) {
   return (
@@ -91,6 +92,11 @@ export function TaskDetail() {
             placeholder="What’s floating in your mind?"
             className="min-w-0 flex-1 bg-transparent font-display text-xl outline-none placeholder:text-ink-faint"
           />
+          <Tip label="Close">
+            <button onClick={() => select(null)} className="-mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/70 hover:text-ink">
+              <IconClose size={16} />
+            </button>
+          </Tip>
         </header>
 
         <div className="scroll-soft min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-3 pt-2">
