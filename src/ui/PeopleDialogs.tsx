@@ -18,8 +18,7 @@ export function openPerson(opts: { id?: string; defaults?: Partial<ParsedContact
 }
 const closePerson = () => usePersonDialog.setState({ open: false })
 
-const field =
-  'glass-soft w-full rounded-xl px-3 py-2 text-sm outline-none placeholder:text-ink-faint focus:bg-white/80 focus:ring-2 focus:ring-lilac-300/70'
+const field = 'well w-full rounded-xl px-3 py-2 text-sm'
 
 export function PersonDialog() {
   const { open, id, defaults, onSaved } = usePersonDialog()

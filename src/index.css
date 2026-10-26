@@ -293,3 +293,50 @@ input[type='date'] {
 .arrow-bob-up { animation: arrow-bob-up 1.8s ease-in-out infinite; }
 .arrow-bob-down { animation: arrow-bob-down 1.8s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .arrow-bob-up, .arrow-bob-down { animation: none; } }
+
+/* ---------- wells: anything the user fills in is pressed into the surface ---------- */
+.well {
+  background: linear-gradient(180deg, rgba(107, 68, 145, 0.085), rgba(255, 255, 255, 0.42) 75%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 2px 5px rgba(107, 68, 145, 0.22),
+    inset 0 1px 1px rgba(107, 68, 145, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+.well:focus,
+.well:focus-within {
+  outline: none;
+  background: linear-gradient(180deg, rgba(107, 68, 145, 0.1), rgba(255, 255, 255, 0.55) 75%);
+  box-shadow:
+    inset 0 2px 5px rgba(107, 68, 145, 0.26),
+    inset 0 1px 1px rgba(107, 68, 145, 0.16),
+    0 0 0 3px rgba(183, 143, 223, 0.35);
+}
+.well::placeholder { color: var(--color-ink-faint); }
+
+/* the round version, for check boxes */
+.well-circle {
+  background: radial-gradient(circle at 65% 70%, rgba(255, 255, 255, 0.55), rgba(107, 68, 145, 0.09) 85%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 2px 2px 4px rgba(107, 68, 145, 0.34),
+    inset -1px -1px 2px rgba(255, 255, 255, 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+.well-circle:hover { box-shadow: inset 2px 2px 4px rgba(107, 68, 145, 0.42), inset -1px -1px 2px rgba(255, 255, 255, 0.9), 0 1px 0 rgba(255, 255, 255, 0.95); }
+.well-circle.is-on {
+  background: radial-gradient(circle at 35% 30%, #c9a6e8, #9f6fcd);
+  border-color: rgba(159, 111, 205, 0.6);
+  box-shadow: inset 2px 3px 5px rgba(70, 35, 110, 0.45), inset -1px -1px 2px rgba(255, 255, 255, 0.35), 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* hue slider for folder colours */
+input[type='range'].hue::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, hsl(0 62% 78%), hsl(40 62% 76%), hsl(90 50% 76%), hsl(150 50% 76%), hsl(200 62% 78%), hsl(255 62% 80%), hsl(300 62% 80%), hsl(340 62% 80%));
+  opacity: 1;
+}
+input[type='range'].hue::-moz-range-track {
+  background: linear-gradient(90deg, hsl(0 62% 78%), hsl(40 62% 76%), hsl(90 50% 76%), hsl(150 50% 76%), hsl(200 62% 78%), hsl(255 62% 80%), hsl(300 62% 80%), hsl(340 62% 80%));
+}

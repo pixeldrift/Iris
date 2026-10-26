@@ -33,7 +33,7 @@ export function DatePicker({
           setCursor(fromISO(value ?? t0))
           setOpen((o) => !o)
         }}
-        className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
+        className="well mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
       >
         <span className={value ? '' : 'text-ink-faint'}>{value ? relativeLabel(value) : 'No date'}</span>
         <span className="text-ink-faint">▾</span>

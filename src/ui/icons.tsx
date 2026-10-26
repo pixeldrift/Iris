@@ -179,3 +179,9 @@ export const IconBell = (p: P) => (
     <path d="M10 20.5a2 2 0 0 0 4 0" />
   </Svg>
 )
+/** A soft V with a rounded point: the app's disclosure arrow (rotate -90deg for "closed"). */
+export const IconChevronDown = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M6 9.5 10.6 14a2 2 0 0 0 2.8 0L18 9.5" />
+  </svg>
+)

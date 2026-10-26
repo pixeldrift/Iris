@@ -8,7 +8,7 @@ import { lifter } from './lift'
  * `dropTask` decides what each kind means. Folder rows reuse it to re-parent.
  */
 export interface Payload {
-  type: 'task' | 'folder'
+  type: 'task' | 'folder' | 'section'
   id: string
 }
 
@@ -42,6 +42,8 @@ interface Options {
   ghost?: boolean | ((x: number, y: number) => boolean)
   /** The element to pick up: a lifted copy follows the pointer and the original fades. */
   lift?: () => HTMLElement | null
+  /** Which drop target is under the pointer (default: nearest `data-drop`). */
+  resolve?: (x: number, y: number) => string | null
   /** Touch must start from a handle so scrolling still works. */
   touchNeedsHandle?: boolean
   onStart?: () => void
@@ -93,7 +95,7 @@ export function usePointerDrag(opts: Options) {
       if (lifted) lifter.move(ev.clientX, ev.clientY)
       useDnd.setState({
         drag: { payload: cur.payload, label: cur.label, ghost: lifted ? false : typeof cur.ghost === 'function' ? cur.ghost(ev.clientX, ev.clientY) : (cur.ghost ?? true), x: ev.clientX, y: ev.clientY },
-        over: targetAt(ev.clientX, ev.clientY),
+        over: (cur.resolve ?? targetAt)(ev.clientX, ev.clientY),
       })
       cur.onMove?.(ev.clientX, ev.clientY, dx, dy)
     }
@@ -108,7 +110,7 @@ export function usePointerDrag(opts: Options) {
         const swallow = (c: Event) => c.stopPropagation()
         window.addEventListener('click', swallow, { capture: true, once: true })
         window.setTimeout(() => window.removeEventListener('click', swallow, true), 50)
-        const target = cancelled ? null : targetAt(ev.clientX, ev.clientY)
+        const target = cancelled ? null : (cur.resolve ?? targetAt)(ev.clientX, ev.clientY)
         // apply the drop first, then clear the drag, so lists re-render once and neighbours can glide
         cur.onEnd?.({ target, x: ev.clientX, y: ev.clientY })
         useDnd.setState({ drag: null, over: null, liftH: 0 })

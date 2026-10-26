@@ -917,7 +917,7 @@ export function Pond() {
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === 'Escape' && closeBubble(false)}
               placeholder="A thought, task, reminder…"
-              className="min-w-0 flex-1 bg-transparent px-2 py-1 font-display text-base outline-none placeholder:text-ink-faint"
+              className="well min-w-0 flex-1 rounded-xl px-3 py-1.5 font-display text-base placeholder:text-ink-faint"
             />
             <Tip label="Close">
               <button

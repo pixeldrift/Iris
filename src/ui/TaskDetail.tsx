@@ -90,7 +90,7 @@ export function TaskDetail() {
             onChange={(e) => update(task.id, { title: e.target.value })}
             onBlur={() => checkContact(task.id)}
             placeholder="What’s floating in your mind?"
-            className="min-w-0 flex-1 bg-transparent font-display text-xl outline-none placeholder:text-ink-faint"
+            className="well min-w-0 flex-1 rounded-xl px-3 py-1.5 font-display text-xl placeholder:text-ink-faint"
           />
           <Tip label="Close">
             <button onClick={() => select(null)} className="-mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/70 hover:text-ink">
@@ -127,7 +127,7 @@ export function TaskDetail() {
             onChange={(e) => update(task.id, { notes: e.target.value })}
             placeholder="Notes, thoughts, anything…"
             rows={3}
-            className="glass-soft w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm outline-none placeholder:text-ink-faint focus:bg-white/70"
+            className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
           />
 
           <div className="space-y-3">
