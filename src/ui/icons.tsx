@@ -1,0 +1,145 @@
+import type { ReactNode } from 'react'
+
+const Svg = ({ children, size = 18 }: { children: ReactNode; size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    {children}
+  </svg>
+)
+
+type P = { size?: number }
+export const IconPond = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <circle cx="12" cy="12" r="7" opacity=".6" />
+    <circle cx="12" cy="12" r="10.5" opacity=".3" />
+  </Svg>
+)
+export const IconList = (p: P) => (
+  <Svg {...p}>
+    <path d="M9 6h11M9 12h11M9 18h11" />
+    <circle cx="4.5" cy="6" r=".8" />
+    <circle cx="4.5" cy="12" r=".8" />
+    <circle cx="4.5" cy="18" r=".8" />
+  </Svg>
+)
+export const IconBoard = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.5" y="4" width="5" height="16" rx="1.6" />
+    <rect x="10" y="4" width="5" height="10" rx="1.6" />
+    <rect x="16.5" y="4" width="4" height="13" rx="1.6" />
+  </Svg>
+)
+export const IconPriority = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
+    <path d="M12 3.5v17M3.5 12h17" opacity=".6" />
+  </Svg>
+)
+export const IconCalendar = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="15" rx="3" />
+    <path d="M8 3v4M16 3v4M3.5 10h17" />
+  </Svg>
+)
+export const IconTimeline = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 7h9M8 12h12M6 17h8" />
+  </Svg>
+)
+export const IconPlus = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+)
+export const IconChevron = (p: P) => (
+  <Svg {...p}>
+    <path d="m9 6 6 6-6 6" />
+  </Svg>
+)
+export const IconMenu = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Svg>
+)
+export const IconClose = (p: P) => (
+  <Svg {...p}>
+    <path d="m6 6 12 12M18 6 6 18" />
+  </Svg>
+)
+export const IconTrash = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+  </Svg>
+)
+export const IconPencil = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 20h4L19 9l-4-4L4 16v4Z" />
+  </Svg>
+)
+export const IconSound = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 10v4h4l5 4V6L8 10H4Z" />
+    <path d="M16.5 9a4 4 0 0 1 0 6" />
+  </Svg>
+)
+export const IconSoundOff = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 10v4h4l5 4V6L8 10H4Z" />
+    <path d="m17 9 4 6M21 9l-4 6" />
+  </Svg>
+)
+export const IconWind = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 9h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h8" />
+  </Svg>
+)
+export const IconDrift = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 9c3-3 6 3 9 0s6 3 9 0M3 15c3-3 6 3 9 0s6 3 9 0" />
+  </Svg>
+)
+export const IconSize = (p: P) => (
+  <Svg {...p}>
+    <circle cx="8" cy="15" r="3.5" />
+    <circle cx="16" cy="9" r="5.5" />
+  </Svg>
+)
+export const IconEye = (p: P) => (
+  <Svg {...p}>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+    <circle cx="12" cy="12" r="2.8" />
+  </Svg>
+)
+export const IconInbox = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 13l2.5-7h11L20 13v5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18v-5Z" />
+    <path d="M4 13h5l1 2h4l1-2h5" />
+  </Svg>
+)
+export const IconAll = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 3c2 3 2 6 0 9 2-3 5-4 9-4-1 4-4 6-9 6 4 0 7 2 8 6-4 0-7-1-9-4 0 3-1 5-3 7-2-2-3-4-3-7-2 3-5 4-9 4 1-4 4-6 8-6-5 0-8-2-9-6 4 0 7 1 9 4-2-3-2-6 0-9Z" opacity="0" />
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 3.5c-3 3-3 14 0 17M12 3.5c3 3 3 14 0 17M3.5 12h17" opacity=".6" />
+  </Svg>
+)
+export const IconCheck = (p: P) => (
+  <Svg {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Svg>
+)
+export const IconFolder = (p: P) => (
+  <Svg {...p}>
+    <path d="M3.5 7.5a2 2 0 0 1 2-2H10l2 2.5h6.5a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-9.5Z" />
+  </Svg>
+)
