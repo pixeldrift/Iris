@@ -716,7 +716,7 @@ function FolderOptions({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-ink-soft">Colour</div>
-          <div className="mt-1.5 grid grid-cols-6 justify-items-start gap-1.5">
+          <div className="mt-1.5 grid grid-cols-4 justify-items-start gap-1.5">
             {SWATCHES.map((h) => (
               <button
                 key={h}
