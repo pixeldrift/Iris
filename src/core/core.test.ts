@@ -108,6 +108,13 @@ describe('grouping & flocking', () => {
     expect(g.find((x) => x.label === 'School')?.taskIds.length).toBe(4)
     expect(g.reduce((n, x) => n + x.taskIds.length, 0)).toBe(tasks.length)
   })
+  it('inside a folder, gathers by its subfolders and keeps the breadcrumb trail', () => {
+    const g = groupTasks(tasks, 'folder', folders, people, '2026-10-26', 'school')
+    const eng = g.find((x) => x.label === 'English 101')!
+    expect(eng.path?.map((p) => p.name)).toEqual(['School', 'English 101'])
+    expect(eng.taskIds.length).toBe(3)
+    expect(g.find((x) => x.label === 'Biology')?.taskIds.length).toBe(1)
+  })
   it('lays out clusters so no two touch', () => {
     const radii = [120, 80, 100, 60, 90]
     const c = layoutClusters(radii, 1.6)

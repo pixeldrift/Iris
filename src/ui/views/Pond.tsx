@@ -194,6 +194,10 @@ export function Pond() {
   const people = useStore((s) => s.people)
   const scale = useStore((s) => s.settings.sizeByPriority)
   const group = useStore((s) => s.settings.pondGroup)
+  const scope = useStore((s) => s.scope)
+  const setScope = useStore((s) => s.setScope)
+  const scopeRef = useRef(scope)
+  scopeRef.current = scope
   const addTask = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
 
@@ -210,7 +214,7 @@ export function Pond() {
   const running = useRef(false)
   const grabbed = useRef(0)
   const [offscreen, setOffscreen] = useState(false)
-  const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number; hue?: number }[]>([])
+  const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number; hue?: number; path?: { id: string; name: string }[] }[]>([])
   const labelsRef = useRef(labels)
 
   /* cluster physics (grouped modes) */
@@ -410,7 +414,7 @@ export function Pond() {
     if (group === 'free') {
       for (const t of visible) homes.set(t.id, { x: t.x * w, y: t.y * h })
     } else {
-      const groups = groupTasks(visible, group, folders, people)
+      const groups = groupTasks(visible, group, folders, people, undefined, scopeRef.current.type === 'folder' ? scopeRef.current.id : undefined)
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
       const spacing = avgR * 1.45
       const blob = (n: number) => spacing * Math.sqrt(n) + avgR
@@ -437,7 +441,7 @@ export function Pond() {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, x: sumX / Math.max(1, base.size), y: top - 40 })
+        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: sumX / Math.max(1, base.size), y: top - 40 })
       })
     }
     setLabels(nextLabels)
@@ -853,7 +857,29 @@ export function Pond() {
                 hot === l.key ? 'scale-110 bg-white/70 text-4xl' : 'text-3xl opacity-90'
               }`}
             >
-              {l.label}
+              {l.path && l.path.length > 1 ? (
+                // a breadcrumb: the folders above are lighter, italic, underlined links that move up a level
+                l.path.map((c, i) =>
+                  i < l.path!.length - 1 ? (
+                    <span key={c.id}>
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => setScope({ type: 'folder', id: c.id })}
+                        className="text-[0.62em] font-normal underline decoration-1 underline-offset-[5px] opacity-70 transition hover:opacity-100"
+                      >
+                        {c.name}
+                      </button>
+                      <span className="mx-1.5 text-[0.62em] font-normal opacity-60" aria-hidden>
+                        ›
+                      </span>
+                    </span>
+                  ) : (
+                    <span key={c.id}>{c.name}</span>
+                  ),
+                )
+              ) : (
+                l.label
+              )}
             </div>
           </div>
         ))}

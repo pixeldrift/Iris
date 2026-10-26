@@ -1,5 +1,5 @@
 import { diffDays, today } from './dates'
-import { pathOf } from './folders'
+import { descendantIds, pathOf } from './folders'
 import type { Folder, Person, PondGroup, Task } from './types'
 
 export interface Group {
@@ -8,17 +8,31 @@ export interface Group {
   taskIds: string[]
   /** The group's own colour (a folder's or person's hue), when it has one. */
   hue?: number
+  /** For folder groups: the trail from the top (School › English 101), so the title reads as a breadcrumb. */
+  path?: { id: string; name: string }[]
 }
 
 const KIND_LABELS = { task: 'Tasks', idea: 'Ideas', reminder: 'Reminders' } as const
 
-function bucket(t: Task, ctx: { folders: Folder[]; people: Person[]; now: string }, mode: PondGroup): [string, string, number, number?] {
+function bucket(
+  t: Task,
+  ctx: { folders: Folder[]; people: Person[]; now: string; scopeFolderId?: string },
+  mode: PondGroup,
+): [string, string, number, number?, { id: string; name: string }[]?] {
   switch (mode) {
     case 'folder': {
-      const f = t.folderIds[0]
+      // Inside a folder, gather by its subfolders (the folder itself for what sits directly in it);
+      // anywhere else, by top-level folder.
+      const scope = ctx.scopeFolderId
+      const inside = scope ? descendantIds(ctx.folders, scope) : null
+      const f = (inside ? t.folderIds.find((x) => inside.has(x)) : undefined) ?? t.folderIds[0]
       if (!f) return ['none', 'Unfiled', 99]
-      const root = pathOf(ctx.folders, f)[0]
-      return root ? [root.id, root.name, root.sort, root.hue] : ['none', 'Unfiled', 99]
+      const path = pathOf(ctx.folders, f)
+      const at = scope ? path.findIndex((x) => x.id === scope) : -1
+      const target = at >= 0 ? (path[at + 1] ?? path[at]) : path[0]
+      if (!target) return ['none', 'Unfiled', 99]
+      const trail = pathOf(ctx.folders, target.id).map((x) => ({ id: x.id, name: x.name }))
+      return [target.id, target.name, target.sort, target.hue, trail]
     }
     case 'person': {
       const p = ctx.people.find((x) => x.id === t.personIds[0])
@@ -40,11 +54,11 @@ function bucket(t: Task, ctx: { folders: Folder[]; people: Person[]; now: string
   }
 }
 
-export function groupTasks(tasks: Task[], mode: PondGroup, folders: Folder[], people: Person[], now = today()): Group[] {
+export function groupTasks(tasks: Task[], mode: PondGroup, folders: Folder[], people: Person[], now = today(), scopeFolderId?: string): Group[] {
   const map = new Map<string, Group & { order: number }>()
   for (const t of tasks) {
-    const [key, label, order, hue] = bucket(t, { folders, people, now }, mode)
-    const g = map.get(key) ?? { key, label, taskIds: [], order, hue }
+    const [key, label, order, hue, path] = bucket(t, { folders, people, now, scopeFolderId }, mode)
+    const g = map.get(key) ?? { key, label, taskIds: [], order, hue, path }
     g.taskIds.push(t.id)
     map.set(key, g)
   }
