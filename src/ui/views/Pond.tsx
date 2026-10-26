@@ -228,7 +228,7 @@ export function Pond() {
   const shifts = useRef(new Map<string, { dx: number; dy: number }>())
   const groupOf = useRef(new Map<string, string>())
   const labelEls = useRef(new Map<string, HTMLElement>())
-  const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; x: number; y: number; v: number; fast: number; broken: boolean } | null>(null)
+  const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; t0: number; x: number; y: number; v: number; fast: number; broken: boolean } | null>(null)
   const [hot, setHot] = useState<string | null>(null)
 
   /** The group's title is a handle: dragging it carries the whole cluster. */
@@ -278,6 +278,7 @@ export function Pond() {
 
   const live = useRef({ rel, group, magnet })
   live.current = { rel, group, magnet }
+  const FOLLOW_DELAY = 160 // ms the cluster waits before following, so a quick yank is spotted first
   const BREAK_SPEED = 1.8 // px/ms (~1800px/s), sustained: faster than this snaps a bubble free of its cluster
 
   /* ---------- view transform ---------- */
@@ -427,7 +428,7 @@ export function Pond() {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, x: sumX / Math.max(1, base.size), y: top - 20 })
+        nextLabels.push({ key: g.key, label: g.label, x: sumX / Math.max(1, base.size), y: top - 40 })
       })
     }
     setLabels(nextLabels)
@@ -481,7 +482,7 @@ export function Pond() {
         const base = c?.base.get(id)
         if (n && key && c && base) {
           const sh = shifts.current.get(key) ?? { dx: 0, dy: 0 }
-          dragRef.current = { id, key, home0: { x: n.sim.x, y: n.sim.y }, shift0: sh, t: 0, x: n.sim.x, y: n.sim.y, v: 0, fast: 0, broken: false }
+          dragRef.current = { id, key, home0: { x: n.sim.x, y: n.sim.y }, shift0: sh, t: 0, t0: 0, x: n.sim.x, y: n.sim.y, v: 0, fast: 0, broken: false }
         } else dragRef.current = null
         wake()
       },
@@ -498,6 +499,7 @@ export function Pond() {
         if (d.t === 0) {
           // first sample: the pointer has only just crossed the drag threshold, so there is no speed yet
           d.t = now
+          d.t0 = now
         } else {
           // floor dt: two events in the same millisecond must not read as a flick
           const speed = (Math.hypot(px - d.x, py - d.y) / Math.max(10, now - d.t)) * view.current.scale
@@ -511,10 +513,25 @@ export function Pond() {
           // surface tension snaps: this bubble is on its own now, the cluster stays where it got to
           d.broken = true
           plink()
+          const own = clusters.current.get(d.key)
+          if (own) {
+            // anything the cluster had started to follow is undone: it springs back to where it was
+            shifts.current.set(d.key, d.shift0)
+            for (const mid of own.ids) {
+              const m = nodes.current.get(mid)
+              const b = own.base.get(mid)
+              if (m && b && mid !== id) {
+                m.sim.hx = b.x + d.shift0.dx
+                m.sim.hy = b.y + d.shift0.dy
+              }
+            }
+            const lab = labelEls.current.get(d.key)
+            if (lab) lab.style.transform = d.shift0.dx || d.shift0.dy ? `translate(${d.shift0.dx}px, ${d.shift0.dy}px)` : ''
+          }
           els.current.get(id)?.jig.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14, 0.9)' }, { transform: 'scale(0.96, 1.05)' }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' })
         }
         const c = clusters.current.get(d.key)
-        if (!d.broken && c) {
+        if (!d.broken && c && now - d.t0 > FOLLOW_DELAY) {
           // slow drag: the whole cluster follows on its rubber band (members spring towards their shifted homes)
           const sh = { dx: d.shift0.dx + (px - d.home0.x), dy: d.shift0.dy + (py - d.home0.y) }
           shifts.current.set(d.key, sh)
@@ -798,7 +815,7 @@ export function Pond() {
               onPointerDown={(e) => dragLabel(e, l.key)}
               title="Drag to move this whole group"
               className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
-                hot === l.key ? 'scale-125 bg-white/70 text-xl text-lilac-600' : 'text-lg text-lilac-700/80'
+                hot === l.key ? 'scale-110 bg-white/70 text-4xl text-lilac-600' : 'text-3xl text-lilac-700/85'
               }`}
             >
               {l.label}
