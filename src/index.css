@@ -105,25 +105,6 @@ body.dragging {
 .drift-b { animation: drift-b var(--dur, 14s) ease-in-out var(--delay, 0s) infinite; }
 .drift-c { animation: drift-c var(--dur, 10s) ease-in-out var(--delay, 0s) infinite; }
 
-@keyframes ripple {
-  0% { transform: translate(-50%, -50%) scale(0.04, 0.04); opacity: 0; filter: blur(0); }
-  8% { opacity: var(--o, 0.6); }
-  45% { transform: translate(-50%, -50%) scale(0.74, 0.71); }
-  72% { transform: translate(-50%, -50%) scale(0.93, 0.95); }
-  100% { transform: translate(-50%, -50%) scale(1, 0.98); opacity: 0; filter: blur(2.5px); }
-}
-/* A ring of water: bright crest on the outside, soft lilac shadow inside. Each ring is
-   thinner, fainter and travels less far than the one before it (--o, --bw and size are per ring). */
-.ripple-ring {
-  position: absolute;
-  border-radius: 9999px;
-  pointer-events: none;
-  border: var(--bw, 2px) solid rgba(159, 111, 205, 0.34);
-  background: radial-gradient(closest-side, transparent 80%, rgba(205, 177, 235, 0.2) 94%, rgba(255, 255, 255, 0.35) 98%, transparent 100%);
-  box-shadow: 0 0 14px rgba(183, 143, 223, 0.3), inset 0 0 12px rgba(255, 255, 255, 0.5);
-  animation: ripple 6.2s cubic-bezier(0.12, 0.55, 0.25, 1) both;
-}
-
 @keyframes bloom-in {
   0% { transform: scale(0.2); opacity: 0; }
   60% { transform: scale(1.08); opacity: 1; }
@@ -159,7 +140,6 @@ body.dragging {
 
 @media (prefers-reduced-motion: reduce) {
   .drift-a, .drift-b, .drift-c { animation: none; }
-  .ripple-ring { animation-duration: 0.01s; }
 }
 
 /* ---------- soft sliders ---------- */
@@ -288,25 +268,8 @@ input[type='date'] {
 }
 .box-shrink { animation: box-shrink 0.36s cubic-bezier(0.5, 0, 0.7, 0.4) both; transform-origin: var(--ox, 50%) var(--oy, 0%); pointer-events: none; }
 
-/* a soft ripple in the box's own rounded-rectangle shape; same fading-ring rule as above */
-@keyframes box-ripple {
-  0% { width: var(--w0); height: var(--h0); opacity: 0; border-radius: 1.7rem; filter: blur(0.5px); }
-  8% { opacity: var(--o, 0.7); }
-  50% { width: calc(var(--w0) + (var(--w1) - var(--w0)) * 0.78); height: calc(var(--h0) + (var(--h1) - var(--h0)) * 0.76); }
-  100% { width: var(--w1); height: var(--h1); opacity: 0; border-radius: 6rem; filter: blur(3px); }
-}
-.box-ripple {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  border: var(--bw, 2px) solid rgba(159, 111, 205, 0.36);
-  background: radial-gradient(closest-side, transparent 78%, rgba(205, 177, 235, 0.22) 94%, rgba(255, 255, 255, 0.3));
-  box-shadow: 0 0 22px rgba(183, 143, 223, 0.35), inset 0 0 18px rgba(255, 255, 255, 0.45);
-  animation: box-ripple 6.4s cubic-bezier(0.12, 0.55, 0.25, 1) both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .box-spring, .box-shrink, .box-ripple { animation-duration: 0.01s; }
+  .box-spring, .box-shrink { animation-duration: 0.01s; }
 }
 
 /* ---------- scroll edge fades ---------- */

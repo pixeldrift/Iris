@@ -166,3 +166,16 @@ export const IconChat = (p: P) => (
     <path d="M4.5 6.5a2.5 2.5 0 0 1 2.5-2.5h10a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4H7a2.5 2.5 0 0 1-2.5-2.5v-7Z" />
   </Svg>
 )
+export const IconThought = (p: P) => (
+  <Svg {...p}>
+    <path d="M7.5 15.5a3.6 3.6 0 0 1-.5-7.1A4.8 4.8 0 0 1 16.2 7a3.8 3.8 0 0 1 .7 8.5H7.5Z" />
+    <circle cx="7" cy="19" r="1.2" />
+    <circle cx="4.2" cy="21.2" r="0.8" />
+  </Svg>
+)
+export const IconBell = (p: P) => (
+  <Svg {...p}>
+    <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15L6 16.5Z" />
+    <path d="M10 20.5a2 2 0 0 0 4 0" />
+  </Svg>
+)

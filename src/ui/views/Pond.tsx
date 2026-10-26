@@ -6,22 +6,13 @@ import { contactLink, detectContactIntent } from '../../core/people'
 import { bubbleRadius, plannedDate } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
-import { IconChat, IconClose, IconMail, IconPhone } from '../icons'
+import { IconBell, IconChat, IconClose, IconMail, IconPhone, IconThought } from '../icons'
 import { DoneButton, DueChip, KINDS } from '../shared'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-
-/** Each ring is fainter, thinner and travels less far than the one before it. */
-const RINGS = [
-  { delay: 0, reach: 520, o: 0.75, bw: 2.5 },
-  { delay: 0.7, reach: 430, o: 0.5, bw: 2 },
-  { delay: 1.5, reach: 340, o: 0.32, bw: 1.5 },
-  { delay: 2.5, reach: 250, o: 0.18, bw: 1.2 },
-  { delay: 3.7, reach: 170, o: 0.09, bw: 1 },
-]
-const RIPPLE_MS = 6200
-const WAVE_REACH = 560
+import { WATER } from '../water'
+import { WaterRipples, type WaterHandle } from '../WaterRipples'
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3
@@ -143,7 +134,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               tabIndex={0}
               onPointerDown={(e) => onPointerDown(e, true)}
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
-              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full p-3 text-center outline-none transition-[opacity,transform,filter] duration-300 hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
+              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-3 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-300 hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               }`}
               style={{ '--h': hue } as React.CSSProperties}
@@ -156,8 +147,21 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                   <DueChip task={task} compact />
                 </span>
               )}
-              <span className="absolute -right-1 -top-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                <DoneButton task={task} size={22} />
+              <span className="absolute left-1/2 top-[8%] flex -translate-x-1/2 items-center gap-1">
+                {task.kind === 'idea' ? (
+                  <span title="Idea" role="img" aria-label="Idea" className="grid h-[22px] w-[22px] place-items-center text-lilac-500">
+                    <IconThought size={22} />
+                  </span>
+                ) : (
+                  <>
+                    <DoneButton task={task} size={20} />
+                    {task.kind === 'reminder' && (
+                      <span title="Reminder" role="img" aria-label="Reminder" className="text-lilac-500">
+                        <IconBell size={15} />
+                      </span>
+                    )}
+                  </>
+                )}
               </span>
               {link && (
                 <a
@@ -170,11 +174,6 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                 >
                   {link.label === 'Email' ? <IconMail size={13} /> : link.label === 'Text' ? <IconChat size={13} /> : <IconPhone size={13} />}
                 </a>
-              )}
-              {!link && task.kind !== 'task' && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-white/80 px-1.5 text-[0.6rem] uppercase tracking-wide text-lilac-600 shadow-sm">
-                  {task.kind}
-                </span>
               )}
             </div>
           </div>
@@ -567,8 +566,6 @@ export function Pond() {
   )
 
   /* ---------- pan / pinch / tap-to-add ---------- */
-  type Ripple = { id: number; kind: 'circle' | 'box'; x: number; y: number; w: number; h: number }
-  const [ripples, setRipples] = useState<Ripple[]>([])
   const [bubble, setBubble] = useState<{ id: number; x: number; y: number; phase: 'open' | 'shrink' } | null>(null)
   const [shrink, setShrink] = useState({ sx: 0.08, sy: 0.2 })
   const formRef = useRef<HTMLFormElement>(null)
@@ -582,36 +579,35 @@ export function Pond() {
   const kindRef = useRef(kind)
   kindRef.current = kind
 
-  /** The wave reaches each bubble in turn and lifts it, like a lily pad on water. */
-  const wave = useCallback((sx: number, sy: number) => {
+  const water = useRef<WaterHandle>(null)
+
+  /** Each bubble lifts as the wave front reaches it (same speed as the shader's), more gently the farther it is. */
+  const wave = useCallback((sx: number, sy: number, edge: number, strength: number) => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const v = view.current
     for (const [id, n] of nodes.current) {
       const e = els.current.get(id)
       if (!e) continue
-      const d = Math.hypot(n.sim.x * v.scale + v.tx - sx, n.sim.y * v.scale + v.ty - sy)
-      if (d > WAVE_REACH * 0.97) continue
-      // the front slows as it goes (ease-out), so invert that curve to know when it reaches this bubble
-      const delay = 0.55 * RIPPLE_MS * (1 - Math.pow(1 - d / WAVE_REACH, 1 / 3))
-      const amp = (1 - d / WAVE_REACH) * (1 / (1 + d / 380))
+      const d = Math.max(0, Math.hypot(n.sim.x * v.scale + v.tx - sx, n.sim.y * v.scale + v.ty - sy) - edge)
+      const amp = (strength * Math.exp(-d / 260)) / (1 + d / 140)
+      if (amp < 0.05) continue
       e.jig.animate(
         [
           { transform: 'translateY(0px) scale(1)' },
-          { transform: `translateY(${-10 * amp}px) scale(${1 + 0.045 * amp})` },
-          { transform: `translateY(${3.5 * amp}px) scale(${1 - 0.012 * amp})` },
+          { transform: `translateY(${-8 * amp}px) scale(${1 + 0.04 * amp})` },
+          { transform: `translateY(${3 * amp}px) scale(${1 - 0.01 * amp})` },
           { transform: 'translateY(0px) scale(1)' },
         ],
-        { duration: 1700, delay, easing: 'ease-in-out', composite: 'add' },
+        { duration: 1900, delay: (d / WATER.speed) * 1000, easing: 'ease-in-out', composite: 'add' },
       )
     }
   }, [])
 
   const spawnRipple = useCallback(
-    (kind: Ripple['kind'], x: number, y: number, w = 0, h = 0) => {
-      const id = nextId.current++
-      setRipples((r) => [...r, { id, kind, x, y, w, h }])
-      window.setTimeout(() => setRipples((r) => r.filter((q) => q.id !== id)), 10500)
-      wave(x, y)
+    (kind: 'circle' | 'box', x: number, y: number, w = 0, h = 0) => {
+      const strength = kind === 'box' ? 0.9 : 0.7
+      water.current?.ripple(x, y, { hw: kind === 'box' ? w / 2 : 9, hh: kind === 'box' ? h / 2 : 9, strength })
+      wave(x, y, kind === 'box' ? (w + h) / 4 : 9, strength)
     },
     [wave],
   )
@@ -814,48 +810,7 @@ export function Pond() {
           visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} />)}
       </div>
 
-      {ripples.map((r) =>
-        r.kind === 'circle' ? (
-          <span key={r.id}>
-            {RINGS.map((ring, i) => (
-              <span
-                key={i}
-                className="ripple-ring"
-                style={{
-                  left: r.x,
-                  top: r.y,
-                  width: ring.reach,
-                  height: ring.reach,
-                  animationDelay: `${ring.delay}s`,
-                  ['--o' as string]: ring.o,
-                  ['--bw' as string]: `${ring.bw}px`,
-                  opacity: 0,
-                }}
-              />
-            ))}
-          </span>
-        ) : (
-          <span key={r.id}>
-            {RINGS.map((ring, i) => (
-              <span
-                key={i}
-                className="box-ripple"
-                style={{
-                  left: r.x,
-                  top: r.y,
-                  animationDelay: `${ring.delay}s`,
-                  ['--w0' as string]: `${r.w}px`,
-                  ['--h0' as string]: `${r.h}px`,
-                  ['--w1' as string]: `${r.w + ring.reach * 0.62}px`,
-                  ['--h1' as string]: `${r.h + ring.reach * 0.62}px`,
-                  ['--o' as string]: ring.o,
-                  ['--bw' as string]: `${ring.bw}px`,
-                }}
-              />
-            ))}
-          </span>
-        ),
-      )}
+      <WaterRipples ref={water} className="z-10" />
 
       {bubble && (
         <form

@@ -55,6 +55,13 @@ src/ui/      React components (platform specific: SwiftUI)
   sparse "mind-map" links between tasks that share a folder or person.
 * Pan / pinch / wheel live in `ui/views/Pond.tsx` as pointer-event gestures on a single transformed
   "world" element; bubble positions are stored as fractions of the canvas so they survive resizing.
+* Ripples are a small WebGL shader (`ui/WaterRipples.tsx`), not DOM rings: each ripple is a train of
+  crest-and-trough waves summed into a height field, lit from one side. Wave speed lives in
+  `ui/water.ts` so the bubbles' bobbing (`Pond.tsx`) arrives with the same front. It renders at reduced
+  resolution, only while a ripple is alive, and drops resolution itself if frames run long.
+  **Refraction hook:** in the shader's `main()`, `g` is the surface slope. Sample a backdrop texture at
+  `p + g * k` for background displacement, or per colour channel with different `k` for chromatic
+  aberration, and composite it inside `shade()`.
 * A deploy writes `dist/version.json`; the running app polls it and shows the "newer Lilac is ready"
   bubble when the id changes.
 
