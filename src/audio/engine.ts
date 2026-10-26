@@ -4,7 +4,6 @@
 let ctx: AudioContext | null = null
 let master: GainNode
 let reverbIn: GainNode
-let echoIn: GainNode
 let windGain: GainNode | null = null
 let ambientTimer: number | null = null
 export interface AudioConfig {
@@ -48,19 +47,6 @@ function ensure(): AudioContext | null {
     reverbIn.gain.value = 0.55
     reverbIn.connect(conv).connect(master)
 
-    // soft ping-pong-ish echo for the water drop
-    echoIn = ctx.createGain()
-    const delay = ctx.createDelay(1)
-    delay.delayTime.value = 0.26
-    const fb = ctx.createGain()
-    fb.gain.value = 0.38
-    const lp = ctx.createBiquadFilter()
-    lp.type = 'lowpass'
-    lp.frequency.value = 1800
-    echoIn.connect(delay)
-    delay.connect(lp).connect(fb).connect(delay)
-    lp.connect(master)
-    lp.connect(reverbIn)
   }
   if (ctx.state === 'suspended') void ctx.resume()
   return ctx
@@ -102,9 +88,7 @@ export function drop(pan = 0) {
   g.gain.linearRampToValueAtTime(0.28, t + 0.008)
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38)
   osc.connect(g).connect(p)
-  p.connect(master)
-  p.connect(echoIn)
-  p.connect(reverbIn)
+  p.connect(master) // dry: a clean drop, no echo or tail
   osc.start(t)
   osc.stop(t + 0.45)
 }

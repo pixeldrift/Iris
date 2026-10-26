@@ -194,7 +194,6 @@ export function Pond() {
   const people = useStore((s) => s.people)
   const scale = useStore((s) => s.settings.sizeByPriority)
   const group = useStore((s) => s.settings.pondGroup)
-  const magnet = useStore((s) => s.settings.magnet)
   const addTask = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
 
@@ -210,9 +209,8 @@ export function Pond() {
   const raf = useRef(0)
   const running = useRef(false)
   const grabbed = useRef(0)
-  const lineEls = useRef(new Map<string, SVGLineElement>())
   const [offscreen, setOffscreen] = useState(false)
-  const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number }[]>([])
+  const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number; hue?: number }[]>([])
   const labelsRef = useRef(labels)
 
   /* cluster physics (grouped modes) */
@@ -280,11 +278,11 @@ export function Pond() {
   const radius = useCallback((t: Task) => Math.round(bubbleRadius(t, scale) * rf), [scale, rf])
   const rel = useMemo(() => relations(visible), [visible])
 
-  const live = useRef({ rel, group, magnet })
-  live.current = { rel, group, magnet }
+  const live = useRef({ rel, group })
+  live.current = { rel, group }
   const FOLLOW_DELAY = 160 // ms the cluster waits before following, so a quick yank is spotted first
-  const JOIN_SPEED = 1.0 // px/ms: a loose bubble bumping into another cluster this fast becomes part of it
-  const BREAK_SPEED = 1.8 // px/ms (~1800px/s), sustained: faster than this snaps a bubble free of its cluster
+  const JOIN_SPEED = 0.55 // px/ms: a loose bubble bumping into another cluster this fast becomes part of it
+  const BREAK_SPEED = 1.1 // px/ms (~1100px/s), sustained: faster than this snaps a bubble free of its cluster
 
   /* ---------- view transform ---------- */
   const checkOffscreen = useCallback(() => {
@@ -345,29 +343,17 @@ export function Pond() {
       const e = els.current.get(n.sim.id)
       if (e) e.outer.style.transform = `translate(${n.sim.x - n.sim.r}px, ${n.sim.y - n.sim.r}px)`
     }
-    const { links } = live.current.rel
-    for (const [a, b] of links) {
-      const el = lineEls.current.get(pairKey(a, b))
-      const na = nodes.current.get(a)
-      const nb = nodes.current.get(b)
-      if (el && na && nb) {
-        el.setAttribute('x1', String(na.sim.x))
-        el.setAttribute('y1', String(na.sim.y))
-        el.setAttribute('x2', String(nb.sim.x))
-        el.setAttribute('y2', String(nb.sim.y))
-      }
-    }
   }, [])
 
   const wake = useCallback(() => {
     if (running.current) return
     running.current = true
     const tick = () => {
-      const { rel: r, group: g, magnet: mg } = live.current
+      const { rel: r, group: g } = live.current
       const list = [...nodes.current.values()].map((n) => n.sim)
       const { bumps, energy } = stepSim(
         list,
-        { home: g === 'free' ? 0.002 : 0.012, magnet: g === 'free' && mg ? 0.1 : 0, damping: 0.88 },
+        { home: g === 'free' ? 0.002 : 0.012, magnet: g === 'free' ? 0.1 : 0, damping: 0.88 },
         (a, b) => r.related.has(pairKey(a, b)),
       )
       paint()
@@ -451,7 +437,7 @@ export function Pond() {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, x: sumX / Math.max(1, base.size), y: top - 40 })
+        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, x: sumX / Math.max(1, base.size), y: top - 40 })
       })
     }
     setLabels(nextLabels)
@@ -528,7 +514,7 @@ export function Pond() {
           const speed = (Math.hypot(px - d.x, py - d.y) / Math.max(10, now - d.t)) * view.current.scale
           d.v = 0.5 * d.v + 0.5 * speed
           // a hard flick, or a sudden jump well above how fast we've been dragging (after a settling moment)
-          const yank = now - d.t0 > 380 && d.v > 0.9 && d.v > 2.4 * d.slow + 0.35
+          const yank = now - d.t0 > 300 && d.v > 0.55 && d.v > 1.9 * d.slow + 0.2
           d.fast = d.v > BREAK_SPEED || yank ? d.fast + 1 : 0
           d.slow = 0.92 * d.slow + 0.08 * d.v
           d.t = now
@@ -835,8 +821,6 @@ export function Pond() {
   const bx = bubble ? Math.min(Math.max(bubble.x - bw / 2, 12), Math.max(12, w - bw - 12)) : 0
   const by = bubble ? Math.min(bubble.y + 14, Math.max(12, h - 124)) : 0
 
-  const showLines = group === 'free' && magnet
-
   return (
     <div
       ref={ref}
@@ -848,23 +832,6 @@ export function Pond() {
       aria-label="Pond canvas. Tap the water to add a thought. Drag to pan, pinch to zoom."
     >
       <div ref={worldRef} className="absolute left-0 top-0 origin-top-left" style={{ width: w, height: h, transform: 'translate(0px,0px) scale(1)' }}>
-        <svg className={`pointer-events-none absolute left-0 top-0 overflow-visible blur-[1.2px] transition-opacity duration-700 ${showLines ? 'opacity-60' : 'opacity-0'}`} width={w} height={h}>
-          {rel.links.map(([a, b]) => (
-            <line
-              key={pairKey(a, b)}
-              ref={(el) => {
-                const k = pairKey(a, b)
-                if (el) lineEls.current.set(k, el)
-                else lineEls.current.delete(k)
-              }}
-              stroke="rgba(159,111,205,0.5)"
-              strokeWidth={3.5}
-              strokeLinecap="round"
-              strokeDasharray="0.1 10"
-            />
-          ))}
-        </svg>
-
         {labels.map((l) => (
           <div
             key={l.key}
@@ -881,8 +848,9 @@ export function Pond() {
               data-ui
               onPointerDown={(e) => dragLabel(e, l.key)}
               title="Drag to move this whole group"
-              className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
-                hot === l.key ? 'scale-110 bg-white/70 text-4xl text-lilac-600' : 'text-3xl text-lilac-700/85'
+              style={{ color: l.hue === undefined ? 'var(--color-lilac-700)' : `hsl(${l.hue}, 50%, 36%)` }}
+              className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display font-bold italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
+                hot === l.key ? 'scale-110 bg-white/70 text-4xl' : 'text-3xl opacity-90'
               }`}
             >
               {l.label}

@@ -18,7 +18,6 @@ export interface Settings {
   ambient: boolean
   volume: number
   drift: boolean
-  magnet: boolean
   sizeByPriority: boolean
   showDone: boolean
   sortKey: SortKey
@@ -109,7 +108,6 @@ const DEFAULT_SETTINGS: Settings = {
   ambient: false,
   volume: 0.7,
   drift: true,
-  magnet: true,
   sizeByPriority: true,
   showDone: false,
   sortKey: 'flow',

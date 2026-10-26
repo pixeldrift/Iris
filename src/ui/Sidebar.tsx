@@ -10,6 +10,7 @@ import { askConfirm } from './dialogs'
 import { Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
 import { Popover } from './Popover'
+import { useIsMobile } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
 import { SPRING } from './lift'
@@ -208,6 +209,22 @@ export function Sidebar() {
   }
 
   const rootDrop = useDropTarget('froot')
+
+  // Dragging a bubble onto the left edge pulls the drawer open under it, so it can be dropped into a folder.
+  const mobile = useIsMobile()
+  const dragX = useDnd((st) => (st.drag?.payload.type === 'task' ? st.drag.x : null))
+  const openedByDrag = useRef(false)
+  useEffect(() => {
+    if (!mobile) return
+    if (dragX !== null && dragX < 28 && !open) {
+      openedByDrag.current = true
+      setSidebar(true)
+    } else if (dragX === null && openedByDrag.current) {
+      openedByDrag.current = false
+      const t = window.setTimeout(() => setSidebar(false), 500) // let the drop finish first
+      return () => window.clearTimeout(t)
+    }
+  }, [dragX, mobile, open, setSidebar])
   const folderListRef = useRef<HTMLDivElement>(null)
   useFlip(folderListRef)
 
@@ -331,11 +348,19 @@ export function Sidebar() {
     <>
       {open && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
       <aside
+        onClick={() => mobile && !open && setSidebar(true)}
         className={`glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
-          open ? 'translate-x-0' : '-translate-x-full'
+          open ? 'translate-x-0' : '-translate-x-[calc(100%-1.15rem)]'
         }`}
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        style={{ paddingTop: 'env(safe-area-inset-top)', transitionTimingFunction: SPRING }}
       >
+        {/* On a phone only a sliver of the sidebar shows beside the pond: tap it, or drag a bubble onto it, to open the drawer. */}
+        {mobile && !open && (
+          <span className="pointer-events-none absolute inset-y-0 right-0 flex w-[1.15rem] flex-col items-center justify-center gap-1 text-lilac-400" aria-hidden>
+            <IconChevronDown size={14} />
+          </span>
+        )}
+        <div inert={mobile && !open} className="flex min-h-0 flex-1 flex-col">
         <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
           <Logo />
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
@@ -348,6 +373,7 @@ export function Sidebar() {
             ))}
           </nav>
         </ScrollFade>
+        </div>
       </aside>
     </>
   )
@@ -391,11 +417,20 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
   )
 }
 
-type Zone = 'before' | 'into' | 'after'
-const zoneAt = (el: Element, y: number): Zone => {
+/**
+ * Where a dragged folder lands relative to a row:
+ *   before - above it: same level, in front (insert line above)
+ *   into   - directly on it: becomes its child (the row lights up)
+ *   after  - below, left half: same level, behind it (insert line below)
+ *   child  - below, right half: becomes its first child (row lights up, line indented)
+ */
+type Zone = 'before' | 'into' | 'after' | 'child'
+const zoneAt = (el: Element, x: number, y: number): Zone => {
   const r = el.getBoundingClientRect()
   const f = (y - r.top) / r.height
-  return f < 0.27 ? 'before' : f > 0.73 ? 'after' : 'into'
+  if (f < 0.28) return 'before'
+  if (f <= 0.72) return 'into'
+  return x < r.left + r.width / 2 ? 'after' : 'child'
 }
 
 interface NodeProps {
@@ -429,7 +464,7 @@ function FolderNode(props: NodeProps) {
   // where a dragged folder would land relative to this row
   const zone = useDnd((s): Zone | null =>
     s.over === `folder:${folder.id}` && s.drag?.payload.type === 'folder' && s.drag.payload.id !== folder.id && rowRef.current
-      ? zoneAt(rowRef.current, s.drag.y)
+      ? zoneAt(rowRef.current, s.drag.x, s.drag.y)
       : null,
   )
 
@@ -438,7 +473,7 @@ function FolderNode(props: NodeProps) {
     label: folder.name,
     touchNeedsHandle: true,
     lift: () => rowRef.current,
-    onEnd: ({ target, y }) => {
+    onEnd: ({ target, x, y }) => {
       if (!target) return
       if (target === 'froot') return moveFolder(folder.id, null)
       if (!target.startsWith('folder:')) return
@@ -446,8 +481,9 @@ function FolderNode(props: NodeProps) {
       const el = document.querySelector(`[data-lift-id="${target}"]`)
       const t = folders.find((f) => f.id === tid)
       if (!el || !t || tid === folder.id) return
-      const z = zoneAt(el, y)
+      const z = zoneAt(el, x, y)
       if (z === 'into') moveFolder(folder.id, tid)
+      else if (z === 'child') moveFolder(folder.id, tid, childrenOf(folders, tid).find((f) => f.id !== folder.id)?.id ?? null)
       else if (z === 'before') moveFolder(folder.id, t.parentId, tid)
       else {
         const sibs = childrenOf(folders, t.parentId).filter((f) => f.id !== folder.id)
@@ -476,7 +512,7 @@ function FolderNode(props: NodeProps) {
 
   return (
     <div className="rise-in">
-      <Gap open={zone === 'before'} id={folder.id} />
+      <Gap open={zone === 'before'} id={folder.id} indent={depth} line />
       <div
         ref={rowRef}
         data-lift-id={`folder:${folder.id}`}
@@ -558,8 +594,9 @@ function FolderNode(props: NodeProps) {
           </span>
         )}
       </div>
+      <Gap open={zone === 'child'} id={folder.id} indent={depth + 1} line />
       {isOpen && kids.map((k) => <FolderNode key={k.id} {...props} folder={k} depth={depth + 1} />)}
-      <Gap open={zone === 'after'} id={folder.id} />
+      <Gap open={zone === 'after'} id={folder.id} indent={depth} line />
     </div>
   )
 }
@@ -658,16 +695,24 @@ function FolderOptions({
  * The room a dragged folder will take. It opens (with a gentle spring) where the item would land,
  * nudging its neighbours apart. It answers hit-tests as the same folder so the target never flickers.
  */
-function Gap({ open, id }: { open: boolean; id?: string }) {
+function Gap({ open, id, indent = 0, line = false }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
   const h = useDnd((s) => s.liftH)
   return (
     <div
       {...(id ? { 'data-drop': `folder:${id}` } : {})}
       aria-hidden
-      className="overflow-hidden px-2"
-      style={{ height: open ? h : 0, transition: `height 0.32s ${SPRING}` }}
+      className="flex items-center overflow-hidden px-2"
+      style={{ height: open ? h : 0, transition: `height 0.32s ${SPRING}`, paddingLeft: line ? `${0.6 + indent * 0.95 + 0.4}rem` : undefined }}
     >
-      <div className={`h-full rounded-xl bg-lilac-200/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} />
+      {line ? (
+        // the insert line: its left edge shows how deep the folder will sit
+        <div
+          className={`h-[3px] w-full rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(159,111,205,0.75)] transition-all duration-200 ${open ? 'scale-x-100 opacity-100' : 'scale-x-50 opacity-0'}`}
+          style={{ transformOrigin: 'left' }}
+        />
+      ) : (
+        <div className={`h-full w-full rounded-xl bg-lilac-200/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} />
+      )}
     </div>
   )
 }

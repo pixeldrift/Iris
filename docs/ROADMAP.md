@@ -31,6 +31,14 @@ material, the ambient sound bed and the particles, and nothing else.
 - Implementation sketch: a `Theme` object (CSS variables + a canvas/WebGL particle layer + audio
   recipe). Keep the particle layer cheap (pause when hidden, honour reduced motion).
 
+## Folder identity
+- **Flower shapes, not just colours.** Folders get a flower *shape* as well as a hue (rose, iris, lily,
+  daisy, tulip, lavender…) so they stay distinguishable for colour-blind users and read faster at a glance.
+  Each new folder cycles through the available shapes and colours by default (preselected), and the folder
+  options popover lets you pick any shape and colour you like.
+- **Blended bubbles.** A bubble that lives in more than one folder could show a colour gradient made of
+  its folders' colours (or a small ring of their flowers) instead of only its first folder's hue.
+
 ## Polish ideas
 - Folder-specific bubble colours and icons.
 - Manual ordering inside list and board columns.

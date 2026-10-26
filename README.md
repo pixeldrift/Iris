@@ -40,7 +40,8 @@ thanks"); the bubble then gets a one-tap Call / Text / Email link.
 
 **Pond navigation.** Drag the water to wander, scroll the mouse wheel (or pinch) to zoom about the cursor (Shift + wheel slides the view), *Frame all* to bring
 every bubble back. *Gather by* chips (folders, when, weight, kind, people, stage) make related bubbles
-float together; in *Free* mode related bubbles lean toward each other and are joined by dotted threads.
+float together; in *Free* mode related bubbles lean toward each other. On a phone a sliver of the sidebar
+stays beside the pond: tap it, or drag a bubble onto it, to open the drawer and drop the bubble into a folder.
 
 **Planning days.** *Do on* (the day you plan it) is separate from *Due by* (the deadline); dropping a task on a
 weekday sets *Do on*. Unfinished tasks carry forward to the next day automatically (switch it off per task).

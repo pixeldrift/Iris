@@ -114,10 +114,9 @@ describe('grouping & flocking', () => {
     for (let i = 0; i < c.length; i++)
       for (let j = i + 1; j < c.length; j++) expect(Math.hypot(c[i].x - c[j].x, c[i].y - c[j].y)).toBeGreaterThan(radii[i] + radii[j])
   })
-  it('relates tasks sharing a tag and links them as a tree', () => {
+  it('relates tasks that share a folder or person', () => {
     const r = relations(tasks)
     expect(r.related.size).toBeGreaterThan(0)
-    expect(r.links.length).toBeLessThan(r.related.size + 1)
   })
   it('pulls related nodes together and keeps unrelated ones apart', () => {
     const mk = (id: string, x: number): SimNode => ({ id, x, y: 0, vx: 0, vy: 0, hx: x, hy: 0, r: 30, pinned: false })
