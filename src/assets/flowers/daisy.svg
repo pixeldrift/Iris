@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="daisy" data-default-petals="12">
+  <title>Daisy</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <ellipse id="daisy-petal" cx="0" cy="-6.7" rx="1.55" ry="4.8" fill="#d9a3ec" style="fill:var(--flower-base,#d9a3ec)"/>
+  </defs>
+  <g data-ring="daisy-petal" data-count="12" data-offset="0" data-variable="true">
+    <use href="#daisy-petal" transform="rotate(0.0)"/>
+    <use href="#daisy-petal" transform="rotate(30.0)"/>
+    <use href="#daisy-petal" transform="rotate(60.0)"/>
+    <use href="#daisy-petal" transform="rotate(90.0)"/>
+    <use href="#daisy-petal" transform="rotate(120.0)"/>
+    <use href="#daisy-petal" transform="rotate(150.0)"/>
+    <use href="#daisy-petal" transform="rotate(180.0)"/>
+    <use href="#daisy-petal" transform="rotate(210.0)"/>
+    <use href="#daisy-petal" transform="rotate(240.0)"/>
+    <use href="#daisy-petal" transform="rotate(270.0)"/>
+    <use href="#daisy-petal" transform="rotate(300.0)"/>
+    <use href="#daisy-petal" transform="rotate(330.0)"/>
+  </g>
+  <circle r="3.4" fill="#f8d86a"/>
+  <circle r="3.4" fill="none" stroke="#eed3f8" stroke-width=".7" style="stroke:var(--flower-light,#eed3f8)"/>
+</svg>

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="rose">
+  <title>Rose</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <circle id="rose-outer" cx="0" cy="-5.6" r="4.6" fill="#eed3f8" stroke="#d9a3ec" stroke-width=".5" style="fill:var(--flower-light,#eed3f8);stroke:var(--flower-base,#d9a3ec)"/>
+    <circle id="rose-middle" cx="0" cy="-3.3" r="3.5" fill="#d9a3ec" stroke="#eed3f8" stroke-width=".4" style="fill:var(--flower-base,#d9a3ec);stroke:var(--flower-light,#eed3f8)"/>
+    <circle id="rose-inner" cx="0" cy="-1.5" r="2.3" fill="#a36bc1" style="fill:var(--flower-deep,#a36bc1)"/>
+  </defs>
+  <g data-ring="rose-outer" data-count="5" data-offset="0">
+    <use href="#rose-outer" transform="rotate(0.0)"/>
+    <use href="#rose-outer" transform="rotate(72.0)"/>
+    <use href="#rose-outer" transform="rotate(144.0)"/>
+    <use href="#rose-outer" transform="rotate(216.0)"/>
+    <use href="#rose-outer" transform="rotate(288.0)"/>
+  </g>
+  <g data-ring="rose-middle" data-count="5" data-offset="36">
+    <use href="#rose-middle" transform="rotate(36.0)"/>
+    <use href="#rose-middle" transform="rotate(108.0)"/>
+    <use href="#rose-middle" transform="rotate(180.0)"/>
+    <use href="#rose-middle" transform="rotate(252.0)"/>
+    <use href="#rose-middle" transform="rotate(324.0)"/>
+  </g>
+  <g data-ring="rose-inner" data-count="3" data-offset="10">
+    <use href="#rose-inner" transform="rotate(10.0)"/>
+    <use href="#rose-inner" transform="rotate(130.0)"/>
+    <use href="#rose-inner" transform="rotate(250.0)"/>
+  </g>
+  <path d="M-1 0a1 1 0 1 1 2 0a2 2 0 1 1-4 0a3 3 0 1 1 6 0" fill="none" stroke="#fff" stroke-width=".6" stroke-linecap="round" opacity=".8"/>
+</svg>

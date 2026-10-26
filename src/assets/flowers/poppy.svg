@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="poppy">
+  <title>Poppy</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <circle id="poppy-petal" cx="0" cy="-4.6" r="5.5" fill="#d9a3ec" stroke="#eed3f8" stroke-width=".7" style="fill:var(--flower-base,#d9a3ec);stroke:var(--flower-light,#eed3f8)"/>
+    <circle id="poppy-dot" cx="0" cy="-3.2" r=".45" fill="#fff" opacity=".8"/>
+  </defs>
+  <g data-ring="poppy-petal" data-count="4" data-offset="0">
+    <use href="#poppy-petal" transform="rotate(0.0)"/>
+    <use href="#poppy-petal" transform="rotate(90.0)"/>
+    <use href="#poppy-petal" transform="rotate(180.0)"/>
+    <use href="#poppy-petal" transform="rotate(270.0)"/>
+  </g>
+  <circle r="2.1" fill="#474747" opacity=".72"/>
+  <g data-ring="poppy-dot" data-count="8" data-offset="0">
+    <use href="#poppy-dot" transform="rotate(0.0)"/>
+    <use href="#poppy-dot" transform="rotate(45.0)"/>
+    <use href="#poppy-dot" transform="rotate(90.0)"/>
+    <use href="#poppy-dot" transform="rotate(135.0)"/>
+    <use href="#poppy-dot" transform="rotate(180.0)"/>
+    <use href="#poppy-dot" transform="rotate(225.0)"/>
+    <use href="#poppy-dot" transform="rotate(270.0)"/>
+    <use href="#poppy-dot" transform="rotate(315.0)"/>
+  </g>
+</svg>

@@ -8,7 +8,7 @@ export function FlowerGallery() {
     <div className="fixed inset-0 overflow-y-auto" style={{ background: 'inherit' }}>
       <div className="mx-auto max-w-5xl px-5 py-8">
         <h1 className="font-display text-4xl italic text-lilac-700">Flower shapes</h1>
-        <p className="mt-1 text-sm text-ink-soft">Thirteen silhouettes to choose from. They don’t have to be real species, just clearly different from each other.</p>
+        <p className="mt-1 text-sm text-ink-soft">Thirteen silhouettes to choose from. They don’t have to be real species, just clearly different from each other. The artwork is editable SVG in <code>src/assets/flowers/</code>.</p>
 
         <h2 className="mb-3 mt-8 font-display text-xl">The set</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -57,7 +57,7 @@ export function FlowerGallery() {
         <h2 className="mb-3 mt-10 font-display text-xl">Petal count (an idea to keep in mind)</h2>
         <p className="mb-2 text-sm text-ink-soft">Shapes made of repeated petals can show a number at a glance: more petals for more important or urgent.</p>
         <div className="glass rounded-3xl p-4">
-          {(['classic', 'daisy', 'lily', 'cosmos', 'pinwheel', 'sunflower'] as FlowerShape[]).map((id, r) => (
+          {(['blossom', 'daisy', 'lily', 'cosmos', 'pinwheel', 'sunflower'] as FlowerShape[]).map((id, r) => (
             <div key={id} className="flex items-center gap-3 py-1">
               <span className="w-24 text-sm text-ink-soft">{FLOWER_SHAPES.find((s) => s.id === id)!.label}</span>
               {[3, 4, 5, 6, 8, 10, 12].map((n) => (

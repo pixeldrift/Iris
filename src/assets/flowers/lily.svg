@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="lily" data-default-petals="6">
+  <title>Lily</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <g id="lily-petal">
+      <path d="M0 0C3.7-2.6 4.9-6.8 1.3-10.8Q0-11.7-1.3-10.8C-4.9-6.8-3.7-2.6 0 0Z" fill="#d9a3ec" style="fill:var(--flower-base,#d9a3ec)"/>
+      <path d="M0-1.2L0-8.4" fill="none" stroke="#a36bc1" stroke-width=".55" style="stroke:var(--flower-deep,#a36bc1)" stroke-linecap="round" opacity=".7"/>
+    </g>
+  </defs>
+  <g data-ring="lily-petal" data-count="6" data-offset="0" data-variable="true">
+    <use href="#lily-petal" transform="rotate(0.0)"/>
+    <use href="#lily-petal" transform="rotate(60.0)"/>
+    <use href="#lily-petal" transform="rotate(120.0)"/>
+    <use href="#lily-petal" transform="rotate(180.0)"/>
+    <use href="#lily-petal" transform="rotate(240.0)"/>
+    <use href="#lily-petal" transform="rotate(300.0)"/>
+  </g>
+  <circle r="1.6" fill="#fff6dc" style="fill:var(--flower-cream,#fff6dc)"/>
+</svg>
