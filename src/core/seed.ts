@@ -1,5 +1,5 @@
 import { addDays, today } from './dates'
-import type { Folder, Person, Task } from './types'
+import type { FlowerShape, Folder, Person, Task } from './types'
 
 let n = 0
 const mk = (partial: Partial<Task> & { title: string }): Task => ({
@@ -25,16 +25,16 @@ const mk = (partial: Partial<Task> & { title: string }): Task => ({
 
 export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[] } {
   const t = today()
-  const f = (id: string, name: string, parentId: string | null, hue: number): Folder => ({
-    id, name, parentId, hue, sort: n, createdAt: 1_700_000_000_000 + ++n,
+  const f = (id: string, name: string, parentId: string | null, hue: number, shape: FlowerShape): Folder => ({
+    id, name, parentId, hue, shape, sort: n, createdAt: 1_700_000_000_000 + ++n,
   })
   const folders = [
-    f('school', 'School', null, 285),
-    f('eng101', 'English 101', 'school', 320),
-    f('bio', 'Biology', 'school', 150),
-    f('home', 'Home', null, 20),
-    f('garden', 'Garden', 'home', 150),
-    f('life', 'Life', null, 255),
+    f('school', 'School', null, 285, 'tulip'),
+    f('eng101', 'English 101', 'school', 320, 'daisy'),
+    f('bio', 'Biology', 'school', 150, 'lavender'),
+    f('home', 'Home', null, 20, 'rose'),
+    f('garden', 'Garden', 'home', 150, 'sunflower'),
+    f('life', 'Life', null, 255, 'iris'),
   ]
   const tasks = [
     mk({ title: 'Read chapters 4–5 of Mrs Dalloway', folderIds: ['eng101'], importance: 0.7, urgency: 0.6, due: addDays(t, 2), start: addDays(t, 0), x: 0.2, y: 0.28 }),

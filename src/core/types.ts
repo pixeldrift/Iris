@@ -36,12 +36,29 @@ export interface Task {
   completedAt: number | null
 }
 
+/** The flower drawn for a folder (artwork: src/assets/flowers/<shape>.svg). */
+export type FlowerShape =
+  | 'blossom'
+  | 'daisy'
+  | 'rose'
+  | 'lily'
+  | 'iris'
+  | 'tulip'
+  | 'poppy'
+  | 'cosmos'
+  | 'pinwheel'
+  | 'lavender'
+  | 'sunflower'
+  | 'hibiscus'
+  | 'bell'
+
 export interface Folder {
   id: string
   name: string
   parentId: string | null
   /** Hue 0..360 used for the folder's dot and chips. */
   hue: number
+  shape: FlowerShape
   /** Manual order among siblings. */
   sort: number
   createdAt: number

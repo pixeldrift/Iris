@@ -7,7 +7,7 @@ import { useStore } from '../state/store'
 import { useDnd, useDropTarget, usePointerDrag } from './dnd'
 import { Logo } from './Decor'
 import { askConfirm } from './dialogs'
-import { Flower } from './Flower'
+import { FLOWER_SHAPES, Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
 import { Popover } from './Popover'
 import { useIsMobile } from './useMedia'
@@ -549,7 +549,7 @@ function FolderNode(props: NodeProps) {
               aria-expanded={options}
               className="grid h-6 w-6 place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
             >
-              <Flower hue={folder.hue} size={18} />
+              <Flower hue={folder.hue} shape={folder.shape} size={18} />
             </button>
           </Tip>
         </span>
@@ -621,12 +621,16 @@ function FolderOptions({
   const updateFolder = useStore((s) => s.updateFolder)
   const deleteFolder = useStore((s) => s.deleteFolder)
   const [name, setName] = useState(folder.name)
+  const [picking, setPicking] = useState(false)
   useEffect(() => {
-    if (open) setName(folder.name)
+    if (open) {
+      setName(folder.name)
+      setPicking(false)
+    }
   }, [open, folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Popover open={open} onClose={onClose} anchor={anchor} className="w-72 p-3.5">
+    <Popover open={open} onClose={onClose} anchor={anchor} className="w-80 p-3.5">
       <label className="block text-xs font-medium text-ink-soft">
         Name
         <input
@@ -642,21 +646,61 @@ function FolderOptions({
         />
       </label>
 
-      <div className="mt-3.5 text-xs font-medium text-ink-soft">Colour</div>
-      <div className="mt-1.5 flex flex-wrap gap-2">
-        {SWATCHES.map((h) => (
+      {/* flower: a drop-down beside the colour chips */}
+      <div className="mt-3.5 flex items-start gap-3">
+        <div className="shrink-0">
+          <div className="text-xs font-medium text-ink-soft">Flower</div>
           <button
-            key={h}
-            onClick={() => updateFolder(folder.id, { hue: h })}
-            aria-label={`Colour ${h}`}
-            aria-pressed={folder.hue === h}
-            className={`grid h-7 w-7 place-items-center rounded-full transition hover:scale-110 ${folder.hue === h ? 'ring-2 ring-lilac-500 ring-offset-2 ring-offset-white/80' : ''}`}
-            style={{ background: `hsl(${h}, 62%, 78%)` }}
+            onClick={() => setPicking((p) => !p)}
+            aria-expanded={picking}
+            aria-haspopup="listbox"
+            className="well mt-1.5 flex h-10 items-center gap-2 rounded-xl pl-2.5 pr-2 text-sm text-ink"
           >
-            {folder.hue === h && <IconCheck size={13} />}
+            <Flower hue={folder.hue} shape={folder.shape} size={24} />
+            <span className="w-[4.6rem] truncate text-left">{FLOWER_SHAPES.find((x) => x.id === folder.shape)?.label}</span>
+            <span className={`text-ink-faint transition-transform ${picking ? 'rotate-180' : ''}`}>
+              <IconChevronDown size={14} />
+            </span>
           </button>
-        ))}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-ink-soft">Colour</div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {SWATCHES.map((h) => (
+              <button
+                key={h}
+                onClick={() => updateFolder(folder.id, { hue: h })}
+                aria-label={`Colour ${h}`}
+                aria-pressed={folder.hue === h}
+                className={`grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full transition hover:scale-110 ${folder.hue === h ? 'ring-2 ring-lilac-500 ring-offset-1 ring-offset-white/80' : ''}`}
+                style={{ background: `hsl(${h}, 62%, 78%)` }}
+              >
+                {folder.hue === h && <IconCheck size={11} />}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+      <Collapse open={picking}>
+        <div role="listbox" aria-label="Flower" className="grid grid-cols-5 gap-1 pt-2">
+          {FLOWER_SHAPES.map((x) => (
+            <button
+              key={x.id}
+              role="option"
+              aria-selected={folder.shape === x.id}
+              aria-label={x.label}
+              title={x.label}
+              onClick={() => {
+                updateFolder(folder.id, { shape: x.id })
+                setPicking(false)
+              }}
+              className={`grid h-11 place-items-center rounded-xl transition hover:bg-lilac-100/80 ${folder.shape === x.id ? 'bg-lilac-100 ring-1 ring-lilac-300' : ''}`}
+            >
+              <Flower hue={folder.hue} shape={x.id} size={28} />
+            </button>
+          ))}
+        </div>
+      </Collapse>
       <input
         type="range"
         min={0}
