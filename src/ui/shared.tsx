@@ -113,7 +113,7 @@ export function GripHandle({ onPointerDown }: { onPointerDown: (e: React.Pointer
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className="grid h-6 w-4 shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 md:opacity-0 md:transition md:group-hover:opacity-100"
+      className="grid h-8 w-7 shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 md:opacity-0 md:transition md:group-hover:opacity-100"
       aria-hidden
     >
       <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">

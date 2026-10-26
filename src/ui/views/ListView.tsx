@@ -25,7 +25,6 @@ function Row({ task }: { task: Task }) {
         onPointerDown={(e) => onPointerDown(e)}
         className={`glass-soft group rise-in flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 transition hover:bg-white/70 ${leave}`}
       >
-        <GripHandle onPointerDown={onPointerDown} />
         <DoneButton task={task} />
         <WeightDot task={task} />
         <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
@@ -33,6 +32,7 @@ function Row({ task }: { task: Task }) {
           <FolderChips task={task} max={2} />
         </span>
         <DueChip task={task} />
+        <GripHandle onPointerDown={onPointerDown} />
       </div>
     </Dim>
   )

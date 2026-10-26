@@ -228,7 +228,9 @@ export function Pond() {
   const shifts = useRef(new Map<string, { dx: number; dy: number }>())
   const groupOf = useRef(new Map<string, string>())
   const labelEls = useRef(new Map<string, HTMLElement>())
-  const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; t0: number; x: number; y: number; v: number; fast: number; broken: boolean } | null>(null)
+  // group names ride the same springs as the bubbles instead of snapping
+  const labelSt = useRef(new Map<string, { x: number; y: number; vx: number; vy: number; pinned: boolean }>())
+  const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; t0: number; x: number; y: number; v: number; slow: number; fast: number; broken: boolean; joined: boolean } | null>(null)
   const [hot, setHot] = useState<string | null>(null)
 
   /** The group's title is a handle: dragging it carries the whole cluster. */
@@ -242,6 +244,9 @@ export function Pond() {
     const sh0 = shifts.current.get(key) ?? { dx: 0, dy: 0 }
     document.body.classList.add('dragging')
     grabbed.current += 1
+    const st0 = labelSt.current.get(key) ?? { x: sh0.dx, y: sh0.dy, vx: 0, vy: 0, pinned: false }
+    st0.pinned = true
+    labelSt.current.set(key, st0)
     const move = (ev: PointerEvent) => {
       const k = view.current.scale
       const sh = { dx: sh0.dx + (ev.clientX - sx) / k, dy: sh0.dy + (ev.clientY - sy) / k }
@@ -254,11 +259,10 @@ export function Pond() {
           m.sim.hy = b.y + sh.dy
         }
       }
-      const el = labelEls.current.get(key)
-      if (el) el.style.transform = `translate(${sh.dx}px, ${sh.dy}px)`
       wake()
     }
     const up = () => {
+      st0.pinned = false
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
@@ -279,6 +283,7 @@ export function Pond() {
   const live = useRef({ rel, group, magnet })
   live.current = { rel, group, magnet }
   const FOLLOW_DELAY = 160 // ms the cluster waits before following, so a quick yank is spotted first
+  const JOIN_SPEED = 1.0 // px/ms: a loose bubble bumping into another cluster this fast becomes part of it
   const BREAK_SPEED = 1.8 // px/ms (~1800px/s), sustained: faster than this snaps a bubble free of its cluster
 
   /* ---------- view transform ---------- */
@@ -366,6 +371,24 @@ export function Pond() {
         (a, b) => r.related.has(pairKey(a, b)),
       )
       paint()
+      let labelEnergy = 0
+      for (const [key, el] of labelEls.current) {
+        const t = shifts.current.get(key) ?? { dx: 0, dy: 0 }
+        let st = labelSt.current.get(key)
+        if (!st) labelSt.current.set(key, (st = { x: t.dx, y: t.dy, vx: 0, vy: 0, pinned: false }))
+        if (st.pinned) {
+          st.x = t.dx
+          st.y = t.dy
+          st.vx = st.vy = 0
+        } else {
+          st.vx = (st.vx + (t.dx - st.x) * 0.012) * 0.88
+          st.vy = (st.vy + (t.dy - st.y) * 0.012) * 0.88
+          st.x += st.vx
+          st.y += st.vy
+        }
+        el.style.transform = `translate(${st.x}px, ${st.y}px)`
+        labelEnergy += st.vx * st.vx + st.vy * st.vy
+      }
       const now = performance.now()
       for (const bump of bumps) {
         const n = nodes.current.get(bump.id)
@@ -378,7 +401,7 @@ export function Pond() {
           )
         }
       }
-      if (nodes.current.size && (energy > 0.02 || grabbed.current > 0)) raf.current = requestAnimationFrame(tick)
+      if (nodes.current.size && (energy + labelEnergy > 0.02 || grabbed.current > 0)) raf.current = requestAnimationFrame(tick)
       else {
         running.current = false
         checkOffscreen()
@@ -482,7 +505,7 @@ export function Pond() {
         const base = c?.base.get(id)
         if (n && key && c && base) {
           const sh = shifts.current.get(key) ?? { dx: 0, dy: 0 }
-          dragRef.current = { id, key, home0: { x: n.sim.x, y: n.sim.y }, shift0: sh, t: 0, t0: 0, x: n.sim.x, y: n.sim.y, v: 0, fast: 0, broken: false }
+          dragRef.current = { id, key, home0: { x: n.sim.x, y: n.sim.y }, shift0: sh, t: 0, t0: 0, x: n.sim.x, y: n.sim.y, v: 0, slow: 0, fast: 0, broken: false, joined: false }
         } else dragRef.current = null
         wake()
       },
@@ -504,34 +527,70 @@ export function Pond() {
           // floor dt: two events in the same millisecond must not read as a flick
           const speed = (Math.hypot(px - d.x, py - d.y) / Math.max(10, now - d.t)) * view.current.scale
           d.v = 0.5 * d.v + 0.5 * speed
-          d.fast = d.v > BREAK_SPEED ? d.fast + 1 : 0
+          // a hard flick, or a sudden jump well above how fast we've been dragging (after a settling moment)
+          const yank = now - d.t0 > 380 && d.v > 0.9 && d.v > 2.4 * d.slow + 0.35
+          d.fast = d.v > BREAK_SPEED || yank ? d.fast + 1 : 0
+          d.slow = 0.92 * d.slow + 0.08 * d.v
           d.t = now
         }
         d.x = px
         d.y = py
+
+        /** The cluster lets go: anything it had started to follow is undone and it springs back to where it was. */
+        const letGo = () => {
+          const own = d.key ? clusters.current.get(d.key) : undefined
+          if (!own) return
+          shifts.current.set(own.key, d.shift0)
+          for (const mid of own.ids) {
+            const m = nodes.current.get(mid)
+            const b = own.base.get(mid)
+            if (m && b && mid !== id) {
+              m.sim.hx = b.x + d.shift0.dx
+              m.sim.hy = b.y + d.shift0.dy
+            }
+          }
+        }
+        const wobble = (who: string) =>
+          els.current.get(who)?.jig.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14, 0.9)' }, { transform: 'scale(0.96, 1.05)' }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' })
+
         if (!d.broken && d.fast >= 2) {
-          // surface tension snaps: this bubble is on its own now, the cluster stays where it got to
+          // surface tension snaps (a hard flick, or a sudden yank after a slower drag): the bubble is on its own now
           d.broken = true
           plink()
-          const own = clusters.current.get(d.key)
-          if (own) {
-            // anything the cluster had started to follow is undone: it springs back to where it was
-            shifts.current.set(d.key, d.shift0)
-            for (const mid of own.ids) {
-              const m = nodes.current.get(mid)
-              const b = own.base.get(mid)
-              if (m && b && mid !== id) {
-                m.sim.hx = b.x + d.shift0.dx
-                m.sim.hy = b.y + d.shift0.dy
+          letGo()
+          wobble(id)
+        }
+
+        // the reverse: bumping fast into another cluster's bubbles pulls this one into that cluster
+        if (!d.joined && d.v > JOIN_SPEED && live.current.group !== 'free') {
+          for (const [mid, m] of nodes.current) {
+            if (mid === id) continue
+            const k = groupOf.current.get(mid)
+            if (!k || k === d.key) continue
+            if (Math.hypot(m.sim.x - px, m.sim.y - py) < n.sim.r + m.sim.r + 4) {
+              d.joined = true
+              if (!d.broken) {
+                d.broken = true
+                letGo()
               }
+              plink()
+              wobble(id)
+              wobble(mid)
+              useStore.getState().assignToGroup(id, live.current.group, k)
+              hotRef.current = k
+              setHot(k)
+              window.setTimeout(() => {
+                if (hotRef.current === k) {
+                  hotRef.current = null
+                  setHot(null)
+                }
+              }, 700)
+              break
             }
-            const lab = labelEls.current.get(d.key)
-            if (lab) lab.style.transform = d.shift0.dx || d.shift0.dy ? `translate(${d.shift0.dx}px, ${d.shift0.dy}px)` : ''
           }
-          els.current.get(id)?.jig.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14, 0.9)' }, { transform: 'scale(0.96, 1.05)' }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' })
         }
         const c = clusters.current.get(d.key)
-        if (!d.broken && c && now - d.t0 > FOLLOW_DELAY) {
+        if (!d.broken && !d.joined && c && now - d.t0 > FOLLOW_DELAY) {
           // slow drag: the whole cluster follows on its rubber band (members spring towards their shifted homes)
           const sh = { dx: d.shift0.dx + (px - d.home0.x), dy: d.shift0.dy + (py - d.home0.y) }
           shifts.current.set(d.key, sh)
@@ -543,8 +602,6 @@ export function Pond() {
               m.sim.hy = b.y + sh.dy
             }
           }
-          const el = labelEls.current.get(d.key)
-          if (el) el.style.transform = `translate(${sh.dx}px, ${sh.dy}px)`
         } else if (d.broken) {
           // carrying a loose bubble: light up the cluster it would join
           let best: string | null = null
@@ -804,8 +861,8 @@ export function Pond() {
             ref={(el) => {
               if (!el) return void labelEls.current.delete(l.key)
               labelEls.current.set(l.key, el)
-              const sh = shifts.current.get(l.key)
-              el.style.transform = sh ? `translate(${sh.dx}px, ${sh.dy}px)` : ''
+              const st = labelSt.current.get(l.key)
+              el.style.transform = st ? `translate(${st.x}px, ${st.y}px)` : ''
             }}
             className="absolute"
             style={{ left: l.x, top: l.y }}
