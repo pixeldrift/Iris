@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { tint } from '../../core/color'
 import { addDays, diffDays, fromISO, MONTHS, today } from '../../core/dates'
 import { spanOf } from '../../core/tasks'
 import type { Task } from '../../core/types'
@@ -64,8 +65,8 @@ function Bar({ task, winStart, onPreview, preview }: { task: Task; winStart: str
       style={{
         left,
         width,
-        background: `linear-gradient(90deg, hsla(${hue},70%,86%,.95), hsla(${hue},65%,78%,.95))`,
-        color: `hsl(${hue},35%,25%)`,
+        background: `linear-gradient(90deg, ${tint(hue, 70, 86, .95)}, ${tint(hue, 65, 78, .95)})`,
+        color: `${tint(hue, 35, 25)}`,
       }}
     >
       <span onPointerDown={begin('left')} className="absolute inset-y-0 left-0 w-2.5 cursor-ew-resize" />

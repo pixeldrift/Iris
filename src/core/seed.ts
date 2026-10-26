@@ -31,7 +31,7 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
   const folders = [
     f('school', 'School', null, 285, 'tulip'),
     f('eng101', 'English 101', 'school', 320, 'daisy'),
-    f('bio', 'Biology', 'school', 150, 'lavender'),
+    f('bio', 'Biology', 'school', 150, 'bell'),
     f('home', 'Home', null, 20, 'rose'),
     f('garden', 'Garden', 'home', 150, 'sunflower'),
     f('life', 'Life', null, 255, 'iris'),

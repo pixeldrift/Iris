@@ -37,7 +37,7 @@ export function ScrollFade({ children, className = '' }: { children: React.React
     <div className="relative min-h-0 flex-1">
       <div
         ref={ref}
-        className={`scroll-soft fade-mask h-full overflow-y-auto ${className}`}
+        className={`scroll-soft fade-mask h-full touch-pan-y overflow-y-auto ${className}`}
         data-top={edge.top || undefined}
         data-bottom={edge.bottom || undefined}
       >

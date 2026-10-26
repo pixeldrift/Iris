@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from 'react'
+import { tint } from '../core/color'
 import type { FlowerShape } from '../core/types'
 
 /**
@@ -23,7 +24,6 @@ export const FLOWER_SHAPES: { id: FlowerShape; label: string; petals?: number }[
   { id: 'poppy', label: 'Poppy' },
   { id: 'cosmos', label: 'Cosmos', petals: 8 },
   { id: 'pinwheel', label: 'Pinwheel', petals: 5 },
-  { id: 'lavender', label: 'Lavender' },
   { id: 'sunflower', label: 'Sunflower', petals: 14 },
   { id: 'hibiscus', label: 'Hibiscus' },
   { id: 'bell', label: 'Bluebell' },
@@ -70,9 +70,9 @@ function inner(shape: FlowerShape, petals?: number): string {
 
 const tones = (hue: number): CSSProperties =>
   ({
-    '--flower-base': `hsl(${hue},62%,74%)`,
-    '--flower-light': `hsl(${hue},72%,87%)`,
-    '--flower-deep': `hsl(${hue},48%,56%)`,
+    '--flower-base': `${tint(hue, 62, 74)}`,
+    '--flower-light': `${tint(hue, 72, 87)}`,
+    '--flower-deep': `${tint(hue, 48, 56)}`,
     '--flower-cream': '#fff6dc',
   }) as CSSProperties
 

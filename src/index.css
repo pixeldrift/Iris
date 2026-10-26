@@ -127,13 +127,13 @@ body.dragging {
 .pad {
   background:
     radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
-    radial-gradient(circle at 70% 80%, hsla(var(--h, 285), 70%, 85%, 0.65), transparent 70%),
+    radial-gradient(circle at 70% 80%, hsla(var(--h, 285), calc(70% * var(--s, 1)), 85%, 0.65), transparent 70%),
     rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
-    0 0 0 1px hsla(var(--h, 285), 50%, 75%, 0.25),
-    0 12px 30px -10px hsla(var(--h, 285), 45%, 45%, 0.35);
+    0 0 0 1px hsla(var(--h, 285), calc(50% * var(--s, 1)), 75%, 0.25),
+    0 12px 30px -10px hsla(var(--h, 285), calc(45% * var(--s, 1)), 45%, 0.35);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }

@@ -466,6 +466,8 @@ export const useStore = create<State>()(
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>
         const settings = { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) }
+        // the lavender flower was retired: folders that had it become bluebells
+        if (p.folders) p.folders = p.folders.map((f) => ((f.shape as string) === 'lavender' ? { ...f, shape: 'bell' as const } : f))
         if (!['free', 'folder', 'due', 'kind', 'person'].includes(settings.pondGroup)) settings.pondGroup = 'free'
         // sections added in later versions slot in at the end; unknown ones are dropped
         const saved = (p as Partial<State>).sidebar

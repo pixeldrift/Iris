@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { tint } from '../core/color'
 import { pathLabel } from '../core/folders'
 import { fuzzyRank, fuzzyScore, sameName } from '../core/fuzzy'
 import { useStore } from '../state/store'
@@ -137,7 +138,7 @@ export function TagInput({ taskId }: { taskId: string }) {
               >
                 {r.kind === 'folder' || r.kind === 'person' ? (
                   <>
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: `hsl(${r.hue},60%,72%)` }} />
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: `${tint(r.hue, 60, 72)}` }} />
                     <span className="truncate">
                       {r.kind === 'person' ? '@' : ''}
                       {r.label}
@@ -168,7 +169,7 @@ function Chip({ hue, title, onRemove, children }: { hue: number; title?: string;
   return (
     <span
       className="pop-in inline-flex items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs"
-      style={{ background: `hsla(${hue},70%,88%,.8)`, color: `hsl(${hue},35%,32%)` }}
+      style={{ background: `${tint(hue, 70, 88, .8)}`, color: `${tint(hue, 35, 32)}` }}
       title={title}
     >
       {children}

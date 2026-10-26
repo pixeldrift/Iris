@@ -31,4 +31,4 @@ Fixed colours (a daisy's yellow eye, a white highlight) are written as plain col
 
 Give ids a prefix with the flower's name: all flowers share one HTML page, so ids must be unique.
 
-Shapes not made of repeated petals (tulip, lavender, bluebell) are plain drawings.
+Shapes not made of repeated petals (tulip, bluebell) are plain drawings.

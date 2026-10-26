@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { satOf, tint } from '../../core/color'
 import { drop, plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
@@ -139,7 +140,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               }`}
-              style={{ '--h': hue } as React.CSSProperties}
+              style={{ '--h': Math.max(0, hue), '--s': satOf(hue) } as React.CSSProperties}
             >
               <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
                 {task.title || 'Untitled'}
@@ -854,7 +855,7 @@ export function Pond() {
               data-ui
               onPointerDown={(e) => dragLabel(e, l.key)}
               title="Drag to move this whole group"
-              style={{ color: l.hue === undefined ? 'var(--color-lilac-700)' : `hsl(${l.hue}, 50%, 36%)` }}
+              style={{ color: l.hue === undefined ? 'var(--color-lilac-700)' : `${tint(l.hue, 50, 36)}` }}
               className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display font-bold italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
                 hot === l.key ? 'scale-110 bg-white/70 text-4xl' : 'text-3xl opacity-90'
               }`}

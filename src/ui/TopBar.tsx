@@ -195,11 +195,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
-      <Tip label="Menu">
-        <button onClick={() => setSidebar(true)} className="glass-soft grid h-9 w-9 place-items-center rounded-full md:hidden">
-          <IconMenu />
-        </button>
-      </Tip>
+      <button aria-label="Menu" onClick={() => setSidebar(true)} className="glass-soft grid h-9 w-9 place-items-center rounded-full md:hidden">
+        <IconMenu />
+      </button>
       <div className="order-1 min-w-0 flex-1">
         <h2 className="truncate font-display text-2xl leading-tight md:text-3xl">
           {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} /> : title}

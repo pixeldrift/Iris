@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { tint } from '../../core/color'
 import { addDays, fromISO, monthGrid, MONTHS, startOfWeek, toISO, today, WEEKDAYS } from '../../core/dates'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -23,7 +24,7 @@ function Chip({ task, deadline = false }: { task: Task; deadline?: boolean }) {
         onPointerDown(e, true)
       }}
       className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${task.status === 'done' ? 'line-through opacity-60' : ''} ${leave}`}
-      style={deadline ? { background: 'transparent', boxShadow: `inset 0 0 0 1px hsla(${hue},45%,60%,.55)`, color: `hsl(${hue},35%,35%)` } : { background: `hsla(${hue},70%,87%,.9)`, color: `hsl(${hue},35%,28%)` }}
+      style={deadline ? { background: 'transparent', boxShadow: `inset 0 0 0 1px ${tint(hue, 45, 60, .55)}`, color: `${tint(hue, 35, 35)}` } : { background: `${tint(hue, 70, 87, .9)}`, color: `${tint(hue, 35, 28)}` }}
       title={deadline ? `${task.title} (due)` : task.title}
     >
       {deadline ? '⚑ ' : ''}

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { GRAY, tint } from '../core/color'
 import { addDays, diffDays, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds } from '../core/folders'
 import { plannedDate } from '../core/tasks'
@@ -346,14 +347,56 @@ export function Sidebar() {
     ),
   }
 
+  // Swipe: drag the sliver right to pull the drawer open; drag the open drawer left to push it shut.
+  const [swipe, setSwipe] = useState<number | null>(null)
+  const swipeRef = useRef<{ x: number; dx: number; moved: boolean; t: number } | null>(null)
+  const swipeProps = {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (!mobile || (e.pointerType === 'mouse' && e.button !== 0)) return
+      swipeRef.current = { x: e.clientX, dx: 0, moved: false, t: e.timeStamp }
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const w = swipeRef.current
+      if (!w) return
+      const raw = e.clientX - w.x
+      if (!w.moved && Math.abs(raw) < 8) return
+      if (!w.moved) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+      w.moved = true
+      w.dx = open ? Math.min(0, raw) : Math.max(0, raw)
+      setSwipe(w.dx)
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const w = swipeRef.current
+      swipeRef.current = null
+      if (!w?.moved) return
+      const fast = Math.abs(w.dx) / Math.max(1, e.timeStamp - w.t) > 0.4
+      setSwipe(null)
+      if (!open && (w.dx > 70 || (fast && w.dx > 24))) setSidebar(true)
+      if (open && (w.dx < -70 || (fast && w.dx < -24))) setSidebar(false)
+      justSwiped.current = true
+      setTimeout(() => (justSwiped.current = false), 0)
+    },
+    onPointerCancel: () => {
+      swipeRef.current = null
+      setSwipe(null)
+    },
+  }
+  const justSwiped = useRef(false)
+
   return (
     <>
       {open && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
       <aside
         className={`glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
           open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
-        }`}
-        style={{ paddingTop: 'env(safe-area-inset-top)', transitionTimingFunction: SPRING }}
+        } ${swipe !== null ? '!transition-none' : ''}`}
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          transitionTimingFunction: SPRING,
+          ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + 1.15rem + ${swipe}px) 0` } : {}),
+          ...(mobile ? { touchAction: 'pan-y' } : {}),
+        }}
+        {...(open ? swipeProps : {})}
       >
         {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
             tap it, or drag an item onto it, to open the drawer. */}
@@ -361,9 +404,11 @@ export function Sidebar() {
           // the whole visible edge is one real button, so a tap anywhere along it works like the hamburger
           <button
             type="button"
-            onClick={() => setSidebar(true)}
+            onClick={() => !justSwiped.current && setSidebar(true)}
             aria-label="Open menu"
-            className="absolute inset-y-0 right-0 z-10 w-[1.15rem] cursor-pointer touch-manipulation rounded-r-3xl"
+            style={{ touchAction: 'pan-y' }}
+            className="absolute inset-y-0 right-0 z-10 w-[1.15rem] cursor-pointer rounded-r-3xl"
+            {...swipeProps}
           />
         )}
         <div inert={mobile && !open} className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}>
@@ -400,7 +445,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
     >
       <span
         className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full text-[0.62rem] font-semibold"
-        style={{ background: `hsl(${person.hue},65%,86%)`, color: `hsl(${person.hue},38%,32%)` }}
+        style={{ background: `${tint(person.hue, 65, 86)}`, color: `${tint(person.hue, 38, 32)}` }}
       >
         {person.name[0]?.toUpperCase()}
       </span>
@@ -607,7 +652,7 @@ function FolderNode(props: NodeProps) {
   )
 }
 
-const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255]
+const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255, GRAY]
 
 /** Everything about one folder in one place: rename it, colour it, add inside it, delete it. */
 function FolderOptions({
@@ -671,15 +716,15 @@ function FolderOptions({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-ink-soft">Colour</div>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className="mt-1.5 grid grid-cols-6 justify-items-start gap-1.5">
             {SWATCHES.map((h) => (
               <button
                 key={h}
                 onClick={() => updateFolder(folder.id, { hue: h })}
-                aria-label={`Colour ${h}`}
+                aria-label={h === GRAY ? 'Colour gray' : `Colour ${h}`}
                 aria-pressed={folder.hue === h}
                 className={`grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full transition hover:scale-110 ${folder.hue === h ? 'ring-2 ring-lilac-500 ring-offset-1 ring-offset-white/80' : ''}`}
-                style={{ background: `hsl(${h}, 62%, 78%)` }}
+                style={{ background: `${tint(h, 62, 78)}` }}
               >
                 {folder.hue === h && <IconCheck size={11} />}
               </button>
@@ -688,7 +733,7 @@ function FolderOptions({
         </div>
       </div>
       <Collapse open={picking}>
-        <div role="listbox" aria-label="Flower" className="grid grid-cols-5 gap-1 pt-2">
+        <div role="listbox" aria-label="Flower" className="grid grid-cols-4 gap-1 pt-2">
           {FLOWER_SHAPES.map((x) => (
             <button
               key={x.id}

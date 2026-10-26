@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { tint } from '../core/color'
 import { relativeLabel, today } from '../core/dates'
 import { isOverdue, plannedDate, weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
@@ -49,7 +50,7 @@ export function FolderChips({ task, max = 3 }: { task: Task; max?: number }) {
         <span
           key={f!.id}
           className="rounded-full px-2 py-0.5 text-[0.7rem] leading-none"
-          style={{ background: `hsla(${f!.hue},70%,88%,.85)`, color: `hsl(${f!.hue},35%,32%)` }}
+          style={{ background: `${tint(f!.hue, 70, 88, .85)}`, color: `${tint(f!.hue, 35, 32)}` }}
         >
           {f!.name}
         </span>
