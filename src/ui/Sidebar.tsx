@@ -9,6 +9,7 @@ import { Logo } from './Decor'
 import { askConfirm } from './dialogs'
 import { Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
+import { ScrollFade } from './ScrollFade'
 import { Tip } from './Tip'
 import {
   IconAll,
@@ -129,7 +130,8 @@ export function Sidebar() {
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
         </div>
 
-        <nav className="scroll-soft min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+        <ScrollFade>
+        <nav className="px-3 pb-6">
           <Section title="Views">
             {VIEWS.map((v) => (
               <button
@@ -243,6 +245,7 @@ export function Sidebar() {
             )}
           </Section>
         </nav>
+        </ScrollFade>
       </aside>
     </>
   )

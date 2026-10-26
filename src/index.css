@@ -308,3 +308,22 @@ input[type='date'] {
 @media (prefers-reduced-motion: reduce) {
   .box-spring, .box-shrink, .box-ripple { animation-duration: 0.01s; }
 }
+
+/* ---------- scroll edge fades ---------- */
+@property --fade-t { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --fade-b { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.fade-mask {
+  --fade-t: 0px;
+  --fade-b: 0px;
+  transition: --fade-t 0.35s ease, --fade-b 0.35s ease;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t), #000 calc(100% - var(--fade-b)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t), #000 calc(100% - var(--fade-b)), transparent 100%);
+}
+.fade-mask[data-top] { --fade-t: 40px; }
+.fade-mask[data-bottom] { --fade-b: 40px; }
+
+@keyframes arrow-bob-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes arrow-bob-down { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+.arrow-bob-up { animation: arrow-bob-up 1.8s ease-in-out infinite; }
+.arrow-bob-down { animation: arrow-bob-down 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .arrow-bob-up, .arrow-bob-down { animation: none; } }

@@ -231,6 +231,46 @@ export function Pond() {
   const labelEls = useRef(new Map<string, HTMLElement>())
   const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; x: number; y: number; v: number; fast: number; broken: boolean } | null>(null)
   const [hot, setHot] = useState<string | null>(null)
+
+  /** The group's title is a handle: dragging it carries the whole cluster. */
+  const dragLabel = (e: React.PointerEvent, key: string) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    const c = clusters.current.get(key)
+    if (!c) return
+    const sx = e.clientX
+    const sy = e.clientY
+    const sh0 = shifts.current.get(key) ?? { dx: 0, dy: 0 }
+    document.body.classList.add('dragging')
+    grabbed.current += 1
+    const move = (ev: PointerEvent) => {
+      const k = view.current.scale
+      const sh = { dx: sh0.dx + (ev.clientX - sx) / k, dy: sh0.dy + (ev.clientY - sy) / k }
+      shifts.current.set(key, sh)
+      for (const id of c.ids) {
+        const m = nodes.current.get(id)
+        const b = c.base.get(id)
+        if (m && b) {
+          m.sim.hx = b.x + sh.dx
+          m.sim.hy = b.y + sh.dy
+        }
+      }
+      const el = labelEls.current.get(key)
+      if (el) el.style.transform = `translate(${sh.dx}px, ${sh.dy}px)`
+      wake()
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      document.body.classList.remove('dragging')
+      grabbed.current = Math.max(0, grabbed.current - 1)
+      wake()
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+  }
   const hotRef = useRef<string | null>(null)
 
   const rf = Math.min(1, Math.max(0.72, w / 900))
@@ -380,7 +420,15 @@ export function Pond() {
           groupOf.current.set(id, g.key)
         })
         clusters.current.set(g.key, { key: g.key, cx, cy, R: blob(g.taskIds.length), ids: g.taskIds, base })
-        nextLabels.push({ key: g.key, label: g.label, x: cx, y: cy - (blob(g.taskIds.length) + 22) })
+        // hug the cluster: centred over its bubbles, just above the topmost one
+        const rOf = new Map(visible.map((t) => [t.id, radius(t)]))
+        let top = Infinity
+        let sumX = 0
+        for (const [id, pos] of base) {
+          top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
+          sumX += pos.x
+        }
+        nextLabels.push({ key: g.key, label: g.label, x: sumX / Math.max(1, base.size), y: top - 20 })
       })
     }
     setLabels(nextLabels)
@@ -746,12 +794,15 @@ export function Pond() {
               const sh = shifts.current.get(l.key)
               el.style.transform = sh ? `translate(${sh.dx}px, ${sh.dy}px)` : ''
             }}
-            className="pointer-events-none absolute"
+            className="absolute"
             style={{ left: l.x, top: l.y }}
           >
             <div
-              className={`pop-in -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-display italic transition-all duration-300 ${
-                hot === l.key ? 'scale-125 text-xl text-lilac-600' : 'text-lg text-lilac-700/80'
+              data-ui
+              onPointerDown={(e) => dragLabel(e, l.key)}
+              title="Drag to move this whole group"
+              className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
+                hot === l.key ? 'scale-125 bg-white/70 text-xl text-lilac-600' : 'text-lg text-lilac-700/80'
               }`}
             >
               {l.label}
