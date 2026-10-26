@@ -42,6 +42,15 @@ thanks"); the bubble then gets a one-tap Call / Text / Email link.
 every bubble back. *Gather by* chips (folders, when, weight, kind, people, stage) make related bubbles
 float together; in *Free* mode related bubbles lean toward each other and are joined by dotted threads.
 
+**Planning days.** *Do on* (the day you plan it) is separate from *Due by* (the deadline); dropping a task on a
+weekday sets *Do on*. Unfinished tasks carry forward to the next day automatically (switch it off per task).
+If a task can only happen on certain weekdays (a class that meets Mon/Wed/Fri), pick them under *Only on
+these days*: a missed one moves to the next of those days, unless that is after its due date.
+
+**Moving clusters.** In a *Gather by* view, drag a bubble slowly and its whole cluster follows on a rubber
+band, nudging others aside. Flick it fast to snap it free, then drop it on another cluster to re-tag it
+(folder, due date, type or person).
+
 **Sound.** Tap the speaker to mute/unmute; hold it (or right-click) for individual sounds and volume.
 
 **Soft priority.** Two sliders ("how much it matters", "how pressing it feels")

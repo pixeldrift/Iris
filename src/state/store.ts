@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { canReparent, nextHue, reorder } from '../core/folders'
+import { addDays, today } from '../core/dates'
+import { canReparent, descendantIds, nextHue, pathOf, reorder } from '../core/folders'
 import { sameName } from '../core/fuzzy'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { seedData } from '../core/seed'
-import { urgencyForDue } from '../core/tasks'
+import { rolloverDay, urgencyForDue } from '../core/tasks'
 import type { Folder, Person, PondGroup, Scope, SortKey, Task, TaskKind, TaskStatus, ViewId } from '../core/types'
 import * as sound from '../audio/engine'
 
@@ -44,6 +45,7 @@ interface State {
   removing: Record<string, true>
   lingering: Record<string, true>
   contactPrompt: ContactPrompt | null
+  toast: { id: number; text: string } | null
 
   setScope: (s: Scope) => void
   setView: (v: ViewId) => void
@@ -61,6 +63,13 @@ interface State {
   addPerson: (taskId: string, personId: string) => void
   removePerson: (taskId: string, personId: string) => void
   setDue: (taskId: string, due: string | null) => void
+  /** Plan the task for a day (separate from its deadline). */
+  setDay: (taskId: string, day: string | null) => void
+  /** Move unfinished tasks planned for past days to their next available day. */
+  rollover: () => void
+  /** Dragging a bubble into another pond cluster re-tags it to match. */
+  assignToGroup: (taskId: string, mode: PondGroup, key: string) => void
+  showToast: (text: string) => void
 
   addFolder: (name: string, parentId?: string | null) => string
   ensureFolderPath: (path: string, parentId?: string | null) => string
@@ -124,6 +133,7 @@ export const useStore = create<State>()(
       removing: {},
       lingering: {},
       contactPrompt: null,
+      toast: null,
 
       setScope: (scope) => set({ scope, sidebarOpen: false }),
       setView: (view) => set({ view, sidebarOpen: false }),
@@ -139,7 +149,8 @@ export const useStore = create<State>()(
         const id = uid()
         const folderIds = p.folderIds ?? (scope.type === 'folder' ? [scope.id] : [])
         const personIds = p.personIds ?? (scope.type === 'person' ? [scope.id] : [])
-        const due = p.due ?? (scope.type === 'day' ? scope.date : null)
+        const due = p.due ?? null
+        const day = p.day ?? (scope.type === 'day' ? scope.date : null)
         const task: Task = {
           id,
           notes: '',
@@ -151,6 +162,9 @@ export const useStore = create<State>()(
           y: 0.5,
           start: null,
           due,
+          day,
+          rollover: true,
+          days: null,
           folderIds,
           personIds,
           createdAt: Date.now(),
@@ -228,6 +242,47 @@ export const useStore = create<State>()(
         const patch: Partial<Task> = { due, urgency: urgencyForDue(t.urgency, due) }
         if (due && t.start && t.start > due) patch.start = due
         get().updateTask(taskId, patch)
+      },
+
+      setDay: (taskId, day) => get().updateTask(taskId, { day }),
+      rollover: () => {
+        const now = today()
+        const moves = new Map<string, string>()
+        for (const t of get().tasks) {
+          const to = rolloverDay(t, now)
+          if (to && to !== t.day) moves.set(t.id, to)
+        }
+        if (!moves.size) return
+        set((s) => ({ tasks: s.tasks.map((t) => (moves.has(t.id) ? { ...t, day: moves.get(t.id)! } : t)) }))
+        get().showToast(`Carried ${moves.size} unfinished ${moves.size === 1 ? 'task' : 'tasks'} forward`)
+      },
+      assignToGroup: (taskId, mode, key) => {
+        const s = get()
+        const t = s.tasks.find((x) => x.id === taskId)
+        if (!t) return
+        if (mode === 'kind') s.updateTask(taskId, { kind: key as TaskKind })
+        else if (mode === 'person') {
+          const rest = t.personIds.slice(1).filter((p) => p !== key)
+          s.updateTask(taskId, { personIds: key === 'none' ? rest : [key, ...rest] })
+        } else if (mode === 'folder') {
+          const oldRoot = t.folderIds[0] ? pathOf(s.folders, t.folderIds[0])[0] : undefined
+          const drop = oldRoot ? descendantIds(s.folders, oldRoot.id) : new Set<string>()
+          const keep = t.folderIds.filter((f) => !drop.has(f) && f !== key)
+          s.updateTask(taskId, { folderIds: key === 'none' ? keep : [key, ...keep] })
+        } else if (mode === 'due') {
+          const now = today()
+          if (key === 'today') s.setDue(taskId, now)
+          else if (key === 'week') s.setDue(taskId, addDays(now, 3))
+          else if (key === 'later') s.setDue(taskId, addDays(now, 14))
+          else if (key === 'someday') s.updateTask(taskId, { due: null, day: null })
+          else return
+        }
+        sound.plink()
+      },
+      showToast: (text) => {
+        const id = Date.now()
+        set({ toast: { id, text } })
+        window.setTimeout(() => set((s) => (s.toast?.id === id ? { toast: null } : s)), 3600)
       },
 
       addFolder: (name, parentId = null) => {
@@ -343,11 +398,11 @@ export const useStore = create<State>()(
             sound.plink()
             return true
           case 'day':
-            s.setDue(taskId, value)
+            s.setDay(taskId, value)
             sound.plink()
             return true
           case 'inbox':
-            s.updateTask(taskId, { due: null, start: null, folderIds: [], personIds: [] })
+            s.updateTask(taskId, { due: null, day: null, start: null, folderIds: [], personIds: [] })
             sound.plink()
             return true
           case 'status':
@@ -360,7 +415,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 2,
+      version: 3,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -376,12 +431,17 @@ export const useStore = create<State>()(
           p.tasks = (p.tasks ?? []).map((t) => ({ ...t, personIds: t.personIds ?? [] }))
           p.folders = (p.folders ?? []).map((f, i) => ({ ...f, sort: f.sort ?? i }))
         }
+        if (from < 3) {
+          p.tasks = (p.tasks ?? []).map((t) => ({ ...t, day: t.day ?? null, rollover: t.rollover ?? true, days: t.days ?? null }))
+        }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
         return p as State
       },
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>
-        return { ...current, ...p, settings: { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) } }
+        const settings = { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) }
+        if (!['free', 'folder', 'due', 'kind', 'person'].includes(settings.pondGroup)) settings.pondGroup = 'free'
+        return { ...current, ...p, settings }
       },
       onRehydrateStorage: () => (s) => {
         if (s) applyAudio(s.settings)

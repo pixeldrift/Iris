@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { drop } from '../../audio/engine'
+import { drop, plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, type SimNode } from '../../core/flock'
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { contactLink, detectContactIntent } from '../../core/people'
@@ -50,7 +50,9 @@ interface PondApi {
   getFrac: (id: string) => { x: number; y: number }
   drag: (id: string, fx: number, fy: number) => void
   grab: (id: string) => void
-  release: (id: string) => void
+  release: (id: string, committed: boolean) => void
+  /** Only in Free mode do drags change a bubble's saved position. */
+  isFree: () => boolean
 }
 
 const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number; api: PondApi; start: { x: number; y: number } }) {
@@ -96,14 +98,14 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
     task,
     api.container,
     () => api.getFrac(task.id),
-    (x, y) => update(task.id, { x, y }),
+    (x, y) => api.isFree() && update(task.id, { x, y }),
     {
       toClient,
       fromClient,
       clamp: { minX: -3, maxX: 4, minY: -3, maxY: 4 },
       onGrab: () => api.grab(task.id),
       onDrag: (fx, fy) => api.drag(task.id, fx, fy),
-      onRelease: () => api.release(task.id),
+      onRelease: (committed) => api.release(task.id, committed),
     },
   )
 
@@ -140,7 +142,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               </span>
               {r >= 52 && task.due && (
                 <span className="mt-1 scale-90">
-                  <DueChip task={task} />
+                  <DueChip task={task} compact />
                 </span>
               )}
               <span className="absolute -right-1 -top-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
@@ -201,12 +203,30 @@ export function Pond() {
   const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number }[]>([])
   const labelsRef = useRef(labels)
 
+  /* cluster physics (grouped modes) */
+  interface Cluster {
+    key: string
+    cx: number
+    cy: number
+    R: number
+    ids: string[]
+    base: Map<string, { x: number; y: number }>
+  }
+  const clusters = useRef(new Map<string, Cluster>())
+  const shifts = useRef(new Map<string, { dx: number; dy: number }>())
+  const groupOf = useRef(new Map<string, string>())
+  const labelEls = useRef(new Map<string, HTMLElement>())
+  const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; x: number; y: number; v: number; broken: boolean } | null>(null)
+  const [hot, setHot] = useState<string | null>(null)
+  const hotRef = useRef<string | null>(null)
+
   const rf = Math.min(1, Math.max(0.72, w / 900))
   const radius = useCallback((t: Task) => Math.round(bubbleRadius(t, scale) * rf), [scale, rf])
   const rel = useMemo(() => relations(visible), [visible])
 
   const live = useRef({ rel, group, magnet })
   live.current = { rel, group, magnet }
+  const BREAK_SPEED = 1.4 // px/ms: faster than this snaps a bubble free of its cluster
 
   /* ---------- view transform ---------- */
   const checkOffscreen = useCallback(() => {
@@ -322,6 +342,9 @@ export function Pond() {
     if (!w || !h) return
     const homes = new Map<string, { x: number; y: number }>()
     const nextLabels: typeof labels = []
+    if (prevGroup.current !== group) shifts.current.clear()
+    clusters.current = new Map()
+    groupOf.current = new Map()
     if (group === 'free') {
       for (const t of visible) homes.set(t.id, { x: t.x * w, y: t.y * h })
     } else {
@@ -334,11 +357,16 @@ export function Pond() {
       groups.forEach((g, gi) => {
         const cx = w / 2 + centers[gi].x
         const cy = h / 2 + centers[gi].y
+        const base = new Map<string, { x: number; y: number }>()
         g.taskIds.forEach((id, i) => {
           const a = i * 2.39996
           const rad = spacing * Math.sqrt(i)
-          homes.set(id, { x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad })
+          const pos = { x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad }
+          homes.set(id, pos)
+          base.set(id, pos)
+          groupOf.current.set(id, g.key)
         })
+        clusters.current.set(g.key, { key: g.key, cx, cy, R: blob(g.taskIds.length), ids: g.taskIds, base })
         nextLabels.push({ key: g.key, label: g.label, x: cx, y: cy - (blob(g.taskIds.length) + 22) })
       })
     }
@@ -349,7 +377,9 @@ export function Pond() {
     const ids = new Set(visible.map((t) => t.id))
     for (const id of [...map.keys()]) if (!ids.has(id)) map.delete(id)
     for (const t of visible) {
-      const home = homes.get(t.id)!
+      const base = homes.get(t.id)!
+      const sh = shifts.current.get(groupOf.current.get(t.id) ?? '')
+      const home = sh ? { x: base.x + sh.dx, y: base.y + sh.dy } : base
       const r = radius(t)
       const rec = map.get(t.id)
       if (rec) {
@@ -381,22 +411,87 @@ export function Pond() {
         const n = nodes.current.get(id)
         return n ? { x: n.sim.x / dims.current.w, y: n.sim.y / dims.current.h } : { x: 0.5, y: 0.5 }
       },
+      isFree: () => live.current.group === 'free',
       grab: (id) => {
         const n = nodes.current.get(id)
         if (n) n.sim.pinned = true
         grabbed.current += 1
+        const key = groupOf.current.get(id)
+        const c = key ? clusters.current.get(key) : undefined
+        const base = c?.base.get(id)
+        if (n && key && c && base) {
+          const sh = shifts.current.get(key) ?? { dx: 0, dy: 0 }
+          dragRef.current = { id, key, home0: { x: n.sim.x, y: n.sim.y }, shift0: sh, t: performance.now(), x: n.sim.x, y: n.sim.y, v: 0, broken: false }
+        } else dragRef.current = null
         wake()
       },
       drag: (id, fx, fy) => {
         const n = nodes.current.get(id)
         if (!n) return
-        n.sim.x = fx * dims.current.w
-        n.sim.y = fy * dims.current.h
+        const px = fx * dims.current.w
+        const py = fy * dims.current.h
+        n.sim.x = px
+        n.sim.y = py
+        const d = dragRef.current
+        if (!d || d.id !== id || !d.key) return
+        const now = performance.now()
+        const speed = (Math.hypot(px - d.x, py - d.y) / Math.max(1, now - d.t)) * view.current.scale
+        d.v = 0.6 * d.v + 0.4 * speed
+        d.t = now
+        d.x = px
+        d.y = py
+        if (!d.broken && d.v > BREAK_SPEED) {
+          // surface tension snaps: this bubble is on its own now, the cluster stays where it got to
+          d.broken = true
+          plink()
+          els.current.get(id)?.jig.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14, 0.9)' }, { transform: 'scale(0.96, 1.05)' }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out' })
+        }
+        const c = clusters.current.get(d.key)
+        if (!d.broken && c) {
+          // slow drag: the whole cluster follows on its rubber band (members spring towards their shifted homes)
+          const sh = { dx: d.shift0.dx + (px - d.home0.x), dy: d.shift0.dy + (py - d.home0.y) }
+          shifts.current.set(d.key, sh)
+          for (const mid of c.ids) {
+            const m = nodes.current.get(mid)
+            const b = c.base.get(mid)
+            if (m && b) {
+              m.sim.hx = b.x + sh.dx
+              m.sim.hy = b.y + sh.dy
+            }
+          }
+          const el = labelEls.current.get(d.key)
+          if (el) el.style.transform = `translate(${sh.dx}px, ${sh.dy}px)`
+        } else if (d.broken) {
+          // carrying a loose bubble: light up the cluster it would join
+          let best: string | null = null
+          let bestD = Infinity
+          for (const k of clusters.current.values()) {
+            const sh = shifts.current.get(k.key)
+            const dist = Math.hypot(px - (k.cx + (sh?.dx ?? 0)), py - (k.cy + (sh?.dy ?? 0)))
+            if (k.key !== d.key && dist < k.R * 1.25 + n.sim.r && dist < bestD) {
+              best = k.key
+              bestD = dist
+            }
+          }
+          if (hotRef.current !== best) {
+            hotRef.current = best
+            setHot(best)
+          }
+        }
+        wake()
       },
-      release: (id) => {
+      release: (id, committed) => {
         const n = nodes.current.get(id)
+        const d = dragRef.current
+        dragRef.current = null
         if (n) n.sim.pinned = false
         grabbed.current = Math.max(0, grabbed.current - 1)
+        const target = hotRef.current
+        hotRef.current = null
+        setHot(null)
+        if (d?.broken && committed && target && live.current.group !== 'free') {
+          useStore.getState().assignToGroup(id, live.current.group, target)
+        }
         wake()
       },
     }),
@@ -404,8 +499,11 @@ export function Pond() {
   )
 
   /* ---------- pan / pinch / tap-to-add ---------- */
-  const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([])
-  const [bubble, setBubble] = useState<{ x: number; y: number } | null>(null)
+  type Ripple = { id: number; kind: 'circle' | 'box'; x: number; y: number; w: number; h: number }
+  const [ripples, setRipples] = useState<Ripple[]>([])
+  const [bubble, setBubble] = useState<{ id: number; x: number; y: number; phase: 'open' | 'shrink' } | null>(null)
+  const [shrink, setShrink] = useState({ sx: 0.08, sy: 0.2 })
+  const formRef = useRef<HTMLFormElement>(null)
   const [text, setText] = useState('')
   const [kind, setKind] = useState<TaskKind>('task')
   const nextId = useRef(0)
@@ -416,27 +514,76 @@ export function Pond() {
   const kindRef = useRef(kind)
   kindRef.current = kind
 
+  /** The wave reaches each bubble in turn and lifts it, like a lily pad on water. */
+  const wave = useCallback((sx: number, sy: number) => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const v = view.current
+    for (const [id, n] of nodes.current) {
+      const e = els.current.get(id)
+      if (!e) continue
+      const d = Math.hypot(n.sim.x * v.scale + v.tx - sx, n.sim.y * v.scale + v.ty - sy)
+      const delay = d / 0.32
+      if (delay > 2400) continue
+      const amp = 1 / (1 + d / 320)
+      e.jig.animate(
+        [
+          { transform: 'translateY(0px) scale(1)' },
+          { transform: `translateY(${-10 * amp}px) scale(${1 + 0.045 * amp})` },
+          { transform: `translateY(${3.5 * amp}px) scale(${1 - 0.012 * amp})` },
+          { transform: 'translateY(0px) scale(1)' },
+        ],
+        { duration: 1000, delay, easing: 'ease-in-out', composite: 'add' },
+      )
+    }
+  }, [])
+
+  const spawnRipple = useCallback(
+    (kind: Ripple['kind'], x: number, y: number, w = 0, h = 0) => {
+      const id = nextId.current++
+      setRipples((r) => [...r, { id, kind, x, y, w, h }])
+      window.setTimeout(() => setRipples((r) => r.filter((q) => q.id !== id)), 3200)
+      wave(x, y)
+    },
+    [wave],
+  )
+
   const closeBubble = useCallback(
     (save: boolean) => {
       const b = bubbleRef.current
-      if (b && save && textRef.current.trim()) {
+      if (!b || b.phase !== 'open') return
+      const typed = textRef.current.trim()
+      if (save && typed) {
         const v = view.current
         const { w: W, h: H } = dims.current
-        addTask({ title: textRef.current.trim(), kind: kindRef.current, x: (b.x - v.tx) / v.scale / W, y: (b.y - v.ty) / v.scale / H })
+        addTask({ title: typed, kind: kindRef.current, x: (b.x - v.tx) / v.scale / W, y: (b.y - v.ty) / v.scale / H })
+        // the box folds back down into a drop, and a round ripple spreads from it
+        window.setTimeout(() => {
+          drop((b.x / dims.current.w) * 2 - 1)
+          spawnRipple('circle', b.x, b.y)
+        }, 300)
       }
-      setBubble(null)
-      setText('')
+      const f = formRef.current
+      setShrink({ sx: 20 / (f?.offsetWidth ?? 240), sy: 20 / (f?.offsetHeight ?? 92) })
+      setBubble({ ...b, phase: 'shrink' })
+      window.setTimeout(() => {
+        setBubble((cur) => (cur?.id === b.id ? null : cur))
+        setText((t) => (bubbleRef.current?.id === b.id ? '' : t))
+      }, 380)
     },
-    [addTask],
+    [addTask, spawnRipple],
   )
 
   const openBubble = (x: number, y: number) => {
     const id = nextId.current++
-    setRipples((r) => [...r, { id, x, y }])
-    window.setTimeout(() => setRipples((r) => r.filter((q) => q.id !== id)), 2800)
     drop((x / dims.current.w) * 2 - 1)
-    setBubble({ x, y })
+    setText('')
+    setBubble({ id, x, y, phase: 'open' })
     setKind('task')
+    // once the box has rendered, send a ripple out in its own shape
+    requestAnimationFrame(() => {
+      const f = formRef.current
+      if (f) spawnRipple('box', f.offsetLeft + f.offsetWidth / 2, f.offsetTop + f.offsetHeight / 2, f.offsetWidth, f.offsetHeight)
+    })
   }
 
   useEffect(() => {
@@ -504,7 +651,7 @@ export function Pond() {
       if ((e.target as HTMLElement).closest('[data-node],[data-ui]')) return
       if (e.button !== 0 && e.pointerType === 'mouse') return
       if (ptrs.size === 0) {
-        openAtDown = !!bubbleRef.current
+        openAtDown = bubbleRef.current?.phase === 'open'
         window.addEventListener('pointermove', move)
         window.addEventListener('pointerup', up)
         window.addEventListener('pointercancel', up)
@@ -552,7 +699,7 @@ export function Pond() {
       aria-label="Pond canvas. Tap the water to add a thought. Drag to pan, pinch to zoom."
     >
       <div ref={worldRef} className="absolute left-0 top-0 origin-top-left" style={{ width: w, height: h, transform: 'translate(0px,0px) scale(1)' }}>
-        <svg className={`pointer-events-none absolute left-0 top-0 overflow-visible transition-opacity duration-700 ${showLines ? 'opacity-100' : 'opacity-0'}`} width={w} height={h}>
+        <svg className={`pointer-events-none absolute left-0 top-0 overflow-visible blur-[1.2px] transition-opacity duration-700 ${showLines ? 'opacity-60' : 'opacity-0'}`} width={w} height={h}>
           {rel.links.map(([a, b]) => (
             <line
               key={pairKey(a, b)}
@@ -561,10 +708,10 @@ export function Pond() {
                 if (el) lineEls.current.set(k, el)
                 else lineEls.current.delete(k)
               }}
-              stroke="rgba(159,111,205,0.45)"
-              strokeWidth={2}
+              stroke="rgba(159,111,205,0.5)"
+              strokeWidth={3.5}
               strokeLinecap="round"
-              strokeDasharray="1 7"
+              strokeDasharray="0.1 10"
             />
           ))}
         </svg>
@@ -572,10 +719,22 @@ export function Pond() {
         {labels.map((l) => (
           <div
             key={l.key}
-            className="pop-in pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-display text-lg italic text-lilac-700/80"
+            ref={(el) => {
+              if (!el) return void labelEls.current.delete(l.key)
+              labelEls.current.set(l.key, el)
+              const sh = shifts.current.get(l.key)
+              el.style.transform = sh ? `translate(${sh.dx}px, ${sh.dy}px)` : ''
+            }}
+            className="pointer-events-none absolute"
             style={{ left: l.x, top: l.y }}
           >
-            {l.label}
+            <div
+              className={`pop-in -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-display italic transition-all duration-300 ${
+                hot === l.key ? 'scale-125 text-xl text-lilac-600' : 'text-lg text-lilac-700/80'
+              }`}
+            >
+              {l.label}
+            </div>
           </div>
         ))}
 
@@ -583,13 +742,33 @@ export function Pond() {
           visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} />)}
       </div>
 
-      {ripples.map((r) => (
-        <span key={r.id}>
-          {[0, 0.28, 0.6].map((d, i) => (
-            <span key={i} className="ripple-ring" style={{ left: r.x, top: r.y, width: 240 + i * 90, height: 240 + i * 90, animationDelay: `${d}s`, opacity: 0 }} />
-          ))}
-        </span>
-      ))}
+      {ripples.map((r) =>
+        r.kind === 'circle' ? (
+          <span key={r.id}>
+            {[0, 0.28, 0.6].map((d, i) => (
+              <span key={i} className="ripple-ring" style={{ left: r.x, top: r.y, width: 240 + i * 90, height: 240 + i * 90, animationDelay: `${d}s`, opacity: 0 }} />
+            ))}
+          </span>
+        ) : (
+          <span key={r.id}>
+            {[0, 0.3, 0.62].map((d, i) => (
+              <span
+                key={i}
+                className="box-ripple"
+                style={{
+                  left: r.x,
+                  top: r.y,
+                  animationDelay: `${d}s`,
+                  ['--w0' as string]: `${r.w}px`,
+                  ['--h0' as string]: `${r.h}px`,
+                  ['--w1' as string]: `${r.w + 230 + i * 100}px`,
+                  ['--h1' as string]: `${r.h + 230 + i * 100}px`,
+                }}
+              />
+            ))}
+          </span>
+        ),
+      )}
 
       {bubble && (
         <form
@@ -602,8 +781,18 @@ export function Pond() {
             // tapping anywhere outside the box tucks it away (keeping what was typed)
             if (!e.currentTarget.contains(e.relatedTarget as Node | null)) closeBubble(true)
           }}
-          className="glass glass-strong pop-in absolute z-20 rounded-[1.6rem] p-2.5"
-          style={{ left: bx, top: by, width: bw, ['--ox' as string]: `${bubble.x - bx}px`, ['--oy' as string]: '-10px' }}
+          ref={formRef}
+          key={bubble.id}
+          className={`glass glass-strong absolute z-20 rounded-[1.6rem] p-2.5 ${bubble.phase === 'open' ? 'box-spring' : 'box-shrink'}`}
+          style={{
+            left: bx,
+            top: by,
+            width: bw,
+            ['--ox' as string]: `${bubble.x - bx}px`,
+            ['--oy' as string]: `${bubble.y - by}px`,
+            ['--sx' as string]: shrink.sx,
+            ['--sy' as string]: shrink.sy,
+          }}
         >
           <div className="flex items-center">
             <input

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { relativeLabel, today } from '../core/dates'
-import { isOverdue, weightOf } from '../core/tasks'
+import { isOverdue, plannedDate, weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, usePointerDrag } from './dnd'
@@ -62,16 +62,18 @@ export function FolderChips({ task, max = 3 }: { task: Task; max?: number }) {
   )
 }
 
-export function DueChip({ task }: { task: Task }) {
-  if (!task.due) return null
+export function DueChip({ task, compact = false }: { task: Task; compact?: boolean }) {
+  const when = plannedDate(task)
+  if (!when) return null
   const late = isOverdue(task)
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
-        late ? 'bg-rose-soft/80 text-[#9a4566]' : task.due === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
+        late ? 'bg-rose-soft/80 text-[#9a4566]' : when === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
       }`}
     >
-      {relativeLabel(task.due)}
+      {relativeLabel(when)}
+      {!compact && task.day && task.due && task.due !== task.day && <i className="ml-1 font-normal opacity-70">· due {relativeLabel(task.due)}</i>}
     </span>
   )
 }

@@ -70,7 +70,7 @@ body.dragging {
 }
 
 .glass-strong {
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(250, 244, 255, 0.82));
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.95), rgba(250, 244, 255, 0.92));
 }
 
 .glass-soft {
@@ -261,4 +261,43 @@ input[type='date'] {
 
 @media (prefers-reduced-motion: reduce) {
   .pop-in, .pop-out, .burst, .bloom-out, .tip-float { animation-duration: 0.01s; animation-delay: 0s; }
+}
+
+/* ---------- add-bubble spring, shape-matched ripples, shrink back to a drop ---------- */
+@keyframes box-spring {
+  0% { opacity: 0; transform: scale(0.05); }
+  28% { opacity: 1; transform: scale(1.16); }
+  46% { transform: scale(0.92); }
+  62% { transform: scale(1.055); }
+  78% { transform: scale(0.985); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.box-spring { animation: box-spring 0.8s cubic-bezier(0.3, 0.6, 0.3, 1) both; transform-origin: var(--ox, 50%) var(--oy, 0%); }
+
+@keyframes box-shrink {
+  0% { opacity: 1; transform: scale(1); border-radius: 1.6rem; }
+  22% { opacity: 1; transform: scale(1.045); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: scale(var(--sx, 0.08), var(--sy, 0.2)); border-radius: 999px; }
+}
+.box-shrink { animation: box-shrink 0.36s cubic-bezier(0.5, 0, 0.7, 0.4) both; transform-origin: var(--ox, 50%) var(--oy, 0%); pointer-events: none; }
+
+/* a soft, hazy ripple in the box's own rounded-rectangle shape */
+@keyframes box-ripple {
+  0% { width: var(--w0); height: var(--h0); opacity: 0.85; border-radius: 1.7rem; }
+  100% { width: var(--w1); height: var(--h1); opacity: 0; border-radius: 6rem; }
+}
+.box-ripple {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  border: 2.5px solid rgba(159, 111, 205, 0.5);
+  background: radial-gradient(closest-side, transparent 70%, rgba(205, 177, 235, 0.3));
+  box-shadow: 0 0 30px rgba(183, 143, 223, 0.55), inset 0 0 22px rgba(205, 177, 235, 0.45);
+  filter: blur(1.6px);
+  animation: box-ripple 2.7s cubic-bezier(0.16, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .box-spring, .box-shrink, .box-ripple { animation-duration: 0.01s; }
 }
