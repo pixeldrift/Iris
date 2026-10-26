@@ -67,7 +67,7 @@ export default function App() {
     <div className="relative flex h-dvh overflow-hidden">
       <Decor />
       <Sidebar />
-      <main className={`relative z-10 flex min-w-0 flex-1 flex-col pl-[1.15rem] transition-[padding] duration-300 md:pl-0 ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
+      <main className={`relative z-10 flex min-w-0 flex-1 flex-col ${view === 'timeline' ? '' : 'pl-[1.15rem]'} transition-[padding] duration-300 md:pl-0 ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
         <TopBar onNew={() => setComposing(true)} />
         <div className="relative min-h-0 flex-1 px-3 pb-3 md:px-4 md:pb-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <View />

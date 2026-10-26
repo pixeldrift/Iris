@@ -156,7 +156,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                     <IconThought size={cb} />
                   </span>
                 ) : (
-                  <DoneButton task={task} size={cb} soft />
+                  <DoneButton task={task} size={cb} />
                 )}
                 {task.kind === 'reminder' && (
                   <span title="Reminder" role="img" aria-label="Reminder" className="text-lilac-500">

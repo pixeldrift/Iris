@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useFlip } from '../flip'
+import { ScrollFade } from '../ScrollFade'
 import { sortTasks } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -8,11 +9,11 @@ import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, WeightDot, useTaskDrag } from '../shared'
 
 const SORTS: { id: SortKey; label: string }[] = [
-  { id: 'flow', label: 'Flow (what wants me most)' },
+  { id: 'flow', label: 'Top of mind' },
   { id: 'due', label: 'Due date' },
-  { id: 'importance', label: 'Matters most' },
-  { id: 'urgency', label: 'Most pressing' },
-  { id: 'created', label: 'Newest planted' },
+  { id: 'importance', label: 'Importance' },
+  { id: 'urgency', label: 'Urgency' },
+  { id: 'created', label: 'Newest' },
   { id: 'title', label: 'A → Z' },
 ]
 
@@ -60,7 +61,7 @@ export function ListView() {
   return (
     <div className="glass mx-auto flex h-full max-w-3xl flex-col rounded-[2rem] p-4 md:p-5">
       <div className="mb-3 flex items-center gap-2">
-        <button ref={anchor} onClick={() => setMenu((o) => !o)} className="glass-soft flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm" aria-haspopup="menu" aria-expanded={menu}>
+        <button ref={anchor} onClick={() => setMenu((o) => !o)} className="glass-soft flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm" aria-haspopup="menu" aria-expanded={menu}>
           {SORTS.find((x) => x.id === sortKey)?.label}
           <span className="text-ink-faint">▾</span>
         </button>
@@ -88,11 +89,15 @@ export function ListView() {
         <span className="ml-auto text-xs text-ink-faint">{rows.length} floating</span>
       </div>
       <QuickAdd onAdd={(title) => addTask({ title })} />
-      <div ref={listRef} className="scroll-soft -mr-2 mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
+      <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">
+      <ScrollFade className="pr-2">
+      <div ref={listRef} className="space-y-2 py-1">
         {rows.map((t) => (
           <Row key={t.id} task={t} />
         ))}
         {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">Nothing here yet. Still water.</p>}
+      </div>
+      </ScrollFade>
       </div>
     </div>
   )

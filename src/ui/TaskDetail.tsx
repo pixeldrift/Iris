@@ -14,7 +14,7 @@ function SoftSlider({ label, left, right, value, onChange }: { label: string; le
   return (
     <label className="block">
       <span className="mb-0.5 block text-xs font-medium text-ink-soft">{label}</span>
-      <input type="range" min={0} max={1} step={0.01} value={value} onChange={(e) => onChange(Number(e.target.value))} className="soft" aria-label={label} />
+      <input type="range" min={0} max={1} step="any" value={value} onChange={(e) => onChange(Number(e.target.value))} className="soft" aria-label={label} />
       <span className="flex justify-between text-[0.68rem] text-ink-faint">
         <span>{left}</span>
         <span>{right}</span>
@@ -194,7 +194,7 @@ export function TaskDetail() {
                   title={s.hint}
                   className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
                 >
-                  {s.label}
+                  {s.one}
                 </button>
               ))}
             </div>

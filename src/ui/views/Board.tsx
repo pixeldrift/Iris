@@ -3,6 +3,7 @@ import { sortTasks } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
+import { ScrollFade } from '../ScrollFade'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, STATUSES, useTaskDrag } from '../shared'
 
@@ -59,10 +60,14 @@ function Column({ id, label, hint, tasks, onAdd }: { id: string; label: string; 
         <span className="ml-auto text-xs tabular-nums text-ink-soft">{tasks.length}</span>
       </header>
       <QuickAdd placeholder="＋ add" onAdd={onAdd} />
-      <div className="scroll-soft -mr-1.5 mt-2.5 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1.5">
+      <div className="-mr-1.5 mt-2.5 flex min-h-0 flex-1 flex-col">
+      <ScrollFade className="pr-1.5">
+      <div className="space-y-2 py-1">
         {tasks.map((t) => (
           <Card key={t.id} task={t} />
         ))}
+      </div>
+      </ScrollFade>
       </div>
     </section>
   )
