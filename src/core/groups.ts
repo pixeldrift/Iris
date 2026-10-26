@@ -1,26 +1,42 @@
 import { diffDays, today } from './dates'
-import { pathOf } from './folders'
+import { descendantIds, pathOf } from './folders'
 import type { Folder, Person, PondGroup, Task } from './types'
 
 export interface Group {
   key: string
   label: string
   taskIds: string[]
+  /** The group's own colour (a folder's or person's hue), when it has one. */
+  hue?: number
+  /** For folder groups: the trail from the top (School › English 101), so the title reads as a breadcrumb. */
+  path?: { id: string; name: string }[]
 }
 
 const KIND_LABELS = { task: 'Tasks', idea: 'Ideas', reminder: 'Reminders' } as const
 
-function bucket(t: Task, ctx: { folders: Folder[]; people: Person[]; now: string }, mode: PondGroup): [string, string, number] {
+function bucket(
+  t: Task,
+  ctx: { folders: Folder[]; people: Person[]; now: string; scopeFolderId?: string },
+  mode: PondGroup,
+): [string, string, number, number?, { id: string; name: string }[]?] {
   switch (mode) {
     case 'folder': {
-      const f = t.folderIds[0]
+      // Inside a folder, gather by its subfolders (the folder itself for what sits directly in it);
+      // anywhere else, by top-level folder.
+      const scope = ctx.scopeFolderId
+      const inside = scope ? descendantIds(ctx.folders, scope) : null
+      const f = (inside ? t.folderIds.find((x) => inside.has(x)) : undefined) ?? t.folderIds[0]
       if (!f) return ['none', 'Unfiled', 99]
-      const root = pathOf(ctx.folders, f)[0]
-      return root ? [root.id, root.name, root.sort] : ['none', 'Unfiled', 99]
+      const path = pathOf(ctx.folders, f)
+      const at = scope ? path.findIndex((x) => x.id === scope) : -1
+      const target = at >= 0 ? (path[at + 1] ?? path[at]) : path[0]
+      if (!target) return ['none', 'Unfiled', 99]
+      const trail = pathOf(ctx.folders, target.id).map((x) => ({ id: x.id, name: x.name }))
+      return [target.id, target.name, target.sort, target.hue, trail]
     }
     case 'person': {
       const p = ctx.people.find((x) => x.id === t.personIds[0])
-      return p ? [p.id, p.name, 0] : ['none', 'Just me', 99]
+      return p ? [p.id, p.name, 0, p.hue] : ['none', 'Just me', 99]
     }
     case 'due': {
       const when = t.due ?? t.day
@@ -38,11 +54,11 @@ function bucket(t: Task, ctx: { folders: Folder[]; people: Person[]; now: string
   }
 }
 
-export function groupTasks(tasks: Task[], mode: PondGroup, folders: Folder[], people: Person[], now = today()): Group[] {
+export function groupTasks(tasks: Task[], mode: PondGroup, folders: Folder[], people: Person[], now = today(), scopeFolderId?: string): Group[] {
   const map = new Map<string, Group & { order: number }>()
   for (const t of tasks) {
-    const [key, label, order] = bucket(t, { folders, people, now }, mode)
-    const g = map.get(key) ?? { key, label, taskIds: [], order }
+    const [key, label, order, hue, path] = bucket(t, { folders, people, now, scopeFolderId }, mode)
+    const g = map.get(key) ?? { key, label, taskIds: [], order, hue, path }
     g.taskIds.push(t.id)
     map.set(key, g)
   }
@@ -76,47 +92,19 @@ export function layoutClusters(radii: number[], aspect: number, gap = 44): { x: 
   return radii.map((_, i) => ({ x: xs[i % cols] - x / 2, y: ys[Math.floor(i / cols)] - y / 2 }))
 }
 
-/**
- * Which tasks are related (share a folder or a person) and a sparse set of
- * "mind-map" links: within each tag every task links to its nearest earlier
- * neighbour, so clusters read as a tree rather than a hairball.
- */
-export function relations(tasks: Task[]): { related: Set<string>; links: [string, string][] } {
+/** Which tasks are related: they share a folder or a person. Keys are `pairKey(a, b)`. */
+export function relations(tasks: Task[]): { related: Set<string> } {
   const byTag = new Map<string, Task[]>()
   for (const t of tasks) {
     for (const f of t.folderIds) byTag.set(`f${f}`, [...(byTag.get(`f${f}`) ?? []), t])
     for (const p of t.personIds) byTag.set(`p${p}`, [...(byTag.get(`p${p}`) ?? []), t])
   }
-  const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
   const related = new Set<string>()
-  const linked = new Set<string>()
-  const links: [string, string][] = []
   for (const members of byTag.values()) {
     const ms = members.slice(0, 40)
-    for (let i = 0; i < ms.length; i++) {
-      let best = -1
-      let bestD = Infinity
-      for (let j = 0; j < ms.length; j++) {
-        if (i === j) continue
-        related.add(key(ms[i].id, ms[j].id))
-        if (j < i) {
-          const d = Math.hypot(ms[i].x - ms[j].x, ms[i].y - ms[j].y)
-          if (d < bestD) {
-            bestD = d
-            best = j
-          }
-        }
-      }
-      if (best >= 0) {
-        const k = key(ms[i].id, ms[best].id)
-        if (!linked.has(k)) {
-          linked.add(k)
-          links.push([ms[i].id, ms[best].id])
-        }
-      }
-    }
+    for (let i = 0; i < ms.length; i++) for (let j = i + 1; j < ms.length; j++) related.add(pairKey(ms[i].id, ms[j].id))
   }
-  return { related, links }
+  return { related }
 }
 
 export const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)

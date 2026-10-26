@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { dayLabel, shortDate, weekdayName } from '../core/dates'
 import { pathOf } from '../core/folders'
-import type { PondGroup } from '../core/types'
+import type { Folder, PondGroup } from '../core/types'
 import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
 import { IconMenu, IconPlus, IconSliders, IconSound, IconSoundOff } from './icons'
@@ -109,8 +109,7 @@ function ViewMenu() {
   const set = useStore((st) => st.setSetting)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
-  const items: { key: 'magnet' | 'sizeByPriority' | 'drift' | 'showDone'; label: string; hint: string; pondOnly?: boolean }[] = [
-    { key: 'magnet', label: 'Related bubbles drift together', hint: 'with dotted threads', pondOnly: true },
+  const items: { key: 'sizeByPriority' | 'drift' | 'showDone'; label: string; hint: string; pondOnly?: boolean }[] = [
     { key: 'sizeByPriority', label: 'Bigger when more important', hint: 'bubble size', pondOnly: true },
     { key: 'drift', label: 'Gentle drifting', hint: 'floating on the water', pondOnly: true },
     { key: 'showDone', label: 'Show bloomed tasks', hint: 'finished tasks stay visible' },
@@ -147,6 +146,31 @@ function Switch({ on }: { on: boolean }) {
   )
 }
 
+/** School › English 101: the folders above are links (lighter, italic, underlined) that move up a level. */
+function Crumbs({ path, go }: { path: Folder[]; go: (id: string) => void }) {
+  return (
+    <>
+      {path.map((f, i) =>
+        i < path.length - 1 ? (
+          <Fragment key={f.id}>
+            <button
+              onClick={() => go(f.id)}
+              className="font-normal italic text-ink-soft/80 underline decoration-ink-faint/70 decoration-1 underline-offset-[6px] transition hover:text-lilac-700 hover:decoration-lilac-500"
+            >
+              {f.name}
+            </button>
+            <span className="mx-2 font-normal text-ink-faint" aria-hidden>
+              ›
+            </span>
+          </Fragment>
+        ) : (
+          <span key={f.id}>{f.name}</span>
+        ),
+      )}
+    </>
+  )
+}
+
 export function TopBar({ onNew }: { onNew: () => void }) {
   const scope = useStore((s) => s.scope)
   const folders = useStore((s) => s.folders)
@@ -155,6 +179,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const settings = useStore((s) => s.settings)
   const set = useStore((s) => s.setSetting)
   const setSidebar = useStore((s) => s.setSidebar)
+  const setScope = useStore((s) => s.setScope)
 
   const title =
     scope.type === 'all'
@@ -165,7 +190,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           ? weekdayName(scope.date)
           : scope.type === 'person'
             ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
-            : pathOf(folders, scope.id).map((f) => f.name).join(' › ') || 'Folder'
+            : (pathOf(folders, scope.id).at(-1)?.name ?? 'Folder')
   const sub = scope.type === 'day' ? [dayLabel(scope.date), shortDate(scope.date)].filter((x, i) => i === 1 || x !== weekdayName(scope.date)).join(' · ') : VIEWS.find((v) => v.id === view)?.hint
 
   return (
@@ -176,7 +201,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         </button>
       </Tip>
       <div className="order-1 min-w-0 flex-1">
-        <h2 className="truncate font-display text-2xl leading-tight md:text-3xl">{title}</h2>
+        <h2 className="truncate font-display text-2xl leading-tight md:text-3xl">
+          {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} /> : title}
+        </h2>
         <p className="text-xs text-ink-soft">
           {VIEWS.find((v) => v.id === view)?.label}
           {sub ? ` · ${sub}` : ''}

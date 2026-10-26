@@ -194,7 +194,10 @@ export function Pond() {
   const people = useStore((s) => s.people)
   const scale = useStore((s) => s.settings.sizeByPriority)
   const group = useStore((s) => s.settings.pondGroup)
-  const magnet = useStore((s) => s.settings.magnet)
+  const scope = useStore((s) => s.scope)
+  const setScope = useStore((s) => s.setScope)
+  const scopeRef = useRef(scope)
+  scopeRef.current = scope
   const addTask = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
 
@@ -210,9 +213,8 @@ export function Pond() {
   const raf = useRef(0)
   const running = useRef(false)
   const grabbed = useRef(0)
-  const lineEls = useRef(new Map<string, SVGLineElement>())
   const [offscreen, setOffscreen] = useState(false)
-  const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number }[]>([])
+  const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number; hue?: number; path?: { id: string; name: string }[] }[]>([])
   const labelsRef = useRef(labels)
 
   /* cluster physics (grouped modes) */
@@ -280,11 +282,11 @@ export function Pond() {
   const radius = useCallback((t: Task) => Math.round(bubbleRadius(t, scale) * rf), [scale, rf])
   const rel = useMemo(() => relations(visible), [visible])
 
-  const live = useRef({ rel, group, magnet })
-  live.current = { rel, group, magnet }
+  const live = useRef({ rel, group })
+  live.current = { rel, group }
   const FOLLOW_DELAY = 160 // ms the cluster waits before following, so a quick yank is spotted first
-  const JOIN_SPEED = 1.0 // px/ms: a loose bubble bumping into another cluster this fast becomes part of it
-  const BREAK_SPEED = 1.8 // px/ms (~1800px/s), sustained: faster than this snaps a bubble free of its cluster
+  const JOIN_SPEED = 0.55 // px/ms: a loose bubble bumping into another cluster this fast becomes part of it
+  const BREAK_SPEED = 1.1 // px/ms (~1100px/s), sustained: faster than this snaps a bubble free of its cluster
 
   /* ---------- view transform ---------- */
   const checkOffscreen = useCallback(() => {
@@ -345,29 +347,17 @@ export function Pond() {
       const e = els.current.get(n.sim.id)
       if (e) e.outer.style.transform = `translate(${n.sim.x - n.sim.r}px, ${n.sim.y - n.sim.r}px)`
     }
-    const { links } = live.current.rel
-    for (const [a, b] of links) {
-      const el = lineEls.current.get(pairKey(a, b))
-      const na = nodes.current.get(a)
-      const nb = nodes.current.get(b)
-      if (el && na && nb) {
-        el.setAttribute('x1', String(na.sim.x))
-        el.setAttribute('y1', String(na.sim.y))
-        el.setAttribute('x2', String(nb.sim.x))
-        el.setAttribute('y2', String(nb.sim.y))
-      }
-    }
   }, [])
 
   const wake = useCallback(() => {
     if (running.current) return
     running.current = true
     const tick = () => {
-      const { rel: r, group: g, magnet: mg } = live.current
+      const { rel: r, group: g } = live.current
       const list = [...nodes.current.values()].map((n) => n.sim)
       const { bumps, energy } = stepSim(
         list,
-        { home: g === 'free' ? 0.002 : 0.012, magnet: g === 'free' && mg ? 0.1 : 0, damping: 0.88 },
+        { home: g === 'free' ? 0.002 : 0.012, magnet: g === 'free' ? 0.1 : 0, damping: 0.88 },
         (a, b) => r.related.has(pairKey(a, b)),
       )
       paint()
@@ -424,7 +414,7 @@ export function Pond() {
     if (group === 'free') {
       for (const t of visible) homes.set(t.id, { x: t.x * w, y: t.y * h })
     } else {
-      const groups = groupTasks(visible, group, folders, people)
+      const groups = groupTasks(visible, group, folders, people, undefined, scopeRef.current.type === 'folder' ? scopeRef.current.id : undefined)
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
       const spacing = avgR * 1.45
       const blob = (n: number) => spacing * Math.sqrt(n) + avgR
@@ -451,7 +441,7 @@ export function Pond() {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, x: sumX / Math.max(1, base.size), y: top - 40 })
+        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: sumX / Math.max(1, base.size), y: top - 40 })
       })
     }
     setLabels(nextLabels)
@@ -528,7 +518,7 @@ export function Pond() {
           const speed = (Math.hypot(px - d.x, py - d.y) / Math.max(10, now - d.t)) * view.current.scale
           d.v = 0.5 * d.v + 0.5 * speed
           // a hard flick, or a sudden jump well above how fast we've been dragging (after a settling moment)
-          const yank = now - d.t0 > 380 && d.v > 0.9 && d.v > 2.4 * d.slow + 0.35
+          const yank = now - d.t0 > 300 && d.v > 0.55 && d.v > 1.9 * d.slow + 0.2
           d.fast = d.v > BREAK_SPEED || yank ? d.fast + 1 : 0
           d.slow = 0.92 * d.slow + 0.08 * d.v
           d.t = now
@@ -760,7 +750,10 @@ export function Pond() {
       }
       const dx = pts[0].x - base.x
       const dy = pts[0].y - base.y
-      if (mode === 'tap' && Math.hypot(dx, dy) > 6) mode = 'pan'
+      if (mode === 'tap' && Math.hypot(dx, dy) > 6) {
+        mode = 'pan'
+        el.style.cursor = 'grabbing'
+      }
       if (mode === 'pan') {
         view.current = { ...base.v, tx: base.v.tx + dx, ty: base.v.ty + dy }
         applyView()
@@ -780,6 +773,7 @@ export function Pond() {
           else openBubble(p.x, p.y)
         }
         mode = 'none'
+        el.style.cursor = ''
         checkOffscreen()
       } else {
         mode = 'pan' // lifted one finger of a pinch: carry on panning, never create
@@ -802,12 +796,18 @@ export function Pond() {
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
-      if (e.ctrlKey || e.metaKey) zoomAbout(Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top)
-      else {
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        // Shift + wheel (or a sideways scroll) slides the view
         const v = view.current
-        view.current = { ...v, tx: v.tx - e.deltaX, ty: v.ty - e.deltaY }
+        view.current = { ...v, tx: v.tx - (e.deltaX || e.deltaY) * unit, ty: v.ty - (e.deltaX ? e.deltaY : 0) * unit }
         applyView()
+        return
       }
+      // The wheel zooms about the cursor (one mouse notch is a gentle step); a trackpad pinch arrives as ctrl + wheel
+      const k = e.ctrlKey ? 0.01 : 0.0018
+      const factor = Math.min(1.45, Math.max(0.69, Math.exp(-e.deltaY * unit * k)))
+      zoomAbout(factor, e.clientX - r.left, e.clientY - r.top)
     }
     el.addEventListener('pointerdown', down)
     el.addEventListener('wheel', wheel, { passive: false })
@@ -825,8 +825,6 @@ export function Pond() {
   const bx = bubble ? Math.min(Math.max(bubble.x - bw / 2, 12), Math.max(12, w - bw - 12)) : 0
   const by = bubble ? Math.min(bubble.y + 14, Math.max(12, h - 124)) : 0
 
-  const showLines = group === 'free' && magnet
-
   return (
     <div
       ref={ref}
@@ -838,23 +836,6 @@ export function Pond() {
       aria-label="Pond canvas. Tap the water to add a thought. Drag to pan, pinch to zoom."
     >
       <div ref={worldRef} className="absolute left-0 top-0 origin-top-left" style={{ width: w, height: h, transform: 'translate(0px,0px) scale(1)' }}>
-        <svg className={`pointer-events-none absolute left-0 top-0 overflow-visible blur-[1.2px] transition-opacity duration-700 ${showLines ? 'opacity-60' : 'opacity-0'}`} width={w} height={h}>
-          {rel.links.map(([a, b]) => (
-            <line
-              key={pairKey(a, b)}
-              ref={(el) => {
-                const k = pairKey(a, b)
-                if (el) lineEls.current.set(k, el)
-                else lineEls.current.delete(k)
-              }}
-              stroke="rgba(159,111,205,0.5)"
-              strokeWidth={3.5}
-              strokeLinecap="round"
-              strokeDasharray="0.1 10"
-            />
-          ))}
-        </svg>
-
         {labels.map((l) => (
           <div
             key={l.key}
@@ -871,11 +852,34 @@ export function Pond() {
               data-ui
               onPointerDown={(e) => dragLabel(e, l.key)}
               title="Drag to move this whole group"
-              className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
-                hot === l.key ? 'scale-110 bg-white/70 text-4xl text-lilac-600' : 'text-3xl text-lilac-700/85'
+              style={{ color: l.hue === undefined ? 'var(--color-lilac-700)' : `hsl(${l.hue}, 50%, 36%)` }}
+              className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display font-bold italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
+                hot === l.key ? 'scale-110 bg-white/70 text-4xl' : 'text-3xl opacity-90'
               }`}
             >
-              {l.label}
+              {l.path && l.path.length > 1 ? (
+                // a breadcrumb: the folders above are lighter, italic, underlined links that move up a level
+                l.path.map((c, i) =>
+                  i < l.path!.length - 1 ? (
+                    <span key={c.id}>
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => setScope({ type: 'folder', id: c.id })}
+                        className="text-[0.62em] font-normal underline decoration-1 underline-offset-[5px] opacity-70 transition hover:opacity-100"
+                      >
+                        {c.name}
+                      </button>
+                      <span className="mx-1.5 text-[0.62em] font-normal opacity-60" aria-hidden>
+                        ›
+                      </span>
+                    </span>
+                  ) : (
+                    <span key={c.id}>{c.name}</span>
+                  ),
+                )
+              ) : (
+                l.label
+              )}
             </div>
           </div>
         ))}
@@ -951,7 +955,7 @@ export function Pond() {
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to plant a thought</p>
       )}
       {visible.length > 0 && !bubble && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">Tap the water to add · drag to wander · pinch to zoom · drop a lily on a folder to tag it</p>
+        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a folder to tag it</p>
       )}
 
       <div data-ui className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5">

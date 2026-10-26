@@ -340,3 +340,10 @@ input[type='range'].hue::-webkit-slider-runnable-track {
 input[type='range'].hue::-moz-range-track {
   background: linear-gradient(90deg, hsl(0 62% 78%), hsl(40 62% 76%), hsl(90 50% 76%), hsl(150 50% 76%), hsl(200 62% 78%), hsl(255 62% 80%), hsl(300 62% 80%), hsl(340 62% 80%));
 }
+
+@keyframes glow-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+.glow-breathe { animation: glow-breathe 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .glow-breathe { animation: none; } }

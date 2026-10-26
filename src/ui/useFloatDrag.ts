@@ -55,6 +55,8 @@ export function useFloatDrag(
     // the node moves itself inside the container; a chip only appears once it leaves
     ghost: (x, y) => {
       if (o.current.selfGhost) return false
+      // with the drawer pulled open the bubble itself is underneath it: show the chip above
+      if (useStore.getState().sidebarOpen) return true
       const r = rect()
       return !r || x < r.left || x > r.right || y < r.top || y > r.bottom
     },
