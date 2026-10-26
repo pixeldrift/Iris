@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="pinwheel" data-default-petals="5">
+  <title>Pinwheel</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <g id="pinwheel-blade">
+      <path d="M0 0C6.4-1.6 10.4-6.8 4.8-11C.8-8.6-1.4-4.2 0 0Z" fill="#d9a3ec" stroke="#d9a3ec" stroke-width=".7" stroke-linejoin="round" style="fill:var(--flower-base,#d9a3ec);stroke:var(--flower-base,#d9a3ec)"/>
+      <path d="M.8-1.6C3.4-3.6 4.8-6.4 3.8-9" fill="none" stroke="#eed3f8" stroke-width=".8" style="stroke:var(--flower-light,#eed3f8)" stroke-linecap="round"/>
+    </g>
+  </defs>
+  <g data-ring="pinwheel-blade" data-count="5" data-offset="0" data-variable="true">
+    <use href="#pinwheel-blade" transform="rotate(0.0)"/>
+    <use href="#pinwheel-blade" transform="rotate(72.0)"/>
+    <use href="#pinwheel-blade" transform="rotate(144.0)"/>
+    <use href="#pinwheel-blade" transform="rotate(216.0)"/>
+    <use href="#pinwheel-blade" transform="rotate(288.0)"/>
+  </g>
+  <circle r="2.4" fill="#eed3f8" style="fill:var(--flower-light,#eed3f8)"/>
+  <circle r="1.4" fill="#fff" opacity=".95"/>
+</svg>

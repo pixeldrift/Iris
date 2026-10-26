@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="iris">
+  <title>Iris</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <ellipse id="iris-standard" cx="0" cy="-6" rx="2.1" ry="5.4" fill="#a36bc1" style="fill:var(--flower-deep,#a36bc1)"/>
+    <g id="iris-fall">
+      <ellipse cx="0" cy="-6.1" rx="4" ry="5.6" fill="#d9a3ec" style="fill:var(--flower-base,#d9a3ec)"/>
+      <path d="M0-2.2L0-7" stroke="#f8d86a" stroke-width="1.3" stroke-linecap="round"/>
+    </g>
+  </defs>
+  <g data-ring="iris-standard" data-count="3" data-offset="60">
+    <use href="#iris-standard" transform="rotate(60.0)"/>
+    <use href="#iris-standard" transform="rotate(180.0)"/>
+    <use href="#iris-standard" transform="rotate(300.0)"/>
+  </g>
+  <g data-ring="iris-fall" data-count="3" data-offset="0">
+    <use href="#iris-fall" transform="rotate(0.0)"/>
+    <use href="#iris-fall" transform="rotate(120.0)"/>
+    <use href="#iris-fall" transform="rotate(240.0)"/>
+  </g>
+  <circle r="1.3" fill="#fff6dc" style="fill:var(--flower-cream,#fff6dc)"/>
+</svg>

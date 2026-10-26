@@ -39,6 +39,10 @@ material, the ambient sound bed and the particles, and nothing else.
 - **Blended bubbles.** A bubble that lives in more than one folder could show a colour gradient made of
   its folders' colours (or a small ring of their flowers) instead of only its first folder's hue.
 
+- **Petal fill / highlighting.** Fill or highlight a number of a flower's petals to show something at a
+  glance (for example how much of a folder is done, or a priority level), as an alternative to changing the
+  petal count. Optional; the SVG petal rings already make individual petals addressable.
+
 ## Polish ideas
 - Folder-specific bubble colours and icons.
 - Manual ordering inside list and board columns.

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="sunflower" data-default-petals="14">
+  <title>Sunflower</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <path id="sunflower-ray" d="M0-6.6C1.4-8 1.4-10 0-11.6C-1.4-10-1.4-8 0-6.6Z" fill="#d9a3ec" style="fill:var(--flower-base,#d9a3ec)"/>
+    <path id="sunflower-ray-inner" d="M0-6.2C1.1-7.2 1.1-8.6 0-9.8C-1.1-8.6-1.1-7.2 0-6.2Z" fill="#eed3f8" style="fill:var(--flower-light,#eed3f8)"/>
+    <circle id="sunflower-seed" cx="0" cy="-3.3" r=".55" fill="#eed3f8" style="fill:var(--flower-light,#eed3f8)" opacity=".8"/>
+    <circle id="sunflower-seed-inner" cx="0" cy="-1.5" r=".5" fill="#eed3f8" style="fill:var(--flower-light,#eed3f8)" opacity=".8"/>
+  </defs>
+  <g data-ring="sunflower-ray" data-count="14" data-offset="0" data-variable="true">
+    <use href="#sunflower-ray" transform="rotate(0.0)"/>
+    <use href="#sunflower-ray" transform="rotate(25.71)"/>
+    <use href="#sunflower-ray" transform="rotate(51.43)"/>
+    <use href="#sunflower-ray" transform="rotate(77.14)"/>
+    <use href="#sunflower-ray" transform="rotate(102.86)"/>
+    <use href="#sunflower-ray" transform="rotate(128.57)"/>
+    <use href="#sunflower-ray" transform="rotate(154.29)"/>
+    <use href="#sunflower-ray" transform="rotate(180.0)"/>
+    <use href="#sunflower-ray" transform="rotate(205.71)"/>
+    <use href="#sunflower-ray" transform="rotate(231.43)"/>
+    <use href="#sunflower-ray" transform="rotate(257.14)"/>
+    <use href="#sunflower-ray" transform="rotate(282.86)"/>
+    <use href="#sunflower-ray" transform="rotate(308.57)"/>
+    <use href="#sunflower-ray" transform="rotate(334.29)"/>
+  </g>
+  <g data-ring="sunflower-ray-inner" data-count="14" data-offset="half" data-variable="true">
+    <use href="#sunflower-ray-inner" transform="rotate(12.86)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(38.57)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(64.29)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(90.0)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(115.71)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(141.43)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(167.14)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(192.86)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(218.57)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(244.29)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(270.0)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(295.71)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(321.43)"/>
+    <use href="#sunflower-ray-inner" transform="rotate(347.14)"/>
+  </g>
+  <circle r="5.6" fill="#a36bc1" style="fill:var(--flower-deep,#a36bc1)"/>
+  <g data-ring="sunflower-seed" data-count="9" data-offset="0">
+    <use href="#sunflower-seed" transform="rotate(0.0)"/>
+    <use href="#sunflower-seed" transform="rotate(40.0)"/>
+    <use href="#sunflower-seed" transform="rotate(80.0)"/>
+    <use href="#sunflower-seed" transform="rotate(120.0)"/>
+    <use href="#sunflower-seed" transform="rotate(160.0)"/>
+    <use href="#sunflower-seed" transform="rotate(200.0)"/>
+    <use href="#sunflower-seed" transform="rotate(240.0)"/>
+    <use href="#sunflower-seed" transform="rotate(280.0)"/>
+    <use href="#sunflower-seed" transform="rotate(320.0)"/>
+  </g>
+  <g data-ring="sunflower-seed-inner" data-count="4" data-offset="20">
+    <use href="#sunflower-seed-inner" transform="rotate(20.0)"/>
+    <use href="#sunflower-seed-inner" transform="rotate(110.0)"/>
+    <use href="#sunflower-seed-inner" transform="rotate(200.0)"/>
+    <use href="#sunflower-seed-inner" transform="rotate(290.0)"/>
+  </g>
+</svg>

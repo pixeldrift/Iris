@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="96" height="96" data-shape="cosmos" data-default-petals="8">
+  <title>Cosmos</title>
+  <!--
+    Editable flower. Colours come from the CSS variables flower-base, flower-light, flower-deep and
+    flower-cream (each with a lilac fallback in the style attribute). A g element with data-ring="id"
+    repeats the element with that id around the centre; add data-variable to let the app change its
+    petal count. See README.md in this folder.
+  -->
+  <defs>
+    <path id="cosmos-petal" d="M0 0C-3.4-2.6-4.4-6.6-3.2-9.6Q-1.6-8.4 0-9.8Q1.6-8.4 3.2-9.6C4.4-6.6 3.4-2.6 0 0Z" fill="#d9a3ec" stroke="#eed3f8" stroke-width=".4" style="fill:var(--flower-base,#d9a3ec);stroke:var(--flower-light,#eed3f8)"/>
+  </defs>
+  <g data-ring="cosmos-petal" data-count="8" data-offset="0" data-variable="true">
+    <use href="#cosmos-petal" transform="rotate(0.0)"/>
+    <use href="#cosmos-petal" transform="rotate(45.0)"/>
+    <use href="#cosmos-petal" transform="rotate(90.0)"/>
+    <use href="#cosmos-petal" transform="rotate(135.0)"/>
+    <use href="#cosmos-petal" transform="rotate(180.0)"/>
+    <use href="#cosmos-petal" transform="rotate(225.0)"/>
+    <use href="#cosmos-petal" transform="rotate(270.0)"/>
+    <use href="#cosmos-petal" transform="rotate(315.0)"/>
+  </g>
+  <circle r="1.9" fill="#f8d86a"/>
+</svg>
