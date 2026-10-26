@@ -10,6 +10,7 @@ import { askConfirm } from './dialogs'
 import { Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
 import { ScrollFade } from './ScrollFade'
+import { GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
   IconAll,
@@ -397,14 +398,7 @@ function FolderNode(props: NodeProps) {
             <IconChevron size={14} />
           </span>
         </button>
-        <span
-          onPointerDown={(e) => {
-            e.stopPropagation()
-            if (editing !== folder.id) onPointerDown(e, true)
-          }}
-          className="grid h-6 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
-          title="Drag to move or nest"
-        >
+        <span className="grid h-6 w-6 shrink-0 place-items-center" aria-hidden>
           <Flower hue={folder.hue} size={18} />
         </span>
         {editing === folder.id ? (
@@ -427,8 +421,9 @@ function FolderNode(props: NodeProps) {
           <span className="truncate">{folder.name}</span>
         )}
         <Count n={count(folder.id)} />
+        <GripHandle label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />
         {editing !== folder.id && (
-          <span className="absolute right-1.5 flex items-center gap-0.5 rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
+          <span className="absolute right-8 flex items-center gap-0.5 rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
             {actions.map((b) => (
               <Tip key={b.label} label={b.label}>
                 <button

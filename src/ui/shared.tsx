@@ -106,7 +106,7 @@ export function useTaskDrag(task: Task) {
   })
 }
 
-export function GripHandle({ onPointerDown }: { onPointerDown: (e: React.PointerEvent, handle: boolean) => void }) {
+export function GripHandle({ onPointerDown, label }: { onPointerDown: (e: React.PointerEvent, handle: boolean) => void; label?: string }) {
   return (
     <span
       onPointerDown={(e) => {
@@ -114,6 +114,7 @@ export function GripHandle({ onPointerDown }: { onPointerDown: (e: React.Pointer
         onPointerDown(e, true)
       }}
       className="grid h-8 w-7 shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 md:opacity-0 md:transition md:group-hover:opacity-100"
+      title={label}
       aria-hidden
     >
       <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
