@@ -3,14 +3,25 @@ import { drop, plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, type SimNode } from '../../core/flock'
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { contactLink, detectContactIntent } from '../../core/people'
-import { bubbleRadius } from '../../core/tasks'
+import { bubbleRadius, plannedDate } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
-import { IconClose } from '../icons'
+import { IconChat, IconClose, IconMail, IconPhone } from '../icons'
 import { DoneButton, DueChip, KINDS } from '../shared'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
+
+/** Each ring is fainter, thinner and travels less far than the one before it. */
+const RINGS = [
+  { delay: 0, reach: 520, o: 0.75, bw: 2.5 },
+  { delay: 0.7, reach: 430, o: 0.5, bw: 2 },
+  { delay: 1.5, reach: 340, o: 0.32, bw: 1.5 },
+  { delay: 2.5, reach: 250, o: 0.18, bw: 1.2 },
+  { delay: 3.7, reach: 170, o: 0.09, bw: 1 },
+]
+const RIPPLE_MS = 6200
+const WAVE_REACH = 560
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3
@@ -137,10 +148,10 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               }`}
               style={{ '--h': hue } as React.CSSProperties}
             >
-              <span className={`line-clamp-3 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
+              <span className={`${link ? 'line-clamp-2' : 'line-clamp-3'} break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
                 {task.title || 'Untitled'}
               </span>
-              {r >= 52 && task.due && (
+              {r >= (link ? 66 : 52) && plannedDate(task) && (
                 <span className="mt-1 scale-90">
                   <DueChip task={task} compact />
                 </span>
@@ -151,11 +162,13 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               {link && (
                 <a
                   href={link.href}
+                  title={`${link.label} ${person!.name.split(' ')[0]}`}
+                  aria-label={`${link.label} ${person!.name}`}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
-                  className="pop-in absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-lilac-500 px-2.5 py-0.5 text-[0.68rem] font-medium text-white shadow-md shadow-lilac-500/40 transition hover:bg-lilac-600"
+                  className="pop-in mt-1.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/40 transition hover:scale-110 hover:bg-lilac-600"
                 >
-                  {link.label} {person!.name.split(' ')[0]}
+                  {link.label === 'Email' ? <IconMail size={13} /> : link.label === 'Text' ? <IconChat size={13} /> : <IconPhone size={13} />}
                 </a>
               )}
               {!link && task.kind !== 'task' && (
@@ -216,7 +229,7 @@ export function Pond() {
   const shifts = useRef(new Map<string, { dx: number; dy: number }>())
   const groupOf = useRef(new Map<string, string>())
   const labelEls = useRef(new Map<string, HTMLElement>())
-  const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; x: number; y: number; v: number; broken: boolean } | null>(null)
+  const dragRef = useRef<{ id: string; key: string | null; home0: { x: number; y: number }; shift0: { dx: number; dy: number }; t: number; x: number; y: number; v: number; fast: number; broken: boolean } | null>(null)
   const [hot, setHot] = useState<string | null>(null)
   const hotRef = useRef<string | null>(null)
 
@@ -226,7 +239,7 @@ export function Pond() {
 
   const live = useRef({ rel, group, magnet })
   live.current = { rel, group, magnet }
-  const BREAK_SPEED = 1.4 // px/ms: faster than this snaps a bubble free of its cluster
+  const BREAK_SPEED = 1.8 // px/ms (~1800px/s), sustained: faster than this snaps a bubble free of its cluster
 
   /* ---------- view transform ---------- */
   const checkOffscreen = useCallback(() => {
@@ -421,7 +434,7 @@ export function Pond() {
         const base = c?.base.get(id)
         if (n && key && c && base) {
           const sh = shifts.current.get(key) ?? { dx: 0, dy: 0 }
-          dragRef.current = { id, key, home0: { x: n.sim.x, y: n.sim.y }, shift0: sh, t: performance.now(), x: n.sim.x, y: n.sim.y, v: 0, broken: false }
+          dragRef.current = { id, key, home0: { x: n.sim.x, y: n.sim.y }, shift0: sh, t: 0, x: n.sim.x, y: n.sim.y, v: 0, fast: 0, broken: false }
         } else dragRef.current = null
         wake()
       },
@@ -435,12 +448,19 @@ export function Pond() {
         const d = dragRef.current
         if (!d || d.id !== id || !d.key) return
         const now = performance.now()
-        const speed = (Math.hypot(px - d.x, py - d.y) / Math.max(1, now - d.t)) * view.current.scale
-        d.v = 0.6 * d.v + 0.4 * speed
-        d.t = now
+        if (d.t === 0) {
+          // first sample: the pointer has only just crossed the drag threshold, so there is no speed yet
+          d.t = now
+        } else {
+          // floor dt: two events in the same millisecond must not read as a flick
+          const speed = (Math.hypot(px - d.x, py - d.y) / Math.max(10, now - d.t)) * view.current.scale
+          d.v = 0.5 * d.v + 0.5 * speed
+          d.fast = d.v > BREAK_SPEED ? d.fast + 1 : 0
+          d.t = now
+        }
         d.x = px
         d.y = py
-        if (!d.broken && d.v > BREAK_SPEED) {
+        if (!d.broken && d.fast >= 2) {
           // surface tension snaps: this bubble is on its own now, the cluster stays where it got to
           d.broken = true
           plink()
@@ -522,9 +542,10 @@ export function Pond() {
       const e = els.current.get(id)
       if (!e) continue
       const d = Math.hypot(n.sim.x * v.scale + v.tx - sx, n.sim.y * v.scale + v.ty - sy)
-      const delay = d / 0.32
-      if (delay > 2400) continue
-      const amp = 1 / (1 + d / 320)
+      if (d > WAVE_REACH * 0.97) continue
+      // the front slows as it goes (ease-out), so invert that curve to know when it reaches this bubble
+      const delay = 0.55 * RIPPLE_MS * (1 - Math.pow(1 - d / WAVE_REACH, 1 / 3))
+      const amp = (1 - d / WAVE_REACH) * (1 / (1 + d / 380))
       e.jig.animate(
         [
           { transform: 'translateY(0px) scale(1)' },
@@ -532,7 +553,7 @@ export function Pond() {
           { transform: `translateY(${3.5 * amp}px) scale(${1 - 0.012 * amp})` },
           { transform: 'translateY(0px) scale(1)' },
         ],
-        { duration: 1000, delay, easing: 'ease-in-out', composite: 'add' },
+        { duration: 1700, delay, easing: 'ease-in-out', composite: 'add' },
       )
     }
   }, [])
@@ -541,7 +562,7 @@ export function Pond() {
     (kind: Ripple['kind'], x: number, y: number, w = 0, h = 0) => {
       const id = nextId.current++
       setRipples((r) => [...r, { id, kind, x, y, w, h }])
-      window.setTimeout(() => setRipples((r) => r.filter((q) => q.id !== id)), 3200)
+      window.setTimeout(() => setRipples((r) => r.filter((q) => q.id !== id)), 10500)
       wave(x, y)
     },
     [wave],
@@ -745,24 +766,39 @@ export function Pond() {
       {ripples.map((r) =>
         r.kind === 'circle' ? (
           <span key={r.id}>
-            {[0, 0.28, 0.6].map((d, i) => (
-              <span key={i} className="ripple-ring" style={{ left: r.x, top: r.y, width: 240 + i * 90, height: 240 + i * 90, animationDelay: `${d}s`, opacity: 0 }} />
+            {RINGS.map((ring, i) => (
+              <span
+                key={i}
+                className="ripple-ring"
+                style={{
+                  left: r.x,
+                  top: r.y,
+                  width: ring.reach,
+                  height: ring.reach,
+                  animationDelay: `${ring.delay}s`,
+                  ['--o' as string]: ring.o,
+                  ['--bw' as string]: `${ring.bw}px`,
+                  opacity: 0,
+                }}
+              />
             ))}
           </span>
         ) : (
           <span key={r.id}>
-            {[0, 0.3, 0.62].map((d, i) => (
+            {RINGS.map((ring, i) => (
               <span
                 key={i}
                 className="box-ripple"
                 style={{
                   left: r.x,
                   top: r.y,
-                  animationDelay: `${d}s`,
+                  animationDelay: `${ring.delay}s`,
                   ['--w0' as string]: `${r.w}px`,
                   ['--h0' as string]: `${r.h}px`,
-                  ['--w1' as string]: `${r.w + 230 + i * 100}px`,
-                  ['--h1' as string]: `${r.h + 230 + i * 100}px`,
+                  ['--w1' as string]: `${r.w + ring.reach * 0.62}px`,
+                  ['--h1' as string]: `${r.h + ring.reach * 0.62}px`,
+                  ['--o' as string]: ring.o,
+                  ['--bw' as string]: `${ring.bw}px`,
                 }}
               />
             ))}
