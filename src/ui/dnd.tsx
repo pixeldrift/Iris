@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { create } from 'zustand'
+import { lifter } from './lift'
 
 /**
  * One pointer-based drag system for the whole app (mouse, pen and touch).
@@ -14,9 +15,11 @@ export interface Payload {
 interface DndState {
   drag: { payload: Payload; label: string; ghost: boolean; x: number; y: number } | null
   over: string | null
+  /** Height of the lifted item, so a list can open a gap that size. */
+  liftH: number
 }
 
-export const useDnd = create<DndState>(() => ({ drag: null, over: null }))
+export const useDnd = create<DndState>(() => ({ drag: null, over: null, liftH: 0 }))
 
 export function targetAt(x: number, y: number): string | null {
   for (const el of document.elementsFromPoint(x, y)) {
@@ -37,6 +40,8 @@ interface Options {
   label: string
   /** Show a floating chip under the pointer (off for things that move themselves). */
   ghost?: boolean | ((x: number, y: number) => boolean)
+  /** The element to pick up: a lifted copy follows the pointer and the original fades. */
+  lift?: () => HTMLElement | null
   /** Touch must start from a handle so scrolling still works. */
   touchNeedsHandle?: boolean
   onStart?: () => void
@@ -67,6 +72,7 @@ export function usePointerDrag(opts: Options) {
       return
     }
     let started = false
+    let lifted = false
 
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - sx
@@ -75,11 +81,18 @@ export function usePointerDrag(opts: Options) {
         if (Math.hypot(dx, dy) < 5) return
         started = true
         document.body.classList.add('dragging')
+        const src = optsRef.current.lift?.()
+        if (src) {
+          lifted = true
+          lifter.begin(src, sx, sy, `${optsRef.current.payload.type}:${optsRef.current.payload.id}`)
+          useDnd.setState({ liftH: src.offsetHeight })
+        }
         optsRef.current.onStart?.()
       }
       const cur = optsRef.current
+      if (lifted) lifter.move(ev.clientX, ev.clientY)
       useDnd.setState({
-        drag: { payload: cur.payload, label: cur.label, ghost: typeof cur.ghost === 'function' ? cur.ghost(ev.clientX, ev.clientY) : (cur.ghost ?? true), x: ev.clientX, y: ev.clientY },
+        drag: { payload: cur.payload, label: cur.label, ghost: lifted ? false : typeof cur.ghost === 'function' ? cur.ghost(ev.clientX, ev.clientY) : (cur.ghost ?? true), x: ev.clientX, y: ev.clientY },
         over: targetAt(ev.clientX, ev.clientY),
       })
       cur.onMove?.(ev.clientX, ev.clientY, dx, dy)
@@ -89,15 +102,21 @@ export function usePointerDrag(opts: Options) {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', cancel)
       document.body.classList.remove('dragging')
-      useDnd.setState({ drag: null, over: null })
       const cur = optsRef.current
       if (started) {
         // the browser still sends a click after a drag: swallow it
         const swallow = (c: Event) => c.stopPropagation()
         window.addEventListener('click', swallow, { capture: true, once: true })
         window.setTimeout(() => window.removeEventListener('click', swallow, true), 50)
-        cur.onEnd?.({ target: cancelled ? null : targetAt(ev.clientX, ev.clientY), x: ev.clientX, y: ev.clientY })
-      } else if (!cancelled) {
+        const target = cancelled ? null : targetAt(ev.clientX, ev.clientY)
+        // apply the drop first, then clear the drag, so lists re-render once and neighbours can glide
+        cur.onEnd?.({ target, x: ev.clientX, y: ev.clientY })
+        useDnd.setState({ drag: null, over: null, liftH: 0 })
+        if (lifted) lifter.end(target, ev.clientX, ev.clientY)
+      } else {
+        useDnd.setState({ drag: null, over: null, liftH: 0 })
+      }
+      if (!started && !cancelled) {
         cur.onClick?.(ev)
       }
     }

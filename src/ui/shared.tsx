@@ -93,11 +93,12 @@ export function WeightDot({ task }: { task: Task }) {
 }
 
 /** Draggable task card/row used by list, board and calendar. */
-export function useTaskDrag(task: Task) {
+export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>) {
   const select = useStore((s) => s.select)
   return usePointerDrag({
     payload: { type: 'task', id: task.id },
     label: task.title,
+    lift: () => el.current,
     touchNeedsHandle: true,
     onClick: () => select(task.id),
     onEnd: ({ target }) => {

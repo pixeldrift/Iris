@@ -272,6 +272,9 @@ input[type='date'] {
   .box-spring, .box-shrink { animation-duration: 0.01s; }
 }
 
+/* the lifted copy of a wide row drops its secondary details so the title stays readable */
+.lift-compact [data-lift-extra] { display: none !important; }
+
 /* ---------- scroll edge fades ---------- */
 @property --fade-t { syntax: '<length>'; inherits: false; initial-value: 0px; }
 @property --fade-b { syntax: '<length>'; inherits: false; initial-value: 0px; }

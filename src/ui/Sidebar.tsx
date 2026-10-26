@@ -10,6 +10,8 @@ import { askConfirm } from './dialogs'
 import { Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
 import { ScrollFade } from './ScrollFade'
+import { useFlip } from './flip'
+import { SPRING } from './lift'
 import { GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
@@ -116,6 +118,8 @@ export function Sidebar() {
   }
 
   const rootDrop = useDropTarget('froot')
+  const folderListRef = useRef<HTMLDivElement>(null)
+  useFlip(folderListRef)
 
   return (
     <>
@@ -221,6 +225,7 @@ export function Sidebar() {
               </Tip>
             }
           >
+            <div ref={folderListRef}>
             {childrenOf(folders, null).map((f) => (
               <FolderNode
                 key={f.id}
@@ -241,6 +246,7 @@ export function Sidebar() {
                 onAdd={newFolder}
               />
             ))}
+            </div>
             {folders.length === 0 && (
               <p className="px-3 py-2 text-sm text-ink-faint">Folders are tags. Add one with + or by typing in any task.</p>
             )}
@@ -334,12 +340,13 @@ function FolderNode(props: NodeProps) {
     payload: { type: 'folder', id: folder.id },
     label: folder.name,
     touchNeedsHandle: true,
+    lift: () => rowRef.current,
     onEnd: ({ target, y }) => {
       if (!target) return
       if (target === 'froot') return moveFolder(folder.id, null)
       if (!target.startsWith('folder:')) return
       const tid = target.slice(7)
-      const el = document.querySelector(`[data-drop="${target}"]`)
+      const el = document.querySelector(`[data-lift-id="${target}"]`)
       const t = folders.find((f) => f.id === tid)
       if (!el || !t || tid === folder.id) return
       const z = zoneAt(el, y)
@@ -372,8 +379,11 @@ function FolderNode(props: NodeProps) {
 
   return (
     <div className="rise-in">
+      <Gap open={zone === 'before'} id={folder.id} />
       <div
         ref={rowRef}
+        data-lift-id={`folder:${folder.id}`}
+        data-flip={folder.id}
         {...dropProps}
         onPointerDown={(e) => editing !== folder.id && onPointerDown(e)}
         onClick={() => setScope({ type: 'folder', id: folder.id })}
@@ -383,8 +393,6 @@ function FolderNode(props: NodeProps) {
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
         style={{ paddingLeft: `${0.6 + depth * 0.95}rem` }}
       >
-        {zone === 'before' && <span className="pointer-events-none absolute inset-x-2 -top-px h-[3px] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(159,111,205,0.8)]" />}
-        {zone === 'after' && <span className="pointer-events-none absolute inset-x-2 -bottom-px h-[3px] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(159,111,205,0.8)]" />}
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -442,6 +450,25 @@ function FolderNode(props: NodeProps) {
         )}
       </div>
       {isOpen && kids.map((k) => <FolderNode key={k.id} {...props} folder={k} depth={depth + 1} />)}
+      <Gap open={zone === 'after'} id={folder.id} />
+    </div>
+  )
+}
+
+/**
+ * The room a dragged folder will take. It opens (with a gentle spring) where the item would land,
+ * nudging its neighbours apart. It answers hit-tests as the same folder so the target never flickers.
+ */
+function Gap({ open, id }: { open: boolean; id: string }) {
+  const h = useDnd((s) => s.liftH)
+  return (
+    <div
+      data-drop={`folder:${id}`}
+      aria-hidden
+      className="overflow-hidden px-2"
+      style={{ height: open ? h : 0, transition: `height 0.32s ${SPRING}` }}
+    >
+      <div className={`h-full rounded-xl bg-lilac-200/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} />
     </div>
   )
 }
