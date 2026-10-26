@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './state/store'
-import { setAmbient, setFx, unlock } from './audio/engine'
+import { unlock } from './audio/engine'
+import { applyAudio } from './state/store'
 import { Decor } from './ui/Decor'
+import { DialogHost } from './ui/dialogs'
 import { DragLayer } from './ui/dnd'
+import { ContactPromptHost, PersonDialog } from './ui/PeopleDialogs'
+import { UpdateBubble } from './ui/UpdateBubble'
 import { NewTask } from './ui/NewTask'
 import { Sidebar } from './ui/Sidebar'
 import { TaskDetail } from './ui/TaskDetail'
@@ -18,17 +22,15 @@ const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, cal
 
 export default function App() {
   const view = useStore((s) => s.view)
-  const settings = useStore((s) => s.settings)
   const hasDetail = useStore((s) => s.selectedId !== null)
   const [composing, setComposing] = useState(false)
   const View = VIEW[view]
 
   useEffect(() => {
-    setFx(settings.sound)
+    applyAudio(useStore.getState().settings)
     // Browsers only allow audio after a gesture: resume ambient on the first one.
     const first = () => {
       unlock()
-      if (useStore.getState().settings.ambient) setAmbient(true)
     }
     window.addEventListener('pointerdown', first, { once: true })
     return () => window.removeEventListener('pointerdown', first)
@@ -58,7 +60,11 @@ export default function App() {
         </div>
       </main>
       <TaskDetail />
-      {composing && <NewTask onClose={() => setComposing(false)} />}
+      <NewTask open={composing} onClose={() => setComposing(false)} />
+      <PersonDialog />
+      <ContactPromptHost />
+      <DialogHost />
+      <UpdateBubble />
       <DragLayer />
     </div>
   )

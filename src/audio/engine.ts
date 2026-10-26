@@ -7,7 +7,15 @@ let reverbIn: GainNode
 let echoIn: GainNode
 let windGain: GainNode | null = null
 let ambientTimer: number | null = null
-let fxOn = true
+export interface AudioConfig {
+  master: boolean
+  drops: boolean
+  chimes: boolean
+  pops: boolean
+  ambient: boolean
+  volume: number
+}
+let cfg: AudioConfig = { master: true, drops: true, chimes: true, pops: true, ambient: false, volume: 0.7 }
 let ambientOn = false
 
 // D major pentatonic over three octaves: anything sounds consonant.
@@ -30,7 +38,7 @@ function ensure(): AudioContext | null {
     if (!AC) return null
     ctx = new AC()
     master = ctx.createGain()
-    master.gain.value = 0.7
+    master.gain.value = cfg.volume
     const comp = ctx.createDynamicsCompressor()
     master.connect(comp).connect(ctx.destination)
 
@@ -58,17 +66,27 @@ function ensure(): AudioContext | null {
   return ctx
 }
 
+let activated = false
+
+/** Call from a user gesture; starts ambient if the settings ask for it. */
 export function unlock() {
+  activated = true
   ensure()
+  setAmbient(cfg.master && cfg.ambient)
 }
 
-export function setFx(on: boolean) {
-  fxOn = on
+const can = (k: 'drops' | 'chimes' | 'pops') => cfg.master && cfg[k]
+
+/** Apply the user's sound settings. Ambient only runs once audio is unlocked. */
+export function setAudioConfig(c: AudioConfig) {
+  cfg = c
+  if (ctx) master.gain.setTargetAtTime(c.volume, ctx.currentTime, 0.05)
+  if (activated) setAmbient(c.master && c.ambient)
 }
 
 /** A soft water droplet with an echo. `pan` -1..1. */
 export function drop(pan = 0) {
-  if (!fxOn) return
+  if (!can('drops')) return
   const c = ensure()
   if (!c) return
   const t = c.currentTime
@@ -113,7 +131,7 @@ function bell(freq: number, when: number, vol: number, pan: number, decay: numbe
 }
 
 export function chime(index?: number, vol = 0.09) {
-  if (!fxOn && !ambientOn) return
+  if (!can('chimes')) return
   const c = ensure()
   if (!c) return
   const f = SCALE[(index ?? Math.floor(Math.random() * SCALE.length)) % SCALE.length]
@@ -122,7 +140,7 @@ export function chime(index?: number, vol = 0.09) {
 
 /** Rising two-note sparkle when a task blooms. */
 export function bloom() {
-  if (!fxOn) return
+  if (!can('chimes')) return
   const c = ensure()
   if (!c) return
   const i = 4 + Math.floor(Math.random() * 3)
@@ -131,9 +149,42 @@ export function bloom() {
   bell(SCALE[i + 4 > 11 ? 11 : i + 4], c.currentTime + 0.24, 0.07, 0, 4)
 }
 
+/** Bubble pop: a quick rising blip plus a puff of filtered noise. */
+export function pop() {
+  if (!can('pops')) return
+  const c = ensure()
+  if (!c) return
+  const t = c.currentTime
+  const o = c.createOscillator()
+  const g = c.createGain()
+  o.type = 'sine'
+  o.frequency.setValueAtTime(260, t)
+  o.frequency.exponentialRampToValueAtTime(980, t + 0.07)
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(0.3, t + 0.01)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16)
+  o.connect(g).connect(master)
+  g.connect(reverbIn)
+  o.start(t)
+  o.stop(t + 0.2)
+  const len = Math.floor(c.sampleRate * 0.06)
+  const nb = c.createBuffer(1, len, c.sampleRate)
+  const d = nb.getChannelData(0)
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3)
+  const n = c.createBufferSource()
+  n.buffer = nb
+  const hp = c.createBiquadFilter()
+  hp.type = 'highpass'
+  hp.frequency.value = 2400
+  const ng = c.createGain()
+  ng.gain.value = 0.12
+  n.connect(hp).connect(ng).connect(master)
+  n.start(t)
+}
+
 /** Tiny tick for dropping into a folder. */
 export function plink() {
-  if (!fxOn) return
+  if (!can('chimes')) return
   const c = ensure()
   if (!c) return
   bell(SCALE[5 + Math.floor(Math.random() * 3)], c.currentTime, 0.08, 0, 1.6)
@@ -200,6 +251,7 @@ export function setAmbient(on: boolean) {
     if (!ensure()) return
     startWind()
     if (windGain) windGain.gain.setTargetAtTime(0.05, ctx!.currentTime, 1.5)
+    else return
     if (ambientTimer === null) scheduleNext()
     else {
       window.clearTimeout(ambientTimer)

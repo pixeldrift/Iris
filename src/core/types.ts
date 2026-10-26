@@ -21,6 +21,10 @@ export interface Task {
   due: string | null
   /** Folder ids. A task can live in many folders (tags). */
   folderIds: string[]
+  /** People tagged on this task. */
+  personIds: string[]
+  /** The user said "no thanks" to adding contact details for this task. */
+  contactDeclined?: boolean
   createdAt: number
   completedAt: number | null
 }
@@ -31,6 +35,19 @@ export interface Folder {
   parentId: string | null
   /** Hue 0..360 used for the folder's dot and chips. */
   hue: number
+  /** Manual order among siblings. */
+  sort: number
+  createdAt: number
+}
+
+export interface Person {
+  id: string
+  name: string
+  phone: string
+  email: string
+  address: string
+  notes: string
+  hue: number
   createdAt: number
 }
 
@@ -39,8 +56,12 @@ export type Scope =
   | { type: 'all' }
   | { type: 'inbox' }
   | { type: 'folder'; id: string }
+  | { type: 'person'; id: string }
   | { type: 'day'; date: string }
 
 export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline'
 
 export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency'
+
+/** How the pond clusters its bubbles. `free` keeps your own placement. */
+export type PondGroup = 'free' | 'folder' | 'due' | 'weight' | 'kind' | 'person' | 'stage'

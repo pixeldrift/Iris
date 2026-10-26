@@ -36,7 +36,7 @@ interface Options {
   payload: Payload
   label: string
   /** Show a floating chip under the pointer (off for things that move themselves). */
-  ghost?: boolean
+  ghost?: boolean | ((x: number, y: number) => boolean)
   /** Touch must start from a handle so scrolling still works. */
   touchNeedsHandle?: boolean
   onStart?: () => void
@@ -52,9 +52,20 @@ export function usePointerDrag(opts: Options) {
   return useCallback((e: React.PointerEvent, isHandle = false) => {
     if (e.button !== 0) return
     const o = optsRef.current
-    if (e.pointerType === 'touch' && o.touchNeedsHandle && !isHandle) return
     const sx = e.clientX
     const sy = e.clientY
+    const t0 = Date.now()
+
+    // Touch on a card body must keep scrolling: only a plain tap is handled.
+    if (e.pointerType === 'touch' && o.touchNeedsHandle && !isHandle) {
+      const up = (ev: PointerEvent) => {
+        window.removeEventListener('pointerup', up)
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 8 && Date.now() - t0 < 600) optsRef.current.onClick?.(ev)
+      }
+      window.addEventListener('pointerup', up)
+      window.addEventListener('pointercancel', () => window.removeEventListener('pointerup', up), { once: true })
+      return
+    }
     let started = false
 
     const move = (ev: PointerEvent) => {
@@ -68,7 +79,7 @@ export function usePointerDrag(opts: Options) {
       }
       const cur = optsRef.current
       useDnd.setState({
-        drag: { payload: cur.payload, label: cur.label, ghost: cur.ghost ?? true, x: ev.clientX, y: ev.clientY },
+        drag: { payload: cur.payload, label: cur.label, ghost: typeof cur.ghost === 'function' ? cur.ghost(ev.clientX, ev.clientY) : (cur.ghost ?? true), x: ev.clientX, y: ev.clientY },
         over: targetAt(ev.clientX, ev.clientY),
       })
       cur.onMove?.(ev.clientX, ev.clientY, dx, dy)
@@ -81,6 +92,10 @@ export function usePointerDrag(opts: Options) {
       useDnd.setState({ drag: null, over: null })
       const cur = optsRef.current
       if (started) {
+        // the browser still sends a click after a drag: swallow it
+        const swallow = (c: Event) => c.stopPropagation()
+        window.addEventListener('click', swallow, { capture: true, once: true })
+        window.setTimeout(() => window.removeEventListener('click', swallow, true), 50)
         cur.onEnd?.({ target: cancelled ? null : targetAt(ev.clientX, ev.clientY), x: ev.clientX, y: ev.clientY })
       } else if (!cancelled) {
         cur.onClick?.(ev)

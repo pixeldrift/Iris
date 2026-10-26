@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { drop } from '../audio/engine'
+import { useExit } from './anim'
+import { IconClose } from './icons'
 import { KINDS } from './shared'
 import type { TaskKind } from '../core/types'
 
 /** Centered quick-add, for views without a free canvas. */
-export function NewTask({ onClose }: { onClose: () => void }) {
+export function NewTask({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { mounted, closing } = useExit(open)
   const add = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
   const [title, setTitle] = useState('')
@@ -13,8 +16,11 @@ export function NewTask({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    ref.current?.focus()
-  }, [])
+    if (open) {
+      setTitle('')
+      ref.current?.focus()
+    }
+  }, [open])
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,16 +31,22 @@ export function NewTask({ onClose }: { onClose: () => void }) {
     select(id)
   }
 
+  if (!mounted) return null
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-start justify-items-center bg-ink/10 px-4 pt-[18vh] backdrop-blur-[3px]" onClick={onClose}>
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === 'Escape' && onClose()} className="glass bloom-in w-full max-w-md rounded-[2rem] p-4">
-        <input
-          ref={ref}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="A task, an idea, a reminder…"
-          className="w-full bg-transparent px-2 py-2 font-display text-xl outline-none placeholder:text-ink-faint"
-        />
+    <div className={`fixed inset-0 z-[80] grid place-items-start justify-items-center bg-ink/10 px-4 pt-[18vh] backdrop-blur-[3px] transition-opacity duration-200 ${closing ? 'opacity-0' : 'opacity-100'}`} onClick={onClose}>
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === 'Escape' && onClose()} className={`glass glass-strong w-full max-w-md rounded-[2rem] p-4 ${closing ? 'pop-out' : 'pop-in'}`}>
+        <div className="flex items-center">
+          <input
+            ref={ref}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="A task, an idea, a reminder…"
+            className="min-w-0 flex-1 bg-transparent px-2 py-2 font-display text-xl outline-none placeholder:text-ink-faint"
+          />
+          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">
+            <IconClose size={16} />
+          </button>
+        </div>
         <div className="mt-2 flex items-center gap-1.5">
           {KINDS.map((k) => (
             <button

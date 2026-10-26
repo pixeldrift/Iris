@@ -1,17 +1,19 @@
 import { useMemo } from 'react'
-import { filterTasks, sortTasks } from '../../core/tasks'
+import { sortTasks } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
+import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, STATUSES, useTaskDrag } from '../shared'
 
 function Card({ task }: { task: Task }) {
   const onPointerDown = useTaskDrag(task)
+  const leave = useLeaveClass(task, true)
   return (
     <Dim id={task.id}>
       <div
         onPointerDown={(e) => onPointerDown(e)}
-        className="group cursor-pointer rounded-2xl border border-white/80 bg-white/65 p-3 shadow-[0_6px_20px_-10px_rgba(107,68,145,0.3)] transition hover:-translate-y-0.5 hover:bg-white/85"
+        className={`rise-in group cursor-pointer rounded-2xl border border-white/80 bg-white/65 p-3 shadow-[0_6px_20px_-10px_rgba(107,68,145,0.3)] transition hover:-translate-y-0.5 hover:bg-white/85 ${leave}`}
       >
         <div className="flex items-start gap-2">
           <DoneButton task={task} size={20} />
@@ -28,11 +30,9 @@ function Card({ task }: { task: Task }) {
 }
 
 export function Board() {
-  const tasks = useStore((s) => s.tasks)
-  const folders = useStore((s) => s.folders)
-  const scope = useStore((s) => s.scope)
+  const visible = useVisibleTasks(true)
   const addTask = useStore((s) => s.addTask)
-  const sorted = useMemo(() => sortTasks(filterTasks(tasks, scope, folders, true), 'flow', false), [tasks, scope, folders])
+  const sorted = useMemo(() => sortTasks(visible, 'flow', false), [visible])
 
   return (
     <div className="grid h-full grid-cols-1 gap-3 overflow-y-auto md:grid-cols-3 md:overflow-visible">

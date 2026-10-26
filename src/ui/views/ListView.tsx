@@ -1,7 +1,9 @@
-import { useMemo } from 'react'
-import { filterTasks, sortTasks } from '../../core/tasks'
+import { useMemo, useRef, useState } from 'react'
+import { sortTasks } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
+import { MenuItem, Popover } from '../Popover'
+import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, WeightDot, useTaskDrag } from '../shared'
 
 const SORTS: { id: SortKey; label: string }[] = [
@@ -16,11 +18,12 @@ const SORTS: { id: SortKey; label: string }[] = [
 function Row({ task }: { task: Task }) {
   const onPointerDown = useTaskDrag(task)
   const done = task.status === 'done'
+  const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
       <div
         onPointerDown={(e) => onPointerDown(e)}
-        className="glass-soft group rise-in flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 transition hover:bg-white/70"
+        className={`glass-soft group rise-in flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 transition hover:bg-white/70 ${leave}`}
       >
         <GripHandle onPointerDown={onPointerDown} />
         <DoneButton task={task} />
@@ -36,33 +39,36 @@ function Row({ task }: { task: Task }) {
 }
 
 export function ListView() {
-  const tasks = useStore((s) => s.tasks)
-  const folders = useStore((s) => s.folders)
-  const scope = useStore((s) => s.scope)
-  const { showDone, sortKey, sortDesc } = useStore((s) => s.settings)
+  const visible = useVisibleTasks()
+  const { sortKey, sortDesc } = useStore((s) => s.settings)
   const set = useStore((s) => s.setSetting)
   const addTask = useStore((s) => s.addTask)
 
-  const rows = useMemo(
-    () => sortTasks(filterTasks(tasks, scope, folders, showDone), sortKey, sortDesc),
-    [tasks, scope, folders, showDone, sortKey, sortDesc],
-  )
+  const rows = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
+  const [menu, setMenu] = useState(false)
+  const anchor = useRef<HTMLButtonElement>(null)
 
   return (
     <div className="glass mx-auto flex h-full max-w-3xl flex-col rounded-[2rem] p-4 md:p-5">
       <div className="mb-3 flex items-center gap-2">
-        <select
-          value={sortKey}
-          onChange={(e) => set('sortKey', e.target.value as SortKey)}
-          className="glass-soft rounded-full px-3.5 py-1.5 text-sm outline-none"
-          aria-label="Sort by"
-        >
-          {SORTS.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
+        <button ref={anchor} onClick={() => setMenu((o) => !o)} className="glass-soft flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm" aria-haspopup="menu" aria-expanded={menu}>
+          {SORTS.find((x) => x.id === sortKey)?.label}
+          <span className="text-ink-faint">▾</span>
+        </button>
+        <Popover open={menu} onClose={() => setMenu(false)} anchor={anchor}>
+          {SORTS.map((x) => (
+            <MenuItem
+              key={x.id}
+              active={x.id === sortKey}
+              onClick={() => {
+                set('sortKey', x.id)
+                setMenu(false)
+              }}
+            >
+              {x.label}
+            </MenuItem>
           ))}
-        </select>
+        </Popover>
         <button
           onClick={() => set('sortDesc', !sortDesc)}
           className="glass-soft rounded-full px-3 py-1.5 text-sm text-ink-soft hover:bg-white/70"

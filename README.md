@@ -33,9 +33,21 @@ In a task's panel, type in the tag box: it fuzzy-matches existing folders
 Lilies float gently, and grow with importance. Toggles in the top bar control
 sizing, drifting, sound and the ambient wind-chime bed.
 
+**People.** Add people in the sidebar (type details, or pick *one* contact from your address book where
+the browser supports it, or import a shared `.vcf` card). Tag them on tasks with `@name`. Write "Call
+Sarah" or "Email Dr Patel" in a task and Lilac links an existing contact or offers to add one (or "No
+thanks"); the bubble then gets a one-tap Call / Text / Email link.
+
+**Pond navigation.** Drag the water to wander, pinch (or Ctrl/⌘ + wheel) to zoom, *Frame all* to bring
+every bubble back. *Gather by* chips (folders, when, weight, kind, people, stage) make related bubbles
+float together; in *Free* mode related bubbles lean toward each other and are joined by dotted threads.
+
+**Sound.** Tap the speaker to mute/unmute; hold it (or right-click) for individual sounds and volume.
+
 **Soft priority.** Two sliders ("how much it matters", "how pressing it feels")
 with no numbers; on the Priority view you drag a task around the plot to set both.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the stack, the Swift
+See [docs/ROADMAP.md](docs/ROADMAP.md) for what's next (collaboration, themes…),
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the stack, the Swift
 porting plan and next steps, and [db/schema.sql](db/schema.sql) for the Neon
 schema.

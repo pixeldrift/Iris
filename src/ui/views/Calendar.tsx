@@ -1,23 +1,24 @@
 import { useMemo, useState } from 'react'
 import { addDays, fromISO, monthGrid, MONTHS, startOfWeek, toISO, today, WEEKDAYS } from '../../core/dates'
-import { filterTasks } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
 import { IconChevron, IconPlus } from '../icons'
 import { useTaskDrag } from '../shared'
+import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 function Chip({ task }: { task: Task }) {
   const onPointerDown = useTaskDrag(task)
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
+  const leave = useLeaveClass(task)
   return (
     <div
       onPointerDown={(e) => {
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className={`cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${task.status === 'done' ? 'line-through opacity-60' : ''}`}
+      className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${task.status === 'done' ? 'line-through opacity-60' : ''} ${leave}`}
       style={{ background: `hsla(${hue},70%,87%,.9)`, color: `hsl(${hue},35%,28%)` }}
       title={task.title}
     >
@@ -68,14 +69,10 @@ function Cell({ date, tasks, month, tall }: { date: string; tasks: Task[]; month
 }
 
 export function CalendarView() {
-  const tasks = useStore((s) => s.tasks)
-  const folders = useStore((s) => s.folders)
-  const scope = useStore((s) => s.scope)
-  const showDone = useStore((s) => s.settings.showDone)
+  const visible = useVisibleTasks()
   const [mode, setMode] = useState<'month' | 'week'>('month')
   const [anchor, setAnchor] = useState(today())
 
-  const visible = useMemo(() => filterTasks(tasks, scope, folders, showDone), [tasks, scope, folders, showDone])
   const byDate = useMemo(() => {
     const m = new Map<string, Task[]>()
     for (const t of visible) if (t.due) m.set(t.due, [...(m.get(t.due) ?? []), t])

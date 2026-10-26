@@ -46,13 +46,18 @@ src/ui/      React components (platform specific: SwiftUI)
   Anything with `data-drop="kind:value"` is a target. In SwiftUI this becomes
   `.dropDestination` / `Transferable`.
 
-## Next steps
+## Pond internals
 
-1. **Sync API** (`/api/sync`, Vercel functions + `@neondatabase/serverless`):
-   push changed rows, pull `updated_at > cursor`. Tables already carry
-   `updated_at` / `deleted_at`.
-2. **Auth** (magic link or passkey) so rows are scoped to `user_id`.
-3. **Reminders / push**: `remind_at` + Web Push (VAPID) for the PWA, APNs for
-   native. iOS only delivers web push to installed PWAs (16.4+).
-4. **Folder ordering** and manual sort in lists/columns.
-5. **Recurring tasks** (RRULE string on the task, expanded in `core`).
+* `core/flock.ts` is a tiny soft-body sim (home spring, related-pair attraction, collision push with
+  "bump" events). The pond runs it in `requestAnimationFrame`, writes transforms straight to the DOM
+  (no React re-renders per frame) and sleeps when the energy is low.
+* `core/groups.ts` buckets tasks for *Gather by*, lays clusters out so none touch, and builds the
+  sparse "mind-map" links between tasks that share a folder or person.
+* Pan / pinch / wheel live in `ui/views/Pond.tsx` as pointer-event gestures on a single transformed
+  "world" element; bubble positions are stored as fractions of the canvas so they survive resizing.
+* A deploy writes `dist/version.json`; the running app polls it and shows the "newer Lilac is ready"
+  bubble when the id changes.
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md).
