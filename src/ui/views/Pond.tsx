@@ -113,6 +113,8 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
 
   const done = task.status === 'done'
   const font = Math.max(11, Math.min(15, r / 4.4))
+  // the check circle grows with the bubble, but stays a modest size
+  const cb = Math.round(Math.max(22, Math.min(28, r * 0.4)))
   const verb = detectContactIntent(task.title)?.verb
   const link = person && verb ? contactLink(verb, person) : null
 
@@ -134,47 +136,47 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               tabIndex={0}
               onPointerDown={(e) => onPointerDown(e, true)}
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
-              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-3 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-300 hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
+              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-300 hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               }`}
               style={{ '--h': hue } as React.CSSProperties}
             >
-              <span className={`${link ? 'line-clamp-2' : 'line-clamp-3'} break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
+              <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
                 {task.title || 'Untitled'}
               </span>
-              {r >= (link ? 66 : 52) && plannedDate(task) && (
+              {r >= 58 && plannedDate(task) && (
                 <span className="mt-1 scale-90">
                   <DueChip task={task} compact />
                 </span>
               )}
-              <span className="absolute left-1/2 top-[8%] flex -translate-x-1/2 items-center gap-1">
+              {/* the action row sits at the bottom of the bubble: checkbox (or idea mark), reminder bell, contact link */}
+              <span className="absolute bottom-[9%] left-1/2 flex -translate-x-1/2 items-center gap-1.5">
                 {task.kind === 'idea' ? (
-                  <span title="Idea" role="img" aria-label="Idea" className="grid h-[22px] w-[22px] place-items-center text-lilac-500">
-                    <IconThought size={22} />
+                  <span title="Idea" role="img" aria-label="Idea" className="grid place-items-center text-lilac-500" style={{ width: cb, height: cb }}>
+                    <IconThought size={cb} />
                   </span>
                 ) : (
-                  <>
-                    <DoneButton task={task} size={20} />
-                    {task.kind === 'reminder' && (
-                      <span title="Reminder" role="img" aria-label="Reminder" className="text-lilac-500">
-                        <IconBell size={15} />
-                      </span>
-                    )}
-                  </>
+                  <DoneButton task={task} size={cb} soft />
+                )}
+                {task.kind === 'reminder' && (
+                  <span title="Reminder" role="img" aria-label="Reminder" className="text-lilac-500">
+                    <IconBell size={15} />
+                  </span>
+                )}
+                {link && (
+                  <a
+                    href={link.href}
+                    title={`${link.label} ${person!.name.split(' ')[0]}`}
+                    aria-label={`${link.label} ${person!.name}`}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    className="pop-in grid shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/40 transition hover:scale-110 hover:bg-lilac-600"
+                    style={{ width: cb, height: cb }}
+                  >
+                    {link.label === 'Email' ? <IconMail size={13} /> : link.label === 'Text' ? <IconChat size={13} /> : <IconPhone size={13} />}
+                  </a>
                 )}
               </span>
-              {link && (
-                <a
-                  href={link.href}
-                  title={`${link.label} ${person!.name.split(' ')[0]}`}
-                  aria-label={`${link.label} ${person!.name}`}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
-                  className="pop-in mt-1.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/40 transition hover:scale-110 hover:bg-lilac-600"
-                >
-                  {link.label === 'Email' ? <IconMail size={13} /> : link.label === 'Text' ? <IconChat size={13} /> : <IconPhone size={13} />}
-                </a>
-              )}
             </div>
           </div>
         </div>
