@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { stepSim, type SimNode } from '../../core/flock'
+import { stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { bubbleRadius, clamp01 } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -160,7 +160,7 @@ export function Priority() {
     const tick = () => {
       const { w, h } = dims.current
       const list = [...nodes.current.values()]
-      const { energy } = stepSim(list, { home: 0.013, magnet: 0, damping: 0.84 }, () => false)
+      const { energy } = stepSim(list, { home: 0.013, magnet: 0, damping: WATER_FEEL.damping, push: WATER_FEEL.push }, () => false)
       for (const n of list) {
         // stay on the grid
         n.x = Math.min(w - n.r, Math.max(n.r, n.x))

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { drop, plink } from '../../audio/engine'
-import { boundsOf, fitView, stepSim, type SimNode } from '../../core/flock'
+import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { contactLink, detectContactIntent } from '../../core/people'
 import { bubbleRadius, plannedDate } from '../../core/tasks'
@@ -136,7 +136,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               tabIndex={0}
               onPointerDown={(e) => onPointerDown(e, true)}
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
-              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-300 hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
+              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               }`}
               style={{ '--h': hue } as React.CSSProperties}
@@ -359,7 +359,7 @@ export function Pond() {
       const list = [...nodes.current.values()].map((n) => n.sim)
       const { bumps, energy } = stepSim(
         list,
-        { home: g === 'free' ? 0.002 : 0.012, magnet: g === 'free' ? 0.1 : 0, damping: 0.88 },
+        { home: g === 'free' ? WATER_FEEL.homeFree : WATER_FEEL.homeGrouped, magnet: g === 'free' ? WATER_FEEL.magnet : 0, damping: g === 'free' ? WATER_FEEL.dampingFree : WATER_FEEL.damping, push: WATER_FEEL.push },
         (a, b) => r.related.has(pairKey(a, b)),
       )
       paint()
@@ -373,8 +373,8 @@ export function Pond() {
           st.y = t.dy
           st.vx = st.vy = 0
         } else {
-          st.vx = (st.vx + (t.dx - st.x) * 0.012) * 0.88
-          st.vy = (st.vy + (t.dy - st.y) * 0.012) * 0.88
+          st.vx = (st.vx + (t.dx - st.x) * WATER_FEEL.homeGrouped) * WATER_FEEL.damping
+          st.vy = (st.vy + (t.dy - st.y) * WATER_FEEL.homeGrouped) * WATER_FEEL.damping
           st.x += st.vx
           st.y += st.vy
         }
@@ -385,11 +385,11 @@ export function Pond() {
       for (const bump of bumps) {
         const n = nodes.current.get(bump.id)
         const jig = els.current.get(bump.id)?.jig
-        if (n && jig && bump.strength > 1.1 && now - n.bumped > 450) {
+        if (n && jig && bump.strength > 1.5 && now - n.bumped > 700) {
           n.bumped = now
           jig.animate(
-            [{ transform: 'scale(1)' }, { transform: 'scale(1.07, 0.94)' }, { transform: 'scale(0.97, 1.03)' }, { transform: 'scale(1)' }],
-            { duration: 420, easing: 'ease-out' },
+            [{ transform: 'scale(1)' }, { transform: 'scale(1.035, 0.97)' }, { transform: 'scale(0.99, 1.01)' }, { transform: 'scale(1)' }],
+            { duration: 700, easing: 'ease-out' },
           )
         }
       }
@@ -660,11 +660,11 @@ export function Pond() {
       e.jig.animate(
         [
           { transform: 'translateY(0px) scale(1)' },
-          { transform: `translateY(${-8 * amp}px) scale(${1 + 0.04 * amp})` },
-          { transform: `translateY(${3 * amp}px) scale(${1 - 0.01 * amp})` },
+          { transform: `translateY(${-4.5 * amp}px) scale(${1 + 0.022 * amp})` },
+          { transform: `translateY(${1.5 * amp}px) scale(${1 - 0.005 * amp})` },
           { transform: 'translateY(0px) scale(1)' },
         ],
-        { duration: 1900, delay: (d / WATER.speed) * 1000, easing: 'ease-in-out', composite: 'add' },
+        { duration: 2400, delay: (d / WATER.speed) * 1000, easing: 'ease-in-out', composite: 'add' },
       )
     }
   }, [])
