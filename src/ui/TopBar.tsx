@@ -3,8 +3,8 @@ import { dayLabel, shortDate, weekdayName } from '../core/dates'
 import { pathOf } from '../core/folders'
 import type { PondGroup } from '../core/types'
 import { unlock } from '../audio/engine'
-import { useStore, type Settings } from '../state/store'
-import { IconDrift, IconEye, IconMenu, IconPlus, IconSize, IconSound, IconSoundOff } from './icons'
+import { useStore } from '../state/store'
+import { IconMenu, IconPlus, IconSliders, IconSound, IconSoundOff } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { VIEWS } from './Sidebar'
 import { Tip } from './Tip'
@@ -19,16 +19,6 @@ const GROUPS: { id: PondGroup; label: string }[] = [
 
 const btn = (on: boolean) =>
   `grid h-9 w-9 shrink-0 place-items-center rounded-full transition ${on ? 'bg-lilac-500/90 text-white shadow-md shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`
-
-function Toggle({ on, onClick, label, children }: { on: boolean; onClick: () => void; label: string; children: React.ReactNode }) {
-  return (
-    <Tip label={label}>
-      <button onClick={onClick} aria-pressed={on} className={btn(on)}>
-        {children}
-      </button>
-    </Tip>
-  )
-}
 
 /** Tap = sound on/off. Hold (or right-click) = every individual sound option. */
 function SoundButton() {
@@ -48,7 +38,7 @@ function SoundButton() {
 
   return (
     <>
-      <span ref={ref} className="contents">
+      <span ref={ref} className="inline-flex">
         <Tip label={s.sound ? 'Sound on · tap to mute · hold for options' : 'Sound off · tap to unmute · hold for options'}>
           <button
             aria-pressed={s.sound}
@@ -112,6 +102,43 @@ function SoundButton() {
   )
 }
 
+/** Every on/off display option, tucked under one menu. */
+function ViewMenu() {
+  const view = useStore((st) => st.view)
+  const s = useStore((st) => st.settings)
+  const set = useStore((st) => st.setSetting)
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  const items: { key: 'magnet' | 'sizeByPriority' | 'drift' | 'showDone'; label: string; hint: string; pondOnly?: boolean }[] = [
+    { key: 'magnet', label: 'Related bubbles drift together', hint: 'with dotted threads', pondOnly: true },
+    { key: 'sizeByPriority', label: 'Bigger when more important', hint: 'bubble size', pondOnly: true },
+    { key: 'drift', label: 'Gentle drifting', hint: 'floating on the water', pondOnly: true },
+    { key: 'showDone', label: 'Show bloomed tasks', hint: 'finished tasks stay visible' },
+  ]
+  return (
+    <>
+      <span ref={ref} className="inline-flex">
+        <Tip label="View options">
+          <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className={btn(open)}>
+            <IconSliders />
+          </button>
+        </Tip>
+      </span>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="w-72">
+        <div className="px-3 pb-1 pt-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">View</div>
+        {items
+          .filter((i) => !i.pondOnly || view === 'pond')
+          .map((i) => (
+            <MenuItem key={i.key} onClick={() => set(i.key, !s[i.key])} trailing={<Switch on={s[i.key]} />}>
+              {i.label}
+              <span className="block text-[0.68rem] font-normal text-ink-faint">{i.hint}</span>
+            </MenuItem>
+          ))}
+      </Popover>
+    </>
+  )
+}
+
 function Switch({ on }: { on: boolean }) {
   return (
     <span className={`relative h-5 w-9 rounded-full transition ${on ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
@@ -140,7 +167,6 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
             : pathOf(folders, scope.id).map((f) => f.name).join(' › ') || 'Folder'
   const sub = scope.type === 'day' ? [dayLabel(scope.date), shortDate(scope.date)].filter((x, i) => i === 1 || x !== weekdayName(scope.date)).join(' · ') : VIEWS.find((v) => v.id === view)?.hint
-  const flip = <K extends keyof Settings>(k: K) => set(k, !settings[k] as Settings[K])
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
@@ -157,22 +183,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         </p>
       </div>
       <div className="order-3 flex basis-full items-center justify-end gap-1.5 sm:order-2 sm:basis-auto">
-        {view === 'pond' && (
-          <>
-            <Toggle on={settings.magnet} onClick={() => flip('magnet')} label="Related bubbles drift together">
-              <MagnetIcon />
-            </Toggle>
-            <Toggle on={settings.sizeByPriority} onClick={() => flip('sizeByPriority')} label="Bigger when more important">
-              <IconSize />
-            </Toggle>
-            <Toggle on={settings.drift} onClick={() => flip('drift')} label="Gentle drifting">
-              <IconDrift />
-            </Toggle>
-          </>
-        )}
-        <Toggle on={settings.showDone} onClick={() => flip('showDone')} label="Show bloomed (done) tasks">
-          <IconEye />
-        </Toggle>
+        <ViewMenu />
         <SoundButton />
       </div>
       <Tip label="New task">
@@ -205,12 +216,3 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   )
 }
 
-function MagnetIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="12" r="3" />
-      <path d="M9.5 12h5" strokeDasharray="1.5 2" />
-    </svg>
-  )
-}
