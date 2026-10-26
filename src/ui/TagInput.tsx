@@ -72,7 +72,7 @@ export function TagInput({ taskId }: { taskId: string }) {
 
   return (
     <div className="relative">
-      <div className="glass-soft flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
+      <div className="well flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
         {task.folderIds.map((fid) => {
           const f = folders.find((x) => x.id === fid)
           if (!f) return null

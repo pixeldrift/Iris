@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { addDays, fromISO, monthGrid, MONTHS, startOfWeek, toISO, today, WEEKDAYS } from '../../core/dates'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -9,12 +9,15 @@ import { plannedDate } from '../../core/tasks'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 function Chip({ task, deadline = false }: { task: Task; deadline?: boolean }) {
-  const onPointerDown = useTaskDrag(task)
+  const el = useRef<HTMLDivElement>(null)
+  const onPointerDown = useTaskDrag(task, el)
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
   const leave = useLeaveClass(task)
   return (
     <div
+      ref={el}
+      data-lift-id={deadline ? undefined : `task:${task.id}`}
       onPointerDown={(e) => {
         e.stopPropagation()
         onPointerDown(e, true)

@@ -41,7 +41,7 @@ export function NewTask({ open, onClose }: { open: boolean; onClose: () => void 
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="A task, an idea, a reminder…"
-            className="min-w-0 flex-1 bg-transparent px-2 py-2 font-display text-xl outline-none placeholder:text-ink-faint"
+            className="well min-w-0 flex-1 rounded-2xl px-3.5 py-2 font-display text-xl placeholder:text-ink-faint"
           />
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">
             <IconClose size={16} />

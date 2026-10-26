@@ -29,11 +29,7 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
         toggle(task.id)
       }}
       style={{ width: size, height: size }}
-      className={`grid shrink-0 place-items-center rounded-full border transition ${
-        done
-          ? 'border-lilac-400 bg-lilac-400 text-white shadow-[0_0_14px_rgba(183,143,223,0.7)]'
-          : 'border-lilac-300 bg-white/60 text-transparent hover:border-lilac-500 hover:text-lilac-300'
-      }`}
+      className={`well-circle grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-transparent hover:text-lilac-400'}`}
       aria-label={done ? 'Mark not done' : 'Mark done'}
       aria-pressed={done}
     >
@@ -93,11 +89,12 @@ export function WeightDot({ task }: { task: Task }) {
 }
 
 /** Draggable task card/row used by list, board and calendar. */
-export function useTaskDrag(task: Task) {
+export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>) {
   const select = useStore((s) => s.select)
   return usePointerDrag({
     payload: { type: 'task', id: task.id },
     label: task.title,
+    lift: () => el.current,
     touchNeedsHandle: true,
     onClick: () => select(task.id),
     onEnd: ({ target }) => {
@@ -163,7 +160,7 @@ export function QuickAdd({
         value={v}
         onChange={(e) => setV(e.target.value)}
         placeholder={placeholder}
-        className="glass-soft w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition placeholder:text-ink-faint focus:bg-white/70 focus:ring-2 focus:ring-lilac-300/70"
+        className="well w-full rounded-2xl px-4 py-2.5 text-sm"
       />
     </form>
   )

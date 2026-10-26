@@ -32,6 +32,8 @@ export interface ContactPrompt {
   verb: ContactVerb
 }
 
+export const SECTION_IDS = ['views', 'spaces', 'people', 'week', 'folders'] as const
+
 interface State {
   tasks: Task[]
   folders: Folder[]
@@ -44,6 +46,8 @@ interface State {
   /** Not persisted: ids mid exit-animation. */
   removing: Record<string, true>
   lingering: Record<string, true>
+  /** Sidebar sections: their order and which are folded shut. */
+  sidebar: { order: string[]; collapsed: string[] }
   contactPrompt: ContactPrompt | null
   toast: { id: number; text: string } | null
 
@@ -52,6 +56,10 @@ interface State {
   select: (id: string | null) => void
   setSidebar: (open: boolean) => void
   setSetting: <K extends keyof Settings>(k: K, v: Settings[K]) => void
+  toggleSection: (id: string) => void
+  /** Put a sidebar section before `beforeId` (null = last). */
+  moveSection: (id: string, beforeId: string | null) => void
+  updateFolder: (id: string, patch: Partial<Folder>) => void
 
   addTask: (p: Partial<Task> & { title: string }) => string
   updateTask: (id: string, patch: Partial<Task>) => void
@@ -132,6 +140,7 @@ export const useStore = create<State>()(
       sidebarOpen: false,
       removing: {},
       lingering: {},
+      sidebar: { order: [...SECTION_IDS], collapsed: [] },
       contactPrompt: null,
       toast: null,
 
@@ -143,6 +152,19 @@ export const useStore = create<State>()(
         set((s) => ({ settings: { ...s.settings, [k]: v } }))
         applyAudio(get().settings)
       },
+
+      toggleSection: (id) =>
+        set((s) => ({
+          sidebar: { ...s.sidebar, collapsed: s.sidebar.collapsed.includes(id) ? s.sidebar.collapsed.filter((x) => x !== id) : [...s.sidebar.collapsed, id] },
+        })),
+      moveSection: (id, beforeId) =>
+        set((s) => {
+          const rest = s.sidebar.order.filter((x) => x !== id)
+          const at = beforeId ? rest.indexOf(beforeId) : -1
+          rest.splice(at < 0 ? rest.length : at, 0, id)
+          return { sidebar: { ...s.sidebar, order: rest } }
+        }),
+      updateFolder: (id, patch) => set((s) => ({ folders: s.folders.map((f) => (f.id === id ? { ...f, ...patch } : f)) })),
 
       addTask: (p) => {
         const { scope, folders } = get()
@@ -415,7 +437,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 3,
+      version: 4,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -423,6 +445,7 @@ export const useStore = create<State>()(
         scope: s.scope,
         view: s.view,
         settings: s.settings,
+        sidebar: s.sidebar,
       }),
       migrate: (persisted, from) => {
         const p = persisted as Partial<State> & { settings?: Partial<Settings> }
@@ -441,7 +464,10 @@ export const useStore = create<State>()(
         const p = (persisted ?? {}) as Partial<State>
         const settings = { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) }
         if (!['free', 'folder', 'due', 'kind', 'person'].includes(settings.pondGroup)) settings.pondGroup = 'free'
-        return { ...current, ...p, settings }
+        // sections added in later versions slot in at the end; unknown ones are dropped
+        const saved = (p as Partial<State>).sidebar
+        const order = [...(saved?.order ?? []).filter((x) => (SECTION_IDS as readonly string[]).includes(x)), ...SECTION_IDS.filter((x) => !(saved?.order ?? []).includes(x))]
+        return { ...current, ...p, settings, sidebar: { order, collapsed: saved?.collapsed ?? [] } }
       },
       onRehydrateStorage: () => (s) => {
         if (s) applyAudio(s.settings)

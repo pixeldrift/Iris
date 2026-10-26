@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useFlip } from '../flip'
 import { sortTasks } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -16,22 +17,28 @@ const SORTS: { id: SortKey; label: string }[] = [
 ]
 
 function Row({ task }: { task: Task }) {
-  const onPointerDown = useTaskDrag(task)
+  const el = useRef<HTMLDivElement>(null)
+  const onPointerDown = useTaskDrag(task, el)
   const done = task.status === 'done'
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
       <div
+        ref={el}
+        data-lift-id={`task:${task.id}`}
+        data-flip={task.id}
         onPointerDown={(e) => onPointerDown(e)}
         className={`glass-soft group rise-in flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 transition hover:bg-white/70 ${leave}`}
       >
         <DoneButton task={task} />
         <WeightDot task={task} />
         <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
-        <span className="hidden items-center gap-1 sm:flex">
+        <span data-lift-extra className="hidden items-center gap-1 sm:flex">
           <FolderChips task={task} max={2} />
         </span>
-        <DueChip task={task} />
+        <span data-lift-extra>
+          <DueChip task={task} />
+        </span>
         <GripHandle onPointerDown={onPointerDown} />
       </div>
     </Dim>
@@ -46,6 +53,8 @@ export function ListView() {
 
   const rows = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
   const [menu, setMenu] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  useFlip(listRef)
   const anchor = useRef<HTMLButtonElement>(null)
 
   return (
@@ -79,7 +88,7 @@ export function ListView() {
         <span className="ml-auto text-xs text-ink-faint">{rows.length} floating</span>
       </div>
       <QuickAdd onAdd={(title) => addTask({ title })} />
-      <div className="scroll-soft -mr-2 mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
+      <div ref={listRef} className="scroll-soft -mr-2 mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
         {rows.map((t) => (
           <Row key={t.id} task={t} />
         ))}

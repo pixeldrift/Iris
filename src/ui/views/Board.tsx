@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { sortTasks } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -7,11 +7,14 @@ import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, STATUSES, useTaskDrag } from '../shared'
 
 function Card({ task }: { task: Task }) {
-  const onPointerDown = useTaskDrag(task)
+  const el = useRef<HTMLDivElement>(null)
+  const onPointerDown = useTaskDrag(task, el)
   const leave = useLeaveClass(task, true)
   return (
     <Dim id={task.id}>
       <div
+        ref={el}
+        data-lift-id={`task:${task.id}`}
         onPointerDown={(e) => onPointerDown(e)}
         className={`rise-in group cursor-pointer rounded-2xl border border-white/80 bg-white/65 p-3 shadow-[0_6px_20px_-10px_rgba(107,68,145,0.3)] transition hover:-translate-y-0.5 hover:bg-white/85 ${leave}`}
       >
