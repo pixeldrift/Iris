@@ -19,5 +19,7 @@ const versionFile = (): Plugin => ({
 export default defineConfig({
   plugins: [react(), tailwindcss(), versionFile()],
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
-  test: { include: ['src/**/*.test.ts'] },
+  test: { include: ['src/**/*.test.ts', 'api/**/*.test.ts'] },
+  // `npm run dev:api` (or `vercel dev`) serves /api on :3000; the dev server forwards to it
+  server: { proxy: { '/api': 'http://localhost:3000' } },
 })

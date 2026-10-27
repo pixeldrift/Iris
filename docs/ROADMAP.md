@@ -1,8 +1,10 @@
 # Lilac roadmap
 
 ## Near term
-- **Sync + accounts.** Vercel functions + Neon: push changed rows, pull `updated_at > cursor`
-  (schema already carries `updated_at` / `deleted_at`). Passkey or magic-link sign-in.
+- **Sync + accounts. (Built; needs your Neon database to go live.)** Better Auth email + password, a Neon `entities`
+  table, last-write-wins sync of tasks, folders and people (`docs/ACCOUNTS.md`). Still to do: email verification
+  and password reset (needs an email provider), passkeys / social sign-in, syncing settings, shared rate limiting,
+  and server-assigned versions before collaboration.
 - **Reminders & push.** In-app reminders and system notifications (while the app is open) have shipped.
   Still to do: delivery when the app is closed: Web Push (VAPID) for the PWA, APNs for native.
   iOS only delivers web push to PWAs added to the Home Screen (16.4+).

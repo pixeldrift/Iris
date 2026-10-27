@@ -16,6 +16,7 @@ import { useIsMobile } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
 import { lifter, SPRING } from './lift'
+import { AccountRow } from './Account'
 import { CountBubble, GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
@@ -458,6 +459,7 @@ export function Sidebar() {
             ))}
           </nav>
         </ScrollFade>
+        <AccountRow />
         </div>
       </aside>
     </>
