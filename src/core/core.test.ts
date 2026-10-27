@@ -248,19 +248,19 @@ describe('placing a dragged folder in the tree', () => {
     { id: 'life', depth: 0 },
   ]
   it('keeps the same level when not pulled sideways', () => {
-    expect(placeInTree(folders, 'bio', rows, 1, 1)).toMatchObject({ parentId: 'school', beforeId: null, depth: 1 })
+    expect(placeInTree(folders, 'bio', rows, 1, 1)).toMatchObject({ kind: 'slot', parentId: 'school', beforeId: null, depth: 1 })
   })
   it('pulling left climbs out one level, landing after the old parent', () => {
-    expect(placeInTree(folders, 'bio', rows, 1, 0)).toMatchObject({ parentId: null, beforeId: 'home', depth: 0 })
+    expect(placeInTree(folders, 'bio', rows, 1, 0)).toMatchObject({ kind: 'slot', parentId: null, beforeId: 'home', depth: 0 })
   })
   it('pushing right nests under the row above', () => {
-    expect(placeInTree(folders, 'bio', rows, 1, 2)).toMatchObject({ parentId: 'eng', beforeId: null, depth: 2 })
+    expect(placeInTree(folders, 'bio', rows, 1, 2)).toMatchObject({ kind: 'slot', parentId: 'eng', beforeId: null, depth: 2 })
   })
   it('cannot go shallower than the row below, or deeper than one under the row above', () => {
     expect(placeInTree(folders, 'bio', rows, 2, 0).depth).toBe(1) // between home and garden: at least depth 1
     expect(placeInTree(folders, 'bio', rows, 0, 9).depth).toBe(1)
   })
   it('the top slot is always a root', () => {
-    expect(placeInTree(folders, 'bio', rows, -1, 3)).toMatchObject({ parentId: null, beforeId: 'school', afterId: null })
+    expect(placeInTree(folders, 'bio', rows, -1, 3)).toMatchObject({ kind: 'slot', parentId: null, beforeId: 'school', afterId: null })
   })
 })

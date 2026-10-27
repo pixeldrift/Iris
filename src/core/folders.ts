@@ -80,6 +80,8 @@ export interface TreeRow {
 
 /** Where a dragged folder lands: under `parentId`, in front of `beforeId` (last when null). */
 export interface Placement {
+  /** 'into': dropped directly onto `parentId`, which lights up and takes it as its last child. */
+  kind: 'slot' | 'into'
   /** The visible row it sits directly below (null: the very top). */
   afterId: string | null
   depth: number
@@ -100,10 +102,10 @@ export function placeInTree(folders: Folder[], dragId: string, rows: TreeRow[], 
   const max = prev ? Math.max(min, prev.depth + 1) : 0
   const depth = Math.min(max, Math.max(min, wantDepth))
   const sibs = (parent: string | null) => childrenOf(folders, parent).filter((f) => f.id !== dragId)
-  if (!prev) return { afterId: null, depth: 0, parentId: null, beforeId: sibs(null)[0]?.id ?? null }
-  if (depth > prev.depth) return { afterId: prev.id, depth, parentId: prev.id, beforeId: sibs(prev.id)[0]?.id ?? null }
+  if (!prev) return { kind: 'slot', afterId: null, depth: 0, parentId: null, beforeId: sibs(null)[0]?.id ?? null }
+  if (depth > prev.depth) return { kind: 'slot', afterId: prev.id, depth, parentId: prev.id, beforeId: sibs(prev.id)[0]?.id ?? null }
   let a = folders.find((f) => f.id === prev.id)!
   for (let d = prev.depth; d > depth; d--) a = folders.find((f) => f.id === a.parentId)!
   const list = sibs(a.parentId)
-  return { afterId: prev.id, depth, parentId: a.parentId, beforeId: list[list.findIndex((f) => f.id === a.id) + 1]?.id ?? null }
+  return { kind: 'slot', afterId: prev.id, depth, parentId: a.parentId, beforeId: list[list.findIndex((f) => f.id === a.id) + 1]?.id ?? null }
 }

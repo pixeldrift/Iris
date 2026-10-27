@@ -211,7 +211,7 @@ export function Sidebar() {
   }
 
   const rootDrop = useDropTarget('froot')
-  const topSlot = useFolderSlot((st) => (st.slot?.afterId === null ? st.slot : null))
+  const topSlot = useFolderSlot((st) => (st.slot?.kind === 'slot' && st.slot.afterId === null ? st.slot : null))
 
   // Dragging a bubble onto the left edge pulls the drawer open under it, so it can be dropped into a folder.
   const mobile = useIsMobile()
@@ -486,12 +486,21 @@ function slotFor(folders: Folder[], dragId: string, startDepth: number, y: numbe
   if (!list) return null
   const skip = descendantIds(folders, dragId)
   skip.add(dragId)
+  // The open gap pushes rows down; measure everything as if it were closed so the slot can't chase itself.
+  const gaps = [...list.querySelectorAll<HTMLElement>('[data-gap]')].map((g) => g.getBoundingClientRect()).map((g) => ({ top: g.top, h: g.height }))
+  const flat = (v: number) => gaps.reduce((acc, g) => acc - Math.min(Math.max(v - g.top, 0), g.h), v)
+  y = flat(y)
   const rows: (TreeRow & { mid: number })[] = []
+  let onto: string | null = null
   list.querySelectorAll<HTMLElement>('[data-folder-row]').forEach((el) => {
     if (skip.has(el.dataset.folderRow!)) return
-    const r = el.getBoundingClientRect()
+    const b = el.getBoundingClientRect()
+    const r = { top: flat(b.top), bottom: flat(b.bottom), height: flat(b.bottom) - flat(b.top) }
     rows.push({ id: el.dataset.folderRow!, depth: Number(el.dataset.depth), mid: r.top + r.height / 2 })
+    // straight onto the middle of a row: it becomes that folder's child
+    if (y >= r.top + r.height * 0.28 && y <= r.bottom - r.height * 0.28) onto = el.dataset.folderRow!
   })
+  if (onto) return { kind: 'into', afterId: null, depth: 0, parentId: onto, beforeId: null }
   let after = -1
   rows.forEach((r, i) => {
     if (r.mid < y) after = i
@@ -527,8 +536,9 @@ function FolderNode(props: NodeProps) {
   const { over, active: dragging, props: dropProps } = useDropTarget(`folder:${folder.id}`)
   const dragPayload = useDnd((s) => s.drag?.payload)
   const isSelfDrag = dragPayload?.type === 'folder' && dragPayload.id === folder.id
-  const slotHere = useFolderSlot((st) => (st.slot?.afterId === folder.id ? st.slot : null))
+  const slotHere = useFolderSlot((st) => (st.slot?.kind === 'slot' && st.slot.afterId === folder.id ? st.slot : null))
   const dragIsTask = dragPayload?.type === 'task'
+  const intoMe = useFolderSlot((st) => st.slot?.kind === 'into' && st.slot.parentId === folder.id)
 
   const onPointerDown = usePointerDrag({
     payload: { type: 'folder', id: folder.id },
@@ -552,7 +562,7 @@ function FolderNode(props: NodeProps) {
       if (target !== 'slot' || !slot) return
       const sibs = childrenOf(folders, folder.parentId)
       const next = sibs[sibs.findIndex((f) => f.id === folder.id) + 1]?.id ?? null
-      if (slot.parentId === folder.parentId && slot.beforeId === next) return
+      if (slot.kind === 'slot' && slot.parentId === folder.parentId && slot.beforeId === next) return
       moveFolder(folder.id, slot.parentId, slot.beforeId)
     },
   })
@@ -587,7 +597,7 @@ function FolderNode(props: NodeProps) {
         onClick={() => setScope({ type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
-          over && dragIsTask && !isSelfDrag ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
+          (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
         style={{ paddingLeft: `${0.6 + depth * 0.95}rem` }}
       >
@@ -809,6 +819,7 @@ function Gap({ open, id, indent = 0, line = false }: { open: boolean; id?: strin
     <div
       {...(id ? { 'data-drop': `folder:${id}` } : {})}
       aria-hidden
+      data-gap
       className="flex items-center overflow-hidden px-2"
       style={{ height: open ? h : 0, transition: `height 0.32s ${SPRING}`, paddingLeft: line ? `${0.6 + indent * 0.95 + 0.4}rem` : undefined }}
     >
