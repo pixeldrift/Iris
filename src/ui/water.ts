@@ -6,7 +6,7 @@ export const WATER = {
   /** Wave front speed, CSS px per second. */
   speed: 112,
   /** Seconds before a ripple has fully faded. */
-  life: 8,
+  life: 4.5,
   /** Ripples alive at once (the shader's fixed array size). */
   max: 4,
 }

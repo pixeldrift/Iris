@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addDays, dayLabel, diffDays, monthGrid, startOfWeek } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
-import { canReparent, descendantIds, pathLabel } from './folders'
+import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 
@@ -179,9 +179,9 @@ describe('water feel', () => {
 describe('folder flowers', () => {
   it('cycles through every shape before repeating', async () => {
     const { SHAPE_CYCLE, shapeFor } = await import('./folders')
-    const first = Array.from({ length: 13 }, (_, i) => shapeFor(i))
-    expect(new Set(first).size).toBe(13)
-    expect(shapeFor(13)).toBe(SHAPE_CYCLE[0])
+    const first = Array.from({ length: 12 }, (_, i) => shapeFor(i))
+    expect(new Set(first).size).toBe(12)
+    expect(shapeFor(12)).toBe(SHAPE_CYCLE[0])
   })
   it('gives every seed folder a shape', () => {
     for (const f of seedData().folders) expect(f.shape).toBeTruthy()
@@ -232,5 +232,35 @@ describe('day planning & rollover', () => {
   it('finds the next allowed weekday', () => {
     expect(nextAllowedDay('2026-10-27', [1, 3, 5])).toBe('2026-10-28')
     expect(nextAllowedDay('2026-10-27', null)).toBe('2026-10-27')
+  })
+})
+
+describe('placing a dragged folder in the tree', () => {
+  const mk = (id: string, parentId: string | null, sort: number) => ({ id, name: id, parentId, hue: 0, shape: 'blossom' as const, sort, createdAt: 0 })
+  // School > (Eng, Bio), Home > Garden, Life
+  const folders = [mk('school', null, 0), mk('eng', 'school', 0), mk('bio', 'school', 1), mk('home', null, 1), mk('garden', 'home', 0), mk('life', null, 2)]
+  // dragging Bio: its row is left out; the slot is directly below Eng, in front of Home
+  const rows = [
+    { id: 'school', depth: 0 },
+    { id: 'eng', depth: 1 },
+    { id: 'home', depth: 0 },
+    { id: 'garden', depth: 1 },
+    { id: 'life', depth: 0 },
+  ]
+  it('keeps the same level when not pulled sideways', () => {
+    expect(placeInTree(folders, 'bio', rows, 1, 1)).toMatchObject({ kind: 'slot', parentId: 'school', beforeId: null, depth: 1 })
+  })
+  it('pulling left climbs out one level, landing after the old parent', () => {
+    expect(placeInTree(folders, 'bio', rows, 1, 0)).toMatchObject({ kind: 'slot', parentId: null, beforeId: 'home', depth: 0 })
+  })
+  it('pushing right nests under the row above', () => {
+    expect(placeInTree(folders, 'bio', rows, 1, 2)).toMatchObject({ kind: 'slot', parentId: 'eng', beforeId: null, depth: 2 })
+  })
+  it('cannot go shallower than the row below, or deeper than one under the row above', () => {
+    expect(placeInTree(folders, 'bio', rows, 2, 0).depth).toBe(1) // between home and garden: at least depth 1
+    expect(placeInTree(folders, 'bio', rows, 0, 9).depth).toBe(1)
+  })
+  it('the top slot is always a root', () => {
+    expect(placeInTree(folders, 'bio', rows, -1, 3)).toMatchObject({ kind: 'slot', parentId: null, beforeId: 'school', afterId: null })
   })
 })

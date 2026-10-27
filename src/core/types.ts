@@ -47,7 +47,6 @@ export type FlowerShape =
   | 'poppy'
   | 'cosmos'
   | 'pinwheel'
-  | 'lavender'
   | 'sunflower'
   | 'hibiscus'
   | 'bell'

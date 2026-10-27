@@ -33,8 +33,8 @@ In a task's panel, type in the tag box: it fuzzy-matches existing folders
 Lilies float gently, and grow with importance. Toggles in the top bar control
 sizing, drifting, sound and the ambient wind-chime bed.
 
-**Folder flowers.** Every folder has a flower and a colour. New folders cycle through 13 flower shapes and
-8 colours automatically; tap a folder's flower to change its flower (drop-down), colour, name, or delete it.
+**Folder flowers.** Every folder has a flower and a colour. New folders cycle through 12 flower shapes and
+8 colours automatically (plus gray, which you pick yourself); tap a folder's flower to change its flower (drop-down), colour, name, or delete it.
 The artwork is editable SVG in `src/assets/flowers/`; `/#flowers` shows the whole set.
 
 **People.** Add people in the sidebar (type details, or pick *one* contact from your address book where

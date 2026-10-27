@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { GRAY, tint } from '../core/color'
 import { addDays, diffDays, today, weekdayName } from '../core/dates'
-import { childrenOf, descendantIds } from '../core/folders'
+import { childrenOf, descendantIds, placeInTree, type Placement, type TreeRow } from '../core/folders'
 import { plannedDate } from '../core/tasks'
 import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
-import { useDnd, useDropTarget, usePointerDrag } from './dnd'
+import { create } from 'zustand'
+import { targetAt, useDnd, useDropTarget, usePointerDrag } from './dnd'
 import { Logo } from './Decor'
 import { askConfirm } from './dialogs'
 import { FLOWER_SHAPES, Flower } from './Flower'
@@ -209,6 +211,7 @@ export function Sidebar() {
   }
 
   const rootDrop = useDropTarget('froot')
+  const topSlot = useFolderSlot((st) => (st.slot?.kind === 'slot' && st.slot.afterId === null ? st.slot : null))
 
   // Dragging a bubble onto the left edge pulls the drawer open under it, so it can be dropped into a folder.
   const mobile = useIsMobile()
@@ -319,7 +322,8 @@ export function Sidebar() {
           </Tip>
         }
       >
-        <div ref={folderListRef}>
+        <div ref={folderListRef} data-folder-list>
+          <Gap open={topSlot !== null} indent={0} line />
           {childrenOf(folders, null).map((f) => (
             <FolderNode
               key={f.id}
@@ -346,14 +350,56 @@ export function Sidebar() {
     ),
   }
 
+  // Swipe: drag the sliver right to pull the drawer open; drag the open drawer left to push it shut.
+  const [swipe, setSwipe] = useState<number | null>(null)
+  const swipeRef = useRef<{ x: number; dx: number; moved: boolean; t: number } | null>(null)
+  const swipeProps = {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (!mobile || (e.pointerType === 'mouse' && e.button !== 0)) return
+      swipeRef.current = { x: e.clientX, dx: 0, moved: false, t: e.timeStamp }
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const w = swipeRef.current
+      if (!w) return
+      const raw = e.clientX - w.x
+      if (!w.moved && Math.abs(raw) < 8) return
+      if (!w.moved) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+      w.moved = true
+      w.dx = open ? Math.min(0, raw) : Math.max(0, raw)
+      setSwipe(w.dx)
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const w = swipeRef.current
+      swipeRef.current = null
+      if (!w?.moved) return
+      const fast = Math.abs(w.dx) / Math.max(1, e.timeStamp - w.t) > 0.4
+      setSwipe(null)
+      if (!open && (w.dx > 70 || (fast && w.dx > 24))) setSidebar(true)
+      if (open && (w.dx < -70 || (fast && w.dx < -24))) setSidebar(false)
+      justSwiped.current = true
+      setTimeout(() => (justSwiped.current = false), 0)
+    },
+    onPointerCancel: () => {
+      swipeRef.current = null
+      setSwipe(null)
+    },
+  }
+  const justSwiped = useRef(false)
+
   return (
     <>
       {open && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
       <aside
         className={`glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
           open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
-        }`}
-        style={{ paddingTop: 'env(safe-area-inset-top)', transitionTimingFunction: SPRING }}
+        } ${swipe !== null ? '!transition-none' : ''}`}
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          transitionTimingFunction: SPRING,
+          ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + 1.15rem + ${swipe}px) 0` } : {}),
+          ...(mobile ? { touchAction: 'pan-y' } : {}),
+        }}
+        {...(open ? swipeProps : {})}
       >
         {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
             tap it, or drag an item onto it, to open the drawer. */}
@@ -361,9 +407,11 @@ export function Sidebar() {
           // the whole visible edge is one real button, so a tap anywhere along it works like the hamburger
           <button
             type="button"
-            onClick={() => setSidebar(true)}
+            onClick={() => !justSwiped.current && setSidebar(true)}
             aria-label="Open menu"
-            className="absolute inset-y-0 right-0 z-10 w-[1.15rem] cursor-pointer touch-manipulation rounded-r-3xl"
+            style={{ touchAction: 'pan-y' }}
+            className="absolute inset-y-0 right-0 z-10 w-[1.15rem] cursor-pointer rounded-r-3xl"
+            {...swipeProps}
           />
         )}
         <div inert={mobile && !open} className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}>
@@ -400,7 +448,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
     >
       <span
         className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full text-[0.62rem] font-semibold"
-        style={{ background: `hsl(${person.hue},65%,86%)`, color: `hsl(${person.hue},38%,32%)` }}
+        style={{ background: `${tint(person.hue, 65, 86)}`, color: `${tint(person.hue, 38, 32)}` }}
       >
         {person.name[0]?.toUpperCase()}
       </span>
@@ -423,20 +471,41 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
   )
 }
 
+/** How far (px) a folder must be pulled sideways to change its depth by one level. */
+const INDENT_STEP = 26
+
+/** The slot a dragged folder would drop into, shared so the right row can open its gap. */
+const useFolderSlot = create<{ slot: Placement | null }>(() => ({ slot: null }))
+
 /**
- * Where a dragged folder lands relative to a row:
- *   before - above it: same level, in front (insert line above)
- *   into   - directly on it: becomes its child (the row lights up)
- *   after  - below, left half: same level, behind it (insert line below)
- *   child  - below, right half: becomes its first child (row lights up, line indented)
+ * Folder drag, the outliner way: the pointer's height chooses the slot between two visible rows,
+ * and sideways travel from where the row was picked up chooses the depth (left = out one level).
  */
-type Zone = 'before' | 'into' | 'after' | 'child'
-const zoneAt = (el: Element, x: number, y: number): Zone => {
-  const r = el.getBoundingClientRect()
-  const f = (y - r.top) / r.height
-  if (f < 0.28) return 'before'
-  if (f <= 0.72) return 'into'
-  return x < r.left + r.width / 2 ? 'after' : 'child'
+function slotFor(folders: Folder[], dragId: string, startDepth: number, y: number, dx: number): Placement | null {
+  const list = document.querySelector('[data-folder-list]')
+  if (!list) return null
+  const skip = descendantIds(folders, dragId)
+  skip.add(dragId)
+  // The open gap pushes rows down; measure everything as if it were closed so the slot can't chase itself.
+  const gaps = [...list.querySelectorAll<HTMLElement>('[data-gap]')].map((g) => g.getBoundingClientRect()).map((g) => ({ top: g.top, h: g.height }))
+  const flat = (v: number) => gaps.reduce((acc, g) => acc - Math.min(Math.max(v - g.top, 0), g.h), v)
+  y = flat(y)
+  const rows: (TreeRow & { mid: number })[] = []
+  let onto: string | null = null
+  list.querySelectorAll<HTMLElement>('[data-folder-row]').forEach((el) => {
+    if (skip.has(el.dataset.folderRow!)) return
+    const b = el.getBoundingClientRect()
+    const r = { top: flat(b.top), bottom: flat(b.bottom), height: flat(b.bottom) - flat(b.top) }
+    rows.push({ id: el.dataset.folderRow!, depth: Number(el.dataset.depth), mid: r.top + r.height / 2 })
+    // straight onto the middle of a row: it becomes that folder's child
+    if (y >= r.top + r.height * 0.28 && y <= r.bottom - r.height * 0.28) onto = el.dataset.folderRow!
+  })
+  if (onto) return { kind: 'into', afterId: null, depth: 0, parentId: onto, beforeId: null }
+  let after = -1
+  rows.forEach((r, i) => {
+    if (r.mid < y) after = i
+  })
+  return placeInTree(folders, dragId, rows, after, startDepth + Math.round(dx / INDENT_STEP))
 }
 
 interface NodeProps {
@@ -467,35 +536,34 @@ function FolderNode(props: NodeProps) {
   const { over, active: dragging, props: dropProps } = useDropTarget(`folder:${folder.id}`)
   const dragPayload = useDnd((s) => s.drag?.payload)
   const isSelfDrag = dragPayload?.type === 'folder' && dragPayload.id === folder.id
-  // where a dragged folder would land relative to this row
-  const zone = useDnd((s): Zone | null =>
-    s.over === `folder:${folder.id}` && s.drag?.payload.type === 'folder' && s.drag.payload.id !== folder.id && rowRef.current
-      ? zoneAt(rowRef.current, s.drag.x, s.drag.y)
-      : null,
-  )
+  const slotHere = useFolderSlot((st) => (st.slot?.kind === 'slot' && st.slot.afterId === folder.id ? st.slot : null))
+  const dragIsTask = dragPayload?.type === 'task'
+  const intoMe = useFolderSlot((st) => st.slot?.kind === 'into' && st.slot.parentId === folder.id)
 
   const onPointerDown = usePointerDrag({
     payload: { type: 'folder', id: folder.id },
     label: folder.name,
     touchNeedsHandle: true,
     lift: () => rowRef.current,
-    onEnd: ({ target, x, y }) => {
-      if (!target) return
+    resolve: (x, y) => {
+      const t = targetAt(x, y)
+      if (t === 'froot') return t
+      const list = document.querySelector('[data-folder-list]')?.getBoundingClientRect()
+      return list && x <= list.right && y >= list.top - 30 && y <= list.bottom + 30 ? 'slot' : null
+    },
+    onMove: (x, y, dx) => {
+      const over = targetAt(x, y)
+      useFolderSlot.setState({ slot: over === 'froot' ? null : slotFor(useStore.getState().folders, folder.id, depth, y, dx) })
+    },
+    onEnd: ({ target }) => {
+      const slot = useFolderSlot.getState().slot
+      useFolderSlot.setState({ slot: null })
       if (target === 'froot') return moveFolder(folder.id, null)
-      if (!target.startsWith('folder:')) return
-      const tid = target.slice(7)
-      const el = document.querySelector(`[data-lift-id="${target}"]`)
-      const t = folders.find((f) => f.id === tid)
-      if (!el || !t || tid === folder.id) return
-      const z = zoneAt(el, x, y)
-      if (z === 'into') moveFolder(folder.id, tid)
-      else if (z === 'child') moveFolder(folder.id, tid, childrenOf(folders, tid).find((f) => f.id !== folder.id)?.id ?? null)
-      else if (z === 'before') moveFolder(folder.id, t.parentId, tid)
-      else {
-        const sibs = childrenOf(folders, t.parentId).filter((f) => f.id !== folder.id)
-        const next = sibs[sibs.findIndex((f) => f.id === tid) + 1]
-        moveFolder(folder.id, t.parentId, next?.id ?? null)
-      }
+      if (target !== 'slot' || !slot) return
+      const sibs = childrenOf(folders, folder.parentId)
+      const next = sibs[sibs.findIndex((f) => f.id === folder.id) + 1]?.id ?? null
+      if (slot.kind === 'slot' && slot.parentId === folder.parentId && slot.beforeId === next) return
+      moveFolder(folder.id, slot.parentId, slot.beforeId)
     },
   })
 
@@ -518,9 +586,10 @@ function FolderNode(props: NodeProps) {
 
   return (
     <div className="rise-in">
-      <Gap open={zone === 'before'} id={folder.id} indent={depth} line />
       <div
         ref={rowRef}
+        data-folder-row={folder.id}
+        data-depth={depth}
         data-lift-id={`folder:${folder.id}`}
         data-flip={folder.id}
         {...dropProps}
@@ -528,7 +597,7 @@ function FolderNode(props: NodeProps) {
         onClick={() => setScope({ type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
-          over && !isSelfDrag && zone !== 'before' && zone !== 'after' ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
+          (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
         style={{ paddingLeft: `${0.6 + depth * 0.95}rem` }}
       >
@@ -600,14 +669,13 @@ function FolderNode(props: NodeProps) {
           </span>
         )}
       </div>
-      <Gap open={zone === 'child'} id={folder.id} indent={depth + 1} line />
+      <Gap open={slotHere !== null} indent={slotHere?.depth ?? 0} line />
       {isOpen && kids.map((k) => <FolderNode key={k.id} {...props} folder={k} depth={depth + 1} />)}
-      <Gap open={zone === 'after'} id={folder.id} indent={depth} line />
     </div>
   )
 }
 
-const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255]
+const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255, GRAY]
 
 /** Everything about one folder in one place: rename it, colour it, add inside it, delete it. */
 function FolderOptions({
@@ -671,15 +739,15 @@ function FolderOptions({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-ink-soft">Colour</div>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className="mt-1.5 grid grid-cols-4 justify-items-start gap-1.5">
             {SWATCHES.map((h) => (
               <button
                 key={h}
                 onClick={() => updateFolder(folder.id, { hue: h })}
-                aria-label={`Colour ${h}`}
+                aria-label={h === GRAY ? 'Colour gray' : `Colour ${h}`}
                 aria-pressed={folder.hue === h}
                 className={`grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full transition hover:scale-110 ${folder.hue === h ? 'ring-2 ring-lilac-500 ring-offset-1 ring-offset-white/80' : ''}`}
-                style={{ background: `hsl(${h}, 62%, 78%)` }}
+                style={{ background: `${tint(h, 62, 78)}` }}
               >
                 {folder.hue === h && <IconCheck size={11} />}
               </button>
@@ -688,7 +756,7 @@ function FolderOptions({
         </div>
       </div>
       <Collapse open={picking}>
-        <div role="listbox" aria-label="Flower" className="grid grid-cols-5 gap-1 pt-2">
+        <div role="listbox" aria-label="Flower" className="grid grid-cols-4 gap-1 pt-2">
           {FLOWER_SHAPES.map((x) => (
             <button
               key={x.id}
@@ -751,6 +819,7 @@ function Gap({ open, id, indent = 0, line = false }: { open: boolean; id?: strin
     <div
       {...(id ? { 'data-drop': `folder:${id}` } : {})}
       aria-hidden
+      data-gap
       className="flex items-center overflow-hidden px-2"
       style={{ height: open ? h : 0, transition: `height 0.32s ${SPRING}`, paddingLeft: line ? `${0.6 + indent * 0.95 + 0.4}rem` : undefined }}
     >

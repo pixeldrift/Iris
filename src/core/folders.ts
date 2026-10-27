@@ -67,7 +67,45 @@ export function reorder(folders: Folder[], id: string, parentId: string | null, 
  * The order new folders cycle through. Neighbouring entries differ a lot in silhouette, and
  * 13 shapes against 8 hues means the same pairing only repeats after 104 folders.
  */
-export const SHAPE_CYCLE: FlowerShape[] = ['blossom', 'tulip', 'daisy', 'lavender', 'rose', 'bell', 'lily', 'poppy', 'sunflower', 'iris', 'pinwheel', 'hibiscus', 'cosmos']
+export const SHAPE_CYCLE: FlowerShape[] = ['blossom', 'tulip', 'daisy', 'rose', 'bell', 'lily', 'poppy', 'sunflower', 'iris', 'pinwheel', 'hibiscus', 'cosmos']
 
 /** The flower a new folder gets by default (the user can change it). */
 export const shapeFor = (count: number): FlowerShape => SHAPE_CYCLE[count % SHAPE_CYCLE.length]
+
+/** A visible row of the folder tree, top to bottom. */
+export interface TreeRow {
+  id: string
+  depth: number
+}
+
+/** Where a dragged folder lands: under `parentId`, in front of `beforeId` (last when null). */
+export interface Placement {
+  /** 'into': dropped directly onto `parentId`, which lights up and takes it as its last child. */
+  kind: 'slot' | 'into'
+  /** The visible row it sits directly below (null: the very top). */
+  afterId: string | null
+  depth: number
+  parentId: string | null
+  beforeId: string | null
+}
+
+/**
+ * Outliner-style placement. The pointer's height picks a slot between two visible rows
+ * (`afterIndex` is the row above it, -1 for the top) and its sideways travel picks the depth:
+ * push right to nest under the row above, pull left to climb out one level per step.
+ * `rows` must already leave out the dragged folder and everything inside it.
+ */
+export function placeInTree(folders: Folder[], dragId: string, rows: TreeRow[], afterIndex: number, wantDepth: number): Placement {
+  const prev = afterIndex >= 0 ? rows[afterIndex] : null
+  const next = rows[afterIndex + 1] ?? null
+  const min = next ? next.depth : 0
+  const max = prev ? Math.max(min, prev.depth + 1) : 0
+  const depth = Math.min(max, Math.max(min, wantDepth))
+  const sibs = (parent: string | null) => childrenOf(folders, parent).filter((f) => f.id !== dragId)
+  if (!prev) return { kind: 'slot', afterId: null, depth: 0, parentId: null, beforeId: sibs(null)[0]?.id ?? null }
+  if (depth > prev.depth) return { kind: 'slot', afterId: prev.id, depth, parentId: prev.id, beforeId: sibs(prev.id)[0]?.id ?? null }
+  let a = folders.find((f) => f.id === prev.id)!
+  for (let d = prev.depth; d > depth; d--) a = folders.find((f) => f.id === a.parentId)!
+  const list = sibs(a.parentId)
+  return { kind: 'slot', afterId: prev.id, depth, parentId: a.parentId, beforeId: list[list.findIndex((f) => f.id === a.id) + 1]?.id ?? null }
+}

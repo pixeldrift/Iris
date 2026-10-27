@@ -8,7 +8,7 @@ export function FlowerGallery() {
     <div className="fixed inset-0 overflow-y-auto" style={{ background: 'inherit' }}>
       <div className="mx-auto max-w-5xl px-5 py-8">
         <h1 className="font-display text-4xl italic text-lilac-700">Flower shapes</h1>
-        <p className="mt-1 text-sm text-ink-soft">Thirteen silhouettes to choose from. They don’t have to be real species, just clearly different from each other. The artwork is editable SVG in <code>src/assets/flowers/</code>.</p>
+        <p className="mt-1 text-sm text-ink-soft">Twelve silhouettes to choose from. They don’t have to be real species, just clearly different from each other. The artwork is editable SVG in <code>src/assets/flowers/</code>.</p>
 
         <h2 className="mb-3 mt-8 font-display text-xl">The set</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">

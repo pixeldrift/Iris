@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { satOf, tint } from '../../core/color'
 import { stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { bubbleRadius, clamp01 } from '../../core/tasks'
 import type { Task } from '../../core/types'
@@ -58,7 +59,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
           onPointerDown={(e) => onPointerDown(e, true)}
           onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
           className={`pad grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full p-1.5 text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
-          style={{ '--h': hue } as React.CSSProperties}
+          style={{ '--h': Math.max(0, hue), '--s': satOf(hue) } as React.CSSProperties}
           title={task.title}
         >
           <span className="line-clamp-3 break-words font-display text-[0.7rem] leading-[1.1]">{task.title}</span>
@@ -106,14 +107,14 @@ function Glow({ x, y, hue, task, field }: { x: number; y: number; hue: number; t
     >
       <div
         className="glow-breathe h-14 w-14 rounded-full"
-        style={{ background: `radial-gradient(circle, hsla(${hue}, 85%, 62%, 0.95) 0%, hsla(${hue}, 85%, 66%, 0.5) 28%, hsla(${hue}, 85%, 70%, 0.18) 55%, transparent 72%)`, filter: 'blur(2.5px)' }}
+        style={{ background: `radial-gradient(circle, ${tint(hue, 85, 62, 0.95)} 0%, ${tint(hue, 85, 66, 0.5)} 28%, ${tint(hue, 85, 70, 0.18)} 55%, transparent 72%)`, filter: 'blur(2.5px)' }}
       />
       <div
         onPointerDown={grab}
         title="Drag to set the real value"
         className="pointer-events-auto absolute left-1/2 top-1/2 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none place-items-center rounded-full active:cursor-grabbing"
       >
-        <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${hue}, 80%, 55%)`, boxShadow: `0 0 10px 3px hsla(${hue}, 85%, 60%, 0.8)` }} />
+        <span className="h-2 w-2 rounded-full" style={{ background: `${tint(hue, 80, 55)}`, boxShadow: `0 0 10px 3px ${tint(hue, 85, 60, 0.8)}` }} />
       </div>
     </div>
   )
@@ -251,7 +252,7 @@ export function Priority() {
               <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
               {QUADS.map((q) => (
                 <div key={q.label} className={`pointer-events-none absolute flex h-1/2 w-1/2 flex-col p-3 ${q.cls}`}>
-                  <span className="font-display text-base italic" style={{ color: `hsl(${q.hue},35%,45%)`, opacity: 0.75 }}>
+                  <span className="font-display text-base italic" style={{ color: `${tint(q.hue, 35, 45)}`, opacity: 0.75 }}>
                     {q.label}
                   </span>
                   <span className="text-[0.65rem] text-ink-faint">{q.sub}</span>
