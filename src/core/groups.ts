@@ -12,7 +12,7 @@ export interface Group {
   path?: { id: string; name: string }[]
 }
 
-const KIND_LABELS = { task: 'Tasks', idea: 'Ideas', list: 'Lists', event: 'Events', habit: 'Habits' } as const
+const KIND_LABELS = { task: 'Tasks', event: 'Events', habit: 'Habits', list: 'Lists', idea: 'Ideas' } as const
 
 function bucket(
   t: Task,
@@ -48,7 +48,7 @@ function bucket(
       return ['later', 'Later', 3]
     }
     case 'kind':
-      return [t.kind, KIND_LABELS[t.kind], ['task', 'idea', 'list', 'event', 'habit'].indexOf(t.kind)]
+      return [t.kind, KIND_LABELS[t.kind], ['task', 'event', 'habit', 'list', 'idea'].indexOf(t.kind)]
     default:
       return ['all', '', 0]
   }
