@@ -80,6 +80,13 @@ export const lifter = {
     active.wrap.style.transform = at(p.x, p.y)
   },
 
+  /** Vertical centre of the lifted copy on screen: where the item visibly is, whatever the grab point. */
+  centerY(): number | null {
+    if (!active) return null
+    const r = active.clone.getBoundingClientRect()
+    return r.top + r.height / 2
+  },
+
   cancel() {
     active?.wrap.remove()
     active = null

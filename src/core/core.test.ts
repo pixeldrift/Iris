@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, dayLabel, diffDays, monthGrid, startOfWeek } from './dates'
+import { addDays, dayLabel, diffDays, monthGrid, ordinalSuffix, startOfWeek } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, sortTasks, urgencyForDue, weightOf } from './tasks'
@@ -262,5 +262,12 @@ describe('placing a dragged folder in the tree', () => {
   })
   it('the top slot is always a root', () => {
     expect(placeInTree(folders, 'bio', rows, -1, 3)).toMatchObject({ kind: 'slot', parentId: null, beforeId: 'school', afterId: null })
+  })
+})
+
+describe('ordinals', () => {
+  it('suffixes days of the month', () => {
+    const s = (n: number) => `${n}${ordinalSuffix(n)}`
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 30, 31].map(s)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '30th', '31st'])
   })
 })

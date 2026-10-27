@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GRAY, tint } from '../core/color'
-import { addDays, diffDays, today, weekdayName } from '../core/dates'
+import { addDays, diffDays, fromISO, MONTHS, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds, placeInTree, type Placement, type TreeRow } from '../core/folders'
 import { plannedDate } from '../core/tasks'
 import type { Folder, Person, ViewId } from '../core/types'
@@ -15,7 +15,7 @@ import { Popover } from './Popover'
 import { useIsMobile } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
-import { SPRING } from './lift'
+import { lifter, SPRING } from './lift'
 import { GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
@@ -86,7 +86,13 @@ const sectionAt = (x: number, y: number): string | null => {
 }
 
 /** A sidebar section: fold it with the arrow, drag it by the grip to put it somewhere else. */
-function Section({ id, title, action, children }: { id: string; title: string; action?: React.ReactNode; children: React.ReactNode }) {
+/** The month(s) a run of days falls in: October, or Oct–Nov when it straddles two. */
+function weekMonths(days: string[]): string {
+  const names = [...new Set(days.map((d) => fromISO(d).getMonth()))]
+  return names.length === 1 ? MONTHS[names[0]] : names.map((m) => MONTHS[m].slice(0, 3)).join('–')
+}
+
+function Section({ id, title, note, action, children }: { id: string; title: string; note?: string; action?: React.ReactNode; children: React.ReactNode }) {
   const collapsed = useStore((s) => s.sidebar.collapsed.includes(id))
   const toggle = useStore((s) => s.toggleSection)
   const moveSection = useStore((s) => s.moveSection)
@@ -138,7 +144,10 @@ function Section({ id, title, action, children }: { id: string; title: string; a
           >
             <Disclosure open={!collapsed} size={15} />
           </button>
-          <h3 className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink-faint">{title}</h3>
+          <h3 className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink-faint">
+            {title}
+            {note && <i className="ml-1.5 text-[0.82rem] font-normal normal-case italic tracking-normal">({note})</i>}
+          </h3>
           <div className="ml-auto flex items-center" onPointerDown={(e) => e.stopPropagation()}>
             {action}
           </div>
@@ -287,14 +296,19 @@ export function Sidebar() {
       </Section>
     ),
     week: (
-      <Section id="week" title="This week">
+      <Section id="week" title="This week" note={weekMonths(days)}>
         {days.map((d) => (
           <ScopeRow
             key={d}
             active={scope.type === 'day' && scope.date === d}
             onClick={() => setScope({ type: 'day', date: d })}
             dropId={`day:${d}`}
-            icon={<span className="inline-block w-[18px] text-center text-[0.7rem] font-semibold tabular-nums">{d.slice(8)}</span>}
+            icon={
+              <span className="inline-block w-[26px] text-center text-[0.7rem] font-semibold tabular-nums">
+                {Number(d.slice(8))}
+                <sup className="text-[0.58em] font-medium">{ordinalSuffix(Number(d.slice(8)))}</sup>
+              </span>
+            }
             label={
               <>
                 {weekdayName(d)}
@@ -481,7 +495,7 @@ const useFolderSlot = create<{ slot: Placement | null }>(() => ({ slot: null }))
  * Folder drag, the outliner way: the pointer's height chooses the slot between two visible rows,
  * and sideways travel from where the row was picked up chooses the depth (left = out one level).
  */
-function slotFor(folders: Folder[], dragId: string, startDepth: number, y: number, dx: number): Placement | null {
+function slotFor(folders: Folder[], dragId: string, startDepth: number, y: number, dx: number, current: Placement | null = null): Placement | null {
   const list = document.querySelector('[data-folder-list]')
   if (!list) return null
   const skip = descendantIds(folders, dragId)
@@ -498,7 +512,9 @@ function slotFor(folders: Folder[], dragId: string, startDepth: number, y: numbe
     const r = { top: flat(b.top), bottom: flat(b.bottom), height: flat(b.bottom) - flat(b.top) }
     rows.push({ id: el.dataset.folderRow!, depth: Number(el.dataset.depth), mid: r.top + r.height / 2 })
     // straight onto the middle of a row: it becomes that folder's child
-    if (y >= r.top + r.height * 0.28 && y <= r.bottom - r.height * 0.28) onto = el.dataset.folderRow!
+    // (once a row is lit it stays lit a little beyond its edges, so a resting finger can't flicker it)
+    const pad = current?.kind === 'into' && current.parentId === el.dataset.folderRow ? 0.1 : 0.28
+    if (y >= r.top + r.height * pad && y <= r.bottom - r.height * pad) onto = el.dataset.folderRow!
   })
   if (onto) return { kind: 'into', afterId: null, depth: 0, parentId: onto, beforeId: null }
   let after = -1
@@ -540,6 +556,15 @@ function FolderNode(props: NodeProps) {
   const dragIsTask = dragPayload?.type === 'task'
   const intoMe = useFolderSlot((st) => st.slot?.kind === 'into' && st.slot.parentId === folder.id)
 
+  const track = useRef({ x: 0, y: 0, dx: 0, raf: 0 })
+  const refresh = () => {
+    const { x, y, dx } = track.current
+    const next = targetAt(x, y) === 'froot' ? null : slotFor(useStore.getState().folders, folder.id, depth, lifter.centerY() ?? y, dx, useFolderSlot.getState().slot)
+    const cur = useFolderSlot.getState().slot
+    const same = cur && next && cur.kind === next.kind && cur.afterId === next.afterId && cur.depth === next.depth && cur.parentId === next.parentId && cur.beforeId === next.beforeId
+    if (!same && cur !== next) useFolderSlot.setState({ slot: next })
+  }
+
   const onPointerDown = usePointerDrag({
     payload: { type: 'folder', id: folder.id },
     label: folder.name,
@@ -551,11 +576,24 @@ function FolderNode(props: NodeProps) {
       const list = document.querySelector('[data-folder-list]')?.getBoundingClientRect()
       return list && x <= list.right && y >= list.top - 30 && y <= list.bottom + 30 ? 'slot' : null
     },
+    onStart: () => {
+      // A finger resting on the screen sends no more moves, but the rows keep gliding under it as the
+      // gap opens and closes: keep re-reading the slot every frame so what lights up is what is under you.
+      const tick = () => {
+        refresh()
+        track.current.raf = requestAnimationFrame(tick)
+      }
+      track.current.raf = requestAnimationFrame(tick)
+    },
     onMove: (x, y, dx) => {
-      const over = targetAt(x, y)
-      useFolderSlot.setState({ slot: over === 'froot' ? null : slotFor(useStore.getState().folders, folder.id, depth, y, dx) })
+      track.current.x = x
+      track.current.y = y
+      track.current.dx = dx
+      refresh()
     },
     onEnd: ({ target }) => {
+      cancelAnimationFrame(track.current.raf)
+      refresh()
       const slot = useFolderSlot.getState().slot
       useFolderSlot.setState({ slot: null })
       if (target === 'froot') return moveFolder(folder.id, null)
@@ -695,12 +733,8 @@ function FolderOptions({
   const updateFolder = useStore((s) => s.updateFolder)
   const deleteFolder = useStore((s) => s.deleteFolder)
   const [name, setName] = useState(folder.name)
-  const [picking, setPicking] = useState(false)
   useEffect(() => {
-    if (open) {
-      setName(folder.name)
-      setPicking(false)
-    }
+    if (open) setName(folder.name)
   }, [open, folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -720,61 +754,47 @@ function FolderOptions({
         />
       </label>
 
-      {/* flower: a drop-down beside the colour chips */}
-      <div className="mt-3.5 flex items-start gap-3">
-        <div className="shrink-0">
+      {/* flower and colour palettes side by side, 4 x 3 each; the hue slider sits under both */}
+      <div className="mt-3.5 grid grid-cols-2 gap-3">
+        <div>
           <div className="text-xs font-medium text-ink-soft">Flower</div>
-          <button
-            onClick={() => setPicking((p) => !p)}
-            aria-expanded={picking}
-            aria-haspopup="listbox"
-            className="well mt-1.5 flex h-10 items-center gap-2 rounded-xl pl-2.5 pr-2 text-sm text-ink"
-          >
-            <Flower hue={folder.hue} shape={folder.shape} size={24} />
-            <span className="w-[4.6rem] truncate text-left">{FLOWER_SHAPES.find((x) => x.id === folder.shape)?.label}</span>
-            <span className={`text-ink-faint transition-transform ${picking ? 'rotate-180' : ''}`}>
-              <IconChevronDown size={14} />
-            </span>
-          </button>
+          <div role="listbox" aria-label="Flower" className="mt-1.5 grid grid-cols-4 gap-0.5">
+            {FLOWER_SHAPES.map((x) => (
+              <button
+                key={x.id}
+                role="option"
+                aria-selected={folder.shape === x.id}
+                aria-label={x.label}
+                onClick={() => updateFolder(folder.id, { shape: x.id })}
+                className={`grid h-8 place-items-center rounded-lg transition hover:bg-lilac-100/80 ${folder.shape === x.id ? 'bg-lilac-100 ring-1 ring-lilac-300' : ''}`}
+              >
+                <Flower hue={folder.hue} shape={x.id} size={22} />
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
+        <div>
           <div className="text-xs font-medium text-ink-soft">Colour</div>
-          <div className="mt-1.5 grid grid-cols-4 justify-items-start gap-1.5">
+          <div className="mt-1.5 grid grid-cols-4 gap-0.5">
             {SWATCHES.map((h) => (
               <button
                 key={h}
                 onClick={() => updateFolder(folder.id, { hue: h })}
                 aria-label={h === GRAY ? 'Colour gray' : `Colour ${h}`}
                 aria-pressed={folder.hue === h}
-                className={`grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full transition hover:scale-110 ${folder.hue === h ? 'ring-2 ring-lilac-500 ring-offset-1 ring-offset-white/80' : ''}`}
-                style={{ background: `${tint(h, 62, 78)}` }}
+                className="grid h-8 place-items-center rounded-lg transition hover:bg-lilac-100/60"
               >
-                {folder.hue === h && <IconCheck size={11} />}
+                <span
+                  className={`grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full ${folder.hue === h ? 'ring-2 ring-lilac-500 ring-offset-1 ring-offset-white/80' : ''}`}
+                  style={{ background: `${tint(h, 62, 78)}` }}
+                >
+                  {folder.hue === h && <IconCheck size={11} />}
+                </span>
               </button>
             ))}
           </div>
         </div>
       </div>
-      <Collapse open={picking}>
-        <div role="listbox" aria-label="Flower" className="grid grid-cols-4 gap-1 pt-2">
-          {FLOWER_SHAPES.map((x) => (
-            <button
-              key={x.id}
-              role="option"
-              aria-selected={folder.shape === x.id}
-              aria-label={x.label}
-              title={x.label}
-              onClick={() => {
-                updateFolder(folder.id, { shape: x.id })
-                setPicking(false)
-              }}
-              className={`grid h-11 place-items-center rounded-xl transition hover:bg-lilac-100/80 ${folder.shape === x.id ? 'bg-lilac-100 ring-1 ring-lilac-300' : ''}`}
-            >
-              <Flower hue={folder.hue} shape={x.id} size={28} />
-            </button>
-          ))}
-        </div>
-      </Collapse>
       <input
         type="range"
         min={0}

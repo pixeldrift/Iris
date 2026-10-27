@@ -7,7 +7,7 @@ import { contactLink, detectContactIntent } from '../../core/people'
 import { bubbleRadius, plannedDate } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
-import { IconBell, IconChat, IconClose, IconMail, IconPhone, IconThought } from '../icons'
+import { IconChat, IconClose, IconList, IconMail, IconPhone, IconThought } from '../icons'
 import { DoneButton, DueChip, KINDS } from '../shared'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
@@ -68,7 +68,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
   const fresh = useRef(Date.now() - task.createdAt < 1500).current
   const hue = useMemo(() => {
     const f = folders.find((x) => x.id === task.folderIds[0])
-    return f ? f.hue : task.kind === 'idea' ? 320 : task.kind === 'reminder' ? 200 : 285
+    return f ? f.hue : task.kind === 'idea' ? 320 : task.kind === 'list' ? 200 : 285
   }, [folders, task.folderIds, task.kind])
 
   const outer = useRef<HTMLDivElement>(null)
@@ -159,9 +159,10 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                 ) : (
                   <DoneButton task={task} size={cb} />
                 )}
-                {task.kind === 'reminder' && (
-                  <span title="Reminder" role="img" aria-label="Reminder" className="text-lilac-500">
-                    <IconBell size={15} />
+                {task.kind === 'list' && (
+                  <span title="List" className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
+                    <IconList size={14} />
+                    {task.listStyle === 'check' && task.items.length > 0 ? `${task.items.filter((i) => i.done).length}/${task.items.length}` : task.items.length || ''}
                   </span>
                 )}
                 {link && (
@@ -634,7 +635,7 @@ export function Pond() {
 
   /* ---------- pan / pinch / tap-to-add ---------- */
   const [bubble, setBubble] = useState<{ id: number; x: number; y: number; phase: 'open' | 'shrink' } | null>(null)
-  const [shrink, setShrink] = useState({ sx: 0.08, sy: 0.2 })
+  const [shrink, setShrink] = useState({ sx: 0.08, sy: 0.2, keep: false })
   const formRef = useRef<HTMLFormElement>(null)
   const [text, setText] = useState('')
   const [kind, setKind] = useState<TaskKind>('task')
@@ -673,8 +674,11 @@ export function Pond() {
   const spawnRipple = useCallback(
     (kind: 'circle' | 'box', x: number, y: number, w = 0, h = 0) => {
       const strength = kind === 'box' ? 0.9 : 0.7
-      water.current?.ripple(x, y, { hw: kind === 'box' ? w / 2 : 9, hh: kind === 'box' ? h / 2 : 9, strength })
-      wave(x, y, kind === 'box' ? (w + h) / 4 : 9, strength)
+      // a circle may carry its own size (the bubble that just landed); a bare drop is a small one
+      const hw = kind === 'box' ? w / 2 : w ? w / 2 : 9
+      const hh = kind === 'box' ? h / 2 : h ? h / 2 : 9
+      water.current?.ripple(x, y, { hw, hh, strength })
+      wave(x, y, kind === 'box' ? (w + h) / 4 : hw, strength)
     },
     [wave],
   )
@@ -684,38 +688,33 @@ export function Pond() {
       const b = bubbleRef.current
       if (!b || b.phase !== 'open') return
       const typed = textRef.current.trim()
-      if (save && typed) {
-        const v = view.current
-        const { w: W, h: H } = dims.current
-        addTask({ title: typed, kind: kindRef.current, x: (b.x - v.tx) / v.scale / W, y: (b.y - v.ty) / v.scale / H })
-        // the box folds back down into a drop, and a round ripple spreads from it
-        window.setTimeout(() => {
-          drop((b.x / dims.current.w) * 2 - 1)
-          spawnRipple('circle', b.x, b.y)
-        }, 300)
-      }
+      const v = view.current
+      const adding = save && typed
+      // the box folds into a circle the size of the bubble it is about to become...
+      const diameter = adding ? 2 * radius({ importance: 0.5, urgency: 0.3 } as Task) * v.scale : 20
       const f = formRef.current
-      setShrink({ sx: 20 / (f?.offsetWidth ?? 240), sy: 20 / (f?.offsetHeight ?? 92) })
+      setShrink({ sx: diameter / (f?.offsetWidth ?? 240), sy: diameter / (f?.offsetHeight ?? 92), keep: !!adding })
       setBubble({ ...b, phase: 'shrink' })
+      // ...and only once it has landed does the item exist and the water ripple around it
       window.setTimeout(() => {
+        if (adding) {
+          const { w: W, h: H } = dims.current
+          addTask({ title: typed, kind: kindRef.current, x: (b.x - v.tx) / v.scale / W, y: (b.y - v.ty) / v.scale / H })
+          drop((b.x / dims.current.w) * 2 - 1)
+          spawnRipple('circle', b.x, b.y, diameter, diameter)
+        }
         setBubble((cur) => (cur?.id === b.id ? null : cur))
         setText((t) => (bubbleRef.current?.id === b.id ? '' : t))
-      }, 380)
+      }, 340)
     },
-    [addTask, spawnRipple],
+    [addTask, radius, spawnRipple],
   )
 
   const openBubble = (x: number, y: number) => {
     const id = nextId.current++
-    drop((x / dims.current.w) * 2 - 1)
     setText('')
     setBubble({ id, x, y, phase: 'open' })
     setKind('task')
-    // once the box has rendered, send a ripple out in its own shape
-    requestAnimationFrame(() => {
-      const f = formRef.current
-      if (f) spawnRipple('box', f.offsetLeft + f.offsetWidth / 2, f.offsetTop + f.offsetHeight / 2, f.offsetWidth, f.offsetHeight)
-    })
   }
 
   useEffect(() => {
@@ -915,6 +914,7 @@ export function Pond() {
             ['--oy' as string]: `${bubble.y - by}px`,
             ['--sx' as string]: shrink.sx,
             ['--sy' as string]: shrink.sy,
+            ['--eo' as string]: shrink.keep ? 1 : 0,
           }}
         >
           <div className="flex items-center">
@@ -923,7 +923,7 @@ export function Pond() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === 'Escape' && closeBubble(false)}
-              placeholder="A thought, task, reminder…"
+              placeholder="A thought, task, list…"
               className="well min-w-0 flex-1 rounded-xl px-3 py-1.5 font-display text-base placeholder:text-ink-faint"
             />
             <Tip label="Close">
