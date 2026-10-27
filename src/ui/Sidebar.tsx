@@ -219,7 +219,7 @@ export function Sidebar() {
   }
 
   const newFolder = (parentId: string | null) => {
-    const id = addFolder('New folder', parentId)
+    const id = addFolder('New group', parentId)
     if (parentId) setCollapsed((c) => new Set([...c].filter((x) => x !== parentId)))
     setEditing(id)
   }
@@ -269,19 +269,6 @@ export function Sidebar() {
         ))}
       </Section>
     ),
-    spaces: (
-      <Section id="spaces" title="Spaces">
-        <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
-        <ScopeRow
-          active={scope.type === 'inbox'}
-          onClick={() => setScope({ type: 'inbox' })}
-          dropId="inbox"
-          icon={<IconInbox />}
-          label="Inbox"
-          count={live.filter((t) => !t.due && !t.day && t.folderIds.length === 0).length}
-        />
-      </Section>
-    ),
     people: (
       <Section
         id="people"
@@ -307,7 +294,7 @@ export function Sidebar() {
           <ScopeRow
             key={d}
             active={scope.type === 'day' && scope.date === d}
-            onClick={() => setScope({ type: 'day', date: d })}
+            onClick={() => setScope(scope.type === 'day' && scope.date === d ? { type: 'all' } : { type: 'day', date: d })}
             dropId={`day:${d}`}
             icon={
               <span className="inline-block w-[26px] text-center text-[0.7rem] font-semibold tabular-nums">
@@ -330,9 +317,9 @@ export function Sidebar() {
     folders: (
       <Section
         id="folders"
-        title="Folders"
+        title="Groups"
         action={
-          <Tip label="New folder · drop a folder here to make it top-level">
+          <Tip label="New group · drop a group here to make it top-level">
             <button
               {...rootDrop.props}
               onClick={() => newFolder(null)}
@@ -366,7 +353,16 @@ export function Sidebar() {
             />
           ))}
         </div>
-        {folders.length === 0 && <p className="px-3 py-2 text-sm text-ink-faint">Folders are tags. Add one with + or by typing in any task.</p>}
+        {folders.length === 0 && <p className="px-3 py-2 text-sm text-ink-faint">Groups are tags. Add one with + or by typing in any task.</p>}
+        {/* what belongs to no group yet (and has no date): the catch-all at the end of the list */}
+        <ScopeRow
+          active={scope.type === 'inbox'}
+          onClick={() => setScope(scope.type === 'inbox' ? { type: 'all' } : { type: 'inbox' })}
+          dropId="inbox"
+          icon={<IconInbox />}
+          label="Unsorted"
+          count={live.filter((t) => !t.due && !t.day && t.folderIds.length === 0).length}
+        />
       </Section>
     ),
   }
@@ -455,6 +451,9 @@ export function Sidebar() {
 
         <ScrollFade>
           <nav ref={navRef} className="px-3 pb-6">
+            <div className="mt-1">
+              <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
+            </div>
             {order.map((id) => (
               <Fragment key={id}>{sections[id]}</Fragment>
             ))}
@@ -475,7 +474,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
   return (
     <div
       {...props}
-      onClick={() => setScope({ type: 'person', id: person.id })}
+      onClick={() => setScope(on ? { type: 'all' } : { type: 'person', id: person.id })}
       className={`${rowBase} cursor-pointer ${on ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
         over ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : active ? 'ring-1 ring-lilac-300/50' : ''
       }`}
@@ -648,10 +647,10 @@ function FolderNode(props: NodeProps) {
   }, [editing, folder.id])
 
   const actions = [
-    { label: 'Add subfolder', icon: <IconPlus size={14} />, run: () => onAdd(folder.id) },
+    { label: 'Add a group inside', icon: <IconPlus size={14} />, run: () => onAdd(folder.id) },
     { label: 'Rename', icon: <IconPencil size={14} />, run: () => setEditing(folder.id) },
     {
-      label: 'Delete folder',
+      label: 'Delete group',
       icon: <IconTrash size={14} />,
       run: async () => {
         if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
@@ -669,7 +668,7 @@ function FolderNode(props: NodeProps) {
         data-flip={folder.id}
         {...dropProps}
         onPointerDown={(e) => editing !== folder.id && onPointerDown(e)}
-        onClick={() => setScope({ type: 'folder', id: folder.id })}
+        onClick={() => setScope(active ? { type: 'all' } : { type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
           (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
@@ -689,7 +688,7 @@ function FolderNode(props: NodeProps) {
           <Disclosure open={isOpen} size={14} />
         </button>
         <span ref={flowerRef} className="inline-flex shrink-0">
-          <Tip label="Folder options">
+          <Tip label="Group options">
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {

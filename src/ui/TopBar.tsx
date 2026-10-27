@@ -11,7 +11,7 @@ import { Tip } from './Tip'
 
 const GROUPS: { id: PondGroup; label: string }[] = [
   { id: 'free', label: 'Free' },
-  { id: 'folder', label: 'Folder' },
+  { id: 'folder', label: 'Group' },
   { id: 'due', label: 'Due date' },
   { id: 'kind', label: 'Item type' },
   { id: 'person', label: 'Person' },
@@ -185,14 +185,14 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     scope.type === 'all'
       ? 'Everything'
       : scope.type === 'inbox'
-        ? 'Inbox'
+        ? 'Unsorted'
         : scope.type === 'day'
           ? weekdayName(scope.date)
           : scope.type === 'contacts'
             ? 'Address book'
             : scope.type === 'person'
               ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
-              : (pathOf(folders, scope.id).at(-1)?.name ?? 'Folder')
+              : (pathOf(folders, scope.id).at(-1)?.name ?? 'Group')
   const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? [dayLabel(scope.date), shortDate(scope.date)].filter((x, i) => i === 1 || x !== weekdayName(scope.date)).join(' · ') : ''
 
   return (
@@ -227,7 +227,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       </Tip>
 
       {view === 'pond' && scope.type !== 'contacts' && (
-        <div className="scroll-soft order-4 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label="Arrange the pond">
+        <div className="no-scrollbar order-4 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 py-1" role="group" aria-label="Arrange the pond">
           <span className="shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">Gather by</span>
           {GROUPS.map((g) => (
             <button

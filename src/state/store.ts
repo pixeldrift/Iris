@@ -32,7 +32,7 @@ export interface ContactPrompt {
   verb: ContactVerb
 }
 
-export const SECTION_IDS = ['views', 'spaces', 'people', 'week', 'folders'] as const
+export const SECTION_IDS = ['views', 'people', 'week', 'folders'] as const
 
 interface State {
   tasks: Task[]

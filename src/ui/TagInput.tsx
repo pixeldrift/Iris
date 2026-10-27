@@ -120,7 +120,7 @@ export function TagInput({ taskId }: { taskId: string }) {
               setOpen(false)
             }
           }}
-          placeholder={task.folderIds.length + task.personIds.length ? 'add tag…' : 'Add a folder, tag or @person…'}
+          placeholder={task.folderIds.length + task.personIds.length ? 'add tag…' : 'Add a group, tag or @person…'}
           className="min-w-[8ch] flex-1 bg-transparent px-1 py-0.5 text-sm outline-none placeholder:text-ink-faint"
           aria-label="Add tag"
         />
