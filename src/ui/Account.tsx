@@ -131,11 +131,12 @@ function AccountMenu() {
         {(data.user.name || data.user.email)[0]?.toUpperCase()}
         <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white/80 ${dot}`} />
       </button>
-      <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-64 p-1.5">
+      <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-72 p-1.5">
         <div className="px-3 py-1.5">
           <div className="truncate text-sm">{data.user.name || data.user.email}</div>
           <div className="truncate text-xs text-ink-faint">{data.user.email}</div>
           <div className={`mt-1 text-xs ${sync.status === 'error' ? 'text-[#9a4566]' : 'text-ink-soft'}`}>{status}</div>
+          {sync.status === 'error' && sync.error && <div className="mt-1 break-words rounded-lg bg-white/60 px-2 py-1 text-[0.7rem] text-ink-soft">{sync.error}</div>}
         </div>
         <button
           onClick={() => {

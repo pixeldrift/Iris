@@ -99,11 +99,11 @@ async function post(body: { cursor: number; changes: Change[] }, retried = false
   const token = await apiToken(retried)
   if (!token) throw new SignedOut()
   const res = await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
-  if (res.status === 401) {
-    if (!retried) return post(body, true) // the token may have just expired: fetch a fresh one once
-    throw new SignedOut()
+  if (res.status === 401 && !retried) return post(body, true) // the token may have just expired: fetch a fresh one once
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null)) as { error?: string; reason?: string } | null
+    throw new Error(detail?.error ? `${detail.error}${detail.reason ? ` (${detail.reason})` : ''}` : res.status === 404 ? 'The sync API was not found (/api/sync returned 404)' : `Sync failed (HTTP ${res.status})`)
   }
-  if (!res.ok) throw new Error(`Sync failed (${res.status})`)
   return res.json()
 }
 class SignedOut extends Error {
