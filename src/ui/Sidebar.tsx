@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GRAY, tint } from '../core/color'
 import { addDays, diffDays, fromISO, MONTHS, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds, placeInTree, type Placement, type TreeRow } from '../core/folders'
-import { plannedDate } from '../core/tasks'
+import { taskOnDate } from '../core/recurrence'
 import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
 import { create } from 'zustand'
@@ -211,7 +211,7 @@ export function Sidebar() {
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
   const t0 = today()
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
-  const dueCount = (d: string) => live.filter((t) => plannedDate(t) === d).length
+  const dueCount = (d: string) => live.filter((t) => taskOnDate(t, d)).length
   const folderCount = (id: string) => {
     const ids = descendantIds(folders, id)
     return live.filter((t) => t.folderIds.some((f) => ids.has(f))).length

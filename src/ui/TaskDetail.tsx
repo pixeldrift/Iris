@@ -1,6 +1,6 @@
 import { ListEditor } from './ListEditor'
 import { ReminderField } from './ReminderField'
-import { EventFields, HabitPanel } from './KindFields'
+import { EventFields, RecentStrip, RepeatField } from './KindFields'
 import { useEffect, useRef, useState } from 'react'
 import { WEEKDAYS } from '../core/dates'
 import { allLinks } from '../core/people'
@@ -45,7 +45,7 @@ export function TaskDetail() {
   const { mounted, closing } = useExit(!!id && !!live, 240)
 
   // "Saved" blinks whenever something about the task changes
-  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
+  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.repeat, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
   const [savedTick, setSavedTick] = useState(0)
   const firstSig = useRef(sig)
   useEffect(() => {
@@ -117,7 +117,8 @@ export function TaskDetail() {
 
           {task.kind === 'list' && <ListEditor task={task} />}
           {task.kind === 'event' && <EventFields task={task} />}
-          {task.kind === 'habit' && <HabitPanel task={task} />}
+          {task.kind !== 'list' && <RepeatField task={task} />}
+          {(!!task.repeat || task.kind === 'habit') && <RecentStrip task={task} />}
 
           {links.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -166,10 +167,10 @@ export function TaskDetail() {
               </div>
             </div>
             )}
-            {task.kind !== 'event' && (
+            {task.kind !== 'event' && task.kind !== 'habit' && !task.repeat && (
             <div>
               <span className="mb-1 block text-xs font-medium text-ink-soft">
-                {task.kind === 'habit' ? 'Repeats on' : 'Only on these days'} <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
+                Only on these days <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
               </span>
               <div className="flex gap-1">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => {
@@ -192,7 +193,7 @@ export function TaskDetail() {
                   )
                 })}
               </div>
-              {!!task.days?.length && task.rollover && task.kind !== 'habit' && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
+              {!!task.days?.length && task.rollover && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
             </div>
             )}
           </div>

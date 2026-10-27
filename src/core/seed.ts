@@ -12,6 +12,7 @@ const mk = (partial: Partial<Task> & { title: string }): Task => ({
   endTime: null,
   place: '',
   log: [],
+  repeat: null,
   remindAt: null,
   reminded: false,
   status: 'todo',
@@ -61,13 +62,13 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
       y: 0.72,
     }),
     mk({ title: 'Study group', kind: 'event', time: '15:30', endTime: '17:00', place: 'Library, room 2', day: addDays(t, 1), folderIds: ['life'], importance: 0.55, urgency: 0.5, x: 0.3, y: 0.78 }),
-    mk({ title: 'Morning stretch', kind: 'habit', log: [addDays(t, -1), addDays(t, -2), addDays(t, -3)], folderIds: ['life'], importance: 0.5, urgency: 0.3, x: 0.12, y: 0.62 }),
+    mk({ title: 'Morning stretch', kind: 'habit', repeat: { freq: 'daily', interval: 1, from: addDays(t, -10) }, log: [addDays(t, -1), addDays(t, -2), addDays(t, -3)], folderIds: ['life'], importance: 0.5, urgency: 0.3, x: 0.12, y: 0.62 }),
     mk({ title: 'Call grandma', folderIds: ['life'], personIds: ['p-grandma'], importance: 0.9, urgency: 0.35, due: addDays(t, 3), x: 0.5, y: 0.55 }),
     mk({ title: 'A little poem about rain?', kind: 'idea', importance: 0.2, urgency: 0.05, x: 0.8, y: 0.62 }),
     mk({ title: 'Book dentist', folderIds: ['life'], importance: 0.45, urgency: 0.55, due: addDays(t, 8), x: 0.33, y: 0.78 }),
     mk({ title: 'Plan weekend picnic', folderIds: ['life', 'garden'], importance: 0.35, urgency: 0.25, due: addDays(t, 4), start: addDays(t, 2), x: 0.7, y: 0.82, kind: 'idea' }),
     mk({ title: 'Return library books', importance: 0.25, urgency: 0.7, due: addDays(t, 0), x: 0.88, y: 0.4 }),
-    mk({ title: 'Attend English 101 class', folderIds: ['eng101'], importance: 0.6, urgency: 0.5, day: t, due: addDays(t, 12), days: [1, 3, 5], x: 0.58, y: 0.12 }),
+    mk({ title: 'Attend English 101 class', folderIds: ['eng101'], importance: 0.6, urgency: 0.5, day: t, due: addDays(t, 12), repeat: { freq: 'weekly', interval: 1, byDay: [1, 3, 5], from: t }, x: 0.58, y: 0.12 }),
     mk({ title: 'Water the ferns', folderIds: ['garden'], status: 'done', completedAt: Date.now(), importance: 0.2, urgency: 0.2, x: 0.1, y: 0.42 }),
   ]
   const people: Person[] = [

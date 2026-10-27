@@ -5,6 +5,7 @@ import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '
 import { sameName } from '../core/fuzzy'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { seedData } from '../core/seed'
+import { currentOccurrence, repeatOf } from '../core/recurrence'
 import { rolloverDay, urgencyForDue } from '../core/tasks'
 import type { Folder, Person, PondGroup, Scope, SortKey, Task, TaskKind, TaskStatus, ViewId } from '../core/types'
 import * as sound from '../audio/engine'
@@ -184,6 +185,7 @@ export const useStore = create<State>()(
           endTime: null,
           place: '',
           log: [],
+          repeat: null,
           remindAt: null,
           reminded: false,
           status: 'todo',
@@ -229,9 +231,9 @@ export const useStore = create<State>()(
       toggleDone: (id) => {
         const t = get().tasks.find((x) => x.id === id)
         if (!t) return
-        if (t.kind === 'habit') {
-          // a habit is ticked for today, not finished
-          const day = today()
+        if (repeatOf(t)) {
+          // a repeating task is ticked for its current occurrence (today's, or the next one), never finished
+          const day = currentOccurrence(t, today()) ?? today()
           const had = t.log.includes(day)
           if (!had) sound.bloom()
           set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, log: had ? x.log.filter((d) => d !== day) : [...x.log, day].sort() } : x)) }))
@@ -458,7 +460,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 9,
+      version: 10,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -495,6 +497,17 @@ export const useStore = create<State>()(
         }
         if (from < 9) {
           p.tasks = (p.tasks ?? []).map((t) => ({ ...t, remindAt: t.remindAt ?? null, reminded: t.reminded ?? false }))
+        }
+        if (from < 10) {
+          // one model for repeating things: a habit's weekdays become its recurrence
+          p.tasks = (p.tasks ?? []).map((t) => {
+            const start = new Date(t.createdAt ?? Date.now())
+            const from = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
+            if (t.kind === 'habit' && !t.repeat) {
+              return { ...t, repeat: t.days?.length ? { freq: 'weekly' as const, interval: 1, byDay: t.days, from } : { freq: 'daily' as const, interval: 1, from }, days: null }
+            }
+            return { ...t, repeat: t.repeat ?? null }
+          })
         }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
         return p as State

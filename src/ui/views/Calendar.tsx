@@ -6,11 +6,12 @@ import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
 import { IconChevron, IconPlus } from '../icons'
 import { useTaskDrag } from '../shared'
+import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate } from '../../core/tasks'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
-function Chip({ task, deadline = false }: { task: Task; deadline?: boolean }) {
+function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boolean; loggedOn?: string }) {
   const el = useRef<HTMLDivElement>(null)
   const onPointerDown = useTaskDrag(task, el)
   const folders = useStore((s) => s.folders)
@@ -24,7 +25,7 @@ function Chip({ task, deadline = false }: { task: Task; deadline?: boolean }) {
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${task.status === 'done' ? 'line-through opacity-60' : ''} ${leave}`}
+      className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${(loggedOn ? task.log.includes(loggedOn) : task.status === 'done') ? 'line-through opacity-60' : ''} ${leave}`}
       style={deadline ? { background: 'transparent', boxShadow: `inset 0 0 0 1px ${tint(hue, 45, 60, .55)}`, color: `${tint(hue, 35, 35)}` } : { background: `${tint(hue, 70, 87, .9)}`, color: `${tint(hue, 35, 28)}` }}
       title={deadline ? `${task.title} (due)` : task.title}
     >
@@ -69,7 +70,7 @@ function Cell({ date, tasks, month, tall, named = false, roomy = false }: { date
       </div>
       <div className="scroll-soft flex min-h-0 flex-col gap-1 overflow-y-auto">
         {tasks.slice(0, max).map((t) => (
-          <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} />
+          <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
         ))}
         {tasks.length > max && <span className="px-1 text-[0.68rem] text-ink-faint">+{tasks.length - max} more</span>}
       </div>
@@ -113,12 +114,15 @@ export function CalendarView() {
     const m = new Map<string, { task: Task; deadline: boolean }[]>()
     const put = (d: string, task: Task, deadline: boolean) => m.set(d, [...(m.get(d) ?? []), { task, deadline }])
     for (const t of visible) {
+      if (repeatOf(t)) continue // a series is placed on each of its occurrences, below
       const when = plannedDate(t)
       if (when) put(when, t, false)
       if (t.day && t.due && t.due !== t.day) put(t.due, t, true)
     }
     return m
   }, [visible])
+  const series = visible.filter((t) => repeatOf(t))
+  const tasksOn = (d: string) => [...(byDate.get(d) ?? []), ...series.filter((t) => taskOnDate(t, d)).map((task) => ({ task, deadline: false }))]
   const unscheduled = visible.filter((t) => !plannedDate(t) && t.status !== 'done')
 
   // keep the anchor on a visible day when weekends are hidden
@@ -201,7 +205,7 @@ export function CalendarView() {
         }}
       >
         {cells.map((d) => (
-          <Cell key={d} date={d} tasks={byDate.get(d) ?? []} month={mode === 'month' ? a.getMonth() : null} tall={mode !== 'month'} named={stacked || mode === 'day'} roomy={mode === 'day'} />
+          <Cell key={d} date={d} tasks={tasksOn(d)} month={mode === 'month' ? a.getMonth() : null} tall={mode !== 'month'} named={stacked || mode === 'day'} roomy={mode === 'day'} />
         ))}
       </div>
 

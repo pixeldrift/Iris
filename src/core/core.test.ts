@@ -5,6 +5,8 @@ import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { dueReminders, eventStart, formatReminder, reminderPresets } from './reminders'
+import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
+import { parseQuickAdd } from './quickadd'
 
 describe('dates', () => {
   it('adds and diffs days across month boundaries', () => {
@@ -205,8 +207,8 @@ describe('day planning & rollover', () => {
   // 2026-10-26 is a Monday
   const class_ = { ...base, status: 'todo' as const, day: '2026-10-26', due: '2026-11-06', days: [1, 3, 5], rollover: true }
   it('keeps the planned day separate from the deadline', () => {
-    expect(plannedDate({ day: '2026-10-27', due: '2026-11-01' })).toBe('2026-10-27')
-    expect(plannedDate({ day: null, due: '2026-11-01' })).toBe('2026-11-01')
+    expect(plannedDate({ ...base, day: '2026-10-27', due: '2026-11-01' })).toBe('2026-10-27')
+    expect(plannedDate({ ...base, day: null, due: '2026-11-01' })).toBe('2026-11-01')
     expect(matchesScope({ ...class_, day: '2026-10-27' }, { type: 'day', date: '2026-10-27' }, [])).toBe(true)
     expect(matchesScope({ ...class_, day: '2026-10-27' }, { type: 'day', date: '2026-11-06' }, [])).toBe(false)
   })
@@ -277,7 +279,13 @@ describe('events and habits', () => {
   it('formats times', () => {
     expect([formatTime('15:30'), formatTime('09:00'), formatTime('00:05'), formatTime('12:00')]).toEqual(['3:30 pm', '9 am', '12:05 am', '12 pm'])
   })
-  const habit = (log: string[], days: number[] | null = null) => ({ ...seedData().tasks[0], kind: 'habit' as const, log, days })
+  const habit = (log: string[], days: number[] | null = null) => ({
+    ...seedData().tasks[0],
+    kind: 'habit' as const,
+    log,
+    day: null,
+    repeat: days ? { freq: 'weekly' as const, interval: 1, byDay: days, from: '2026-03-01' } : { freq: 'daily' as const, interval: 1, from: '2026-03-01' },
+  })
   it('counts the run back from today, and today still open does not break it', () => {
     expect(habitStreak(habit(['2026-03-10', '2026-03-09', '2026-03-08']), '2026-03-10')).toBe(3)
     expect(habitStreak(habit(['2026-03-09', '2026-03-08']), '2026-03-10')).toBe(2)
@@ -313,5 +321,75 @@ describe('reminders', () => {
   it('words times plainly', () => {
     expect(formatReminder(at(2026, 3, 10, 18), now)).toBe('6 pm today')
     expect(formatReminder(at(2026, 3, 11, 9, 30), now)).toBe('9:30 am tomorrow')
+  })
+})
+
+describe('recurrence', () => {
+  const r = (o: object) => ({ freq: 'daily' as const, interval: 1, from: '2026-01-05', ...o })
+  it('weekly on chosen days, every other week', () => {
+    const rule = r({ freq: 'weekly', interval: 2, byDay: [1, 3] }) // 2026-01-05 is a Monday
+    expect(occursOn(rule, '2026-01-05')).toBe(true)
+    expect(occursOn(rule, '2026-01-07')).toBe(true)
+    expect(occursOn(rule, '2026-01-12')).toBe(false) // the off week
+    expect(occursOn(rule, '2026-01-19')).toBe(true)
+    expect(occursOn(rule, '2026-01-04')).toBe(false) // before the start
+  })
+  it('monthly clamps to the last day, yearly handles leap days', () => {
+    const m = r({ freq: 'monthly', from: '2026-01-31' })
+    expect(occursOn(m, '2026-02-28')).toBe(true)
+    expect(occursOn(m, '2026-03-31')).toBe(true)
+    expect(occursOn(m, '2026-02-27')).toBe(false)
+    const y = r({ freq: 'yearly', from: '2024-02-29' })
+    expect(occursOn(y, '2025-02-28')).toBe(true)
+    expect(occursOn(y, '2028-02-29')).toBe(true)
+  })
+  it('finds the next occurrence and describes itself', () => {
+    expect(nextOccurrence(r({ freq: 'weekly', byDay: [5] }), '2026-01-06')).toBe('2026-01-09')
+    expect(describeRecurrence(r({ freq: 'weekly', byDay: [1, 3, 5] }))).toBe('Every Mon, Wed, Fri')
+    expect(describeRecurrence(r({ freq: 'weekly', byDay: [1, 2, 3, 4, 5] }))).toBe('Every weekday')
+    expect(describeRecurrence(r({ freq: 'monthly', monthDay: 1 }))).toBe('Monthly on the 1st')
+    expect(describeRecurrence(r({ interval: 3 }))).toBe('Every 3 days')
+  })
+})
+
+describe('quick add', () => {
+  const now = new Date(2026, 9, 27, 10, 0) // Tue 27 Oct 2026, 10:00
+  const { folders, people } = seedData()
+  const p = (s: string) => parseQuickAdd(s, now, { folders, people })
+  it('reads a day and a time into an event', () => {
+    const q = p('Call Sarah tomorrow at 3pm')
+    expect(q).toMatchObject({ title: 'Call Sarah', kind: 'event', day: '2026-10-28', time: '15:00' })
+    expect(p('Dentist friday 2:30pm')).toMatchObject({ title: 'Dentist', day: '2026-10-30', time: '14:30' })
+  })
+  it('knows deadlines from plans, and next weeks', () => {
+    expect(p('Buy milk by friday')).toMatchObject({ title: 'Buy milk', due: '2026-10-30' })
+    expect(p('Buy milk by friday').day).toBeUndefined()
+    expect(p('Hand in essay next friday').day).toBe('2026-11-06')
+    expect(p('Submit essay oct 31')).toMatchObject({ title: 'Submit essay', day: '2026-10-31' })
+    expect(p('Party in 3 days').day).toBe('2026-10-30')
+  })
+  it('time ranges', () => {
+    expect(p('Team meeting 3-4:30pm tomorrow')).toMatchObject({ title: 'Team meeting', time: '15:00', endTime: '16:30', day: '2026-10-28' })
+  })
+  it('repeats', () => {
+    expect(p('Stretch every day')).toMatchObject({ title: 'Stretch', kind: 'habit', repeat: { freq: 'daily', interval: 1 } })
+    expect(p('Yoga every mon/wed/fri 7am')).toMatchObject({ title: 'Yoga', time: '07:00', repeat: { freq: 'weekly', byDay: [1, 3, 5] } })
+    expect(p('Water plants every 2 weeks').repeat).toMatchObject({ freq: 'weekly', interval: 2 })
+    expect(p('Pay rent every month on the 1st').repeat).toMatchObject({ freq: 'monthly', monthDay: 1 })
+  })
+  it('reminders, prefixes and tags', () => {
+    const rem = p('Remind me to call mom at 5pm')
+    expect(rem.title).toBe('call mom')
+    expect(rem.remindAt).toBe(new Date(2026, 9, 27, 17, 0).getTime())
+    expect(rem.time).toBeUndefined()
+    expect(p('idea: a poem about rain')).toMatchObject({ kind: 'idea', title: 'a poem about rain' })
+    const tagged = p('Read chapters #English 101 @Rose next monday')
+    expect(tagged.folderIds).toEqual(['eng101'])
+    expect(tagged.personIds).toEqual(['p-grandma'])
+    expect(tagged.day).toBe('2026-11-02')
+    expect(tagged.title).toBe('Read chapters')
+  })
+  it('leaves plain text alone', () => {
+    expect(p('Buy oat milk')).toMatchObject({ title: 'Buy oat milk', chips: [] })
   })
 })

@@ -17,8 +17,13 @@
     where the server supports it. Choose which calendars sync, and which Lilac folders they land in.
   - Needs the server side first (accounts and sync above): credentials and tokens live in Neon, and the
     sync worker runs in Vercel functions or cron, never in the browser.
-- **Recurring tasks** (RRULE string on the task, expanded in `src/core`). Habits and weekday-restricted
-  tasks exist today; this generalises them (every 2 weeks, 1st of the month, after completion).
+- **Recurring tasks. (Shipped.)** Any task, event or habit can repeat: daily, weekly (chosen weekdays), monthly
+  (day of month, clamped to short months) or yearly, every n units (`src/core/recurrence.ts`). One bubble in the
+  pond, every occurrence on the calendar, each ticked off in turn with a streak. Still to do: end dates / counts,
+  skipping a single occurrence, "after completion" repeats, and RRULE import/export for calendar sync.
+- **Natural-language quick add. (Shipped.)** "Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am",
+  "remind me to call mom at 5pm", "idea: ..." (`src/core/quickadd.ts`, with a live preview and "Keep as typed").
+  Still to do: more phrasings, other languages, and the same parser for the title field in the detail panel.
 - **Native iPhone app (SwiftUI).** Port `src/core` first (types, fuzzy match, folder tree, flocking sim,
   grouping), then the views. `ContactsUI`'s contact picker replaces the web .vcf import.
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { tint } from '../core/color'
 import { relativeLabel, today } from '../core/dates'
+import { currentOccurrence, repeatOf } from '../core/recurrence'
 import { formatTime, isOverdue, plannedDate, weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
@@ -33,7 +34,8 @@ export const KINDS = [
 
 export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
   const toggle = useStore((s) => s.toggleDone)
-  const done = task.kind === 'habit' ? task.log.includes(today()) : task.status === 'done'
+  const occ = repeatOf(task) ? (currentOccurrence(task, today()) ?? today()) : null
+  const done = occ ? task.log.includes(occ) : task.status === 'done'
   return (
     <button
       onPointerDown={(e) => e.stopPropagation()}
@@ -43,7 +45,7 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
       }}
       style={{ width: size, height: size }}
       className={`well-circle grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-transparent hover:text-lilac-400'}`}
-      aria-label={task.kind === 'habit' ? (done ? 'Undo today' : 'Done today') : done ? 'Mark not done' : 'Mark done'}
+      aria-label={occ ? (done ? 'Undo this one' : 'Done this one') : done ? 'Mark not done' : 'Mark done'}
       aria-pressed={done}
     >
       <IconCheck size={size * 0.62} />
