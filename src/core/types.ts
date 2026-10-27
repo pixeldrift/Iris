@@ -1,7 +1,7 @@
 // Pure domain model. No React, no DOM: this file and the rest of src/core are
 // the part that gets ported 1:1 to Swift (structs + pure functions).
 
-export type TaskKind = 'task' | 'idea' | 'list'
+export type TaskKind = 'task' | 'idea' | 'list' | 'event' | 'habit'
 
 /** How a list's entries are marked: check boxes, bullets, or automatic numbers. */
 export type ListStyle = 'check' | 'bullet' | 'number'
@@ -21,6 +21,12 @@ export interface Task {
   /** The entries of a `list` (a grocery list, say), and how they are marked. */
   items: ListItem[]
   listStyle: ListStyle
+  /** Events: start and end time (`HH:MM`, 24h) on the day it is planned for, and where it is. */
+  time: string | null
+  endTime: string | null
+  place: string
+  /** Habits: the dates it was done. A habit repeats on `days` (every day when null) and is never "done". */
+  log: string[]
   status: TaskStatus
   /** 0..1 soft weights. Never shown to the user as numbers. */
   importance: number

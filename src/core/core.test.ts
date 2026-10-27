@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, dayLabel, diffDays, monthGrid, ordinalSuffix, startOfWeek } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
-import { filterTasks, sortTasks, urgencyForDue, weightOf } from './tasks'
+import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 
 describe('dates', () => {
@@ -269,5 +269,21 @@ describe('ordinals', () => {
   it('suffixes days of the month', () => {
     const s = (n: number) => `${n}${ordinalSuffix(n)}`
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 30, 31].map(s)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '30th', '31st'])
+  })
+})
+
+describe('events and habits', () => {
+  it('formats times', () => {
+    expect([formatTime('15:30'), formatTime('09:00'), formatTime('00:05'), formatTime('12:00')]).toEqual(['3:30 pm', '9 am', '12:05 am', '12 pm'])
+  })
+  const habit = (log: string[], days: number[] | null = null) => ({ ...seedData().tasks[0], kind: 'habit' as const, log, days })
+  it('counts the run back from today, and today still open does not break it', () => {
+    expect(habitStreak(habit(['2026-03-10', '2026-03-09', '2026-03-08']), '2026-03-10')).toBe(3)
+    expect(habitStreak(habit(['2026-03-09', '2026-03-08']), '2026-03-10')).toBe(2)
+    expect(habitStreak(habit(['2026-03-08']), '2026-03-10')).toBe(0)
+  })
+  it('skips days the habit does not run', () => {
+    // 2026-03-09 is a Monday; the habit runs Mon/Wed/Fri, so Tue/Thu/weekends are not misses
+    expect(habitStreak(habit(['2026-03-06', '2026-03-09'], [1, 3, 5]), '2026-03-10')).toBe(2)
   })
 })

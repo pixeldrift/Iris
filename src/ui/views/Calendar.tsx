@@ -6,7 +6,7 @@ import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
 import { IconChevron, IconPlus } from '../icons'
 import { useTaskDrag } from '../shared'
-import { plannedDate } from '../../core/tasks'
+import { formatTime, plannedDate } from '../../core/tasks'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 function Chip({ task, deadline = false }: { task: Task; deadline?: boolean }) {
@@ -28,6 +28,7 @@ function Chip({ task, deadline = false }: { task: Task; deadline?: boolean }) {
       title={deadline ? `${task.title} (due)` : task.title}
     >
       {deadline ? '⚑ ' : ''}
+      {task.kind === 'event' && task.time ? `${formatTime(task.time)} ` : ''}
       {task.title}
     </div>
   )

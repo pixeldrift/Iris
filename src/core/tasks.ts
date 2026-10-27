@@ -85,6 +85,7 @@ export function nextAllowedDay(from: string, days: number[] | null | undefined):
  * shows as overdue.
  */
 export function rolloverDay(t: Task, now = today()): string | null {
+  if (t.kind === 'event' || t.kind === 'habit') return null // an event is at its time; a habit just repeats
   if (t.status === 'done' || !t.day || t.rollover === false || t.day >= now) return null
   const next = nextAllowedDay(now, t.days)
   if (t.due && next > t.due) return null
@@ -98,4 +99,30 @@ export function spanOf(t: Task): { start: string; end: string } | null {
   let start = t.start ?? end
   if (start > end) start = end
   return { start, end }
+}
+
+/** `15:30` -> `3:30 pm`, `09:00` -> `9 am`. */
+export function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  const hour = h % 12 === 0 ? 12 : h % 12
+  return `${hour}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'am' : 'pm'}`
+}
+
+/** Does a habit fall on this date (its chosen weekdays, or every day)? */
+export const habitDay = (t: Task, date: string): boolean => !t.days?.length || t.days.includes(fromISO(date).getDay())
+
+/**
+ * Consecutive scheduled days the habit was done, counting back from today. Today not being
+ * done yet does not break the run (there is still time); a missed scheduled day does.
+ */
+export function habitStreak(t: Task, now = today()): number {
+  let n = 0
+  let d = now
+  if (!t.log.includes(d) && habitDay(t, d)) d = addDays(d, -1)
+  for (let i = 0; i < 400; i++, d = addDays(d, -1)) {
+    if (!habitDay(t, d)) continue
+    if (!t.log.includes(d)) break
+    n++
+  }
+  return n
 }
