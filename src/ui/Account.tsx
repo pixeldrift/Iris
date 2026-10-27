@@ -110,7 +110,7 @@ const ago = (t: number) => {
   return s < 10 ? 'just now' : s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`
 }
 
-/** The sidebar's account line: sign in, or who you are and whether everything is synced. */
+/** Top-right of the sidebar, opposite the logo: sign in, or your avatar with a sync dot and a small menu. */
 export function AccountRow() {
   const available = useAccountsAvailable()
   const { data } = authClient.useSession()
@@ -121,27 +121,33 @@ export function AccountRow() {
 
   if (!data) {
     return (
-      <div className="border-t border-white/50 px-4 py-3">
-        <button onClick={() => openAuth('in')} className="w-full rounded-xl bg-white/50 px-3 py-2 text-left text-sm text-ink transition hover:bg-white/80">
-          Sign in to sync
-          <span className="block text-xs text-ink-faint">Keep your pond on every device</span>
-        </button>
-      </div>
+      <button onClick={() => openAuth('in')} className="ml-auto rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition hover:bg-white" title="Keep your pond on every device">
+        Sign in
+      </button>
     )
   }
   const status =
-    sync.status === 'syncing' ? 'Syncing…' : sync.status === 'offline' ? 'Offline: saved on this device' : sync.status === 'error' ? 'Couldn’t sync · tap to retry' : sync.lastAt ? `Synced ${ago(sync.lastAt)}` : 'Signed in'
+    sync.status === 'syncing' ? 'Syncing…' : sync.status === 'offline' ? 'Offline: saved on this device' : sync.status === 'error' ? 'Couldn’t sync. Tap Sync now to retry' : sync.lastAt ? `Synced ${ago(sync.lastAt)}` : 'Signed in'
+  const dot = sync.status === 'error' ? 'bg-[#c95b88]' : sync.status === 'offline' ? 'bg-ink-faint' : sync.status === 'syncing' ? 'animate-pulse bg-lilac-400' : 'bg-[#6fc29a]'
   return (
-    <div className="border-t border-white/50 px-3 py-2.5">
-      <button ref={ref} onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu} className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/50">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-200 text-sm font-semibold text-lilac-700">{(data.user.name || data.user.email)[0]?.toUpperCase()}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm">{data.user.name || data.user.email}</span>
-          <span className={`block truncate text-xs ${sync.status === 'error' ? 'text-[#9a4566]' : 'text-ink-faint'}`}>{status}</span>
-        </span>
+    <>
+      <button
+        ref={ref}
+        onClick={() => setMenu((m) => !m)}
+        aria-haspopup="menu"
+        aria-expanded={menu}
+        aria-label={`Account: ${data.user.name || data.user.email}. ${status}`}
+        className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
+      >
+        {(data.user.name || data.user.email)[0]?.toUpperCase()}
+        <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white/80 ${dot}`} />
       </button>
-      <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} className="w-60 p-1.5">
-        <div className="truncate px-3 py-1.5 text-xs text-ink-faint">{data.user.email}</div>
+      <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-64 p-1.5">
+        <div className="px-3 py-1.5">
+          <div className="truncate text-sm">{data.user.name || data.user.email}</div>
+          <div className="truncate text-xs text-ink-faint">{data.user.email}</div>
+          <div className={`mt-1 text-xs ${sync.status === 'error' ? 'text-[#9a4566]' : 'text-ink-soft'}`}>{status}</div>
+        </div>
         <button
           onClick={() => {
             setMenu(false)
@@ -163,6 +169,6 @@ export function AccountRow() {
           Sign out
         </button>
       </Popover>
-    </div>
+    </>
   )
 }

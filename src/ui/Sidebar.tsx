@@ -450,6 +450,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
           <Logo />
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
+          <AccountRow />
         </div>
 
         <ScrollFade>
@@ -459,7 +460,6 @@ export function Sidebar() {
             ))}
           </nav>
         </ScrollFade>
-        <AccountRow />
         </div>
       </aside>
     </>
