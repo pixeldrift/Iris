@@ -3,8 +3,20 @@
 ## Near term
 - **Sync + accounts.** Vercel functions + Neon: push changed rows, pull `updated_at > cursor`
   (schema already carries `updated_at` / `deleted_at`). Passkey or magic-link sign-in.
-- **Reminders & push.** `remind_at` on tasks; Web Push (VAPID) for the PWA, APNs for native.
+- **Reminders & push.** In-app reminders and system notifications (while the app is open) have shipped.
+  Still to do: delivery when the app is closed: Web Push (VAPID) for the PWA, APNs for native.
   iOS only delivers web push to PWAs added to the Home Screen (16.4+).
+- **Calendar sync (Google, Apple, others).** Connect external calendars so Lilac and they share
+  information, two ways: events created or changed in Lilac show up in the calendar app, and the other
+  way round.
+  - Standards first: **CalDAV** (iCloud, Fastmail, Nextcloud, most others) plus the **Google Calendar API**
+    and Microsoft Graph where CalDAV isn't offered. Native iPhone can also read/write EventKit directly.
+  - Bi-directional: sync tokens / ETags to pull only changes, a per-event link (remote UID + ETag) on the
+    task, and a clear conflict rule (last write wins per field, surfaced when both sides changed).
+  - Mapping: Lilac `event` items (date, start/end time, place) <-> VEVENT; tasks with a due date <-> VTODO
+    where the server supports it. Choose which calendars sync, and which Lilac folders they land in.
+  - Needs the server side first (accounts and sync above): credentials and tokens live in Neon, and the
+    sync worker runs in Vercel functions or cron, never in the browser.
 - **Recurring tasks** (RRULE string on the task, expanded in `src/core`).
 - **Native iPhone app (SwiftUI).** Port `src/core` first (types, fuzzy match, folder tree, flocking sim,
   grouping), then the views. `ContactsUI`'s contact picker replaces the web .vcf import.
