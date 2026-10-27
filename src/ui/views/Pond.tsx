@@ -704,9 +704,17 @@ export function Pond() {
       window.setTimeout(() => {
         if (adding) {
           const { w: W, h: H } = dims.current
-          addTask({ title: typed, kind: kindRef.current, x: (b.x - v.tx) / v.scale / W, y: (b.y - v.ty) / v.scale / H })
+          const id = addTask({ title: typed, kind: kindRef.current, x: (b.x - v.tx) / v.scale / W, y: (b.y - v.ty) / v.scale / H })
           drop((b.x / dims.current.w) * 2 - 1)
-          spawnRipple('circle', b.x, b.y, diameter, diameter)
+          // ripple from where the bubble really is (the pond may nudge it off the exact spot clicked)
+          let tries = 0
+          const ring = () => {
+            const n = nodes.current.get(id)
+            if (!n && tries++ < 12) return requestAnimationFrame(ring)
+            const cv = view.current
+            spawnRipple('circle', n ? n.sim.x * cv.scale + cv.tx : b.x, n ? n.sim.y * cv.scale + cv.ty : b.y, diameter, diameter)
+          }
+          ring()
         }
         setBubble((cur) => (cur?.id === b.id ? null : cur))
         setText((t) => (bubbleRef.current?.id === b.id ? '' : t))
