@@ -9,7 +9,7 @@
 | Build / PWA | Vite, hand-written `manifest.webmanifest` + `sw.js` | No plugin magic; installable on iOS via Add to Home Screen |
 | Audio | Web Audio synthesis (no samples) | Water drop, chimes and wind are generated: nothing to license or ship |
 | Hosting | Vercel (static) | `vercel.json` handles SPA fallback |
-| DB + accounts | Neon Postgres (`db/schema.sql`), Better Auth, Vercel functions in `api/` | Local-first app; sign in to sync. See [ACCOUNTS.md](ACCOUNTS.md) |
+| DB + accounts | Neon Postgres (`db/schema.sql`), Neon Auth (managed Better Auth), Vercel functions in `api/` | Local-first app; sign in to sync. See [ACCOUNTS.md](ACCOUNTS.md) |
 
 ## Layering (built for porting)
 

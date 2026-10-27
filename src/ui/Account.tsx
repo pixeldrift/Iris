@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
-import { authClient } from '../sync/auth'
+import { accountsConfigured, authClient } from '../sync/auth'
 import { forgetAccountData, startSync, syncNow, useSync } from '../sync/engine'
 import { askConfirm, Modal } from './dialogs'
 import { Popover } from './Popover'
@@ -9,24 +9,12 @@ const useAuthDialog = create<{ open: boolean; mode: 'in' | 'up' }>(() => ({ open
 export const openAuth = (mode: 'in' | 'up' = 'in') => useAuthDialog.setState({ open: true, mode })
 const closeAuth = () => useAuthDialog.setState({ open: false })
 
-/** Accounts only exist where the API does (a deployment, or `npm run dev:api` locally). */
-function useAccountsAvailable(): boolean {
-  const [ok, setOk] = useState(false)
-  useEffect(() => {
-    let live = true
-    fetch('/api/auth/ok')
-      .then((r) => r.ok && r.headers.get('content-type')?.includes('json'))
-      .then((v) => live && setOk(!!v))
-      .catch(() => {})
-    return () => {
-      live = false
-    }
-  }, [])
-  return ok
-}
-
 /** Starts and stops syncing as someone signs in and out, and hosts the sign-in dialog. */
 export function AccountHost() {
+  return accountsConfigured ? <AccountSync /> : null
+}
+
+function AccountSync() {
   const { data } = authClient.useSession()
   const userId = data?.user.id ?? null
   useEffect(() => (userId ? startSync(userId) : undefined), [userId])
@@ -112,13 +100,14 @@ const ago = (t: number) => {
 
 /** Top-right of the sidebar, opposite the logo: sign in, or your avatar with a sync dot and a small menu. */
 export function AccountRow() {
-  const available = useAccountsAvailable()
+  return accountsConfigured ? <AccountMenu /> : null
+}
+
+function AccountMenu() {
   const { data } = authClient.useSession()
   const sync = useSync()
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
-  if (!available) return null
-
   if (!data) {
     return (
       <button onClick={() => openAuth('in')} className="ml-auto rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition hover:bg-white" title="Keep your pond on every device">

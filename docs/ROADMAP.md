@@ -1,7 +1,7 @@
 # Lilac roadmap
 
 ## Near term
-- **Sync + accounts. (Built; needs your Neon database to go live.)** Better Auth email + password, a Neon `entities`
+- **Sync + accounts. (Built; needs your Neon database to go live.)** Neon Auth (managed Better Auth) email + password, a Neon `entities`
   table, last-write-wins sync of tasks, folders and people (`docs/ACCOUNTS.md`). Still to do: email verification
   and password reset (needs an email provider), passkeys / social sign-in, syncing settings, shared rate limiting,
   and server-assigned versions before collaboration.

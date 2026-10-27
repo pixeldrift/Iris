@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { apiToken } from './auth'
 import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normalize'
 import { seedData } from '../core/seed'
 import { useStore } from '../state/store'
@@ -94,9 +95,14 @@ function applyRemote(changes: Change[]): Map<string, unknown> {
   return stored
 }
 
-async function post(body: { cursor: number; changes: Change[] }): Promise<{ changes: Change[]; cursor: number; more: boolean }> {
-  const res = await fetch('/api/sync', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-  if (res.status === 401) throw new SignedOut()
+async function post(body: { cursor: number; changes: Change[] }, retried = false): Promise<{ changes: Change[]; cursor: number; more: boolean }> {
+  const token = await apiToken(retried)
+  if (!token) throw new SignedOut()
+  const res = await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
+  if (res.status === 401) {
+    if (!retried) return post(body, true) // the token may have just expired: fetch a fresh one once
+    throw new SignedOut()
+  }
   if (!res.ok) throw new Error(`Sync failed (${res.status})`)
   return res.json()
 }

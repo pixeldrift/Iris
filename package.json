@@ -12,7 +12,8 @@
     "dev:api": "tsx scripts/dev-api.ts"
   },
   "dependencies": {
-    "better-auth": "^1.7.14",
+    "@neondatabase/auth": "^0.6.0-beta",
+    "jose": "^6.2.13",
     "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
