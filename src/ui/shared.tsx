@@ -17,7 +17,7 @@ export const STATUSES: { id: TaskStatus; label: string; one: string; hint: strin
 export const KINDS = [
   { id: 'task', label: 'Task' },
   { id: 'idea', label: 'Idea' },
-  { id: 'reminder', label: 'Reminder' },
+  { id: 'list', label: 'List' },
 ] as const
 
 export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {

@@ -30,6 +30,12 @@ export const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
+/** 1 -> "st", 2 -> "nd", 3 -> "rd", 4 -> "th"… (11th, 12th, 13th included). */
+export function ordinalSuffix(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th'
+  return ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'
+}
+
 export function weekdayName(s: string): string {
   return WEEKDAYS[fromISO(s).getDay()]
 }

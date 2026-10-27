@@ -175,6 +175,8 @@ export const useStore = create<State>()(
           id,
           notes: '',
           kind: 'task' as TaskKind,
+          items: [],
+          listStyle: 'check' as const,
           status: 'todo',
           importance: 0.5,
           urgency: urgencyForDue(0.3, due),
@@ -436,7 +438,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 5,
+      version: 6,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -459,6 +461,10 @@ export const useStore = create<State>()(
         if (from < 5) {
           // folders saved before flowers existed get a spread of shapes, in their existing order
           p.folders = (p.folders ?? []).map((f, i) => ({ ...f, shape: f.shape ?? shapeFor(i) }))
+        }
+        if (from < 6) {
+          // reminders became plain tasks: a reminder is any task with an alarm, not a type of its own
+          p.tasks = (p.tasks ?? []).map((t) => ({ ...t, kind: (t.kind as string) === 'reminder' ? 'task' : t.kind, items: t.items ?? [], listStyle: t.listStyle ?? 'check' }))
         }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
         return p as State
