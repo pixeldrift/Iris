@@ -9,9 +9,6 @@ const task = (id: string, title: string, updatedAt: number): Change => ({ kind: 
 beforeAll(async () => {
   db = new PGlite()
   await db.exec(readFileSync(new URL('../../db/schema.sql', import.meta.url), 'utf8'))
-  for (const id of ['ann', 'bob']) {
-    await db.query(`insert into "user" (id, name, email, "emailVerified", "updatedAt") values ($1, $1, $1 || '@x.test', false, now())`, [id])
-  }
 })
 
 describe('sync', () => {
