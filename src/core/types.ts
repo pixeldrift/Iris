@@ -27,6 +27,9 @@ export interface Task {
   place: string
   /** Habits: the dates it was done. A habit repeats on `days` (every day when null) and is never "done". */
   log: string[]
+  /** An alert: when to nudge (epoch ms), and whether it has already gone off. */
+  remindAt: number | null
+  reminded: boolean
   status: TaskStatus
   /** 0..1 soft weights. Never shown to the user as numbers. */
   importance: number

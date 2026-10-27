@@ -6,6 +6,7 @@ import { Decor } from './ui/Decor'
 import { DialogHost } from './ui/dialogs'
 import { DragLayer } from './ui/dnd'
 import { ContactPromptHost, PersonDialog } from './ui/PeopleDialogs'
+import { ReminderHost } from './ui/Reminders'
 import { ToastHost } from './ui/Toast'
 import { UpdateBubble } from './ui/UpdateBubble'
 import { NewTask } from './ui/NewTask'
@@ -79,6 +80,7 @@ export default function App() {
       <NewTask open={composing} onClose={() => setComposing(false)} />
       <PersonDialog />
       <ContactPromptHost />
+      <ReminderHost />
       <DialogHost />
       <ToastHost />
       <UpdateBubble />

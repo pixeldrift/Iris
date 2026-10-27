@@ -1,4 +1,5 @@
 import { ListEditor } from './ListEditor'
+import { ReminderField } from './ReminderField'
 import { EventFields, HabitPanel } from './KindFields'
 import { useEffect, useRef, useState } from 'react'
 import { WEEKDAYS } from '../core/dates'
@@ -44,7 +45,7 @@ export function TaskDetail() {
   const { mounted, closing } = useExit(!!id && !!live, 240)
 
   // "Saved" blinks whenever something about the task changes
-  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
+  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
   const [savedTick, setSavedTick] = useState(0)
   const firstSig = useRef(sig)
   useEffect(() => {
@@ -127,6 +128,8 @@ export function TaskDetail() {
               ))}
             </div>
           )}
+
+          <ReminderField task={task} />
 
           <textarea
             value={task.notes}

@@ -1,5 +1,5 @@
 // Minimal offline shell: network-first for pages, cache-first for hashed assets.
-const CACHE = 'lilac-v2'
+const CACHE = 'lilac-v3'
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg']
 
 self.addEventListener('install', (e) => {
@@ -30,5 +30,21 @@ self.addEventListener('fetch', (e) => {
           return res
         }),
     ),
+  )
+})
+
+// Tapping a reminder notification brings Lilac forward and opens that task.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const id = e.notification.data && e.notification.data.id
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const win = list[0]
+      if (win) {
+        win.postMessage({ type: 'open-task', id })
+        return win.focus()
+      }
+      return self.clients.openWindow('/')
+    }),
   )
 })

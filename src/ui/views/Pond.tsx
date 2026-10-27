@@ -7,7 +7,7 @@ import { contactLink, detectContactIntent } from '../../core/people'
 import { bubbleRadius, habitStreak, plannedDate } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
-import { IconChat, IconClose, IconList, IconMail, IconPhone, IconThought } from '../icons'
+import { IconBell, IconChat, IconClose, IconList, IconMail, IconPhone, IconThought } from '../icons'
 import { DoneButton, DueChip, KINDS } from '../shared'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
@@ -158,6 +158,11 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                   </span>
                 ) : (
                   <DoneButton task={task} size={cb} />
+                )}
+                {task.remindAt !== null && !task.reminded && (
+                  <span title="Reminder set" role="img" aria-label="Reminder set" className="text-lilac-500">
+                    <IconBell size={15} />
+                  </span>
                 )}
                 {task.kind === 'habit' && habitStreak(task) > 0 && (
                   <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">

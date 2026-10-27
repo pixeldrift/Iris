@@ -12,6 +12,8 @@ const mk = (partial: Partial<Task> & { title: string }): Task => ({
   endTime: null,
   place: '',
   log: [],
+  remindAt: null,
+  reminded: false,
   status: 'todo',
   importance: 0.5,
   urgency: 0.3,

@@ -4,6 +4,7 @@ import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
+import { dueReminders, eventStart, formatReminder, reminderPresets } from './reminders'
 
 describe('dates', () => {
   it('adds and diffs days across month boundaries', () => {
@@ -285,5 +286,32 @@ describe('events and habits', () => {
   it('skips days the habit does not run', () => {
     // 2026-03-09 is a Monday; the habit runs Mon/Wed/Fri, so Tue/Thu/weekends are not misses
     expect(habitStreak(habit(['2026-03-06', '2026-03-09'], [1, 3, 5]), '2026-03-10')).toBe(2)
+  })
+})
+
+describe('reminders', () => {
+  const base = seedData().tasks[0]
+  const at = (y: number, mo: number, d: number, h = 0, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime()
+  const now = at(2026, 3, 10, 12, 0)
+  it('finds only due, unsent, unfinished reminders', () => {
+    const t = (o: object) => ({ ...base, ...o })
+    const due = dueReminders(
+      [t({ id: 'a', remindAt: now - 1 }), t({ id: 'b', remindAt: now + 1 }), t({ id: 'c', remindAt: now - 1, reminded: true }), t({ id: 'd', remindAt: now - 1, status: 'done' }), t({ id: 'e', remindAt: null })],
+      now,
+    )
+    expect(due.map((x) => x.id)).toEqual(['a'])
+  })
+  it('offers before-start choices for events, only in the future', () => {
+    const ev = { ...base, kind: 'event' as const, day: '2026-03-10', time: '12:30' }
+    expect(eventStart(ev)).toBe(at(2026, 3, 10, 12, 30))
+    const ids = reminderPresets(ev, now).map((p) => p.id)
+    expect(ids).toContain('at')
+    expect(ids).toContain('10m')
+    expect(ids).not.toContain('1h') // 11:30 has passed
+    expect(reminderPresets(base, now).map((p) => p.id)).toEqual(['in1h', 'eve', 'morn'])
+  })
+  it('words times plainly', () => {
+    expect(formatReminder(at(2026, 3, 10, 18), now)).toBe('6 pm today')
+    expect(formatReminder(at(2026, 3, 11, 9, 30), now)).toBe('9:30 am tomorrow')
   })
 })
