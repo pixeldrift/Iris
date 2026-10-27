@@ -11,6 +11,7 @@ function explain(e: unknown): { status: number; error: string } {
   if (err?.code === '42P01') return { status: 503, error: 'The database tables are missing. Run db/schema.sql in the Neon SQL editor.' }
   if (msg.includes('DATABASE_URL is not set')) return { status: 503, error: 'DATABASE_URL is not set on the server.' }
   if (msg.includes('NEON_AUTH_BASE_URL')) return { status: 503, error: 'NEON_AUTH_BASE_URL is not set on the server.' }
+  if (err?.code === '23503') return { status: 503, error: 'The entities table still has an old link to a user table. Re-run the latest db/schema.sql in the Neon SQL editor.' }
   if (err?.code === '28P01' || err?.code === '28000') return { status: 503, error: 'The database refused the login. Check DATABASE_URL.' }
   if (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'].includes(err?.code ?? '') || /SSL|self[- ]signed|certificate/i.test(msg)) return { status: 503, error: `Could not reach the database (${err?.code ?? 'connection'}). Check DATABASE_URL.` }
   return { status: 500, error: 'Sync failed on the server. See the function log.' }

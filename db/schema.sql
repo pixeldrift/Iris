@@ -30,4 +30,8 @@ create table if not exists entities (
 );
 create index if not exists entities_pull_idx on entities (user_id, seq);
 
+-- Earlier versions of this file tied user_id to a local "user" table (self-hosted accounts). With Neon Auth the
+-- users live in the neon_auth schema instead, so make sure no such link is left on a table created back then.
+alter table entities drop constraint if exists entities_user_id_fkey;
+
 -- Later: web push / APNs device tokens for reminders when the app is closed.
