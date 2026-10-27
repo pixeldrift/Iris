@@ -89,6 +89,8 @@ export interface Person {
   address: string
   notes: string
   hue: number
+  /** Hearted people are the ones kept as shortcuts in the sidebar. */
+  favorite: boolean
   createdAt: number
 }
 
@@ -98,6 +100,8 @@ export type Scope =
   | { type: 'inbox' }
   | { type: 'folder'; id: string }
   | { type: 'person'; id: string }
+  /** The address book: everyone, hearted or not. Not a filter, a page of its own. */
+  | { type: 'contacts' }
   | { type: 'day'; date: string }
 
 export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline'

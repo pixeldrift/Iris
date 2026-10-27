@@ -87,6 +87,7 @@ interface State {
 
   savePerson: (p: Partial<Person> & { name: string }) => string
   deletePerson: (id: string) => void
+  togglePersonFavorite: (id: string) => void
 
   /** Look at a task's title for "call/email Sarah" and link or ask. */
   checkContact: (taskId: string) => void
@@ -384,12 +385,14 @@ export const useStore = create<State>()(
           address: '',
           notes: '',
           hue: nextHue(get().people.length + 3),
+          favorite: false,
           createdAt: Date.now(),
           ...p,
         }
         set((s) => ({ people: [...s.people, person] }))
         return person.id
       },
+      togglePersonFavorite: (id) => set((s) => ({ people: s.people.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)) })),
       deletePerson: (id) =>
         set((s) => ({
           people: s.people.filter((p) => p.id !== id),
@@ -450,7 +453,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 7,
+      version: 8,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -480,6 +483,10 @@ export const useStore = create<State>()(
         }
         if (from < 7) {
           p.tasks = (p.tasks ?? []).map((t) => ({ ...t, time: t.time ?? null, endTime: t.endTime ?? null, place: t.place ?? '', log: t.log ?? [] }))
+        }
+        if (from < 8) {
+          // everyone already in the sidebar stays there: hearts are for the people added from now on
+          p.people = (p.people ?? []).map((x) => ({ ...x, favorite: x.favorite ?? true }))
         }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
         return p as State

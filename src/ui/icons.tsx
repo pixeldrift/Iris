@@ -24,6 +24,18 @@ export const IconPond = (p: P) => (
     <circle cx="12" cy="12" r="10.5" opacity=".3" />
   </Svg>
 )
+export const IconHeart = ({ filled, ...p }: P & { filled?: boolean }) => (
+  <svg width={p.size ?? 18} height={p.size ?? 18} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7C19.5 15.9 12 20.5 12 20.5Z" />
+  </svg>
+)
+export const IconBook = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 4.5h11a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3v-12Z" />
+    <circle cx="12" cy="10" r="2" />
+    <path d="M8.5 15.5c.6-1.7 2-2.5 3.5-2.5s2.9.8 3.5 2.5" />
+  </Svg>
+)
 export const IconList = (p: P) => (
   <Svg {...p}>
     <path d="M9 6h11M9 12h11M9 18h11" />

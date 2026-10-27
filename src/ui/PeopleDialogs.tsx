@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import type { ParsedContact } from '../core/people'
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
+import { IconHeart } from './icons'
 import { canPickContacts, pickContact, readVCard } from './contacts'
 
 interface PersonDialogState {
@@ -26,11 +27,11 @@ export function PersonDialog() {
   const save = useStore((s) => s.savePerson)
   const del = useStore((s) => s.deletePerson)
   const existing = id ? people.find((p) => p.id === id) : undefined
-  const [f, setF] = useState({ name: '', phone: '', email: '', address: '', notes: '' })
+  const [f, setF] = useState({ name: '', phone: '', email: '', address: '', notes: '', favorite: false })
   const file = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (open) setF({ name: '', phone: '', email: '', address: '', notes: '', ...defaults, ...(existing ?? {}) })
+    if (open) setF({ name: '', phone: '', email: '', address: '', notes: '', favorite: false, ...defaults, ...(existing ?? {}) })
   }, [open, id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fill = (c: ParsedContact | null) => c && setF((p) => ({ ...p, name: c.name || p.name, phone: c.phone || p.phone, email: c.email || p.email, address: c.address || p.address }))
@@ -48,7 +49,19 @@ export function PersonDialog() {
         }}
         className="space-y-3"
       >
-        <h3 className="font-display text-xl">{existing ? 'Edit person' : 'Add a person'}</h3>
+        <div className="flex items-center">
+          <h3 className="font-display text-xl">{existing ? 'Edit person' : 'Add a person'}</h3>
+          <button
+            type="button"
+            onClick={() => setF((p) => ({ ...p, favorite: !p.favorite }))}
+            aria-pressed={f.favorite}
+            aria-label={f.favorite ? 'Remove from sidebar' : 'Keep in the sidebar'}
+            title={f.favorite ? 'In your sidebar' : 'Heart to keep in the sidebar'}
+            className={`ml-auto grid h-9 w-9 place-items-center rounded-full transition hover:bg-white/70 ${f.favorite ? 'text-[#c95b88]' : 'text-ink-faint'}`}
+          >
+            <IconHeart size={19} filled={f.favorite} />
+          </button>
+        </div>
         <div className="flex flex-wrap gap-2">
           {canPickContacts() && (
             <button type="button" onClick={async () => fill(await pickContact())} className="rounded-full bg-lilac-100 px-3.5 py-1.5 text-xs text-lilac-700 transition hover:bg-lilac-200">

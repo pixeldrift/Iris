@@ -25,6 +25,7 @@ export const plannedDate = (t: Pick<Task, 'day' | 'due'>): string | null => t.da
 export function matchesScope(task: Task, scope: Scope, folders: Folder[]): boolean {
   switch (scope.type) {
     case 'all':
+    case 'contacts':
       return true
     case 'inbox':
       return task.folderIds.length === 0 && !task.due && !task.day

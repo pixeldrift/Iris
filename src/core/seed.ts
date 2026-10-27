@@ -69,7 +69,10 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
     mk({ title: 'Water the ferns', folderIds: ['garden'], status: 'done', completedAt: Date.now(), importance: 0.2, urgency: 0.2, x: 0.1, y: 0.42 }),
   ]
   const people: Person[] = [
-    { id: 'p-grandma', name: 'Grandma Rose', phone: '+1 555 010 2030', email: 'rose@example.com', address: '', notes: '', hue: 345, createdAt: 1_700_000_000_000 },
+    { id: 'p-grandma', name: 'Grandma Rose', phone: '+1 555 010 2030', email: 'rose@example.com', address: '', notes: '', hue: 345, favorite: true, createdAt: 1_700_000_000_000 },
+    { id: 'p-patel', name: 'Dr. Patel', phone: '+1 555 010 4477', email: '', address: '12 Elm Street', notes: 'Dentist', hue: 200, favorite: false, createdAt: 1_700_000_000_001 },
+    { id: 'p-sam', name: 'Sam Okafor', phone: '+1 555 010 8812', email: 'sam@example.com', address: '', notes: 'Study group', hue: 150, favorite: false, createdAt: 1_700_000_000_002 },
+    { id: 'p-mina', name: 'Mina Park', phone: '', email: 'mina@example.com', address: '', notes: '', hue: 255, favorite: false, createdAt: 1_700_000_000_003 },
   ]
   return { folders, tasks, people }
 }

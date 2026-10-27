@@ -25,6 +25,8 @@ import {
   IconCheck,
   IconChevronDown,
   IconInbox,
+  IconBook,
+  IconHeart,
   IconList,
   IconPencil,
   IconPlus,
@@ -289,10 +291,11 @@ export function Sidebar() {
           </Tip>
         }
       >
-        {people.map((p) => (
+        {people.filter((p) => p.favorite).map((p) => (
           <PersonRow key={p.id} person={p} count={live.filter((t) => t.personIds.includes(p.id)).length} />
         ))}
-        {people.length === 0 && <p className="px-3 py-1.5 text-sm text-ink-faint">Tag people on tasks, then call or email in a tap.</p>}
+        {people.some((p) => p.favorite) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}
+        <ScopeRow active={scope.type === 'contacts'} onClick={() => setScope({ type: 'contacts' })} icon={<IconBook />} label="Address book" count={people.length} />
       </Section>
     ),
     week: (
@@ -450,6 +453,7 @@ export function Sidebar() {
 function PersonRow({ person, count }: { person: Person; count: number }) {
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
+  const toggleFavorite = useStore((s) => s.togglePersonFavorite)
   const { over, active, props } = useDropTarget(`person:${person.id}`)
   const on = scope.type === 'person' && scope.id === person.id
   return (
@@ -469,6 +473,18 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
       <span className="truncate">{person.name}</span>
       <Count n={count} />
       <span className="absolute right-1.5 flex rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
+        <Tip label="Remove from sidebar">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleFavorite(person.id)
+            }}
+            className="rounded-md p-1 text-[#c95b88] hover:bg-lilac-100"
+            aria-label={`Unfavourite ${person.name}`}
+          >
+            <IconHeart size={14} filled />
+          </button>
+        </Tip>
         <Tip label="Edit details">
           <button
             onClick={(e) => {

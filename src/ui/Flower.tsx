@@ -89,7 +89,7 @@ export function Flower({
   size = 18,
   shape = 'blossom',
   petals,
-  mono = false,
+  mono = true,
   className = '',
 }: {
   hue: number
