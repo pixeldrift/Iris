@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useStore } from './state/store'
 import { unlock } from './audio/engine'
 import { applyAudio } from './state/store'
@@ -9,7 +9,7 @@ import { ContactPromptHost, PersonDialog } from './ui/PeopleDialogs'
 import { ReminderHost } from './ui/Reminders'
 import { ToastHost } from './ui/Toast'
 import { UpdateBubble } from './ui/UpdateBubble'
-import { NewTask } from './ui/NewTask'
+import { NewTask, openCompose } from './ui/NewTask'
 import { Sidebar } from './ui/Sidebar'
 import { TaskDetail } from './ui/TaskDetail'
 import { TopBar } from './ui/TopBar'
@@ -26,7 +26,6 @@ const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, cal
 export default function App() {
   const view = useStore((s) => s.view)
   const hasDetail = useStore((s) => s.selectedId !== null)
-  const [composing, setComposing] = useState(false)
   const contacts = useStore((s) => s.scope.type === 'contacts')
   const View = contacts ? AddressBook : VIEW[view]
 
@@ -59,7 +58,7 @@ export default function App() {
       if (el.matches('input, textarea, select, [contenteditable]')) return
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
-        setComposing(true)
+        openCompose()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -71,13 +70,13 @@ export default function App() {
       <Decor />
       <Sidebar />
       <main className={`relative z-10 flex min-w-0 flex-1 flex-col ${view === 'timeline' ? '' : 'pl-[1.15rem]'} transition-[padding] duration-300 md:pl-0 ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
-        <TopBar onNew={() => setComposing(true)} />
+        <TopBar onNew={() => openCompose()} />
         <div className="relative min-h-0 flex-1 px-3 pb-3 md:px-4 md:pb-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <View />
         </div>
       </main>
       <TaskDetail />
-      <NewTask open={composing} onClose={() => setComposing(false)} />
+      <NewTask />
       <PersonDialog />
       <ContactPromptHost />
       <ReminderHost />
