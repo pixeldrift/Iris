@@ -766,9 +766,11 @@ function FolderOptions({
                 aria-selected={folder.shape === x.id}
                 aria-label={x.label}
                 onClick={() => updateFolder(folder.id, { shape: x.id })}
-                className={`grid h-8 place-items-center rounded-lg transition hover:bg-lilac-100/80 ${folder.shape === x.id ? 'bg-lilac-100 ring-1 ring-lilac-300' : ''}`}
+                className="grid h-8 place-items-center rounded-lg transition hover:bg-lilac-100/60"
               >
-                <Flower hue={folder.hue} shape={x.id} size={22} />
+                <span className={`grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full ${folder.shape === x.id ? 'ring-2 ring-lilac-500 ring-offset-1 ring-offset-white/80' : ''}`}>
+                  <Flower hue={folder.hue} shape={x.id} size={19} mono />
+                </span>
               </button>
             ))}
           </div>

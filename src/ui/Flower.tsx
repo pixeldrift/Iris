@@ -68,8 +68,16 @@ function inner(shape: FlowerShape, petals?: number): string {
   return html
 }
 
-const tones = (hue: number): CSSProperties =>
-  ({
+const tones = (hue: number, mono: boolean): CSSProperties =>
+  mono
+    ? ({
+        // one hue in four lightnesses: the shape reads, and nothing can clash with the chosen colour
+        '--flower-base': `${tint(hue, 50, 58)}`,
+        '--flower-light': `${tint(hue, 50, 72)}`,
+        '--flower-deep': `${tint(hue, 50, 44)}`,
+        '--flower-cream': `${tint(hue, 50, 84)}`,
+      } as CSSProperties)
+    : ({
     '--flower-base': `${tint(hue, 62, 74)}`,
     '--flower-light': `${tint(hue, 72, 87)}`,
     '--flower-deep': `${tint(hue, 48, 56)}`,
@@ -81,6 +89,7 @@ export function Flower({
   size = 18,
   shape = 'blossom',
   petals,
+  mono = false,
   className = '',
 }: {
   hue: number
@@ -88,8 +97,10 @@ export function Flower({
   shape?: FlowerShape
   /** Only for shapes with variable rings (blossom, daisy, lily, cosmos, pinwheel, sunflower). */
   petals?: number
+  /** Draw in a single colour (the folder's own), centres and all. Used in pickers. */
+  mono?: boolean
   className?: string
 }) {
   const html = useMemo(() => inner(shape, petals), [shape, petals])
-  return <svg width={size} height={size} viewBox="-12 -12 24 24" className={className} style={tones(hue)} aria-hidden dangerouslySetInnerHTML={{ __html: html }} />
+  return <svg width={size} height={size} viewBox="-12 -12 24 24" className={className} style={tones(hue, mono)} aria-hidden dangerouslySetInnerHTML={{ __html: html }} />
 }
