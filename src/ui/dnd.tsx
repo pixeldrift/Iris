@@ -42,6 +42,8 @@ interface Options {
   ghost?: boolean | ((x: number, y: number) => boolean)
   /** The element to pick up: a lifted copy follows the pointer and the original fades. */
   lift?: () => HTMLElement | null
+  /** Give the lifted copy a solid background, so text underneath can't show through it. */
+  liftOpaque?: boolean
   /** Which drop target is under the pointer (default: nearest `data-drop`). */
   resolve?: (x: number, y: number) => string | null
   /** Touch must start from a handle so scrolling still works. */
@@ -86,7 +88,7 @@ export function usePointerDrag(opts: Options) {
         const src = optsRef.current.lift?.()
         if (src) {
           lifted = true
-          lifter.begin(src, sx, sy, `${optsRef.current.payload.type}:${optsRef.current.payload.id}`)
+          lifter.begin(src, sx, sy, `${optsRef.current.payload.type}:${optsRef.current.payload.id}`, !!optsRef.current.liftOpaque)
           useDnd.setState({ liftH: src.offsetHeight })
         }
         optsRef.current.onStart?.()
@@ -133,7 +135,8 @@ export function usePointerDrag(opts: Options) {
 /** Props + live state for a drop target. */
 export function useDropTarget(id: string) {
   const over = useDnd((s) => s.over === id)
-  const active = useDnd((s) => s.drag !== null)
+  // only things that can actually be dropped on light up; moving a folder or section leaves the rest alone
+  const active = useDnd((s) => s.drag?.payload.type === 'task')
   return { over, active, props: { 'data-drop': id } as const }
 }
 

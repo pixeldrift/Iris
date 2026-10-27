@@ -4,6 +4,7 @@ import { fuzzyScore } from '../../core/fuzzy'
 import { useStore } from '../../state/store'
 import { IconHeart, IconPlus } from '../icons'
 import { openPerson } from '../PeopleDialogs'
+import { CountBubble } from '../shared'
 import { Tip } from '../Tip'
 
 /** Everyone you know. Heart the ones who should be one tap away in the sidebar. */
@@ -61,11 +62,9 @@ export function AddressBook() {
                       <span className="block truncate text-xs text-ink-soft">{[p.phone, p.email].filter(Boolean).join(' · ') || 'No details yet'}</span>
                     </span>
                   </button>
-                  {n > 0 && (
-                    <button onClick={() => setScope({ type: 'person', id: p.id })} className="shrink-0 rounded-full bg-lilac-100 px-2.5 py-0.5 text-xs text-lilac-700 transition hover:bg-lilac-200" title="Show their tasks">
-                      {n} open
-                    </button>
-                  )}
+                  <button onClick={() => setScope({ type: 'person', id: p.id })} className="shrink-0 transition hover:scale-110" title="Show their open tasks" aria-label={`${n} open tasks for ${p.name}`}>
+                    <CountBubble n={n} />
+                  </button>
                   <Tip label={p.favorite ? 'Remove from sidebar' : 'Keep in the sidebar'}>
                     <button
                       onClick={() => toggle(p.id)}

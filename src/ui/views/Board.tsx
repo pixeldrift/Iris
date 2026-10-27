@@ -5,7 +5,7 @@ import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
 import { ScrollFade } from '../ScrollFade'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, STATUSES, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, STATUSES, useTaskDrag } from '../shared'
 
 function Card({ task }: { task: Task }) {
   const el = useRef<HTMLDivElement>(null)
@@ -57,7 +57,7 @@ function Column({ id, label, hint, tasks, onAdd }: { id: string; label: string; 
       <header className="mb-3 flex items-baseline gap-2 px-1">
         <h3 className="font-display text-lg">{label}</h3>
         <span className="text-xs text-ink-faint">{hint}</span>
-        <span className="ml-auto text-xs tabular-nums text-ink-soft">{tasks.length}</span>
+        <CountBubble n={tasks.length} className="ml-auto" />
       </header>
       <QuickAdd placeholder="＋ add" onAdd={onAdd} />
       <div className="-mr-1.5 mt-2.5 flex min-h-0 flex-1 flex-col">

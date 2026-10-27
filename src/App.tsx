@@ -66,7 +66,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="relative flex h-dvh overflow-hidden">
+    <div className="relative flex h-full overflow-hidden">
       <Decor />
       <Sidebar />
       <main className={`relative z-10 flex min-w-0 flex-1 flex-col ${view === 'timeline' ? '' : 'pl-[1.15rem]'} transition-[padding] duration-300 md:pl-0 ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>

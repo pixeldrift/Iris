@@ -32,6 +32,23 @@ body,
   height: 100%;
 }
 
+/* The app is a fixed frame: the on-screen keyboard never resizes, zooms or scrolls it. */
+html,
+body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+}
+@media (pointer: coarse) {
+  /* iOS zooms into any field under 16px when it is focused */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -348,3 +365,11 @@ input[type='range'].hue::-moz-range-track {
 .glow-breathe { animation: glow-breathe 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .glow-breathe { animation: none; } }
 
+
+/* line-clamp and truncate hide overflow, which slices the descenders (p, y, g, ?) off the last line.
+   A little padding inside the clip, cancelled by a matching negative margin, gives them room. */
+[class*='line-clamp-'],
+.truncate {
+  padding-block: 0.14em;
+  margin-block: -0.14em;
+}
