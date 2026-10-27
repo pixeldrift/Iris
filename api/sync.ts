@@ -1,6 +1,6 @@
-import { getPool } from './_lib/db'
-import { applySync, BadRequest, parseRequest } from './_lib/sync'
-import { getVerifier } from './_lib/verify'
+import { getPool } from './_lib/db.js'
+import { applySync, BadRequest, parseRequest } from './_lib/sync.js'
+import { getVerifier } from './_lib/verify.js'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
 
