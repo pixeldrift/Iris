@@ -79,7 +79,7 @@ export function TaskDetail() {
     <>
       <div className={`fixed inset-0 z-[60] bg-ink/10 transition-opacity md:hidden ${closing ? 'opacity-0' : 'opacity-100'}`} onClick={() => select(null)} />
       <section
-        className={`glass glass-strong fixed inset-x-0 bottom-0 z-[70] flex max-h-[88dvh] flex-col rounded-t-3xl md:inset-x-auto md:bottom-3 md:right-3 md:top-3 md:max-h-none md:w-[24rem] md:rounded-3xl ${
+        className={`glass glass-strong fixed inset-x-0 bottom-[var(--kb,0px)] z-[70] flex max-h-[min(88dvh,calc(100dvh-var(--kb,0px)-0.75rem))] flex-col transition-[bottom,max-height] duration-200 ease-out rounded-t-3xl md:inset-x-auto md:bottom-3 md:right-3 md:top-3 md:max-h-none md:w-[24rem] md:rounded-3xl ${
           closing ? 'slide-out-right' : 'slide-in-right'
         }`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
