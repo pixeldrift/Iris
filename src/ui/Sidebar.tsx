@@ -16,6 +16,7 @@ import { useIsMobile } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
 import { lifter, SPRING } from './lift'
+import { AccountRow } from './Account'
 import { CountBubble, GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
@@ -449,6 +450,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
           <Logo />
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
+          <AccountRow />
         </div>
 
         <ScrollFade>
