@@ -24,12 +24,8 @@ function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKi
   const settled = useRef(false)
   useLayoutEffect(() => {
     const el = refs.current.get(value)
-    const c = wrap.current
-    if (el && c) {
-      const r = el.getBoundingClientRect()
-      const cr = c.getBoundingClientRect()
-      setBox({ left: r.left - cr.left, width: r.width })
-    }
+    // offsets, not screen rects: the box is still scaling in when this first runs
+    if (el) setBox({ left: el.offsetLeft + (el.parentElement?.offsetLeft ?? 0), width: el.offsetWidth })
   }, [value])
   useEffect(() => {
     // no slide on the very first placement

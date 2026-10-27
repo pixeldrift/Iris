@@ -180,7 +180,7 @@ function ScopeRow(props: {
       {...(props.dropId ? dropProps : {})}
       onClick={props.onClick}
       className={`${rowBase} ${
-        props.active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'text-ink hover:bg-white/45'
+        props.active ? 'bg-white/70 font-medium text-lilac-700' : 'text-ink hover:bg-white/45'
       } ${isOver ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''} ${
         props.dropId && dragging && !isOver ? 'ring-1 ring-lilac-300/50' : ''
       }`}
@@ -474,7 +474,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
     <div
       {...props}
       onClick={() => setScope({ type: 'person', id: person.id })}
-      className={`${rowBase} cursor-pointer ${on ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
+      className={`${rowBase} cursor-pointer ${on ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
         over ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : active ? 'ring-1 ring-lilac-300/50' : ''
       }`}
     >
@@ -669,10 +669,11 @@ function FolderNode(props: NodeProps) {
         onPointerDown={(e) => editing !== folder.id && onPointerDown(e)}
         onClick={() => setScope({ type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
-        className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
+        className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
           (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
-        style={{ paddingLeft: `${0.6 + depth * 0.95}rem` }}
+        // a child's box is shorter, not just its text pushed over: it keeps its right edge and starts further in
+        style={{ marginLeft: `${depth * 0.95}rem`, width: `calc(100% - ${depth * 0.95}rem)` }}
       >
         <button
           onPointerDown={(e) => e.stopPropagation()}

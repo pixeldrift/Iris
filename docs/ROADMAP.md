@@ -17,7 +17,8 @@
     where the server supports it. Choose which calendars sync, and which Lilac folders they land in.
   - Needs the server side first (accounts and sync above): credentials and tokens live in Neon, and the
     sync worker runs in Vercel functions or cron, never in the browser.
-- **Recurring tasks** (RRULE string on the task, expanded in `src/core`).
+- **Recurring tasks** (RRULE string on the task, expanded in `src/core`). Habits and weekday-restricted
+  tasks exist today; this generalises them (every 2 weeks, 1st of the month, after completion).
 - **Native iPhone app (SwiftUI).** Port `src/core` first (types, fuzzy match, folder tree, flocking sim,
   grouping), then the views. `ContactsUI`'s contact picker replaces the web .vcf import.
 
@@ -44,7 +45,7 @@ material, the ambient sound bed and the particles, and nothing else.
   recipe). Keep the particle layer cheap (pause when hidden, honour reduced motion).
 
 ## Folder identity
-- **Flower shapes, not just colours.** Folders get a flower *shape* as well as a hue (rose, iris, lily,
+- **Flower shapes, not just colours. (Shipped: 12 shapes x 12 colours, monochrome in pickers.)** Folders get a flower *shape* as well as a hue (rose, iris, lily,
   daisy, tulip, lavender…) so they stay distinguishable for colour-blind users and read faster at a glance.
   Each new folder cycles through the available shapes and colours by default (preselected), and the folder
   options popover lets you pick any shape and colour you like.

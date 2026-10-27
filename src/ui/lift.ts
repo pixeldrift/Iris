@@ -90,7 +90,8 @@ export const lifter = {
     const c = active.clone
     c.style.transition = 'margin-left 0.18s ease-out, width 0.18s ease-out'
     c.style.marginLeft = `${px}px`
-    c.style.width = `${active.cw - px}px`
+    const full = active.el.parentElement?.offsetWidth ?? active.cw + px
+    c.style.width = `${Math.min(full, COMPACT) - px}px`
     c.style.paddingLeft = '0.6rem'
   },
 
