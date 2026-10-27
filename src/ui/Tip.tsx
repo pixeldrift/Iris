@@ -5,6 +5,8 @@ interface Shown {
   label: string
   x: number
   y: number
+  /** No room above (a button at the very top of the screen): sit under it instead. */
+  below: boolean
   sticky: boolean
   n: number
 }
@@ -34,7 +36,7 @@ export function Tip({ label, children }: { label: string; children: React.ReactE
     const r = el.getBoundingClientRect()
     window.clearTimeout(timer.current)
     n.current += 1
-    setTip({ label, x: Math.min(window.innerWidth - 8, Math.max(8, r.left + r.width / 2)), y: r.top - 8, sticky, n: n.current })
+    setTip({ label, x: Math.min(window.innerWidth - 8, Math.max(8, r.left + r.width / 2)), y: r.top < 44 ? r.bottom + 12 : r.top - 12, below: r.top < 44, sticky, n: n.current })
     if (!sticky) timer.current = window.setTimeout(() => setTip(null), 1700)
   }
   const hide = () => {
@@ -74,7 +76,7 @@ export function Tip({ label, children }: { label: string; children: React.ReactE
             className={`pointer-events-none fixed z-[200] whitespace-nowrap rounded-full bg-ink/90 px-3 py-1 text-xs text-white shadow-lg ${
               tip.sticky ? 'pop-in' : 'tip-float'
             }`}
-            style={{ left: tip.x, top: tip.y, transform: 'translate(-50%, -100%)', ['--ox' as string]: '50%', ['--oy' as string]: '100%' }}
+            style={{ left: tip.x, top: tip.y, transform: tip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)', ['--ox' as string]: '50%', ['--oy' as string]: tip.below ? '0%' : '100%' }}
           >
             {tip.label}
           </span>,

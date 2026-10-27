@@ -4,7 +4,7 @@ import { pathOf } from '../core/folders'
 import type { Folder, PondGroup } from '../core/types'
 import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
-import { IconMenu, IconPlus, IconSliders, IconSound, IconSoundOff } from './icons'
+import { IconEye, IconMenu, IconPlus, IconSound, IconSoundOff } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { VIEWS } from './Sidebar'
 import { Tip } from './Tip'
@@ -119,7 +119,7 @@ function ViewMenu() {
       <span ref={ref} className="inline-flex">
         <Tip label="View options">
           <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className={btn(open)}>
-            <IconSliders />
+            <IconEye />
           </button>
         </Tip>
       </span>
@@ -208,14 +208,14 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           {scope.type === 'contacts' ? sub : `${VIEWS.find((v) => v.id === view)?.label}${sub ? ` · ${sub}` : ''}`}
         </p>
       </div>
-      <div className="order-3 flex basis-full items-center justify-end gap-1.5 sm:order-2 sm:basis-auto">
+      <div className="order-2 flex items-center gap-1.5">
         {scope.type !== 'contacts' && <ViewMenu />}
         <SoundButton />
       </div>
       <Tip label="New task">
         <button
           onClick={onNew}
-          className="order-2 flex h-9 items-center gap-1.5 rounded-full bg-lilac-500 px-4 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600 sm:order-3"
+          className="order-3 flex h-9 items-center gap-1.5 rounded-full bg-lilac-500 px-4 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600"
         >
           <IconPlus size={16} /> <span className="hidden sm:inline">New</span>
         </button>
