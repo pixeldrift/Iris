@@ -16,7 +16,7 @@ import { useIsMobile } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
 import { lifter, SPRING } from './lift'
-import { GripHandle } from './shared'
+import { CountBubble, GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
   IconAll,
@@ -37,20 +37,20 @@ import {
 } from './icons'
 
 export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof IconPond }[] = [
-  { id: 'pond', label: 'Pond', hint: 'Free canvas', icon: IconPond },
+  { id: 'pond', label: 'Pond', hint: 'Freeform', icon: IconPond },
   { id: 'list', label: 'List', hint: 'Sortable', icon: IconList },
   { id: 'board', label: 'Board', hint: 'Kanban', icon: IconBoard },
   { id: 'priority', label: 'Priority', hint: 'Eisenhower', icon: IconPriority },
-  { id: 'calendar', label: 'Calendar', hint: 'Month · week', icon: IconCalendar },
+  { id: 'calendar', label: 'Calendar', hint: 'Schedule', icon: IconCalendar },
   { id: 'timeline', label: 'Timeline', hint: 'Gantt', icon: IconTimeline },
 ]
 
 const rowBase =
   'group relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-[0.92rem] transition select-none'
 
-function Count({ n }: { n: number }) {
-  if (!n) return null
-  return <span className="ml-auto pl-2 text-xs tabular-nums text-ink-faint">{n}</span>
+function Count({ n, hideZero = false }: { n: number; hideZero?: boolean }) {
+  if (!n && hideZero) return null
+  return <CountBubble n={n} className="ml-auto" />
 }
 
 /** The app's disclosure arrow: a soft V that turns to point right when closed. */
@@ -112,6 +112,7 @@ function Section({ id, title, note, action, children }: { id: string; title: str
     payload: { type: 'section', id },
     label: title,
     lift: () => headRef.current,
+    liftOpaque: true,
     touchNeedsHandle: true,
     resolve: sectionAt,
     onClick: () => toggle(id),
@@ -169,6 +170,7 @@ function ScopeRow(props: {
   icon?: React.ReactNode
   label: React.ReactNode
   count: number
+  hideZero?: boolean
   sub?: string
 }) {
   const { over, active: dragging, props: dropProps } = useDropTarget(props.dropId ?? '')
@@ -186,7 +188,7 @@ function ScopeRow(props: {
       <span className="text-lilac-500">{props.icon}</span>
       <span className="truncate">{props.label}</span>
       {props.sub && <span className="text-xs text-ink-faint">{props.sub}</span>}
-      <Count n={props.count} />
+      <Count n={props.count} hideZero={props.hideZero} />
     </button>
   )
 }
@@ -319,6 +321,7 @@ export function Sidebar() {
               </>
             }
             count={dueCount(d)}
+            hideZero
           />
         ))}
       </Section>
@@ -368,7 +371,11 @@ export function Sidebar() {
   }
 
   // Swipe: drag the sliver right to pull the drawer open; drag the open drawer left to push it shut.
+  const asideRef = useRef<HTMLElement>(null)
   const [swipe, setSwipe] = useState<number | null>(null)
+  // how open the drawer is while a finger drags it (0 = sliver, 1 = full): the contents fade in with it
+  const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 18.4)
+  const progress = swipe === null ? null : open ? 1 + swipe / range : swipe / range
   const swipeRef = useRef<{ x: number; dx: number; moved: boolean; t: number } | null>(null)
   const swipeProps = {
     onPointerDown: (e: React.PointerEvent) => {
@@ -382,7 +389,9 @@ export function Sidebar() {
       if (!w.moved && Math.abs(raw) < 8) return
       if (!w.moved) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
       w.moved = true
-      w.dx = open ? Math.min(0, raw) : Math.max(0, raw)
+      // the drawer only ever travels between its two resting places, never past either
+      const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 18.4)
+      w.dx = open ? Math.max(-range, Math.min(0, raw)) : Math.min(range, Math.max(0, raw))
       setSwipe(w.dx)
     },
     onPointerUp: (e: React.PointerEvent) => {
@@ -407,6 +416,7 @@ export function Sidebar() {
     <>
       {open && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
       <aside
+        ref={asideRef}
         className={`glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
           open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
         } ${swipe !== null ? '!transition-none' : ''}`}
@@ -431,7 +441,11 @@ export function Sidebar() {
             {...swipeProps}
           />
         )}
-        <div inert={mobile && !open} className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}>
+        <div
+          inert={mobile && !open}
+          className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}
+          style={progress !== null ? { opacity: Math.min(1, Math.max(0, progress)), transition: 'none' } : undefined}
+        >
         <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
           <Logo />
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
@@ -579,6 +593,10 @@ function FolderNode(props: NodeProps) {
     const cur = useFolderSlot.getState().slot
     const same = cur && next && cur.kind === next.kind && cur.afterId === next.afterId && cur.depth === next.depth && cur.parentId === next.parentId && cur.beforeId === next.beforeId
     if (!same && cur !== next) useFolderSlot.setState({ slot: next })
+    // the carried row narrows to the depth it would take (into a folder = one level inside it)
+    const rowDepth = (id: string | null) => Number(document.querySelector<HTMLElement>(`[data-folder-row="${id}"]`)?.dataset.depth ?? 0)
+    const shown = next ? (next.kind === 'into' ? rowDepth(next.parentId) + 1 : next.depth) : depth
+    lifter.setInset(shown * 15.2)
   }
 
   const onPointerDown = usePointerDrag({
@@ -586,6 +604,7 @@ function FolderNode(props: NodeProps) {
     label: folder.name,
     touchNeedsHandle: true,
     lift: () => rowRef.current,
+    liftOpaque: true,
     resolve: (x, y) => {
       const t = targetAt(x, y)
       if (t === 'froot') return t
@@ -861,13 +880,7 @@ function Gap({ open, id, indent = 0, line = false }: { open: boolean; id?: strin
       className="flex items-center overflow-hidden px-2"
       style={{ height: open ? h : 0, transition: `height 0.32s ${SPRING}`, paddingLeft: line ? `${0.6 + indent * 0.95 + 0.4}rem` : undefined }}
     >
-      {line ? (
-        // the insert line: its left edge shows how deep the folder will sit
-        <div
-          className={`h-[3px] w-full rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(159,111,205,0.75)] transition-all duration-200 ${open ? 'scale-x-100 opacity-100' : 'scale-x-50 opacity-0'}`}
-          style={{ transformOrigin: 'left' }}
-        />
-      ) : (
+      {!line && (
         <div className={`h-full w-full rounded-xl bg-lilac-200/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} />
       )}
     </div>

@@ -57,11 +57,12 @@ const nextFrames = (fn: () => void) => requestAnimationFrame(() => requestAnimat
 const at = (x: number, y: number) => `translate(${x}px, ${y}px)`
 
 export const lifter = {
-  begin(el: HTMLElement, px: number, py: number, key: string) {
+  begin(el: HTMLElement, px: number, py: number, key: string, opaque = false) {
     this.cancel()
     const r = el.getBoundingClientRect()
     const { wrap, clone } = copyOf(el, r)
     clone.style.boxShadow = SHADOW
+    if (opaque) clone.style.background = '#fbf7fd'
     clone.style.borderRadius = getComputedStyle(el).borderRadius
     const cw = Math.min(r.width, COMPACT)
     clone.style.width = `${cw}px`
@@ -78,6 +79,19 @@ export const lifter = {
     if (!active) return
     const p = place(active, x, y)
     active.wrap.style.transform = at(p.x, p.y)
+  },
+
+  /**
+   * Indent the lifted copy from the left (px), narrowing it while its right edge stays put,
+   * so a carried folder shows how deep it would sit.
+   */
+  setInset(px: number) {
+    if (!active) return
+    const c = active.clone
+    c.style.transition = 'margin-left 0.18s ease-out, width 0.18s ease-out'
+    c.style.marginLeft = `${px}px`
+    c.style.width = `${active.cw - px}px`
+    c.style.paddingLeft = '0.6rem'
   },
 
   /** Vertical centre of the lifted copy on screen: where the item visibly is, whatever the grab point. */

@@ -1,14 +1,15 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { satOf, tint } from '../../core/color'
-import { drop, plink } from '../../audio/engine'
+import { plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { contactLink, detectContactIntent } from '../../core/people'
 import { bubbleRadius, habitStreak, plannedDate } from '../../core/tasks'
-import type { Task, TaskKind } from '../../core/types'
+import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
-import { IconChat, IconClose, IconList, IconMail, IconPhone, IconThought } from '../icons'
-import { DoneButton, DueChip, KINDS } from '../shared'
+import { IconBell, IconChat, IconList, IconMail, IconPhone, IconThought } from '../icons'
+import { DoneButton, DueChip } from '../shared'
+import { openCompose } from '../NewTask'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
@@ -159,6 +160,11 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                 ) : (
                   <DoneButton task={task} size={cb} />
                 )}
+                {task.remindAt !== null && !task.reminded && (
+                  <span title="Reminder set" role="img" aria-label="Reminder set" className="text-lilac-500">
+                    <IconBell size={15} />
+                  </span>
+                )}
                 {task.kind === 'habit' && habitStreak(task) > 0 && (
                   <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
                     ↻ {habitStreak(task)}
@@ -207,7 +213,6 @@ export function Pond() {
   const setScope = useStore((s) => s.setScope)
   const scopeRef = useRef(scope)
   scopeRef.current = scope
-  const addTask = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
 
   const ref = useRef<HTMLDivElement>(null)
@@ -639,19 +644,6 @@ export function Pond() {
   )
 
   /* ---------- pan / pinch / tap-to-add ---------- */
-  const [bubble, setBubble] = useState<{ id: number; x: number; y: number; phase: 'open' | 'shrink' } | null>(null)
-  const [shrink, setShrink] = useState({ sx: 0.08, sy: 0.2, keep: false })
-  const formRef = useRef<HTMLFormElement>(null)
-  const [text, setText] = useState('')
-  const [kind, setKind] = useState<TaskKind>('task')
-  const nextId = useRef(0)
-  const bubbleRef = useRef(bubble)
-  bubbleRef.current = bubble
-  const textRef = useRef(text)
-  textRef.current = text
-  const kindRef = useRef(kind)
-  kindRef.current = kind
-
   const water = useRef<WaterHandle>(null)
 
   /** Each bubble lifts as the wave front reaches it (same speed as the shader's), more gently the farther it is. */
@@ -688,54 +680,29 @@ export function Pond() {
     [wave],
   )
 
-  const closeBubble = useCallback(
-    (save: boolean) => {
-      const b = bubbleRef.current
-      if (!b || b.phase !== 'open') return
-      const typed = textRef.current.trim()
-      const v = view.current
-      const adding = save && typed
-      // the box folds into a circle the size of the bubble it is about to become...
-      const diameter = adding ? 2 * radius({ importance: 0.5, urgency: 0.3 } as Task) * v.scale : 20
-      const f = formRef.current
-      setShrink({ sx: diameter / (f?.offsetWidth ?? 240), sy: diameter / (f?.offsetHeight ?? 92), keep: !!adding })
-      setBubble({ ...b, phase: 'shrink' })
-      // ...and only once it has landed does the item exist and the water ripple around it
-      window.setTimeout(() => {
-        if (adding) {
-          const { w: W, h: H } = dims.current
-          const id = addTask({ title: typed, kind: kindRef.current, x: (b.x - v.tx) / v.scale / W, y: (b.y - v.ty) / v.scale / H })
-          drop((b.x / dims.current.w) * 2 - 1)
-          // ripple from where the bubble really is (the pond may nudge it off the exact spot clicked)
-          let tries = 0
-          const ring = () => {
-            const n = nodes.current.get(id)
-            if (!n && tries++ < 12) return requestAnimationFrame(ring)
-            const cv = view.current
-            spawnRipple('circle', n ? n.sim.x * cv.scale + cv.tx : b.x, n ? n.sim.y * cv.scale + cv.ty : b.y, diameter, diameter)
-          }
-          ring()
-        }
-        setBubble((cur) => (cur?.id === b.id ? null : cur))
-        setText((t) => (bubbleRef.current?.id === b.id ? '' : t))
-      }, 340)
-    },
-    [addTask, radius, spawnRipple],
-  )
-
-  const openBubble = (x: number, y: number) => {
-    const id = nextId.current++
-    setText('')
-    setBubble({ id, x, y, phase: 'open' })
-    setKind('task')
-  }
+  // a new item (from the quick-add box) lands: ripple from where its bubble really is
+  useEffect(() => {
+    const onAdded = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string }>).detail.id
+      let tries = 0
+      const ring = () => {
+        const n = nodes.current.get(id)
+        if (!n) return tries++ < 30 ? void requestAnimationFrame(ring) : undefined
+        const cv = view.current
+        const d = 2 * n.sim.r * cv.scale
+        spawnRipple('circle', n.sim.x * cv.scale + cv.tx, n.sim.y * cv.scale + cv.ty, d, d)
+      }
+      requestAnimationFrame(ring)
+    }
+    window.addEventListener('lilac:added', onAdded)
+    return () => window.removeEventListener('lilac:added', onAdded)
+  }, [spawnRipple])
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const ptrs = new Map<number, { x: number; y: number }>()
     let mode: 'none' | 'tap' | 'pan' | 'pinch' = 'none'
-    let openAtDown = false
     let base = { x: 0, y: 0, v: view.current, dist: 1, mid: { x: 0, y: 0 } }
 
     const local = (e: PointerEvent) => {
@@ -784,8 +751,9 @@ export function Pond() {
         window.removeEventListener('pointercancel', up)
         if (mode === 'tap' && e.type === 'pointerup') {
           select(null)
-          if (openAtDown) closeBubble(true)
-          else openBubble(p.x, p.y)
+          const v = view.current
+          const { w: W, h: H } = dims.current
+          openCompose({ x: (p.x - v.tx) / v.scale / W, y: (p.y - v.ty) / v.scale / H })
         }
         mode = 'none'
         el.style.cursor = ''
@@ -799,7 +767,6 @@ export function Pond() {
       if ((e.target as HTMLElement).closest('[data-node],[data-ui]')) return
       if (e.button !== 0 && e.pointerType === 'mouse') return
       if (ptrs.size === 0) {
-        openAtDown = bubbleRef.current?.phase === 'open'
         window.addEventListener('pointermove', move)
         window.addEventListener('pointerup', up)
         window.addEventListener('pointercancel', up)
@@ -833,12 +800,7 @@ export function Pond() {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
     }
-  }, [applyView, zoomAbout, closeBubble, select, checkOffscreen]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // keep the composer on-screen
-  const bw = Math.min(280, Math.max(200, w - 24))
-  const bx = bubble ? Math.min(Math.max(bubble.x - bw / 2, 12), Math.max(12, w - bw - 12)) : 0
-  const by = bubble ? Math.min(bubble.y + 14, Math.max(12, h - 124)) : 0
+  }, [applyView, zoomAbout, select, checkOffscreen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -905,72 +867,10 @@ export function Pond() {
 
       <WaterRipples ref={water} className="z-10" />
 
-      {bubble && (
-        <form
-          data-ui
-          onSubmit={(e) => {
-            e.preventDefault()
-            closeBubble(true)
-          }}
-          onBlur={(e) => {
-            // tapping anywhere outside the box tucks it away (keeping what was typed)
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) closeBubble(true)
-          }}
-          ref={formRef}
-          key={bubble.id}
-          className={`glass glass-strong absolute z-20 rounded-[1.6rem] p-2.5 ${bubble.phase === 'open' ? 'box-spring' : 'box-shrink'}`}
-          style={{
-            left: bx,
-            top: by,
-            width: bw,
-            ['--ox' as string]: `${bubble.x - bx}px`,
-            ['--oy' as string]: `${bubble.y - by}px`,
-            ['--sx' as string]: shrink.sx,
-            ['--sy' as string]: shrink.sy,
-            ['--eo' as string]: shrink.keep ? 1 : 0,
-          }}
-        >
-          <div className="flex items-center">
-            <input
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Escape' && closeBubble(false)}
-              placeholder="A thought, task, list…"
-              className="well min-w-0 flex-1 rounded-xl px-3 py-1.5 font-display text-base placeholder:text-ink-faint"
-            />
-            <Tip label="Close">
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => closeBubble(false)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink"
-              >
-                <IconClose size={14} />
-              </button>
-            </Tip>
-          </div>
-          <div className="mt-1.5 flex gap-1 px-1">
-            {KINDS.map((k) => (
-              <button
-                type="button"
-                key={k.id}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setKind(k.id)}
-                className={`rounded-full px-2.5 py-0.5 text-[0.7rem] transition ${kind === k.id ? 'bg-lilac-500 text-white' : 'bg-white/60 text-ink-soft hover:bg-white'}`}
-              >
-                {k.label}
-              </button>
-            ))}
-            <span className="ml-auto self-center text-[0.65rem] text-ink-faint">↵ to float</span>
-          </div>
-        </form>
-      )}
-
-      {visible.length === 0 && !bubble && (
+      {visible.length === 0 && (
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to plant a thought</p>
       )}
-      {visible.length > 0 && !bubble && (
+      {visible.length > 0 && (
         <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a folder to tag it</p>
       )}
 

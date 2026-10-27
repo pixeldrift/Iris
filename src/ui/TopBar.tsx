@@ -18,7 +18,7 @@ const GROUPS: { id: PondGroup; label: string }[] = [
 ]
 
 const btn = (on: boolean) =>
-  `grid h-9 w-9 shrink-0 place-items-center rounded-full transition ${on ? 'bg-lilac-500/90 text-white shadow-md shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`
+  `grid h-9 w-9 shrink-0 place-items-center rounded-full transition ${on ? 'glass-soft bg-white text-lilac-700 shadow-sm' : 'glass-soft text-ink-soft hover:bg-white/70'}`
 
 /** Tap = sound on/off. Hold (or right-click) = every individual sound option. */
 function SoundButton() {
@@ -42,7 +42,7 @@ function SoundButton() {
         <Tip label={s.sound ? 'Sound on · tap to mute · hold for options' : 'Sound off · tap to unmute · hold for options'}>
           <button
             aria-pressed={s.sound}
-            className={btn(s.sound)}
+            className={btn(false)}
             onPointerDown={() => {
               held.current = false
               window.clearTimeout(timer.current)
@@ -147,7 +147,7 @@ function Switch({ on }: { on: boolean }) {
 }
 
 /** School › English 101: the folders above are links (lighter, italic, underlined) that move up a level. */
-function Crumbs({ path, go }: { path: Folder[]; go: (id: string) => void }) {
+function Crumbs({ path, go }: { path: Folder[]; go: (id: string) => void; small?: boolean }) {
   return (
     <>
       {path.map((f, i) =>
@@ -155,11 +155,11 @@ function Crumbs({ path, go }: { path: Folder[]; go: (id: string) => void }) {
           <Fragment key={f.id}>
             <button
               onClick={() => go(f.id)}
-              className="font-normal italic text-ink-soft/80 underline decoration-ink-faint/70 decoration-1 underline-offset-[6px] transition hover:text-lilac-700 hover:decoration-lilac-500"
+              className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
             >
               {f.name}
             </button>
-            <span className="mx-2 font-normal text-ink-faint" aria-hidden>
+            <span className="mx-1.5 text-ink-faint" aria-hidden>
               ›
             </span>
           </Fragment>
@@ -201,11 +201,16 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         <IconMenu />
       </button>
       <div className="order-1 min-w-0 flex-1">
-        <h2 className="truncate font-display text-2xl leading-tight md:text-3xl">
-          {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} /> : title}
-        </h2>
-        <p className="text-xs text-ink-soft">
-          {scope.type === 'contacts' ? sub : `${VIEWS.find((v) => v.id === view)?.label}${sub ? ` · ${sub}` : ''}`}
+        <h2 className="truncate font-display text-2xl leading-tight md:text-3xl">{scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label}</h2>
+        <p className="truncate text-xs text-ink-soft">
+          {scope.type === 'contacts' ? (
+            sub
+          ) : (
+            <>
+              {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
+              {sub ? ` · ${sub}` : ''}
+            </>
+          )}
         </p>
       </div>
       <div className="order-2 flex items-center gap-1.5">

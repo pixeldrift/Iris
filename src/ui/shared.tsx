@@ -9,10 +9,19 @@ import { IconCheck } from './icons'
 
 /** `label` names a whole column; `one` names a single item's stage. */
 export const STATUSES: { id: TaskStatus; label: string; one: string; hint: string }[] = [
-  { id: 'todo', label: 'Seeds', one: 'Seed', hint: 'Waiting to be tended' },
+  { id: 'todo', label: 'Seeds', one: 'Seed', hint: 'Waiting to be started' },
   { id: 'doing', label: 'Growing', one: 'Growing', hint: 'In motion' },
   { id: 'done', label: 'Bloomed', one: 'Bloomed', hint: 'Finished' },
 ]
+
+/** The app-wide way to show "how many": the digits alone, in a small bubble (0 included). */
+export function CountBubble({ n, className = '' }: { n: number; className?: string }) {
+  return (
+    <span className={`inline-grid h-[1.3rem] min-w-[1.3rem] shrink-0 place-items-center rounded-full bg-white/65 px-1.5 text-[0.68rem] font-medium tabular-nums leading-none text-ink-soft shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7)] ${className}`}>
+      {n}
+    </span>
+  )
+}
 
 export const KINDS = [
   { id: 'task', label: 'Task' },
@@ -68,7 +77,7 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
   const late = isOverdue(task)
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
+      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
         late ? 'bg-rose-soft/80 text-[#9a4566]' : when === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
       }`}
     >

@@ -88,6 +88,8 @@ interface State {
   savePerson: (p: Partial<Person> & { name: string }) => string
   deletePerson: (id: string) => void
   togglePersonFavorite: (id: string) => void
+  /** Set (or clear with null) the alert on a task. */
+  setReminder: (id: string, at: number | null) => void
 
   /** Look at a task's title for "call/email Sarah" and link or ask. */
   checkContact: (taskId: string) => void
@@ -182,6 +184,8 @@ export const useStore = create<State>()(
           endTime: null,
           place: '',
           log: [],
+          remindAt: null,
+          reminded: false,
           status: 'todo',
           importance: 0.5,
           urgency: urgencyForDue(0.3, due),
@@ -392,6 +396,7 @@ export const useStore = create<State>()(
         set((s) => ({ people: [...s.people, person] }))
         return person.id
       },
+      setReminder: (id, at) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false } : t)) })),
       togglePersonFavorite: (id) => set((s) => ({ people: s.people.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)) })),
       deletePerson: (id) =>
         set((s) => ({
@@ -453,7 +458,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 8,
+      version: 9,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -487,6 +492,9 @@ export const useStore = create<State>()(
         if (from < 8) {
           // everyone already in the sidebar stays there: hearts are for the people added from now on
           p.people = (p.people ?? []).map((x) => ({ ...x, favorite: x.favorite ?? true }))
+        }
+        if (from < 9) {
+          p.tasks = (p.tasks ?? []).map((t) => ({ ...t, remindAt: t.remindAt ?? null, reminded: t.reminded ?? false }))
         }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
         return p as State

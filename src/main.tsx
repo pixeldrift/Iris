@@ -13,3 +13,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     navigator.serviceWorker.register('/sw.js').catch(() => {})
   })
 }
+
+// iOS pans the page up to reveal a focused field: put the frame straight back.
+window.visualViewport?.addEventListener('scroll', () => window.scrollTo(0, 0))
+window.addEventListener('scroll', () => window.scrollTo(0, 0), { passive: true })
