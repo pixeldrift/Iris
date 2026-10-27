@@ -1,4 +1,4 @@
-import type { Db } from './db'
+import type { Db } from './db.js'
 
 export type Kind = 'task' | 'folder' | 'person'
 export const KINDS: Kind[] = ['task', 'folder', 'person']
