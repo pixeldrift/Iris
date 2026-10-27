@@ -33,7 +33,7 @@ export function FlowerGallery() {
         </div>
 
         <h2 className="mb-3 mt-10 font-display text-xl">In the sidebar</h2>
-        <p className="mb-2 text-sm text-ink-soft">How they read at real size, one per folder, as colours would cycle by default.</p>
+        <p className="mb-2 text-sm text-ink-soft">How they read at real size, one per group, as colours would cycle by default.</p>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="glass rounded-3xl p-3">
             {['School', 'English 101', 'Biology', 'Home', 'Garden', 'Life', 'Recipes', 'Trips', 'Music'].map((name, i) => (

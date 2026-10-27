@@ -26,11 +26,11 @@ function bucket(
       const scope = ctx.scopeFolderId
       const inside = scope ? descendantIds(ctx.folders, scope) : null
       const f = (inside ? t.folderIds.find((x) => inside.has(x)) : undefined) ?? t.folderIds[0]
-      if (!f) return ['none', 'Unfiled', 99]
+      if (!f) return ['none', 'Unsorted', 99]
       const path = pathOf(ctx.folders, f)
       const at = scope ? path.findIndex((x) => x.id === scope) : -1
       const target = at >= 0 ? (path[at + 1] ?? path[at]) : path[0]
-      if (!target) return ['none', 'Unfiled', 99]
+      if (!target) return ['none', 'Unsorted', 99]
       const trail = pathOf(ctx.folders, target.id).map((x) => ({ id: x.id, name: x.name }))
       return [target.id, target.name, target.sort, target.hue, trail]
     }

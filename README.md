@@ -20,12 +20,12 @@ iPhone to install it as an app. Data lives in `localStorage` for now.
 
 **Views** (left sidebar): Pond (free canvas), List (sortable), Board (kanban),
 Priority (Eisenhower), Calendar (month/week) and Timeline (gantt). Every view
-respects the selected folder or day.
+respects the selected group or day.
 
-**Folders are tags.** Make your own tree (hover a folder for + / rename /
-delete, double-click to rename, drag a folder onto another to nest it). Drag any
-task onto a folder to tag it, or onto a day under *This week* to schedule it.
-In a task's panel, type in the tag box: it fuzzy-matches existing folders
+**Groups are tags.** Make your own tree (hover a group for + / rename /
+delete, double-click to rename, drag a group onto another to nest it). Drag any
+task onto a group to tag it, or onto a day under *This week* to schedule it.
+In a task's panel, type in the tag box: it fuzzy-matches existing groups
 ("engilsh" finds English 101), and offers **+ Create** for anything new
 (`School/Essays` creates a nested path).
 
@@ -33,8 +33,8 @@ In a task's panel, type in the tag box: it fuzzy-matches existing folders
 Lilies float gently, and grow with importance. Toggles in the top bar control
 sizing, drifting, sound and the ambient wind-chime bed.
 
-**Folder flowers.** Every folder has a flower and a colour. New folders cycle through 12 flower shapes and
-8 colours automatically (plus gray, which you pick yourself); tap a folder's flower to change its flower (drop-down), colour, name, or delete it.
+**Group flowers.** Every group has a flower and a colour. New groups cycle through 12 flower shapes and
+8 colours automatically (plus gray, which you pick yourself); tap a group's flower to change its flower (drop-down), colour, name, or delete it.
 The artwork is editable SVG in `src/assets/flowers/`; `/#flowers` shows the whole set.
 
 **People.** Add people in the sidebar (type details, or pick *one* contact from your address book where
@@ -43,9 +43,9 @@ Sarah" or "Email Dr Patel" in a task and Lilac links an existing contact or offe
 thanks"); the bubble then gets a one-tap Call / Text / Email link.
 
 **Pond navigation.** Drag the water to wander, scroll the mouse wheel (or pinch) to zoom about the cursor (Shift + wheel slides the view), *Frame all* to bring
-every bubble back. *Gather by* chips (folders, when, weight, kind, people, stage) make related bubbles
+every bubble back. *Gather by* chips (groups, when, weight, kind, people, stage) make related bubbles
 float together; in *Free* mode related bubbles lean toward each other. On a phone a sliver of the sidebar
-stays beside the pond: tap it, or drag a bubble onto it, to open the drawer and drop the bubble into a folder.
+stays beside the pond: tap it, or drag a bubble onto it, to open the drawer and drop the bubble into a group.
 
 **Planning days.** *Do on* (the day you plan it) is separate from *Due by* (the deadline); dropping a task on a
 weekday sets *Do on*. Unfinished tasks carry forward to the next day automatically (switch it off per task).
@@ -54,7 +54,7 @@ these days*: a missed one moves to the next of those days, unless that is after 
 
 **Moving clusters.** In a *Gather by* view, drag a bubble slowly and its whole cluster follows on a rubber
 band, nudging others aside. Flick it fast to snap it free, then drop it on another cluster to re-tag it
-(folder, due date, type or person).
+(group, due date, type or person).
 
 **Sound.** Tap the speaker to mute/unmute; hold it (or right-click) for individual sounds and volume.
 

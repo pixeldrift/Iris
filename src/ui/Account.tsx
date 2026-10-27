@@ -60,7 +60,7 @@ function AuthDialog() {
       <form onSubmit={submit} className="space-y-3">
         <h3 className="font-display text-xl">{mode === 'in' ? 'Welcome back' : 'Create your account'}</h3>
         <p className="-mt-1 text-xs text-ink-soft">
-          {mode === 'in' ? 'Sign in to bring your pond to this device.' : 'Your folders, tasks and people on this device are added to it, then kept in sync everywhere you sign in.'}
+          {mode === 'in' ? 'Sign in to bring your pond to this device.' : 'Your groups, tasks and people on this device are added to it, then kept in sync everywhere you sign in.'}
         </p>
         {mode === 'up' && <input className={field} placeholder="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />}
         <input className={field} type="email" required placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />

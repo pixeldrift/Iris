@@ -98,6 +98,12 @@ body.dragging {
   -webkit-backdrop-filter: blur(14px);
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 .scroll-soft {
   scrollbar-width: thin;
   scrollbar-color: rgba(183, 143, 223, 0.4) transparent;
