@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GRAY, tint } from '../core/color'
 import { addDays, diffDays, fromISO, MONTHS, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds, placeInTree, type Placement, type TreeRow } from '../core/folders'
-import { plannedDate } from '../core/tasks'
+import { taskOnDate } from '../core/recurrence'
 import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
 import { create } from 'zustand'
@@ -180,7 +180,7 @@ function ScopeRow(props: {
       {...(props.dropId ? dropProps : {})}
       onClick={props.onClick}
       className={`${rowBase} ${
-        props.active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'text-ink hover:bg-white/45'
+        props.active ? 'bg-white/70 font-medium text-lilac-700' : 'text-ink hover:bg-white/45'
       } ${isOver ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''} ${
         props.dropId && dragging && !isOver ? 'ring-1 ring-lilac-300/50' : ''
       }`}
@@ -211,7 +211,7 @@ export function Sidebar() {
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
   const t0 = today()
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
-  const dueCount = (d: string) => live.filter((t) => plannedDate(t) === d).length
+  const dueCount = (d: string) => live.filter((t) => taskOnDate(t, d)).length
   const folderCount = (id: string) => {
     const ids = descendantIds(folders, id)
     return live.filter((t) => t.folderIds.some((f) => ids.has(f))).length
@@ -474,7 +474,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
     <div
       {...props}
       onClick={() => setScope({ type: 'person', id: person.id })}
-      className={`${rowBase} cursor-pointer ${on ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
+      className={`${rowBase} cursor-pointer ${on ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
         over ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : active ? 'ring-1 ring-lilac-300/50' : ''
       }`}
     >
@@ -669,10 +669,11 @@ function FolderNode(props: NodeProps) {
         onPointerDown={(e) => editing !== folder.id && onPointerDown(e)}
         onClick={() => setScope({ type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
-        className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
+        className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
           (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
-        style={{ paddingLeft: `${0.6 + depth * 0.95}rem` }}
+        // a child's box is shorter, not just its text pushed over: it keeps its right edge and starts further in
+        style={{ marginLeft: `${depth * 0.95}rem`, width: `calc(100% - ${depth * 0.95}rem)` }}
       >
         <button
           onPointerDown={(e) => e.stopPropagation()}

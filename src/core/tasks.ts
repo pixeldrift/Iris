@@ -1,4 +1,5 @@
 import { addDays, diffDays, fromISO, today } from './dates'
+import { currentOccurrence, repeatOf, repeatStreak, taskOnDate } from './recurrence'
 import { descendantIds } from './folders'
 import type { Folder, Scope, SortKey, Task } from './types'
 
@@ -20,7 +21,9 @@ export function urgencyForDue(current: number, due: string | null, now = today()
 }
 
 /** The day a task shows up on in the calendar: the day you chose, else its deadline. */
-export const plannedDate = (t: Pick<Task, 'day' | 'due'>): string | null => t.day ?? t.due ?? null
+export function plannedDate(t: Task, now = today()): string | null {
+  return repeatOf(t) ? currentOccurrence(t, now) : (t.day ?? t.due ?? null)
+}
 
 export function matchesScope(task: Task, scope: Scope, folders: Folder[]): boolean {
   switch (scope.type) {
@@ -30,7 +33,7 @@ export function matchesScope(task: Task, scope: Scope, folders: Folder[]): boole
     case 'inbox':
       return task.folderIds.length === 0 && !task.due && !task.day
     case 'day':
-      return plannedDate(task) === scope.date
+      return taskOnDate(task, scope.date)
     case 'person':
       return task.personIds.includes(scope.id)
     case 'folder': {
@@ -86,7 +89,7 @@ export function nextAllowedDay(from: string, days: number[] | null | undefined):
  * shows as overdue.
  */
 export function rolloverDay(t: Task, now = today()): string | null {
-  if (t.kind === 'event' || t.kind === 'habit') return null // an event is at its time; a habit just repeats
+  if (t.kind === 'event' || repeatOf(t)) return null // an event is at its time; a series just repeats
   if (t.status === 'done' || !t.day || t.rollover === false || t.day >= now) return null
   const next = nextAllowedDay(now, t.days)
   if (t.due && next > t.due) return null
@@ -109,21 +112,5 @@ export function formatTime(hhmm: string): string {
   return `${hour}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'am' : 'pm'}`
 }
 
-/** Does a habit fall on this date (its chosen weekdays, or every day)? */
-export const habitDay = (t: Task, date: string): boolean => !t.days?.length || t.days.includes(fromISO(date).getDay())
-
-/**
- * Consecutive scheduled days the habit was done, counting back from today. Today not being
- * done yet does not break the run (there is still time); a missed scheduled day does.
- */
-export function habitStreak(t: Task, now = today()): number {
-  let n = 0
-  let d = now
-  if (!t.log.includes(d) && habitDay(t, d)) d = addDays(d, -1)
-  for (let i = 0; i < 400; i++, d = addDays(d, -1)) {
-    if (!habitDay(t, d)) continue
-    if (!t.log.includes(d)) break
-    n++
-  }
-  return n
-}
+/** Consecutive occurrences done (a habit's streak). */
+export const habitStreak = (t: Task, now = today()): number => repeatStreak(t, now)

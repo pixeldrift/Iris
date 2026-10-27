@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { chime } from '../audio/engine'
+import { addDays, toISO } from '../core/dates'
+import { anchorOf, nextOccurrence, repeatOf } from '../core/recurrence'
 import { dueReminders, formatReminder } from '../core/reminders'
 import { useStore } from '../state/store'
 import { IconBell, IconClose } from './icons'
@@ -22,7 +24,20 @@ export function ReminderHost() {
       const st = useStore.getState()
       const due = dueReminders(st.tasks, Date.now())
       if (!due.length) return
-      useStore.setState((s) => ({ tasks: s.tasks.map((t) => (due.some((d) => d.id === t.id) ? { ...t, reminded: true } : t)) }))
+      useStore.setState((s) => ({
+        tasks: s.tasks.map((t) => {
+          if (!due.some((d) => d.id === t.id)) return t
+          // a repeating task's alert comes round again: same time of day, next occurrence
+          const r = repeatOf(t)
+          const nextDay = r && t.remindAt !== null ? nextOccurrence(r, addDays(toISO(new Date(t.remindAt)), 1), anchorOf(t)) : null
+          if (nextDay && t.remindAt !== null) {
+            const at = new Date(t.remindAt)
+            const [y, m, d] = nextDay.split('-').map(Number)
+            return { ...t, remindAt: new Date(y, m - 1, d, at.getHours(), at.getMinutes()).getTime(), reminded: false }
+          }
+          return { ...t, reminded: true }
+        }),
+      }))
       useAlerts.setState((s) => ({ ids: [...new Set([...s.ids, ...due.map((t) => t.id)])] }))
       chime()
       for (const t of due) void showSystem(t.id, t.title || 'Reminder', formatReminder(t.remindAt!, Date.now()))

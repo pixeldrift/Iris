@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useStore } from '../state/store'
 import { drop } from '../audio/engine'
@@ -6,6 +6,8 @@ import { useExit } from './anim'
 import { IconClose } from './icons'
 import { KINDS } from './shared'
 import type { TaskKind } from '../core/types'
+import { parseQuickAdd } from '../core/quickadd'
+import { askNotify } from './notify'
 
 /** Where a new item should land in the pond (fractions of the canvas); none = somewhere near the middle. */
 interface ComposeState {
@@ -24,12 +26,8 @@ function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKi
   const settled = useRef(false)
   useLayoutEffect(() => {
     const el = refs.current.get(value)
-    const c = wrap.current
-    if (el && c) {
-      const r = el.getBoundingClientRect()
-      const cr = c.getBoundingClientRect()
-      setBox({ left: r.left - cr.left, width: r.width })
-    }
+    // offsets, not screen rects: the box is still scaling in when this first runs
+    if (el) setBox({ left: el.offsetLeft + (el.parentElement?.offsetLeft ?? 0), width: el.offsetWidth })
   }, [value])
   useEffect(() => {
     // no slide on the very first placement
@@ -74,13 +72,19 @@ export function NewTask() {
   const select = useStore((s) => s.select)
   const view = useStore((s) => s.view)
   const [title, setTitle] = useState('')
-  const [kind, setKind] = useState<TaskKind>('task')
+  const [kind, setKind] = useState<TaskKind | null>(null) // null = let what you type decide
+  const [plain, setPlain] = useState(false) // "keep as typed": ignore dates, tags and repeats
+  const folders = useStore((s) => s.folders)
+  const people = useStore((s) => s.people)
   const ref = useRef<HTMLInputElement>(null)
+  const parsed = useMemo(() => (plain || !title.trim() ? null : parseQuickAdd(title, new Date(), { folders, people })), [title, plain, folders, people])
+  const shownKind: TaskKind = kind ?? parsed?.kind ?? 'task'
 
   useEffect(() => {
     if (open) {
       setTitle('')
-      setKind('task')
+      setKind(null)
+      setPlain(false)
       ref.current?.focus()
     }
   }, [open])
@@ -90,7 +94,21 @@ export function NewTask() {
     if (!title.trim()) return closeCompose()
     drop(0)
     const pos = at ?? { x: 0.2 + Math.random() * 0.6, y: 0.2 + Math.random() * 0.6 }
-    const id = add({ title: title.trim(), kind, ...pos })
+    const q = parsed
+    const id = add({
+      title: q?.title || title.trim(),
+      kind: shownKind,
+      ...pos,
+      ...(q?.day ? { day: q.day } : {}),
+      ...(q?.due ? { due: q.due } : {}),
+      ...(q?.time ? { time: q.time } : {}),
+      ...(q?.endTime ? { endTime: q.endTime } : {}),
+      ...(q?.remindAt ? { remindAt: q.remindAt } : {}),
+      ...(q?.repeat ? { repeat: q.repeat } : {}),
+      ...(q?.folderIds.length ? { folderIds: q.folderIds } : {}),
+      ...(q?.personIds.length ? { personIds: q.personIds } : {}),
+    })
+    if (q?.remindAt) void askNotify()
     closeCompose()
     // the pond ripples from the new bubble; elsewhere the new item opens for details
     if (view === 'pond') window.dispatchEvent(new CustomEvent('lilac:added', { detail: { id } }))
@@ -106,16 +124,28 @@ export function NewTask() {
             ref={ref}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="A task, an idea, a list…"
+            placeholder="Call Sarah tomorrow at 3pm…"
             className="well min-w-0 flex-1 rounded-2xl px-3.5 py-2 font-display text-xl placeholder:text-ink-faint"
           />
           <button type="button" onClick={closeCompose} className="grid h-8 w-8 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">
             <IconClose size={16} />
           </button>
         </div>
+        {parsed && parsed.chips.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
+            {parsed.chips.map((c) => (
+              <span key={c} className="rounded-full bg-lilac-100 px-2.5 py-0.5 text-xs text-lilac-700">
+                {c}
+              </span>
+            ))}
+            <button type="button" onClick={() => setPlain(true)} className="text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
+              Keep as typed
+            </button>
+          </div>
+        )}
         <div className="mt-2.5 flex items-center gap-2">
           <KindToggle
-            value={kind}
+            value={shownKind}
             onChange={(k) => {
               setKind(k)
               ref.current?.focus() // keep typing

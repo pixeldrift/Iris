@@ -1,6 +1,18 @@
 // Pure domain model. No React, no DOM: this file and the rest of src/core are
 // the part that gets ported 1:1 to Swift (structs + pure functions).
 
+/** How a task repeats. `from` is the first date of the series (a task's own `day` takes over when set). */
+export interface Recurrence {
+  freq: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  /** Every n days / weeks / months / years. */
+  interval: number
+  /** Weekly: weekdays (0 = Sunday). Empty/absent = the weekday of `from`. */
+  byDay?: number[]
+  /** Monthly: day of the month (absent = the day of `from`; 31 in a short month means its last day). */
+  monthDay?: number
+  from: string
+}
+
 export type TaskKind = 'task' | 'idea' | 'list' | 'event' | 'habit'
 
 /** How a list's entries are marked: check boxes, bullets, or automatic numbers. */
@@ -25,8 +37,10 @@ export interface Task {
   time: string | null
   endTime: string | null
   place: string
-  /** Habits: the dates it was done. A habit repeats on `days` (every day when null) and is never "done". */
+  /** The dates a repeating task or habit was done. */
   log: string[]
+  /** A repeating task or habit. Each occurrence is ticked off in `log`; the task itself is never "done". */
+  repeat: Recurrence | null
   /** An alert: when to nudge (epoch ms), and whether it has already gone off. */
   remindAt: number | null
   reminded: boolean

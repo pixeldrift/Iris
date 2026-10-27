@@ -165,11 +165,11 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                     <IconBell size={15} />
                   </span>
                 )}
-                {task.kind === 'habit' && habitStreak(task) > 0 && (
+                {!!task.repeat || task.kind === 'habit' ? habitStreak(task) > 0 && (
                   <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
                     ↻ {habitStreak(task)}
                   </span>
-                )}
+                ) : null}
                 {task.kind === 'list' && (
                   <span title="List" className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
                     <IconList size={14} />

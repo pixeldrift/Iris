@@ -36,6 +36,12 @@ export const IconBook = (p: P) => (
     <path d="M8.5 15.5c.6-1.7 2-2.5 3.5-2.5s2.9.8 3.5 2.5" />
   </Svg>
 )
+export const IconRepeat = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 12a6 6 0 0 1 10.5-4M20 12a6 6 0 0 1-10.5 4" />
+    <path d="M14.5 4v4h4M9.5 20v-4h-4" />
+  </Svg>
+)
 export const IconList = (p: P) => (
   <Svg {...p}>
     <path d="M9 6h11M9 12h11M9 18h11" />
