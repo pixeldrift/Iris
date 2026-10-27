@@ -189,8 +189,7 @@ input[type='date'] {
 /* ---------- gentle springy motion: nothing just appears or disappears ---------- */
 @keyframes pop-in {
   0% { opacity: 0; transform: scale(0.82); }
-  55% { opacity: 1; transform: scale(1.045); }
-  78% { transform: scale(0.988); }
+  60% { opacity: 1; transform: scale(1.045); animation-timing-function: ease-in-out; }
   100% { opacity: 1; transform: scale(1); }
 }
 @keyframes pop-out {
@@ -198,7 +197,7 @@ input[type='date'] {
   30% { transform: scale(1.04); }
   100% { opacity: 0; transform: scale(0.8); }
 }
-.pop-in { animation: pop-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; transform-origin: var(--ox, 50%) var(--oy, 50%); }
+.pop-in { animation: pop-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) both; transform-origin: var(--ox, 50%) var(--oy, 50%); }
 .pop-out { animation: pop-out 0.22s ease-in both; transform-origin: var(--ox, 50%) var(--oy, 50%); }
 
 /* a bubble being deleted swells and pops */
@@ -252,13 +251,10 @@ input[type='date'] {
 /* ---------- add-bubble spring, shape-matched ripples, shrink back to a drop ---------- */
 @keyframes box-spring {
   0% { opacity: 0; transform: scale(0.05); }
-  28% { opacity: 1; transform: scale(1.16); }
-  46% { transform: scale(0.92); }
-  62% { transform: scale(1.055); }
-  78% { transform: scale(0.985); }
+  55% { opacity: 1; transform: scale(1.09); animation-timing-function: ease-in-out; }
   100% { opacity: 1; transform: scale(1); }
 }
-.box-spring { animation: box-spring 0.8s cubic-bezier(0.3, 0.6, 0.3, 1) both; transform-origin: var(--ox, 50%) var(--oy, 0%); }
+.box-spring { animation: box-spring 0.5s cubic-bezier(0.25, 0.7, 0.35, 1) both; transform-origin: var(--ox, 50%) var(--oy, 0%); }
 
 @keyframes box-shrink {
   0% { opacity: 1; transform: scale(1); border-radius: 1.6rem; }
