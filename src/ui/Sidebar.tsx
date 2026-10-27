@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GRAY, tint } from '../core/color'
 import { addDays, diffDays, today, weekdayName } from '../core/dates'
-import { childrenOf, descendantIds } from '../core/folders'
+import { childrenOf, descendantIds, placeInTree, type Placement, type TreeRow } from '../core/folders'
 import { plannedDate } from '../core/tasks'
 import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
-import { useDnd, useDropTarget, usePointerDrag } from './dnd'
+import { create } from 'zustand'
+import { targetAt, useDnd, useDropTarget, usePointerDrag } from './dnd'
 import { Logo } from './Decor'
 import { askConfirm } from './dialogs'
 import { FLOWER_SHAPES, Flower } from './Flower'
@@ -210,6 +211,7 @@ export function Sidebar() {
   }
 
   const rootDrop = useDropTarget('froot')
+  const topSlot = useFolderSlot((st) => (st.slot?.afterId === null ? st.slot : null))
 
   // Dragging a bubble onto the left edge pulls the drawer open under it, so it can be dropped into a folder.
   const mobile = useIsMobile()
@@ -320,7 +322,8 @@ export function Sidebar() {
           </Tip>
         }
       >
-        <div ref={folderListRef}>
+        <div ref={folderListRef} data-folder-list>
+          <Gap open={topSlot !== null} indent={0} line />
           {childrenOf(folders, null).map((f) => (
             <FolderNode
               key={f.id}
@@ -468,20 +471,32 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
   )
 }
 
+/** How far (px) a folder must be pulled sideways to change its depth by one level. */
+const INDENT_STEP = 26
+
+/** The slot a dragged folder would drop into, shared so the right row can open its gap. */
+const useFolderSlot = create<{ slot: Placement | null }>(() => ({ slot: null }))
+
 /**
- * Where a dragged folder lands relative to a row:
- *   before - above it: same level, in front (insert line above)
- *   into   - directly on it: becomes its child (the row lights up)
- *   after  - below, left half: same level, behind it (insert line below)
- *   child  - below, right half: becomes its first child (row lights up, line indented)
+ * Folder drag, the outliner way: the pointer's height chooses the slot between two visible rows,
+ * and sideways travel from where the row was picked up chooses the depth (left = out one level).
  */
-type Zone = 'before' | 'into' | 'after' | 'child'
-const zoneAt = (el: Element, x: number, y: number): Zone => {
-  const r = el.getBoundingClientRect()
-  const f = (y - r.top) / r.height
-  if (f < 0.28) return 'before'
-  if (f <= 0.72) return 'into'
-  return x < r.left + r.width / 2 ? 'after' : 'child'
+function slotFor(folders: Folder[], dragId: string, startDepth: number, y: number, dx: number): Placement | null {
+  const list = document.querySelector('[data-folder-list]')
+  if (!list) return null
+  const skip = descendantIds(folders, dragId)
+  skip.add(dragId)
+  const rows: (TreeRow & { mid: number })[] = []
+  list.querySelectorAll<HTMLElement>('[data-folder-row]').forEach((el) => {
+    if (skip.has(el.dataset.folderRow!)) return
+    const r = el.getBoundingClientRect()
+    rows.push({ id: el.dataset.folderRow!, depth: Number(el.dataset.depth), mid: r.top + r.height / 2 })
+  })
+  let after = -1
+  rows.forEach((r, i) => {
+    if (r.mid < y) after = i
+  })
+  return placeInTree(folders, dragId, rows, after, startDepth + Math.round(dx / INDENT_STEP))
 }
 
 interface NodeProps {
@@ -512,35 +527,33 @@ function FolderNode(props: NodeProps) {
   const { over, active: dragging, props: dropProps } = useDropTarget(`folder:${folder.id}`)
   const dragPayload = useDnd((s) => s.drag?.payload)
   const isSelfDrag = dragPayload?.type === 'folder' && dragPayload.id === folder.id
-  // where a dragged folder would land relative to this row
-  const zone = useDnd((s): Zone | null =>
-    s.over === `folder:${folder.id}` && s.drag?.payload.type === 'folder' && s.drag.payload.id !== folder.id && rowRef.current
-      ? zoneAt(rowRef.current, s.drag.x, s.drag.y)
-      : null,
-  )
+  const slotHere = useFolderSlot((st) => (st.slot?.afterId === folder.id ? st.slot : null))
+  const dragIsTask = dragPayload?.type === 'task'
 
   const onPointerDown = usePointerDrag({
     payload: { type: 'folder', id: folder.id },
     label: folder.name,
     touchNeedsHandle: true,
     lift: () => rowRef.current,
-    onEnd: ({ target, x, y }) => {
-      if (!target) return
+    resolve: (x, y) => {
+      const t = targetAt(x, y)
+      if (t === 'froot') return t
+      const list = document.querySelector('[data-folder-list]')?.getBoundingClientRect()
+      return list && x <= list.right && y >= list.top - 30 && y <= list.bottom + 30 ? 'slot' : null
+    },
+    onMove: (x, y, dx) => {
+      const over = targetAt(x, y)
+      useFolderSlot.setState({ slot: over === 'froot' ? null : slotFor(useStore.getState().folders, folder.id, depth, y, dx) })
+    },
+    onEnd: ({ target }) => {
+      const slot = useFolderSlot.getState().slot
+      useFolderSlot.setState({ slot: null })
       if (target === 'froot') return moveFolder(folder.id, null)
-      if (!target.startsWith('folder:')) return
-      const tid = target.slice(7)
-      const el = document.querySelector(`[data-lift-id="${target}"]`)
-      const t = folders.find((f) => f.id === tid)
-      if (!el || !t || tid === folder.id) return
-      const z = zoneAt(el, x, y)
-      if (z === 'into') moveFolder(folder.id, tid)
-      else if (z === 'child') moveFolder(folder.id, tid, childrenOf(folders, tid).find((f) => f.id !== folder.id)?.id ?? null)
-      else if (z === 'before') moveFolder(folder.id, t.parentId, tid)
-      else {
-        const sibs = childrenOf(folders, t.parentId).filter((f) => f.id !== folder.id)
-        const next = sibs[sibs.findIndex((f) => f.id === tid) + 1]
-        moveFolder(folder.id, t.parentId, next?.id ?? null)
-      }
+      if (target !== 'slot' || !slot) return
+      const sibs = childrenOf(folders, folder.parentId)
+      const next = sibs[sibs.findIndex((f) => f.id === folder.id) + 1]?.id ?? null
+      if (slot.parentId === folder.parentId && slot.beforeId === next) return
+      moveFolder(folder.id, slot.parentId, slot.beforeId)
     },
   })
 
@@ -563,9 +576,10 @@ function FolderNode(props: NodeProps) {
 
   return (
     <div className="rise-in">
-      <Gap open={zone === 'before'} id={folder.id} indent={depth} line />
       <div
         ref={rowRef}
+        data-folder-row={folder.id}
+        data-depth={depth}
         data-lift-id={`folder:${folder.id}`}
         data-flip={folder.id}
         {...dropProps}
@@ -573,7 +587,7 @@ function FolderNode(props: NodeProps) {
         onClick={() => setScope({ type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700 shadow-sm' : 'hover:bg-white/45'} ${
-          over && !isSelfDrag && zone !== 'before' && zone !== 'after' ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
+          over && dragIsTask && !isSelfDrag ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
         style={{ paddingLeft: `${0.6 + depth * 0.95}rem` }}
       >
@@ -645,9 +659,8 @@ function FolderNode(props: NodeProps) {
           </span>
         )}
       </div>
-      <Gap open={zone === 'child'} id={folder.id} indent={depth + 1} line />
+      <Gap open={slotHere !== null} indent={slotHere?.depth ?? 0} line />
       {isOpen && kids.map((k) => <FolderNode key={k.id} {...props} folder={k} depth={depth + 1} />)}
-      <Gap open={zone === 'after'} id={folder.id} indent={depth} line />
     </div>
   )
 }
