@@ -87,6 +87,7 @@ interface State {
 
   savePerson: (p: Partial<Person> & { name: string }) => string
   deletePerson: (id: string) => void
+  togglePersonFavorite: (id: string) => void
 
   /** Look at a task's title for "call/email Sarah" and link or ask. */
   checkContact: (taskId: string) => void
@@ -177,6 +178,10 @@ export const useStore = create<State>()(
           kind: 'task' as TaskKind,
           items: [],
           listStyle: 'check' as const,
+          time: null,
+          endTime: null,
+          place: '',
+          log: [],
           status: 'todo',
           importance: 0.5,
           urgency: urgencyForDue(0.3, due),
@@ -220,6 +225,14 @@ export const useStore = create<State>()(
       toggleDone: (id) => {
         const t = get().tasks.find((x) => x.id === id)
         if (!t) return
+        if (t.kind === 'habit') {
+          // a habit is ticked for today, not finished
+          const day = today()
+          const had = t.log.includes(day)
+          if (!had) sound.bloom()
+          set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, log: had ? x.log.filter((d) => d !== day) : [...x.log, day].sort() } : x)) }))
+          return
+        }
         get().setStatus(id, t.status === 'done' ? 'todo' : 'done')
       },
       setStatus: (id, status) => {
@@ -372,12 +385,14 @@ export const useStore = create<State>()(
           address: '',
           notes: '',
           hue: nextHue(get().people.length + 3),
+          favorite: false,
           createdAt: Date.now(),
           ...p,
         }
         set((s) => ({ people: [...s.people, person] }))
         return person.id
       },
+      togglePersonFavorite: (id) => set((s) => ({ people: s.people.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)) })),
       deletePerson: (id) =>
         set((s) => ({
           people: s.people.filter((p) => p.id !== id),
@@ -438,7 +453,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 6,
+      version: 8,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -465,6 +480,13 @@ export const useStore = create<State>()(
         if (from < 6) {
           // reminders became plain tasks: a reminder is any task with an alarm, not a type of its own
           p.tasks = (p.tasks ?? []).map((t) => ({ ...t, kind: (t.kind as string) === 'reminder' ? 'task' : t.kind, items: t.items ?? [], listStyle: t.listStyle ?? 'check' }))
+        }
+        if (from < 7) {
+          p.tasks = (p.tasks ?? []).map((t) => ({ ...t, time: t.time ?? null, endTime: t.endTime ?? null, place: t.place ?? '', log: t.log ?? [] }))
+        }
+        if (from < 8) {
+          // everyone already in the sidebar stays there: hearts are for the people added from now on
+          p.people = (p.people ?? []).map((x) => ({ ...x, favorite: x.favorite ?? true }))
         }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
         return p as State

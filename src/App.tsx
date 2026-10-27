@@ -15,6 +15,7 @@ import { TopBar } from './ui/TopBar'
 import { Board } from './ui/views/Board'
 import { CalendarView } from './ui/views/Calendar'
 import { ListView } from './ui/views/ListView'
+import { AddressBook } from './ui/views/AddressBook'
 import { Pond } from './ui/views/Pond'
 import { Priority } from './ui/views/Priority'
 import { Timeline } from './ui/views/Timeline'
@@ -25,7 +26,8 @@ export default function App() {
   const view = useStore((s) => s.view)
   const hasDetail = useStore((s) => s.selectedId !== null)
   const [composing, setComposing] = useState(false)
-  const View = VIEW[view]
+  const contacts = useStore((s) => s.scope.type === 'contacts')
+  const View = contacts ? AddressBook : VIEW[view]
 
   useEffect(() => {
     applyAudio(useStore.getState().settings)

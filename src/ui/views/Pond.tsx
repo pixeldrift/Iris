@@ -4,7 +4,7 @@ import { drop, plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { contactLink, detectContactIntent } from '../../core/people'
-import { bubbleRadius, plannedDate } from '../../core/tasks'
+import { bubbleRadius, habitStreak, plannedDate } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
 import { IconChat, IconClose, IconList, IconMail, IconPhone, IconThought } from '../icons'
@@ -68,7 +68,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
   const fresh = useRef(Date.now() - task.createdAt < 1500).current
   const hue = useMemo(() => {
     const f = folders.find((x) => x.id === task.folderIds[0])
-    return f ? f.hue : task.kind === 'idea' ? 320 : task.kind === 'list' ? 200 : 285
+    return f ? f.hue : task.kind === 'idea' ? 320 : task.kind === 'list' ? 200 : task.kind === 'event' ? 40 : task.kind === 'habit' ? 150 : 285
   }, [folders, task.folderIds, task.kind])
 
   const outer = useRef<HTMLDivElement>(null)
@@ -158,6 +158,11 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
                   </span>
                 ) : (
                   <DoneButton task={task} size={cb} />
+                )}
+                {task.kind === 'habit' && habitStreak(task) > 0 && (
+                  <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
+                    ↻ {habitStreak(task)}
+                  </span>
                 )}
                 {task.kind === 'list' && (
                   <span title="List" className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">

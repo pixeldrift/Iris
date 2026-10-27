@@ -8,6 +8,10 @@ const mk = (partial: Partial<Task> & { title: string }): Task => ({
   kind: 'task',
   items: [],
   listStyle: 'check',
+  time: null,
+  endTime: null,
+  place: '',
+  log: [],
   status: 'todo',
   importance: 0.5,
   urgency: 0.3,
@@ -54,6 +58,8 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
       x: 0.82,
       y: 0.72,
     }),
+    mk({ title: 'Study group', kind: 'event', time: '15:30', endTime: '17:00', place: 'Library, room 2', day: addDays(t, 1), folderIds: ['life'], importance: 0.55, urgency: 0.5, x: 0.3, y: 0.78 }),
+    mk({ title: 'Morning stretch', kind: 'habit', log: [addDays(t, -1), addDays(t, -2), addDays(t, -3)], folderIds: ['life'], importance: 0.5, urgency: 0.3, x: 0.12, y: 0.62 }),
     mk({ title: 'Call grandma', folderIds: ['life'], personIds: ['p-grandma'], importance: 0.9, urgency: 0.35, due: addDays(t, 3), x: 0.5, y: 0.55 }),
     mk({ title: 'A little poem about rain?', kind: 'idea', importance: 0.2, urgency: 0.05, x: 0.8, y: 0.62 }),
     mk({ title: 'Book dentist', folderIds: ['life'], importance: 0.45, urgency: 0.55, due: addDays(t, 8), x: 0.33, y: 0.78 }),
@@ -63,7 +69,10 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
     mk({ title: 'Water the ferns', folderIds: ['garden'], status: 'done', completedAt: Date.now(), importance: 0.2, urgency: 0.2, x: 0.1, y: 0.42 }),
   ]
   const people: Person[] = [
-    { id: 'p-grandma', name: 'Grandma Rose', phone: '+1 555 010 2030', email: 'rose@example.com', address: '', notes: '', hue: 345, createdAt: 1_700_000_000_000 },
+    { id: 'p-grandma', name: 'Grandma Rose', phone: '+1 555 010 2030', email: 'rose@example.com', address: '', notes: '', hue: 345, favorite: true, createdAt: 1_700_000_000_000 },
+    { id: 'p-patel', name: 'Dr. Patel', phone: '+1 555 010 4477', email: '', address: '12 Elm Street', notes: 'Dentist', hue: 200, favorite: false, createdAt: 1_700_000_000_001 },
+    { id: 'p-sam', name: 'Sam Okafor', phone: '+1 555 010 8812', email: 'sam@example.com', address: '', notes: 'Study group', hue: 150, favorite: false, createdAt: 1_700_000_000_002 },
+    { id: 'p-mina', name: 'Mina Park', phone: '', email: 'mina@example.com', address: '', notes: '', hue: 255, favorite: false, createdAt: 1_700_000_000_003 },
   ]
   return { folders, tasks, people }
 }

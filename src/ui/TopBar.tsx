@@ -188,10 +188,12 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         ? 'Inbox'
         : scope.type === 'day'
           ? weekdayName(scope.date)
-          : scope.type === 'person'
-            ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
-            : (pathOf(folders, scope.id).at(-1)?.name ?? 'Folder')
-  const sub = scope.type === 'day' ? [dayLabel(scope.date), shortDate(scope.date)].filter((x, i) => i === 1 || x !== weekdayName(scope.date)).join(' · ') : VIEWS.find((v) => v.id === view)?.hint
+          : scope.type === 'contacts'
+            ? 'Address book'
+            : scope.type === 'person'
+              ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
+              : (pathOf(folders, scope.id).at(-1)?.name ?? 'Folder')
+  const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? [dayLabel(scope.date), shortDate(scope.date)].filter((x, i) => i === 1 || x !== weekdayName(scope.date)).join(' · ') : VIEWS.find((v) => v.id === view)?.hint
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
@@ -203,12 +205,11 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} /> : title}
         </h2>
         <p className="text-xs text-ink-soft">
-          {VIEWS.find((v) => v.id === view)?.label}
-          {sub ? ` · ${sub}` : ''}
+          {scope.type === 'contacts' ? sub : `${VIEWS.find((v) => v.id === view)?.label}${sub ? ` · ${sub}` : ''}`}
         </p>
       </div>
       <div className="order-3 flex basis-full items-center justify-end gap-1.5 sm:order-2 sm:basis-auto">
-        <ViewMenu />
+        {scope.type !== 'contacts' && <ViewMenu />}
         <SoundButton />
       </div>
       <Tip label="New task">
@@ -220,7 +221,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         </button>
       </Tip>
 
-      {view === 'pond' && (
+      {view === 'pond' && scope.type !== 'contacts' && (
         <div className="scroll-soft order-4 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label="Arrange the pond">
           <span className="shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">Gather by</span>
           {GROUPS.map((g) => (

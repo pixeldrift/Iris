@@ -1,4 +1,5 @@
 import { ListEditor } from './ListEditor'
+import { EventFields, HabitPanel } from './KindFields'
 import { useEffect, useRef, useState } from 'react'
 import { WEEKDAYS } from '../core/dates'
 import { allLinks } from '../core/people'
@@ -43,7 +44,7 @@ export function TaskDetail() {
   const { mounted, closing } = useExit(!!id && !!live, 240)
 
   // "Saved" blinks whenever something about the task changes
-  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
+  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
   const [savedTick, setSavedTick] = useState(0)
   const firstSig = useRef(sig)
   useEffect(() => {
@@ -114,6 +115,8 @@ export function TaskDetail() {
           </div>
 
           {task.kind === 'list' && <ListEditor task={task} />}
+          {task.kind === 'event' && <EventFields task={task} />}
+          {task.kind === 'habit' && <HabitPanel task={task} />}
 
           {links.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -139,6 +142,7 @@ export function TaskDetail() {
           </div>
 
           <div className="space-y-3">
+            {task.kind !== 'event' && task.kind !== 'habit' && (
             <div className="grid grid-cols-2 gap-3">
               <DatePicker label="Do on" value={task.day} onChange={(v) => update(task.id, { day: v })} />
               <DatePicker label="Due by" value={task.due} onChange={(v) => setDue(task.id, v)} />
@@ -158,9 +162,11 @@ export function TaskDetail() {
                 </button>
               </div>
             </div>
+            )}
+            {task.kind !== 'event' && (
             <div>
               <span className="mb-1 block text-xs font-medium text-ink-soft">
-                Only on these days <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
+                {task.kind === 'habit' ? 'Repeats on' : 'Only on these days'} <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
               </span>
               <div className="flex gap-1">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => {
@@ -183,10 +189,12 @@ export function TaskDetail() {
                   )
                 })}
               </div>
-              {!!task.days?.length && task.rollover && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
+              {!!task.days?.length && task.rollover && task.kind !== 'habit' && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
             </div>
+            )}
           </div>
 
+          {task.kind !== 'habit' && (
           <div>
             <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
             <div className="flex gap-1.5">
@@ -202,6 +210,7 @@ export function TaskDetail() {
               ))}
             </div>
           </div>
+          )}
         </div>
 
         <footer className="space-y-3 border-t border-white/60 px-5 pb-4 pt-3">
