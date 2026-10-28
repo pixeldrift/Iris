@@ -153,6 +153,9 @@ export function Priority() {
   const [dragFrac, setDragFrac] = useState<{ id: string; x: number; y: number } | null>(null)
   const glowRef = useRef<HTMLDivElement>(null)
   const axisX = useRef<HTMLDivElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const labelEls = useRef<Record<string, HTMLElement | null>>({})
+  const hueRef = useRef<(t: Task) => number>(() => 285)
   const axisY = useRef<HTMLDivElement>(null)
 
   const scale = useStore((s) => s.settings.priorityScale)
@@ -163,6 +166,7 @@ export function Priority() {
   const scaleRef = useRef(scale)
   scaleRef.current = scale
   const hueOf = useCallback((t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? 285, [folders])
+  hueRef.current = hueOf
 
   const paint = useCallback(() => {
     for (const n of nodes.current.values()) {
@@ -237,6 +241,8 @@ export function Priority() {
           n.hx = n.x
           n.hy = n.y
           if (w && h) setDragFrac({ id, x: clamp01(n.x / w), y: clamp01(n.y / h) })
+          const t = useStore.getState().tasks.find((x) => x.id === id)
+          if (t) card.current?.style.setProperty('--dragc', tint(hueRef.current(t), 70, 42))
         }
         grabbed.current += 1
         wake()
@@ -265,6 +271,9 @@ export function Priority() {
           g.style.left = `${gx}px`
           g.style.top = `${gy}px`
         }
+        // each axis label takes on the bubble's color the closer it is carried to that end
+        const k = { important: clamp01((0.5 - fy) * 2), unimportant: clamp01((fy - 0.5) * 2), urgent: clamp01((fx - 0.5) * 2), noturgent: clamp01((0.5 - fx) * 2) }
+        for (const [name, v] of Object.entries(k)) labelEls.current[name]?.style.setProperty('--k', String(v))
         // the same values, read off both axes
         if (axisX.current) axisX.current.style.left = `${gx}px`
         if (axisY.current) axisY.current.style.top = `${gy}px`
@@ -284,6 +293,8 @@ export function Priority() {
           }
         }
         grabbed.current = Math.max(0, grabbed.current - 1)
+        // the labels fade back to neutral
+        for (const el of Object.values(labelEls.current)) el?.style.setProperty('--k', '0')
         setDragFrac(null)
         wake()
       },
@@ -307,18 +318,27 @@ export function Priority() {
     read()
     return () => ro.disconnect()
   }, [])
-  const axis = 'pointer-events-none absolute text-xs tracking-wide text-ink-faint'
+  const axis = 'pointer-events-none absolute text-xs tracking-wide transition-colors duration-200'
+  const axisStyle = { color: 'color-mix(in srgb, var(--dragc, var(--color-ink-faint)) calc(var(--k, 0) * 100%), var(--color-ink-faint))' } as React.CSSProperties
   // zoom here is the size of the bubbles; the grid stays put
   const zoomBubbles = (f: number) => setSetting('priorityScale', Math.min(1.6, Math.max(0.3, useStore.getState().settings.priorityScale * f)))
 
   return (
     <div className="flex h-full flex-col">
       <div ref={area} className="flex min-h-0 flex-1 flex-col items-center justify-center">
-        <div className="glass relative w-full shrink-0 rounded-[2rem]" style={{ padding: 0, height: cardH ?? '100%' }}>
-          <span className={`${axis} left-1/2 top-2 -translate-x-1/2 md:top-2.5`}>Important</span>
-          <span className={`${axis} bottom-2 left-1/2 -translate-x-1/2 md:bottom-2.5`}>Unimportant</span>
-          <span className={`${axis} left-1 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl] md:left-1.5`}>Not urgent</span>
-          <span className={`${axis} right-1 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] md:right-1.5`}>Urgent</span>
+        <div ref={card} className="glass relative w-full shrink-0 rounded-[2rem]" style={{ padding: 0, height: cardH ?? '100%' }}>
+          <span className={`${axis} left-1/2 top-2 -translate-x-1/2 md:top-2.5`} ref={(el) => {
+              labelEls.current.important = el
+            }} style={axisStyle}>Important</span>
+          <span className={`${axis} bottom-2 left-1/2 -translate-x-1/2 md:bottom-2.5`} ref={(el) => {
+              labelEls.current.unimportant = el
+            }} style={axisStyle}>Unimportant</span>
+          <span className={`${axis} left-1 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl] md:left-1.5`} ref={(el) => {
+              labelEls.current.noturgent = el
+            }} style={axisStyle}>Not urgent</span>
+          <span className={`${axis} right-1 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] md:right-1.5`} ref={(el) => {
+              labelEls.current.urgent = el
+            }} style={axisStyle}>Urgent</span>
           {/* the four corner names sit outside the grid, so no bubble can cover them */}
           {QUADS.map((q) => (
             <div key={q.label} className={`pointer-events-none absolute flex flex-col ${q.edge}`}>
@@ -335,8 +355,8 @@ export function Priority() {
             {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} scale={scale} />)}
             {dragFrac && glowTask && size.w > 0 && (
               <>
-                <div ref={axisX} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.5, left: dragFrac.x * size.w, top: size.h / 2, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
-                <div ref={axisY} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.5, left: size.w / 2, top: dragFrac.y * size.h, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
+                <div ref={axisX} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.25, left: dragFrac.x * size.w, top: size.h / 2, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
+                <div ref={axisY} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.25, left: size.w / 2, top: dragFrac.y * size.h, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
               </>
             )}
             {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
