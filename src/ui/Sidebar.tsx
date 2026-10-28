@@ -660,8 +660,8 @@ function FolderNode(props: NodeProps) {
     const cur = useFolderSlot.getState().slot
     const same = cur && next && cur.kind === next.kind && cur.afterId === next.afterId && cur.depth === next.depth && cur.parentId === next.parentId && cur.beforeId === next.beforeId
     if (!same && cur !== next) useFolderSlot.setState({ slot: next })
-    // the carried row never slides sideways: the finger alone says what a drop would do, and an arrow says "out one level"
-    lifter.pullOut(!!next && next.kind === 'slot' && next.depth < depth)
+    // the carried row never slides sideways: the finger alone says what a drop would do, and a symbol says which way it goes
+    lifter.hint(!next ? null : next.kind === 'into' || next.depth > depth ? 'in' : next.depth < depth ? 'out' : null)
   }
 
   const onPointerDown = usePointerDrag({
