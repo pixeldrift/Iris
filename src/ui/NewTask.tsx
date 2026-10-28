@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { SegmentedToggle } from './SegmentedToggle'
 import { create } from 'zustand'
 import { useStore } from '../state/store'
 import { drop } from '../audio/engine'
@@ -42,48 +43,7 @@ const EXAMPLES = [
 
 /** One exclusive pill: the highlight slides to whichever type is chosen, with a single soft overshoot. */
 function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKind) => void }) {
-  const refs = useRef(new Map<string, HTMLButtonElement>())
-  const wrap = useRef<HTMLDivElement>(null)
-  const [box, setBox] = useState<{ left: number; width: number } | null>(null)
-  const settled = useRef(false)
-  useLayoutEffect(() => {
-    const el = refs.current.get(value)
-    // offsets, not screen rects: the box is still scaling in when this first runs
-    if (el) setBox({ left: el.offsetLeft + (el.parentElement?.offsetLeft ?? 0), width: el.offsetWidth })
-  }, [value])
-  useEffect(() => {
-    // no slide on the very first placement
-    const id = requestAnimationFrame(() => (settled.current = true))
-    return () => cancelAnimationFrame(id)
-  }, [])
-  return (
-    <div ref={wrap} role="radiogroup" aria-label="Type" className="relative inline-flex min-w-0 items-center rounded-full bg-white/50 p-0.5 shadow-[inset_0_1px_2px_rgba(107,68,145,0.12)]">
-      {box && (
-        <span
-          aria-hidden
-          className="absolute inset-y-0.5 rounded-full bg-lilac-500 shadow shadow-lilac-500/30"
-          style={{ left: box.left, width: box.width, transition: settled.current ? 'left 0.34s cubic-bezier(0.34, 1.35, 0.55, 1), width 0.34s cubic-bezier(0.34, 1.35, 0.55, 1)' : 'none' }}
-        />
-      )}
-      {KINDS.map((k, i) => (
-        <span key={k.id} className="relative flex items-center">
-          {i > 0 && <span aria-hidden className={`h-3.5 w-px bg-ink-faint/25 transition-opacity duration-200 ${value === k.id || value === KINDS[i - 1].id ? 'opacity-0' : ''}`} />}
-          <button
-            type="button"
-            role="radio"
-            aria-checked={value === k.id}
-            ref={(el) => {
-              if (el) refs.current.set(k.id, el)
-            }}
-            onClick={() => onChange(k.id)}
-            className={`relative rounded-full px-2.5 py-1 text-xs transition-colors duration-200 ${value === k.id ? 'text-white' : 'text-ink-soft hover:text-ink'}`}
-          >
-            {k.label}
-          </button>
-        </span>
-      ))}
-    </div>
-  )
+  return <SegmentedToggle label="Type" value={value} options={KINDS} onChange={onChange} />
 }
 
 /** Centred quick-add: the one way to start a new item, from the New button, the N key, the water or a group's +. */

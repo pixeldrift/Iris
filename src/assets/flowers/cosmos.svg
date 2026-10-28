@@ -19,5 +19,5 @@
     <use href="#cosmos-petal" transform="rotate(270.0)"/>
     <use href="#cosmos-petal" transform="rotate(315.0)"/>
   </g>
-  <circle r="1.9" fill="#f8d86a"/>
+  <circle r="1.9" fill="#f8d86a" style="fill:var(--flower-cream,#f8d86a)"/>
 </svg>

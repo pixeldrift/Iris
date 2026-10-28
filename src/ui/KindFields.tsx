@@ -1,4 +1,5 @@
 import { addDays, fromISO, ordinalSuffix, today, WEEKDAYS } from '../core/dates'
+import { SegmentedToggle } from './SegmentedToggle'
 import { anchorOf, describeRecurrence, repeatOf, taskOnDate } from '../core/recurrence'
 import { habitStreak } from '../core/tasks'
 import type { Recurrence, Task } from '../core/types'
@@ -154,20 +155,13 @@ export function RepeatField({ task }: { task: Task }) {
     if (freq === 'monthly' && r.nth && !next.byDay?.length) next.byDay = [anchorDow]
     set(next)
   }
-  const pill = (on: boolean) => `rounded-full px-2.5 py-1 text-xs transition ${on ? 'bg-lilac-500 text-white' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`
 
   return (
     <div>
       <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-ink-soft">
         <IconRepeat size={13} /> Repeats
       </span>
-      <div className="flex flex-wrap gap-1.5">
-        {PRESETS.filter((f) => f.id !== 'none' || task.kind !== 'habit').map((f) => (
-          <button key={f.id} type="button" onClick={() => choose(f.id)} aria-pressed={active === f.id} className={pill(active === f.id)}>
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedToggle label="Repeats" value={active} options={PRESETS.filter((f) => f.id !== 'none' || task.kind !== 'habit')} onChange={choose} />
       {r && active === 'custom' && (
         <div className="mt-2.5 space-y-2.5 rounded-2xl bg-white/35 p-3">
           <div className="flex items-center gap-2 text-sm text-ink-soft">
@@ -180,24 +174,12 @@ export function RepeatField({ task }: { task: Task }) {
               +
             </button>
           </div>
-          <div className="flex gap-1.5" role="group" aria-label="Unit">
-            {UNITS.map((u) => (
-              <button key={u.id} type="button" onClick={() => unit(u.id)} aria-pressed={r.freq === u.id} className={`${pill(r.freq === u.id)} flex-1`}>
-                {u.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedToggle label="Unit" className="w-full [&>span]:flex-1 [&_button]:w-full" value={r.freq} options={UNITS} onChange={unit} />
           {(r.freq === 'weekly' || (r.freq === 'monthly' && !!r.nth)) && (
             <div>
               {r.freq === 'monthly' && <div className="mb-1 text-xs text-ink-soft">On the</div>}
               {r.freq === 'monthly' && (
-                <div className="mb-2 flex gap-1.5">
-                  {NTHS.map((x) => (
-                    <button key={x.n} type="button" onClick={() => set({ ...r, nth: x.n, byDay: [r.byDay?.[0] ?? anchorDow], custom: true })} aria-pressed={r.nth === x.n} className={`${pill(r.nth === x.n)} flex-1`}>
-                      {x.label}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedToggle label="Which" className="mb-2 w-full [&>span]:flex-1 [&_button]:w-full" value={String(r.nth ?? '')} options={NTHS.map((x) => ({ id: String(x.n), label: x.label }))} onChange={(v) => set({ ...r, nth: Number(v), byDay: [r.byDay?.[0] ?? anchorDow], custom: true })} />
               )}
               <div className="flex gap-1">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => {
@@ -219,15 +201,16 @@ export function RepeatField({ task }: { task: Task }) {
             </div>
           )}
           {r.freq === 'monthly' && (
-            <div className="flex gap-1.5 text-xs">
-              <button type="button" onClick={() => set({ ...r, nth: undefined, byDay: undefined, custom: true })} aria-pressed={!r.nth} className={`${pill(!r.nth)} flex-1`}>
-                On the {fromISO(from).getDate()}
-                {ordinalSuffix(fromISO(from).getDate())}
-              </button>
-              <button type="button" onClick={() => set({ ...r, nth: r.nth ?? Math.min(4, Math.ceil(fromISO(from).getDate() / 7)), byDay: [r.byDay?.[0] ?? anchorDow], custom: true })} aria-pressed={!!r.nth} className={`${pill(!!r.nth)} flex-1`}>
-                On a weekday (e.g. 3rd Tue)
-              </button>
-            </div>
+            <SegmentedToggle
+              label="Which day"
+              className="w-full [&>span]:flex-1 [&_button]:w-full"
+              value={r.nth ? 'weekday' : 'date'}
+              options={[
+                { id: 'date', label: `On the ${fromISO(from).getDate()}${ordinalSuffix(fromISO(from).getDate())}` },
+                { id: 'weekday', label: 'On a weekday (e.g. 3rd Tue)' },
+              ]}
+              onChange={(v) => set(v === 'date' ? { ...r, nth: undefined, byDay: undefined, custom: true } : { ...r, nth: r.nth ?? Math.min(4, Math.ceil(fromISO(from).getDate() / 7)), byDay: [r.byDay?.[0] ?? anchorDow], custom: true })}
+            />
           )}
         </div>
       )}

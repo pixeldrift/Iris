@@ -1,3 +1,4 @@
+import { clearHistory, suppressHistory } from '../state/history'
 import { create } from 'zustand'
 import { drop } from '../audio/engine'
 import { apiToken } from './auth'
@@ -104,7 +105,7 @@ function applyRemote(changes: Change[]): Map<string, unknown> {
     for (const c of cs) if (!have.has(c.id)) take(c) // new ones go on the end
     return out
   }
-  useStore.setState((s) => {
+  suppressHistory(() => useStore.setState((s) => {
     const tasks = merge(s.tasks, by('task'))
     const folders = merge(s.folders, by('folder'))
     const people = merge(s.people, by('person'))
@@ -116,7 +117,7 @@ function applyRemote(changes: Change[]): Map<string, unknown> {
       scope: s.scope.type === 'folder' && goneFolder.has(s.scope.id) ? { type: 'all' } : s.scope,
       selectedId: s.selectedId && !tasks.some((t) => t.id === s.selectedId) ? null : s.selectedId,
     }
-  })
+  }))
   return stored
 }
 
@@ -188,11 +189,11 @@ async function syncOnce(userId: string) {
       if (peek.changes.length > 0) {
         // the account already has data: the built-in samples would only be clutter on top of it
         const samples = sampleKeys()
-        useStore.setState((s) => ({
+        suppressHistory(() => useStore.setState((s) => ({
           tasks: s.tasks.filter((t) => !samples.has(keyOf('task', t.id))),
           folders: s.folders.filter((f) => !samples.has(keyOf('folder', f.id))),
           people: s.people.filter((p) => !samples.has(keyOf('person', p.id))),
-        }))
+        })))
       }
     }
     for (;;) {
@@ -333,6 +334,7 @@ export function forgetAccountData() {
     /* ignore */
   }
   const seed = seedData()
-  useStore.setState({ tasks: seed.tasks, folders: seed.folders, people: seed.people, scope: { type: 'all' }, selectedId: null })
+  suppressHistory(() => useStore.setState({ tasks: seed.tasks, folders: seed.folders, people: seed.people, scope: { type: 'all' }, selectedId: null }))
+  clearHistory()
   useSync.setState({ status: 'off', lastAt: null, error: null, peers: 0 })
 }

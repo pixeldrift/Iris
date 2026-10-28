@@ -17,6 +17,17 @@ export function ToastHost() {
         style={{ ['--oy' as string]: '100%' }}
       >
         {last.current.text}
+        {last.current.action && (
+          <button
+            onClick={() => {
+              last.current?.action?.run()
+              useStore.setState({ toast: null })
+            }}
+            className="pointer-events-auto ml-3 font-semibold text-lilac-600 underline-offset-2 hover:underline"
+          >
+            {last.current.action.label}
+          </button>
+        )}
       </div>
     </div>
   )

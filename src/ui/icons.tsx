@@ -227,3 +227,16 @@ export const IconChevronDown = ({ size = 16 }: { size?: number }) => (
     <path d="M6 9.5 10.6 14a2 2 0 0 0 2.8 0L18 9.5" />
   </svg>
 )
+
+export const IconUndo = (p: P) => (
+  <Svg {...p}>
+    <path d="M9 14 4.5 9.5 9 5" />
+    <path d="M4.5 9.5H14a5.5 5.5 0 0 1 0 11h-3" />
+  </Svg>
+)
+export const IconRedo = (p: P) => (
+  <Svg {...p}>
+    <path d="m15 14 4.5-4.5L15 5" />
+    <path d="M19.5 9.5H10a5.5 5.5 0 0 0 0 11h3" />
+  </Svg>
+)

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { redo, undo } from './state/history'
 import { useStore } from './state/store'
 import { unlock } from './audio/engine'
 import { applyAudio } from './state/store'
@@ -58,6 +59,17 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       if (el.matches('input, textarea, select, [contenteditable]')) return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+        return
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redo()
+        return
+      }
       if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         window.dispatchEvent(new Event('lilac:search'))

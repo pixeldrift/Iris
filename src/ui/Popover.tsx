@@ -10,6 +10,8 @@ export function Popover({
   children,
   align = 'start',
   className = '',
+  onMouseEnter,
+  onMouseLeave,
 }: {
   open: boolean
   onClose: () => void
@@ -17,6 +19,8 @@ export function Popover({
   children: React.ReactNode
   align?: 'start' | 'end'
   className?: string
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }) {
   const { mounted, closing } = useExit(open, 180)
   const box = useRef<HTMLDivElement>(null)
@@ -92,6 +96,8 @@ export function Popover({
     <div
       ref={box}
       style={style}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={`glass glass-strong fixed z-[150] min-w-[12rem] overflow-y-auto rounded-2xl p-1.5 ${closing ? 'pop-out' : 'pop-in'} ${className}`}
     >
       {children}

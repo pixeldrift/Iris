@@ -1,3 +1,4 @@
+import { suppressHistory } from '../state/history'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { chime } from '../audio/engine'
@@ -28,7 +29,7 @@ export function ReminderHost() {
       const due = dueReminders(st.tasks, now)
       const alerts = dueAlerts(st.tasks, now, (t) => eventStartsFor(t, now))
       if (!due.length && !alerts.length) return
-      useStore.setState((s) => ({
+      suppressHistory(() => useStore.setState((s) => ({
         tasks: s.tasks.map((t) => {
           let next = t
           if (due.some((d) => d.id === t.id)) {
@@ -49,7 +50,7 @@ export function ReminderHost() {
           }
           return next
         }),
-      }))
+      })))
       const cards = [...due.map((t) => ({ id: t.id, note: formatReminder(t.remindAt!, now) })), ...alerts.map((a) => ({ id: a.task.id, note: note(a.minutes) }))]
       useAlerts.setState((s) => ({ items: [...s.items.filter((x) => !cards.some((c) => c.id === x.id)), ...cards] }))
       chime()
