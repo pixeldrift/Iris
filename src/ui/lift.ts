@@ -58,8 +58,8 @@ function place(a: Active, x: number, y: number) {
 }
 const ICONS = {
   // the text-editor glyphs: arrow plus four lines
-  in: '<path d="M4 5h16M12 10h8M12 14h8M4 19h16M3.5 12h5M6.5 9.5 9 12l-2.5 2.5"/>',
-  out: '<path d="M4 5h16M12 10h8M12 14h8M4 19h16M9 12H4M6.5 9.5 4 12l2.5 2.5"/>',
+  in: '<path d="M4 5h16M4 19h16M13 12h7M3.5 12h6M7.5 9 10.5 12l-3 3"/>',
+  out: '<path d="M4 5h16M4 19h16M13 12h7M10.5 12h-6M7.5 9 4.5 12l3 3"/>',
 }
 
 /** The indent / outdent symbol shown inside the carried row, at its left, while a drop would nest it or lift it out. */
@@ -77,7 +77,7 @@ function badge(wrap: HTMLElement, kind: 'in' | 'out' | null) {
     b.dataset.hint = kind
     b.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[kind]}</svg>`
   }
-  b.style.opacity = kind ? '1' : '0'
+  b.style.opacity = kind ? '0.5' : '0'
   b.style.transform = kind ? 'scale(1)' : 'scale(0.6)'
 }
 const nextFrames = (fn: () => void) => requestAnimationFrame(() => requestAnimationFrame(fn))
