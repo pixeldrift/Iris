@@ -9,10 +9,10 @@ import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 const QUADS = [
-  { label: 'Tend now', sub: 'matters · pressing', cls: '', edge: 'right-[34px] top-2 items-end text-right md:right-[40px] md:top-3', hue: 345 },
-  { label: 'Make time', sub: 'matters · can wait', cls: '', edge: 'left-[34px] top-2 items-start md:left-[40px] md:top-3', hue: 285 },
-  { label: 'Quick breeze', sub: 'pressing · small', cls: '', edge: 'bottom-2 right-[34px] items-end text-right md:bottom-3 md:right-[40px]', hue: 200 },
-  { label: 'Let it drift', sub: 'neither, for now', cls: '', edge: 'bottom-2 left-[34px] items-start md:bottom-3 md:left-[40px]', hue: 150 },
+  { label: 'Tend now', sub: 'important, very pressing', cls: '', edge: 'right-[26px] top-2 items-end text-right md:right-[30px] md:top-2.5', hue: 345 },
+  { label: 'Make time', sub: 'important, but can wait', cls: '', edge: 'left-[26px] top-2 items-start md:left-[30px] md:top-2.5', hue: 285 },
+  { label: 'Quick breeze', sub: 'no big deal, but pressing', cls: '', edge: 'bottom-2 right-[26px] items-end text-right md:bottom-2.5 md:right-[30px]', hue: 200 },
+  { label: 'Let it drift', sub: 'doesn’t matter, no rush', cls: '', edge: 'bottom-2 left-[26px] items-start md:bottom-2.5 md:left-[30px]', hue: 150 },
 ]
 
 const CLAMP = { minX: 0, maxX: 1, minY: 0, maxY: 1 }
@@ -152,6 +152,8 @@ export function Priority() {
   // which bubble is being carried (state once, on grab and release; its glow is then moved directly, with no re-render per pointer move)
   const [dragFrac, setDragFrac] = useState<{ id: string; x: number; y: number } | null>(null)
   const glowRef = useRef<HTMLDivElement>(null)
+  const axisX = useRef<HTMLDivElement>(null)
+  const axisY = useRef<HTMLDivElement>(null)
 
   const scale = useStore((s) => s.settings.priorityScale)
   const setSetting = useStore((s) => s.setSetting)
@@ -178,8 +180,8 @@ export function Priority() {
       const { energy } = stepSim(list, { home: 0.013, magnet: 0, damping: WATER_FEEL.damping, push: WATER_FEEL.push }, () => false)
       for (const n of list) {
         // stay on the grid
-        n.x = Math.min(w - n.r, Math.max(n.r, n.x))
-        n.y = Math.min(h - n.r, Math.max(n.r, n.y))
+        n.x = Math.min(w, Math.max(0, n.x))
+        n.y = Math.min(h, Math.max(0, n.y))
       }
       paint()
       if (list.length && (energy > 0.02 || grabbed.current > 0)) raf.current = requestAnimationFrame(tick)
@@ -253,14 +255,19 @@ export function Priority() {
           el.style.height = `${r * 2}px`
           el.querySelector<HTMLElement>('.pad')?.style.setProperty('--u', String(u))
         }
-        n.hx = Math.min(w - r, Math.max(r, fx * w))
-        n.hy = Math.min(h - r, Math.max(r, fy * h))
+        n.hx = Math.min(w, Math.max(0, fx * w))
+        n.hy = Math.min(h, Math.max(0, fy * h))
         // the glow is the finger's own spot (the real value), so it never lags or jitters
         const g = glowRef.current
+        const gx = clamp01(fx) * w
+        const gy = clamp01(fy) * h
         if (g) {
-          g.style.left = `${clamp01(fx) * w}px`
-          g.style.top = `${clamp01(fy) * h}px`
+          g.style.left = `${gx}px`
+          g.style.top = `${gy}px`
         }
+        // the same values, read off both axes
+        if (axisX.current) axisX.current.style.left = `${gx}px`
+        if (axisY.current) axisY.current.style.top = `${gy}px`
         wake()
       },
       release: (id) => {
@@ -308,24 +315,30 @@ export function Priority() {
     <div className="flex h-full flex-col">
       <div ref={area} className="flex min-h-0 flex-1 flex-col items-center justify-center">
         <div className="glass relative w-full shrink-0 rounded-[2rem]" style={{ padding: 0, height: cardH ?? '100%' }}>
-          <span className={`${axis} left-1/2 top-2 -translate-x-1/2 md:top-3`}>Important</span>
-          <span className={`${axis} bottom-2 left-1/2 -translate-x-1/2 md:bottom-3`}>Unimportant</span>
-          <span className={`${axis} left-2 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl] md:left-3`}>Not urgent</span>
-          <span className={`${axis} right-2 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] md:right-3`}>Urgent</span>
+          <span className={`${axis} left-1/2 top-2 -translate-x-1/2 md:top-2.5`}>Important</span>
+          <span className={`${axis} bottom-2 left-1/2 -translate-x-1/2 md:bottom-2.5`}>Unimportant</span>
+          <span className={`${axis} left-1 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl] md:left-1.5`}>Not urgent</span>
+          <span className={`${axis} right-1 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] md:right-1.5`}>Urgent</span>
           {/* the four corner names sit outside the grid, so no bubble can cover them */}
           {QUADS.map((q) => (
             <div key={q.label} className={`pointer-events-none absolute flex flex-col ${q.edge}`}>
-              <span className="font-display text-base italic" style={{ color: `${tint(q.hue, 35, 45)}`, opacity: 0.8 }}>
+              <span className="font-display text-base italic leading-none" style={{ color: `${tint(q.hue, 35, 45)}`, opacity: 0.8 }}>
                 {q.label}
               </span>
-              <span className="text-[0.65rem] text-ink-faint">{q.sub}</span>
+              <span className="mt-0.5 text-[0.65rem] leading-none text-ink-faint">{q.sub}</span>
             </div>
           ))}
-          <div ref={field} className="absolute inset-x-[34px] bottom-[60px] top-[60px] md:inset-x-[40px]">
+          <div ref={field} className="absolute inset-x-[26px] bottom-[46px] top-[46px] md:inset-x-[30px]">
             <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgb(var(--lr-300)/0.35)]" />
             <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
             <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
             {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} scale={scale} />)}
+            {dragFrac && glowTask && size.w > 0 && (
+              <>
+                <div ref={axisX} aria-hidden className="pointer-events-none absolute z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: dragFrac.x * size.w, top: size.h / 2, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 8px 2px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
+                <div ref={axisY} aria-hidden className="pointer-events-none absolute z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: size.w / 2, top: dragFrac.y * size.h, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 8px 2px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
+              </>
+            )}
             {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
           </div>
         </div>
