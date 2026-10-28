@@ -37,8 +37,9 @@ export function Popover({
     }
   }, [open, onClose, anchor])
 
-  // whatever its width, never let it run off either side of the screen (the anchor can sit near an edge)
-  useLayoutEffect(() => {
+  // Keep the whole box on screen: inside both side edges, and above the on-screen keyboard (which overlays
+  // the page rather than resizing it), scrolling inside itself when there is not enough room.
+  const fit = () => {
     const el = box.current
     if (!el) return
     // offsets, not screen rects: the pop-in animation is still scaling the box when this runs
@@ -51,7 +52,28 @@ export function Popover({
       el.style.left = 'auto'
       el.style.right = '8px'
     }
-  })
+    const vv = window.visualViewport
+    const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
+    const room = visibleBottom - 16
+    el.style.maxHeight = `${Math.max(120, room)}px`
+    const top = el.offsetTop
+    const h = Math.min(el.offsetHeight, Math.max(120, room))
+    if (top + h > visibleBottom - 8) {
+      el.style.bottom = 'auto'
+      el.style.top = `${Math.max(8, visibleBottom - 8 - h)}px`
+    }
+  }
+  useLayoutEffect(fit)
+  useEffect(() => {
+    if (!open) return
+    const vv = window.visualViewport
+    vv?.addEventListener('resize', fit)
+    vv?.addEventListener('scroll', fit)
+    return () => {
+      vv?.removeEventListener('resize', fit)
+      vv?.removeEventListener('scroll', fit)
+    }
+  }) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!mounted || !anchor.current) return null
   const r = anchor.current.getBoundingClientRect()
