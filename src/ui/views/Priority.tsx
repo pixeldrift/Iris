@@ -9,10 +9,10 @@ import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 const QUADS = [
-  { label: 'Tend now', sub: 'important, very pressing', cls: '', edge: 'right-[26px] top-2 items-end text-right md:right-[30px] md:top-2.5', hue: 345 },
-  { label: 'Make time', sub: 'important, but can wait', cls: '', edge: 'left-[26px] top-2 items-start md:left-[30px] md:top-2.5', hue: 285 },
-  { label: 'Quick breeze', sub: 'no big deal, but pressing', cls: '', edge: 'bottom-2 right-[26px] items-end text-right md:bottom-2.5 md:right-[30px]', hue: 200 },
-  { label: 'Let it drift', sub: 'doesn’t matter, no rush', cls: '', edge: 'bottom-2 left-[26px] items-start md:bottom-2.5 md:left-[30px]', hue: 150 },
+  { label: 'Tend now', sub: 'urgent & important', cls: '', edge: 'right-[26px] top-2 items-end text-right md:right-[30px] md:top-2.5', hue: 345 },
+  { label: 'Make time', sub: 'not urgent, but important', cls: '', edge: 'left-[26px] top-2 items-start md:left-[30px] md:top-2.5', hue: 285 },
+  { label: 'Knock it out', sub: 'urgent but unimportant', cls: '', edge: 'bottom-2 right-[26px] items-end text-right md:bottom-2.5 md:right-[30px]', hue: 200 },
+  { label: 'Whenever', sub: 'unimportant, not urgent', cls: '', edge: 'bottom-2 left-[26px] items-start md:bottom-2.5 md:left-[30px]', hue: 150 },
 ]
 
 const CLAMP = { minX: 0, maxX: 1, minY: 0, maxY: 1 }
@@ -64,7 +64,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api, scale }: { task: Task;
           title={task.title}
         >
           {scale >= 0.45 && (
-            <span className="line-clamp-3 break-words font-display leading-[1.1]" style={{ fontSize: `${Math.max(0.5, 0.7 * Math.min(1, scale))}rem` }}>
+            <span className="line-clamp-3 break-words font-display leading-[1.1]" style={{ fontSize: `${Math.max(0.5, 0.7 * Math.min(1, scale))}rem`, textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
               {task.title}
             </span>
           )}
@@ -352,6 +352,8 @@ export function Priority() {
             <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgb(var(--lr-300)/0.35)]" />
             <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
             <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
+            {/* under the bubbles, so a carried bubble's title stays readable */}
+            {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
             {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} scale={scale} />)}
             {dragFrac && glowTask && size.w > 0 && (
               <>
@@ -359,7 +361,6 @@ export function Priority() {
                 <div ref={axisY} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.25, left: size.w / 2, top: dragFrac.y * size.h, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
               </>
             )}
-            {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
           </div>
         </div>
       </div>

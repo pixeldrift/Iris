@@ -149,7 +149,7 @@ const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r:
               } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
               style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
             >
-              <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
+              <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font, textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
                 {task.title || 'Untitled'}
               </span>
               {r >= 58 && plannedDate(task) && (
