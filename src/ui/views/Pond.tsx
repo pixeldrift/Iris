@@ -12,7 +12,7 @@ import { DoneButton, DueChip } from '../shared'
 import { openCompose } from '../NewTask'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
-import { useLeaveClass, useVisibleTasks } from '../useVisible'
+import { useLeaveClass, useSearchMatcher, useVisibleTasks } from '../useVisible'
 import { WATER } from '../water'
 import { WaterRipples, type WaterHandle } from '../WaterRipples'
 
@@ -59,7 +59,7 @@ interface PondApi {
   isFree: () => boolean
 }
 
-const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number; api: PondApi; start: { x: number; y: number } }) {
+const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null }) {
   const update = useStore((s) => s.updateTask)
   const drift = useStore((s) => s.settings.drift)
   const folders = useStore((s) => s.folders)
@@ -140,7 +140,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
-              }`}
+              } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
               style={{ '--h': Math.max(0, hue), '--s': satOf(hue) } as React.CSSProperties}
             >
               <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
@@ -204,7 +204,8 @@ interface Rec {
 }
 
 export function Pond() {
-  const visible = useVisibleTasks()
+  const visible = useVisibleTasks(false, 'keep') // a search fades the others here instead of removing them
+  const matcher = useSearchMatcher()
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const scale = useStore((s) => s.settings.sizeByPriority)
@@ -862,7 +863,7 @@ export function Pond() {
         ))}
 
         {w > 0 &&
-          visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} />)}
+          visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} />)}
       </div>
 
       <WaterRipples ref={water} className="z-10" />

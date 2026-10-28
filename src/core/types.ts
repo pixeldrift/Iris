@@ -27,6 +27,8 @@ export type TaskStatus = 'todo' | 'doing' | 'done'
 
 export interface Task {
   id: string
+  /** Being set up in the quick-add box: kept out of every view, count and sync until placed. */
+  draft?: boolean
   /** The shared workspace it lives in; absent = the person's own. (Sharing has no UI yet.) */
   workspaceId?: string
   title: string

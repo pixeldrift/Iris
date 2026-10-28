@@ -14,7 +14,7 @@ export function eventStart(t: Pick<Task, 'day' | 'time'>): number | null {
 
 /** Reminders that have come due and not yet been shown. Finished tasks stay quiet. */
 export function dueReminders(tasks: Task[], now: number): Task[] {
-  return tasks.filter((t) => t.remindAt !== null && !t.reminded && t.remindAt <= now && t.status !== 'done')
+  return tasks.filter((t) => !t.draft && t.remindAt !== null && !t.reminded && t.remindAt <= now && t.status !== 'done')
 }
 
 export interface ReminderPreset {

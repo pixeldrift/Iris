@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, dayLabel, diffDays, monthGrid, ordinalSuffix, startOfWeek } from './dates'
+import { addDays, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
@@ -7,6 +7,7 @@ import { seedData } from './seed'
 import { dueReminders, eventStart, formatReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
+import { matchesQuery } from './search'
 
 describe('dates', () => {
   it('adds and diffs days across month boundaries', () => {
@@ -391,5 +392,33 @@ describe('quick add', () => {
   })
   it('leaves plain text alone', () => {
     expect(p('Buy oat milk')).toMatchObject({ title: 'Buy oat milk', chips: [] })
+  })
+})
+
+describe('search', () => {
+  const { tasks, folders, people } = seedData()
+  const ctx = { folders, people }
+  const now = today() // the sample data is dated relative to today
+  const hit = (q: string) => tasks.filter((t) => matchesQuery(t, q, ctx, now)).map((t) => t.title)
+  it('finds words in the title, notes, groups, people and list items', () => {
+    expect(hit('osmosis')).toEqual(['Lab report: osmosis'])
+    expect(hit('biology')).toContain('Lab report: osmosis') // via its group
+    expect(hit('rose')).toContain('Call grandma') // via the tagged person
+    expect(hit('lemons')).toEqual(['Groceries']) // inside a list
+    expect(hit('LAB   report')).toEqual(['Lab report: osmosis']) // any case, any spacing
+    expect(hit('zzz')).toEqual([])
+  })
+  it('understands dates the way people type them', () => {
+    const lab = tasks.find((t) => t.title.startsWith('Lab'))!
+    const due = fromISO(lab.due!)
+    const short = `${MONTHS[due.getMonth()].slice(0, 3)} ${due.getDate()}`
+    expect(hit('tomorrow')).toContain('Lab report: osmosis')
+    expect(hit(WEEKDAYS[due.getDay()])).toContain('Lab report: osmosis')
+    expect(hit(short)).toContain('Lab report: osmosis')
+    expect(hit(`${due.getDate()}${ordinalSuffix(due.getDate())}`)).toContain('Lab report: osmosis')
+  })
+  it('knows kinds and states', () => {
+    expect(hit('habit')).toContain('Morning stretch')
+    expect(hit('bloomed')).toContain('Water the ferns')
   })
 })

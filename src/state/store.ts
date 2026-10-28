@@ -55,6 +55,9 @@ interface State {
   setView: (v: ViewId) => void
   select: (id: string | null) => void
   setSidebar: (open: boolean) => void
+  /** What is typed in the search box (not saved). Views filter or highlight by it. */
+  search: string
+  setSearch: (q: string) => void
   setSetting: <K extends keyof Settings>(k: K, v: Settings[K]) => void
   toggleSection: (id: string) => void
   /** Put a sidebar section before `beforeId` (null = last). */
@@ -150,6 +153,8 @@ export const useStore = create<State>()(
       setView: (view) => set({ view, sidebarOpen: false }),
       select: (selectedId) => set({ selectedId }),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
+      search: '',
+      setSearch: (search) => set({ search }),
       setSetting: (k, v) => {
         set((s) => ({ settings: { ...s.settings, [k]: v } }))
         applyAudio(get().settings)

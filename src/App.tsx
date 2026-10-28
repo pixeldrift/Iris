@@ -57,6 +57,10 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       if (el.matches('input, textarea, select, [contenteditable]')) return
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        window.dispatchEvent(new Event('lilac:search'))
+      }
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         openCompose()

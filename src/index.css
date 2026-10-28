@@ -147,6 +147,14 @@ body.dragging {
 }
 .slide-in-right { animation: slide-in-right 0.3s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 
+/* a bubble that matches what is typed in the search box */
+.search-hit {
+  box-shadow:
+    0 0 0 2px rgba(159, 111, 205, 0.85),
+    0 0 26px 4px rgba(159, 111, 205, 0.45),
+    0 1px 1px rgba(255, 255, 255, 0.9) inset !important;
+}
+
 .pad {
   background:
     radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),

@@ -46,7 +46,7 @@ const saveMemory = (m: SyncMemory) => {
 function entities(): Entity[] {
   const s = useStore.getState()
   const mk = (kind: Entity['kind'], x: { id: string; workspaceId?: string }): Entity => ({ kind, id: x.id, data: x as unknown as Record<string, unknown>, ...(x.workspaceId ? { workspaceId: x.workspaceId } : {}) })
-  return [...s.tasks.map((t) => mk('task', t)), ...s.folders.map((f) => mk('folder', f)), ...s.people.map((p) => mk('person', p))]
+  return [...s.tasks.filter((t) => !t.draft).map((t) => mk('task', t)), ...s.folders.map((f) => mk('folder', f)), ...s.people.map((p) => mk('person', p))]
 }
 
 /** This browser, as the server knows it (to tell when two are open at once). */

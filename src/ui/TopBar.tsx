@@ -1,10 +1,11 @@
-import { Fragment, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { dayLabel, shortDate, weekdayName } from '../core/dates'
 import { pathOf } from '../core/folders'
 import type { Folder, PondGroup } from '../core/types'
 import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
-import { IconEye, IconMenu, IconPlus, IconSound, IconSoundOff } from './icons'
+import { IconClose, IconEye, IconMenu, IconPlus, IconSearch, IconSound, IconSoundOff } from './icons'
+import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { MenuItem, Popover } from './Popover'
 import { VIEWS } from './Sidebar'
 import { Tip } from './Tip'
@@ -180,6 +181,23 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const set = useStore((s) => s.setSetting)
   const setSidebar = useStore((s) => s.setSidebar)
   const setScope = useStore((s) => s.setScope)
+  const query = useStore((s) => s.search)
+  const setSearch = useStore((s) => s.setSearch)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const searchShown = scope.type !== 'contacts' && (searchOpen || !!query)
+  const inScope = useVisibleTasks(false, 'keep')
+  const matcher = useSearchMatcher()
+  const matchCount = matcher ? inScope.filter(matcher).length : inScope.length
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus()
+  }, [searchOpen])
+  useEffect(() => {
+    // "/" opens the search from anywhere
+    const open = () => setSearchOpen(true)
+    window.addEventListener('lilac:search', open)
+    return () => window.removeEventListener('lilac:search', open)
+  }, [])
 
   const title =
     scope.type === 'all'
@@ -213,7 +231,49 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           )}
         </p>
       </div>
+      {searchShown && (
+        <div className="relative order-4 basis-full md:order-2 md:basis-64">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
+            <IconSearch size={15} />
+          </span>
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSearch('')
+                setSearchOpen(false)
+              }
+            }}
+            placeholder="Search everything…"
+            aria-label="Search"
+            enterKeyHint="search"
+            className="well h-9 w-full rounded-full pl-9 pr-16 text-sm placeholder:text-ink-faint"
+          />
+          <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+            {query.trim() && <span className="text-xs tabular-nums text-ink-soft">{matchCount}</span>}
+            <button
+              onClick={() => {
+                setSearch('')
+                setSearchOpen(false)
+              }}
+              aria-label="Clear search"
+              className="grid h-6 w-6 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink"
+            >
+              <IconClose size={12} />
+            </button>
+          </span>
+        </div>
+      )}
       <div className="order-2 flex items-center gap-1.5">
+        {scope.type !== 'contacts' && (
+          <Tip label="Search">
+            <button onClick={() => setSearchOpen((o) => !o)} aria-pressed={searchShown} className={btn(searchShown)}>
+              <IconSearch />
+            </button>
+          </Tip>
+        )}
         {scope.type !== 'contacts' && <ViewMenu />}
         <SoundButton />
       </div>
