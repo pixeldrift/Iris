@@ -6,7 +6,7 @@ import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { MenuItem, Popover } from '../Popover'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, GripHandle, QuickAdd, WeightDot, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, QuickAdd, WeightDot, useTaskDrag } from '../shared'
 
 const SORTS: { id: SortKey; label: string }[] = [
   { id: 'flow', label: 'Top of mind' },
@@ -29,7 +29,7 @@ function Row({ task }: { task: Task }) {
         data-lift-id={`task:${task.id}`}
         data-flip={task.id}
         onPointerDown={(e) => onPointerDown(e)}
-        className={`glass-soft group rise-in flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 transition hover:bg-white/70 ${leave}`}
+        className={`glass-soft group rise-in flex cursor-pointer items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 transition [-webkit-touch-callout:none] hover:bg-white/70 ${leave}`}
       >
         <DoneButton task={task} />
         <WeightDot task={task} />
@@ -40,7 +40,6 @@ function Row({ task }: { task: Task }) {
         <span data-lift-extra>
           <DueChip task={task} />
         </span>
-        <GripHandle onPointerDown={onPointerDown} />
       </div>
     </Dim>
   )

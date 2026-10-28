@@ -96,6 +96,9 @@ export function Popover({
     <div
       ref={box}
       style={style}
+      // a portal still bubbles through the React tree: keep clicks in here from reaching the row or card it hangs off
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={`glass glass-strong fixed z-[150] min-w-[12rem] overflow-y-auto rounded-2xl p-1.5 ${closing ? 'pop-out' : 'pop-in'} ${className}`}

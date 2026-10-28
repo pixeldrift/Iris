@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { dayLabel, shortDate, weekdayName } from '../core/dates'
+import { dayLabel, weekdayName } from '../core/dates'
 import { pathOf } from '../core/folders'
 import type { Folder, PondGroup } from '../core/types'
 import { useStore } from '../state/store'
@@ -98,7 +98,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             : scope.type === 'person'
               ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
               : (pathOf(folders, scope.id).at(-1)?.name ?? 'Group')
-  const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? [dayLabel(scope.date), shortDate(scope.date)].filter((x, i) => i === 1 || x !== weekdayName(scope.date)).join(' · ') : ''
+  const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? dayLabel(scope.date) : ''
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
@@ -131,6 +131,11 @@ export function TopBar({ onNew }: { onNew: () => void }) {
               if (e.key === 'Escape') {
                 setSearch('')
                 setSearchOpen(false)
+              }
+              // the keyboard's Search key: results are already live, so keep what was typed and put the keyboard away
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                e.currentTarget.blur()
               }
             }}
             placeholder="Search everything…"

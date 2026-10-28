@@ -88,11 +88,12 @@ export const lifter = {
   setInset(px: number) {
     if (!active) return
     const c = active.clone
+    if (px === 0 && !c.style.marginLeft) return
     c.style.transition = 'margin-left 0.18s ease-out, width 0.18s ease-out'
     c.style.marginLeft = `${px}px`
-    const full = active.el.parentElement?.offsetWidth ?? active.cw + px
-    c.style.width = `${Math.min(full, COMPACT) - px}px`
-    c.style.paddingLeft = '0.6rem'
+    // measured from the row's own width (a nested row is already narrower than the list), so the right edge never overshoots
+    c.style.width = `${active.cw - px}px`
+    c.style.paddingLeft = px > 0 ? '0.6rem' : ''
   },
 
   /** Vertical centre of the lifted copy on screen: where the item visibly is, whatever the grab point. */
