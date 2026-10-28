@@ -48,11 +48,13 @@ const Group = ({ title, children }: { title: string; children: React.ReactNode }
 export function SettingsDialog() {
   const { open } = useSettingsDialog()
   const [perm, setPerm] = useState(notifyState())
+  const [peek, setPeek] = useState(false)
+  const space = useStore((s) => s.settings.sidebarSpace)
   const sound = useStore((s) => s.settings.sound)
   const volume = useStore((s) => s.settings.volume)
   const setSetting = useStore((s) => s.setSetting)
   return (
-    <Modal open={open} onClose={close} label="My settings">
+    <Modal open={open} onClose={close} label="My settings" peek={peek}>
       <div className="space-y-1">
         <h3 className="font-display text-xl">My settings</h3>
         <Group title="Soundscape">
@@ -74,6 +76,36 @@ export function SettingsDialog() {
           <Row k="sfxChimes" label="Chimes and blooms" hint="finish, tag, move" indent faded={!sound} />
           <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
+        </Group>
+        <Group title="Sidebar">
+          <div className="px-2 py-1.5">
+            <div className="flex items-baseline justify-between text-sm">
+              <span>Spacing</span>
+              <span className="text-[0.7rem] text-ink-faint">{space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={space}
+              onChange={(e) => setSetting('sidebarSpace', Number(e.target.value))}
+              // the dialog fades while the slider is held, so the sidebar can be watched changing behind it
+              onPointerDown={() => {
+                setPeek(true)
+                window.addEventListener('pointerup', () => setPeek(false), { once: true })
+                window.addEventListener('pointercancel', () => setPeek(false), { once: true })
+              }}
+              onKeyDown={() => setPeek(true)}
+              onKeyUp={() => setPeek(false)}
+              className="soft mt-1"
+              aria-label="Sidebar spacing"
+            />
+            <div className="flex justify-between text-[0.68rem] text-ink-faint">
+              <span>Compact</span>
+              <span>Relaxed</span>
+            </div>
+          </div>
         </Group>
         <Group title="Pond">
           <Row k="sizeByPriority" label="Scale by importance" hint="bubble size" />

@@ -44,6 +44,8 @@ interface Options {
   lift?: () => HTMLElement | null
   /** Give the lifted copy a solid background, so text underneath can't show through it. */
   liftOpaque?: boolean
+  /** The lifted copy stays at the item's own left edge (only its height follows the pointer). */
+  lockX?: boolean
   /** Which drop target is under the pointer (default: nearest `data-drop`). */
   resolve?: (x: number, y: number) => string | null
   /** Touch must start from a handle so scrolling still works. */
@@ -98,7 +100,7 @@ export function usePointerDrag(opts: Options) {
         const src = optsRef.current.lift?.()
         if (src) {
           lifted = true
-          lifter.begin(src, sx, sy, `${optsRef.current.payload.type}:${optsRef.current.payload.id}`, !!optsRef.current.liftOpaque)
+          lifter.begin(src, sx, sy, `${optsRef.current.payload.type}:${optsRef.current.payload.id}`, !!optsRef.current.liftOpaque, !!optsRef.current.lockX)
           useDnd.setState({ liftH: src.offsetHeight })
         }
         optsRef.current.onStart?.()

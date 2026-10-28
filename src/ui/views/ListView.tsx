@@ -38,7 +38,7 @@ function Row({ task }: { task: Task }) {
           <FolderChips task={task} max={2} />
         </span>
         <span data-lift-extra>
-          <DueChip task={task} />
+          <DueChip task={task} compact />
         </span>
       </div>
     </Dim>
