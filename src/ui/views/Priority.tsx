@@ -9,10 +9,10 @@ import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 const QUADS = [
-  { label: 'Tend now', sub: 'important, very pressing', cls: '', edge: 'right-[26px] top-2 items-end text-right md:right-[30px] md:top-2.5', hue: 345 },
-  { label: 'Make time', sub: 'important, but can wait', cls: '', edge: 'left-[26px] top-2 items-start md:left-[30px] md:top-2.5', hue: 285 },
-  { label: 'Quick breeze', sub: 'no big deal, but pressing', cls: '', edge: 'bottom-2 right-[26px] items-end text-right md:bottom-2.5 md:right-[30px]', hue: 200 },
-  { label: 'Let it drift', sub: 'doesn’t matter, no rush', cls: '', edge: 'bottom-2 left-[26px] items-start md:bottom-2.5 md:left-[30px]', hue: 150 },
+  { label: 'Tend now', sub: 'urgent & important', cls: '', edge: 'right-[26px] top-2 items-end text-right md:right-[30px] md:top-2.5', hue: 345 },
+  { label: 'Make time', sub: 'not urgent, but important', cls: '', edge: 'left-[26px] top-2 items-start md:left-[30px] md:top-2.5', hue: 285 },
+  { label: 'Knock it out', sub: 'urgent but unimportant', cls: '', edge: 'bottom-2 right-[26px] items-end text-right md:bottom-2.5 md:right-[30px]', hue: 200 },
+  { label: 'Whenever', sub: 'unimportant, not urgent', cls: '', edge: 'bottom-2 left-[26px] items-start md:bottom-2.5 md:left-[30px]', hue: 150 },
 ]
 
 const CLAMP = { minX: 0, maxX: 1, minY: 0, maxY: 1 }
