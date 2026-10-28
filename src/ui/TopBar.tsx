@@ -3,8 +3,8 @@ import { dayLabel, shortDate, weekdayName } from '../core/dates'
 import { pathOf } from '../core/folders'
 import type { Folder, PondGroup } from '../core/types'
 import { useStore } from '../state/store'
-import { IconClose, IconMenu, IconPlus, IconSearch, IconUndo, IconRedo } from './icons'
-import { redo, undo, useHistory } from '../state/history'
+import { IconClose, IconMenu, IconPlus, IconSearch, IconUndo } from './icons'
+import { undo, useHistory } from '../state/history'
 import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { VIEWS } from './Sidebar'
 import { Tip } from './Tip'
@@ -21,18 +21,13 @@ const btn = (on: boolean) =>
   `grid h-9 w-9 shrink-0 place-items-center rounded-full transition ${on ? 'glass-soft bg-white text-lilac-700 shadow-sm' : 'glass-soft text-ink-soft hover:bg-white/70'}`
 
 function UndoRedo() {
-  const { undoLabel, redoLabel } = useHistory()
+  const { undoLabel } = useHistory()
   const off = 'pointer-events-none opacity-35'
   return (
     <>
       <Tip label={undoLabel ? `Undo: ${undoLabel}` : 'Nothing to undo'}>
         <button onClick={undo} aria-label="Undo" aria-disabled={!undoLabel} className={`${btn(false)} ${undoLabel ? '' : off}`}>
           <IconUndo />
-        </button>
-      </Tip>
-      <Tip label={redoLabel ? `Redo: ${redoLabel}` : 'Nothing to redo'}>
-        <button onClick={redo} aria-label="Redo" aria-disabled={!redoLabel} className={`${btn(false)} ${redoLabel ? '' : off}`}>
-          <IconRedo />
         </button>
       </Tip>
     </>
