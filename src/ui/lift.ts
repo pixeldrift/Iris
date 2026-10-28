@@ -56,20 +56,30 @@ function place(a: Active, x: number, y: number) {
     y: Math.min(window.innerHeight - h - 8, Math.max(8, y - a.oy)),
   }
 }
-/** A small arrow that appears beside a carried row while it is being pulled out a level. */
-function badge(wrap: HTMLElement, show: boolean) {
-  let b = wrap.querySelector<HTMLElement>('[data-out-arrow]')
+const ICONS = {
+  // the text-editor glyphs: arrow plus four lines
+  // a line on top; below it an arrow stepping in (to the right) or sticking out (to the left)
+  in: '<path d="M4 8h12M8 16h12M17 13l3 3-3 3"/>',
+  out: '<path d="M8 8h12M16 16H4M7 13l-3 3 3 3"/>',
+}
+
+/** The indent / outdent symbol shown inside the carried row, at its left, while a drop would nest it or lift it out. */
+function badge(wrap: HTMLElement, kind: 'in' | 'out' | null) {
+  let b = wrap.querySelector<HTMLElement>('[data-hint]')
   if (!b) {
-    if (!show) return
+    if (!kind) return
     b = document.createElement('div')
-    b.dataset.outArrow = ''
-    b.style.cssText = 'position:absolute;left:-1.45rem;top:50%;width:1.2rem;height:1.2rem;margin-top:-0.6rem;color:var(--color-lilac-600);display:grid;place-items:center;opacity:0;transform:scale(0.6);transition:opacity .15s,transform .25s cubic-bezier(0.34,1.45,0.55,1)'
-    b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20v-7a4 4 0 0 0-4-4H5"/><path d="M9 5 5 9l4 4"/></svg>'
+    b.dataset.hint = ''
+    b.style.cssText = 'position:absolute;left:0.5rem;top:50%;width:1.35rem;height:1.35rem;margin-top:-0.675rem;border-radius:0.4rem;background:var(--color-lilac-50);color:var(--color-lilac-600);display:grid;place-items:center;opacity:0;transform:scale(0.6);transition:opacity .15s,transform .25s cubic-bezier(0.34,1.45,0.55,1)'
     wrap.appendChild(b)
     void b.offsetWidth
   }
-  b.style.opacity = show ? '1' : '0'
-  b.style.transform = show ? 'scale(1)' : 'scale(0.6)'
+  if (kind && b.dataset.hint !== kind) {
+    b.dataset.hint = kind
+    b.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[kind]}</svg>`
+  }
+  b.style.opacity = kind ? '0.5' : '0'
+  b.style.transform = kind ? 'scale(1)' : 'scale(0.6)'
 }
 const nextFrames = (fn: () => void) => requestAnimationFrame(() => requestAnimationFrame(fn))
 const at = (x: number, y: number) => `translate(${x}px, ${y}px)`
@@ -99,9 +109,9 @@ export const lifter = {
     active.wrap.style.transform = at(p.x, p.y)
   },
 
-  /** Show or hide the little "out one level" arrow beside the carried copy. */
-  pullOut(show: boolean) {
-    if (active) badge(active.wrap, show)
+  /** Show the indent ("in": nests under something) or outdent ("out": climbs a level) symbol on the carried copy, or none. */
+  hint(kind: 'in' | 'out' | null) {
+    if (active) badge(active.wrap, kind)
   },
 
   /** Vertical center of the lifted copy on screen: where the item visibly is, whatever the grab point. */

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ZoomControl } from '../ZoomControl'
 import { satOf, tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
@@ -890,16 +891,7 @@ export function Pond() {
       )}
 
       <div data-ui className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5">
-        <Tip label="Zoom out">
-          <button onClick={() => zoomAbout(1 / 1.35, w / 2, h / 2)} className="glass-soft grid h-9 w-9 place-items-center rounded-full text-lg text-ink-soft hover:bg-white/80">
-            −
-          </button>
-        </Tip>
-        <Tip label="Zoom in">
-          <button onClick={() => zoomAbout(1.35, w / 2, h / 2)} className="glass-soft grid h-9 w-9 place-items-center rounded-full text-lg text-ink-soft hover:bg-white/80">
-            +
-          </button>
-        </Tip>
+        <ZoomControl onZoom={(f) => zoomAbout(f, w / 2, h / 2)} />
         <Tip label="Frame all bubbles">
           <button
             onClick={() => frameAll(false)}

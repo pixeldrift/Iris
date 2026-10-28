@@ -1,4 +1,5 @@
 import type { Task } from '../core/types'
+import { SegmentedToggle } from './SegmentedToggle'
 import { ListEditor } from './ListEditor'
 import { ReminderField } from './ReminderField'
 import { EventFields, RecentStrip, RepeatField } from './KindFields'
@@ -38,17 +39,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
     <>
       {withKind && (
       <div className="space-y-1.5">
-      <div className="flex gap-1.5">
-        {KINDS.map((k) => (
-          <button
-            key={k.id}
-            onClick={() => update(task.id, { kind: k.id })}
-            className={`rounded-full px-3 py-1 text-xs transition ${task.kind === k.id ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
-          >
-            {k.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedToggle label="Type" value={task.kind} options={KINDS} onChange={(k) => update(task.id, { kind: k })} />
         <KindHint kind={task.kind} className="px-0.5" />
       </div>
       )}

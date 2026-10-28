@@ -73,7 +73,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
  * A soft, glowing dot: where a bubble's real urgency and importance actually are. Drag it to set the
  * values directly (continuously, no steps); it glides when they change any other way.
  */
-function Glow({ x, y, hue, task, field }: { x: number; y: number; hue: number; task: Task; field: React.RefObject<HTMLDivElement | null> }) {
+function Glow({ x, y, hue, task, field, live, glowRef }: { x: number; y: number; hue: number; task: Task; field: React.RefObject<HTMLDivElement | null>; live: boolean; glowRef: React.RefObject<HTMLDivElement | null> }) {
   const update = useStore((s) => s.updateTask)
   const [held, setHeld] = useState(false)
 
@@ -101,9 +101,10 @@ function Glow({ x, y, hue, task, field }: { x: number; y: number; hue: number; t
 
   return (
     <div
+      ref={glowRef}
       className="pointer-events-none absolute left-0 top-0"
-      // follows 1:1 while held; otherwise a short glide so it never jumps
-      style={{ left: x, top: y, transform: 'translate(-50%, -50%)', transition: held ? 'none' : 'left .22s ease-out, top .22s ease-out' }}
+      // follows 1:1 while held (or while its bubble is carried, when the position is written straight to the page); otherwise a short glide so it never jumps
+      style={{ left: x, top: y, transform: 'translate(-50%, -50%)', transition: held || live ? 'none' : 'left .22s ease-out, top .22s ease-out' }}
     >
       <div
         className="glow-breathe h-14 w-14 rounded-full"
@@ -143,7 +144,9 @@ export function Priority() {
   const raf = useRef(0)
   const running = useRef(false)
   const grabbed = useRef(0)
+  // which bubble is being carried (state once, on grab and release; its glow is then moved directly, with no re-render per pointer move)
   const [dragFrac, setDragFrac] = useState<{ id: string; x: number; y: number } | null>(null)
+  const glowRef = useRef<HTMLDivElement>(null)
 
   const radius = (t: Task) => Math.round(bubbleRadius(t, true) * 0.62)
   const hueOf = useCallback((t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? 285, [folders])
@@ -187,8 +190,11 @@ export function Priority() {
       const r = radius(t)
       const n = nodes.current.get(t.id)
       if (n) {
-        n.hx = hx
-        n.hy = hy
+        // a bubble being carried keeps chasing the finger, not its saved value
+        if (!n.heavy) {
+          n.hx = hx
+          n.hy = hy
+        }
         n.r = r
       } else nodes.current.set(t.id, { id: t.id, x: hx, y: hy, vx: 0, vy: 0, hx, hy, r, pinned: false })
     }
@@ -210,22 +216,45 @@ export function Priority() {
       },
       grab: (id) => {
         const n = nodes.current.get(id)
-        if (n) n.pinned = true
+        const { w, h } = dims.current
+        if (n) {
+          // the bubble is not held in place: it chases the finger as firmly as collisions allow
+          n.heavy = true
+          n.homeK = 0.2
+          n.hx = n.x
+          n.hy = n.y
+          if (w && h) setDragFrac({ id, x: clamp01(n.x / w), y: clamp01(n.y / h) })
+        }
         grabbed.current += 1
         wake()
       },
       drag: (id, fx, fy) => {
         const n = nodes.current.get(id)
         const { w, h } = dims.current
-        if (!n) return
-        n.x = fx * w
-        n.y = fy * h
-        setDragFrac({ id, x: clamp01(fx), y: clamp01(fy) })
+        if (!n || !w || !h) return
+        n.hx = Math.min(w - n.r, Math.max(n.r, fx * w))
+        n.hy = Math.min(h - n.r, Math.max(n.r, fy * h))
+        // the glow is the finger's own spot (the real value), so it never lags or jitters
+        const g = glowRef.current
+        if (g) {
+          g.style.left = `${clamp01(fx) * w}px`
+          g.style.top = `${clamp01(fy) * h}px`
+        }
         wake()
       },
       release: (id) => {
         const n = nodes.current.get(id)
-        if (n) n.pinned = false
+        const t = useStore.getState().tasks.find((x) => x.id === id)
+        const { w, h } = dims.current
+        if (n) {
+          n.heavy = false
+          n.homeK = undefined
+          // back to its real value (the store has just been updated if it was dropped on the grid)
+          if (t) {
+            n.hx = t.urgency * w
+            n.hy = (1 - t.importance) * h
+          }
+        }
         grabbed.current = Math.max(0, grabbed.current - 1)
         setDragFrac(null)
         wake()
@@ -259,7 +288,7 @@ export function Priority() {
                 </div>
               ))}
               {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} />)}
-              {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} />}
+              {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
             </div>
           </div>
           <p className="py-1.5 text-center text-xs tracking-wide text-ink-faint">less pressing → more pressing</p>

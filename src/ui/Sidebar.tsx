@@ -286,10 +286,10 @@ export function Sidebar() {
           </Tip>
         }
       >
-        {people.filter((p) => p.favorite).slice(0, MAX_FAVORITES).map((p) => (
+        {people.filter((p) => p.favorite && !p.isMe).slice(0, MAX_FAVORITES).map((p) => (
           <PersonRow key={p.id} person={p} count={live.filter((t) => t.personIds.includes(p.id)).length} />
         ))}
-        {people.some((p) => p.favorite) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}
+        {people.some((p) => p.favorite && !p.isMe) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}
         <ScopeRow active={scope.type === 'contacts'} onClick={() => setScope({ type: 'contacts' })} icon={<IconBook />} label="Address book" count={people.length} />
       </Section>
     ),
@@ -660,8 +660,8 @@ function FolderNode(props: NodeProps) {
     const cur = useFolderSlot.getState().slot
     const same = cur && next && cur.kind === next.kind && cur.afterId === next.afterId && cur.depth === next.depth && cur.parentId === next.parentId && cur.beforeId === next.beforeId
     if (!same && cur !== next) useFolderSlot.setState({ slot: next })
-    // the carried row never slides sideways: the finger alone says what a drop would do, and an arrow says "out one level"
-    lifter.pullOut(!!next && next.kind === 'slot' && next.depth < depth)
+    // the carried row never slides sideways: the finger alone says what a drop would do, and a symbol says which way it goes
+    lifter.hint(!next ? null : next.kind === 'into' || next.depth > depth ? 'in' : next.depth < depth ? 'out' : null)
   }
 
   const onPointerDown = usePointerDrag({

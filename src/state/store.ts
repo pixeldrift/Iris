@@ -444,7 +444,7 @@ export const useStore = create<State>()(
       togglePersonFavorite: (id) => {
         const p = get().people.find((x) => x.id === id)
         if (!p) return
-        if (!p.favorite && get().people.filter((x) => x.favorite).length >= MAX_FAVORITES) {
+        if (!p.favorite && get().people.filter((x) => x.favorite && !x.isMe).length >= MAX_FAVORITES) {
           get().showToast(`The sidebar keeps ${MAX_FAVORITES} favorites. Unheart someone to make room.`)
           return
         }

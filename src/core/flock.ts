@@ -14,6 +14,10 @@ export interface SimNode {
   r: number
   /** Excluded from the sim while the user holds it. */
   pinned: boolean
+  /** This node's own homing spring (default: the sim's). A held bubble uses a firm one so it tracks the finger. */
+  homeK?: number
+  /** Pushes others aside more than it is pushed (a bubble being carried). */
+  heavy?: boolean
 }
 
 export interface SimParams {
@@ -63,8 +67,9 @@ export function stepSim(
   for (let i = 0; i < nodes.length; i++) {
     const a = nodes[i]
     if (a.pinned) continue
-    a.vx += (a.hx - a.x) * p.home * dt
-    a.vy += (a.hy - a.y) * p.home * dt
+    const k = a.homeK ?? p.home
+    a.vx += (a.hx - a.x) * k * dt
+    a.vy += (a.hy - a.y) * k * dt
   }
 
   for (let i = 0; i < nodes.length; i++) {
@@ -99,8 +104,9 @@ export function stepSim(
       if (dist < min) {
         const overlap = min - dist
         const push = overlap * (p.push ?? 0.12) * dt
-        const aw = a.pinned ? 0 : b.pinned ? 1 : 0.5
-        const bw = b.pinned ? 0 : a.pinned ? 1 : 0.5
+        // a carried bubble mostly shoves the others; they only deflect it a little
+        const aw = a.pinned ? 0 : b.pinned ? 1 : a.heavy ? 0.25 : b.heavy ? 0.75 : 0.5
+        const bw = b.pinned ? 0 : a.pinned ? 1 : b.heavy ? 0.25 : a.heavy ? 0.75 : 0.5
         a.vx -= nx * push * aw * 2
         a.vy -= ny * push * aw * 2
         b.vx += nx * push * bw * 2

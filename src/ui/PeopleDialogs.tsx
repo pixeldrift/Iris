@@ -42,14 +42,14 @@ export function PersonDialog() {
   const [split, setSplit] = useState(false) // the address as separate boxes
   const [zips, setZips] = useState<string[]>([]) // ZIPs for a typed city, when there is more than one
   const [note, setNote] = useState('')
-  const favorites = people.filter((p) => p.favorite).length
+  const favorites = people.filter((p) => p.favorite && !p.isMe).length
 
   useEffect(() => {
     if (!open) return
     const base = { ...(defaults as Record<string, string>), ...(existing ?? {}) } as Record<string, string>
     const names = base.first || base.last ? { first: base.first ?? '', last: base.last ?? '' } : splitName(base.name ?? '')
     // new people start hearted while there is room in the sidebar for them
-    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite : favorites < MAX_FAVORITES, categories: existing?.categories ?? [] })
+    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite && !existing.isMe : favorites < MAX_FAVORITES, categories: existing?.categories ?? [] })
     const known = base.street || base.city || base.state || base.zip ? { street: base.street ?? '', city: base.city ?? '', state: base.state ?? '', zip: base.zip ?? '' } : parseAddress(base.address ?? '')
     setParts(known)
     setLine(base.address || composeAddress(known))
@@ -126,22 +126,25 @@ export function PersonDialog() {
       >
         <div className="flex items-center">
           <h3 className="font-display text-xl">{existing?.isMe ? 'My details' : existing ? 'Edit person' : 'Add a person'}</h3>
-          <button
-            type="button"
-            onClick={() => {
-              if (!f.favorite && favorites - (existing?.favorite ? 1 : 0) >= MAX_FAVORITES) return showToast(`The sidebar keeps ${MAX_FAVORITES} favorites. Unheart someone to make room.`)
-              setF((p) => ({ ...p, favorite: !p.favorite }))
-            }}
-            aria-pressed={f.favorite}
-            aria-label={f.favorite ? 'Remove from sidebar' : 'Keep in the sidebar'}
-            title={f.favorite ? 'In your sidebar' : 'Heart to keep in the sidebar'}
-            className={`ml-auto flex h-9 items-center gap-1.5 rounded-full pl-3 pr-2.5 text-sm transition hover:bg-white/70 ${f.favorite ? 'text-lilac-600' : 'text-ink-soft'}`}
-          >
-            Favorite
-            <span className="text-lilac-500">
-              <IconHeart size={19} filled={f.favorite} />
-            </span>
-          </button>
+          {/* you are linked to everything you make already, so there is nothing to keep in the sidebar */}
+          {!existing?.isMe && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!f.favorite && favorites - (existing?.favorite ? 1 : 0) >= MAX_FAVORITES) return showToast(`The sidebar keeps ${MAX_FAVORITES} favorites. Unheart someone to make room.`)
+                setF((p) => ({ ...p, favorite: !p.favorite }))
+              }}
+              aria-pressed={f.favorite}
+              aria-label={f.favorite ? 'Remove from sidebar' : 'Keep in the sidebar'}
+              title={f.favorite ? 'In your sidebar' : 'Heart to keep in the sidebar'}
+              className={`ml-auto flex h-9 items-center gap-1.5 rounded-full pl-3 pr-2.5 text-sm transition hover:bg-white/70 ${f.favorite ? 'text-lilac-600' : 'text-ink-soft'}`}
+            >
+              Favorite
+              <span className="text-lilac-500">
+                <IconHeart size={19} filled={f.favorite} />
+              </span>
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {canPickContacts() && (

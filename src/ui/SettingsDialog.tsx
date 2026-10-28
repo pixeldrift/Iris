@@ -67,16 +67,25 @@ const Group = ({ title, children }: { title: string; children: React.ReactNode }
 export function SettingsDialog() {
   const { open } = useSettingsDialog()
   const [perm, setPerm] = useState(notifyState())
-  const [peek, setPeek] = useState(false)
-  // the dialog fades while a slider is held, so what it changes can be watched behind it
+  const [crop, setCrop] = useState<{ top: number; right: number; bottom: number; left: number } | null>(null)
+  // Holding a slider shrinks the dialog to just that control, so what it changes can be watched behind it.
   const peekProps = {
-    onPointerDown: () => {
-      setPeek(true)
-      window.addEventListener('pointerup', () => setPeek(false), { once: true })
-      window.addEventListener('pointercancel', () => setPeek(false), { once: true })
+    onPointerDown: (e: React.PointerEvent<HTMLInputElement>) => {
+      const block = e.currentTarget.closest('[data-slider-block]')?.getBoundingClientRect()
+      const box = e.currentTarget.closest('[role=dialog]')?.getBoundingClientRect()
+      if (!block || !box) return
+      const pad = 8
+      setCrop({ top: block.top - box.top - pad, left: block.left - box.left - pad, right: box.right - block.right - pad, bottom: box.bottom - block.bottom - pad })
+      window.addEventListener('pointerup', () => setCrop(null), { once: true })
+      window.addEventListener('pointercancel', () => setCrop(null), { once: true })
     },
-    onKeyDown: () => setPeek(true),
-    onKeyUp: () => setPeek(false),
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.repeat) return
+      const block = e.currentTarget.closest('[data-slider-block]')?.getBoundingClientRect()
+      const box = e.currentTarget.closest('[role=dialog]')?.getBoundingClientRect()
+      if (block && box) setCrop({ top: block.top - box.top - 8, left: block.left - box.left - 8, right: box.right - block.right - 8, bottom: box.bottom - block.bottom - 8 })
+    },
+    onKeyUp: () => setCrop(null),
   }
   const space = useStore((s) => s.settings.sidebarSpace)
   const hue = useStore((s) => s.settings.themeHue)
@@ -86,7 +95,7 @@ export function SettingsDialog() {
   const volume = useStore((s) => s.settings.volume)
   const setSetting = useStore((s) => s.setSetting)
   return (
-    <Modal open={open} onClose={close} label="My settings" peek={peek}>
+    <Modal open={open} onClose={close} label="My settings" crop={crop}>
       <div className="space-y-1">
         <h3 className="font-display text-xl">My settings</h3>
         <Group title="Soundscape">
@@ -110,7 +119,7 @@ export function SettingsDialog() {
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
         </Group>
         <Group title="Look & Feel">
-          <div className="px-2 py-1.5">
+          <div className="px-2 py-1.5" data-slider-block>
             <div className="flex items-baseline justify-between text-sm">
               <span>Color</span>
               <span className="text-[0.7rem] text-ink-faint">{Math.abs(hue - BASE_HUE) < 1 ? 'original' : ''}</span>
@@ -120,7 +129,7 @@ export function SettingsDialog() {
               <DefaultDot at={BASE_HUE / 360} color="#9f6fcd" label="Back to the original violet" onReset={() => setSetting('themeHue', BASE_HUE)} />
             </div>
           </div>
-          <div className="px-2 py-1.5">
+          <div className="px-2 py-1.5" data-slider-block>
             <div className="flex items-baseline justify-between text-sm">
               <span>Spacing</span>
               <span className="text-[0.7rem] text-ink-faint">{space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>

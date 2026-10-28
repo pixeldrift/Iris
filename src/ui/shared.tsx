@@ -27,7 +27,7 @@ export function CountBubble({ n, className = '' }: { n: number; className?: stri
 export const KINDS = [
   { id: 'task', label: 'Task', hint: 'Task: something to get done.' },
   { id: 'event', label: 'Event', hint: 'Event: a specific occurrence with a time or place.' },
-  { id: 'habit', label: 'Habit', hint: 'Habit: something you repeat, with a streak to keep.' },
+  { id: 'habit', label: 'Habit', hint: 'Habit: a repeating action with a goal of consistency.' },
   { id: 'list', label: 'List', hint: 'List: a set of things to check off, like groceries.' },
   { id: 'idea', label: 'Idea', hint: 'Idea: a loose thought to keep for later.' },
 ] as const

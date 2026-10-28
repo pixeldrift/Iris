@@ -56,10 +56,13 @@ export const IconPerson = (p: P) => (
     <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
   </Svg>
 )
+/** Settings: three sliders. (Kept the old name; it is no longer a gear.) */
 export const IconGear = (p: P) => (
   <Svg {...p}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6" />
+    <path d="M4 7h7M17 7h3M4 12h3M13 12h7M4 17h9M19 17h1" />
+    <circle cx="14" cy="7" r="2.2" />
+    <circle cx="10" cy="12" r="2.2" />
+    <circle cx="16" cy="17" r="2.2" />
   </Svg>
 )
 export const IconSignOut = (p: P) => (
@@ -240,5 +243,12 @@ export const IconRedo = (p: P) => (
   <Svg {...p}>
     <path d="m15 14 4.5-4.5L15 5" />
     <path d="M19.5 9.5H10a5.5 5.5 0 0 0 0 11h3" />
+  </Svg>
+)
+export const IconZoom = ({ plus, ...p }: P & { plus: boolean }) => (
+  <Svg {...p}>
+    <circle cx="10.5" cy="10.5" r="6" />
+    <path d="m15 15 5 5" />
+    <path d={plus ? 'M8 10.5h5M10.5 8v5' : 'M8 10.5h5'} />
   </Svg>
 )
