@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GRAY, tint } from '../core/color'
 import { addDays, diffDays, fromISO, MONTHS, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds, placeInTree, type Placement, type TreeRow } from '../core/folders'
+import { MAX_FAVORITES } from '../core/people'
 import { taskOnDate } from '../core/recurrence'
 import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
@@ -283,7 +284,7 @@ export function Sidebar() {
           </Tip>
         }
       >
-        {people.filter((p) => p.favorite).map((p) => (
+        {people.filter((p) => p.favorite).slice(0, MAX_FAVORITES).map((p) => (
           <PersonRow key={p.id} person={p} count={live.filter((t) => t.personIds.includes(p.id)).length} />
         ))}
         {people.some((p) => p.favorite) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}

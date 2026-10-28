@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { addDays, today } from '../core/dates'
 import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '../core/folders'
 import { sameName } from '../core/fuzzy'
+import { MAX_FAVORITES } from '../core/people'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
@@ -387,6 +388,11 @@ export const useStore = create<State>()(
 
       savePerson: (p) => {
         const existing = p.id ? get().people.find((x) => x.id === p.id) : undefined
+        // the sidebar has room for six favourites: a seventh is saved, just not hearted
+        if (p.favorite && !existing?.favorite && get().people.filter((x) => x.favorite && x.id !== p.id).length >= MAX_FAVORITES) {
+          p = { ...p, favorite: false }
+          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favourites. Unheart someone to make room.`)
+        }
         if (existing) {
           set((s) => ({ people: s.people.map((x) => (x.id === existing.id ? { ...x, ...p } : x)) }))
           return existing.id
@@ -407,7 +413,15 @@ export const useStore = create<State>()(
       },
       setReminder: (id, at) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false } : t)) })),
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
-      togglePersonFavorite: (id) => set((s) => ({ people: s.people.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)) })),
+      togglePersonFavorite: (id) => {
+        const p = get().people.find((x) => x.id === id)
+        if (!p) return
+        if (!p.favorite && get().people.filter((x) => x.favorite).length >= MAX_FAVORITES) {
+          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favourites. Unheart someone to make room.`)
+          return
+        }
+        set((s) => ({ people: s.people.map((x) => (x.id === id ? { ...x, favorite: !x.favorite } : x)) }))
+      },
       deletePerson: (id) =>
         set((s) => ({
           people: s.people.filter((p) => p.id !== id),

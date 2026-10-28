@@ -8,6 +8,7 @@ import { dueReminders, eventStart, formatReminder, reminderPresets } from './rem
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
 import { matchesQuery } from './search'
+import { composeAddress, parseAddress, splitName } from './people'
 
 describe('dates', () => {
   it('adds and diffs days across month boundaries', () => {
@@ -420,5 +421,27 @@ describe('search', () => {
   it('knows kinds and states', () => {
     expect(hit('habit')).toContain('Morning stretch')
     expect(hit('bloomed')).toContain('Water the ferns')
+  })
+})
+
+describe('names and addresses', () => {
+  it('splits a full name into first and last', () => {
+    expect(splitName('Sarah Lee')).toEqual({ first: 'Sarah', last: 'Lee' })
+    expect(splitName('Dr. Anita Rao Patel')).toEqual({ first: 'Dr. Anita Rao', last: 'Patel' })
+    expect(splitName('Madonna')).toEqual({ first: 'Madonna', last: '' })
+    expect(splitName('')).toEqual({ first: '', last: '' })
+  })
+  it('reads a one-line address into parts', () => {
+    expect(parseAddress('12 Elm Street, Springfield, IL 62704')).toEqual({ street: '12 Elm Street', city: 'Springfield', state: 'IL', zip: '62704' })
+    expect(parseAddress('12 Elm St Springfield IL 62704')).toEqual({ street: '12 Elm St', city: 'Springfield', state: 'IL', zip: '62704' })
+    expect(parseAddress('500 Oak Ave Apt 4B, Austin, tx 78701-1234')).toEqual({ street: '500 Oak Ave Apt 4B', city: 'Austin', state: 'TX', zip: '78701' })
+    expect(parseAddress('62704')).toEqual({ street: '', city: '', state: '', zip: '62704' })
+    expect(parseAddress('Springfield, IL')).toEqual({ street: '', city: 'Springfield', state: 'IL', zip: '' })
+    expect(parseAddress('The Old Mill')).toEqual({ street: 'The Old Mill', city: '', state: '', zip: '' })
+    expect(parseAddress('')).toEqual({ street: '', city: '', state: '', zip: '' })
+  })
+  it('puts the parts back together', () => {
+    expect(composeAddress({ street: '12 Elm St', city: 'Springfield', state: 'IL', zip: '62704' })).toBe('12 Elm St, Springfield, IL 62704')
+    expect(composeAddress({ street: '', city: 'Springfield', state: 'IL', zip: '' })).toBe('Springfield, IL')
   })
 })
