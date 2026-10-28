@@ -242,3 +242,10 @@ export const IconRedo = (p: P) => (
     <path d="M19.5 9.5H10a5.5 5.5 0 0 0 0 11h3" />
   </Svg>
 )
+export const IconZoom = ({ plus, ...p }: P & { plus: boolean }) => (
+  <Svg {...p}>
+    <circle cx="10.5" cy="10.5" r="6" />
+    <path d="m15 15 5 5" />
+    <path d={plus ? 'M8 10.5h5M10.5 8v5' : 'M8 10.5h5'} />
+  </Svg>
+)

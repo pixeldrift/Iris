@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useExit } from './anim'
 
@@ -37,17 +37,31 @@ export function Modal({
   children,
   label,
   wide,
-  peek = false,
+  crop = null,
 }: {
   open: boolean
   onClose: () => void
   children: React.ReactNode
   label: string
   wide?: boolean
-  /** See-through, so whatever a setting changes behind the dialog can be watched while it is adjusted. */
-  peek?: boolean
+  /** Shrink the dialog to just this box (insets from its own edges, px) so what a control changes behind it can be watched; null grows it back out. */
+  crop?: { top: number; right: number; bottom: number; left: number } | null
 }) {
   const { mounted, closing } = useExit(open)
+  // Cropping is a clip, so nothing inside moves. It starts from "no crop" so the shrink animates, and lingers on release so the growth does.
+  const [clipping, setClipping] = useState(false)
+  const [live, setLive] = useState<typeof crop>(null)
+  useEffect(() => {
+    if (crop) {
+      setClipping(true)
+      const id = requestAnimationFrame(() => requestAnimationFrame(() => setLive(crop)))
+      return () => cancelAnimationFrame(id)
+    }
+    setLive(null)
+    const t = window.setTimeout(() => setClipping(false), 420)
+    return () => window.clearTimeout(t)
+  }, [crop])
+  const peek = !!crop || clipping
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (e.stopPropagation(), onClose())
@@ -65,7 +79,8 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full overflow-y-auto rounded-[2rem] p-5 transition-opacity duration-200 ${peek ? 'opacity-30' : ''} ${closing ? 'pop-out' : 'pop-in'}`}
+        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full overflow-y-auto rounded-[2rem] p-5 ${closing ? 'pop-out' : 'pop-in'}`}
+        style={clipping ? { clipPath: live ? `inset(${live.top}px ${live.right}px ${live.bottom}px ${live.left}px round 1.25rem)` : 'inset(0px 0px 0px 0px round 2rem)', transition: 'clip-path 0.4s cubic-bezier(0.34, 1.2, 0.5, 1)' } : undefined}
       >
         {children}
       </div>

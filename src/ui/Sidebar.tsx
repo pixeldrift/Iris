@@ -286,10 +286,10 @@ export function Sidebar() {
           </Tip>
         }
       >
-        {people.filter((p) => p.favorite).slice(0, MAX_FAVORITES).map((p) => (
+        {people.filter((p) => p.favorite && !p.isMe).slice(0, MAX_FAVORITES).map((p) => (
           <PersonRow key={p.id} person={p} count={live.filter((t) => t.personIds.includes(p.id)).length} />
         ))}
-        {people.some((p) => p.favorite) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}
+        {people.some((p) => p.favorite && !p.isMe) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}
         <ScopeRow active={scope.type === 'contacts'} onClick={() => setScope({ type: 'contacts' })} icon={<IconBook />} label="Address book" count={people.length} />
       </Section>
     ),

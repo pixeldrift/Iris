@@ -1,20 +1,48 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { tint } from '../../core/color'
 import { addDays, diffDays, fromISO, MONTHS, today } from '../../core/dates'
+import { formatClock } from '../../core/locale'
 import { spanOf } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { IconChevron } from '../icons'
 import { Tip } from '../Tip'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
+import { ZoomControl } from '../ZoomControl'
 
 const DAY_W = 38
 const MIN_W = 10
-const MAX_W = 110
+const MAX_W = 1600
 const DAYS = 150
 const LABEL_W = 190
+const ROW_H = 44
+/** From this many pixels per day on, hours appear and bars can start and end between midnights. */
+const FINE_W = 240
+const DAY_MIN = 1440
 
-type Preview = { id: string; start: string; end: string }
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+const toMin = (s: string) => {
+  const [h, m] = s.split(':').map(Number)
+  return h * 60 + m
+}
+/** Minutes between hour lines, and the step bars snap to, for a zoom. */
+const lineStep = (w: number) => (w >= 960 ? 60 : w >= 480 ? 180 : 360)
+const snapStep = (w: number) => (w >= 960 ? 15 : w >= 480 ? 30 : 60)
+
+/** Where a task's bar starts and ends, in minutes from the window's first midnight. Whole days until zoomed in. */
+function geometry(task: Task, winStart: string, fine: boolean): { s: number; e: number } {
+  const span = spanOf(task)!
+  const si = diffDays(winStart, span.start)
+  const ei = diffDays(winStart, span.end)
+  if (!fine) return { s: si * DAY_MIN, e: (ei + 1) * DAY_MIN }
+  const startMin = task.time ? toMin(task.time) : 0
+  let endMin = task.endTime ? toMin(task.endTime) : task.time ? Math.min(startMin + 60, DAY_MIN) : DAY_MIN
+  if (endMin >= DAY_MIN - 1) endMin = DAY_MIN
+  const s = si * DAY_MIN + startMin
+  return { s, e: Math.max(ei * DAY_MIN + endMin, s + 15) }
+}
+
+type Preview = { id: string; s: number; e: number }
 
 /** An end grip: just a dot, since it stretches the bar rather than moving it. */
 function Dot() {
@@ -27,40 +55,45 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
   const leave = useLeaveClass(task)
-  const base = spanOf(task)!
-  const span = preview && preview.id === task.id ? preview : { start: base.start, end: base.end }
-  const left = diffDays(winStart, span.start) * dayW
-  const width = (diffDays(span.start, span.end) + 1) * dayW
+  const fine = dayW >= FINE_W
+  const base = geometry(task, winStart, fine)
+  const g = preview && preview.id === task.id ? preview : base
+  const left = (g.s / DAY_MIN) * dayW
+  const width = ((g.e - g.s) / DAY_MIN) * dayW
 
   const begin = (mode: 'move' | 'left' | 'right') => (e: React.PointerEvent) => {
     e.stopPropagation()
     if (e.button !== 0) return
     const sx = e.clientX
+    const snap = fine ? snapStep(dayW) : DAY_MIN
     let moved = false
     let cur: Preview = { id: task.id, ...base }
     const move = (ev: PointerEvent) => {
-      const ds = Math.round((ev.clientX - sx) / dayW)
-      if (ds !== 0) moved = true
-      let { start, end } = base
+      const d = Math.round((((ev.clientX - sx) / dayW) * DAY_MIN) / snap) * snap
+      if (d !== 0) moved = true
+      let { s, e: end } = base
       if (mode === 'move') {
-        start = addDays(start, ds)
-        end = addDays(end, ds)
-      } else if (mode === 'left') {
-        start = addDays(start, ds)
-        if (start > end) start = end
-      } else {
-        end = addDays(end, ds)
-        if (end < start) end = start
-      }
-      cur = { id: task.id, start, end }
+        s += d
+        end += d
+      } else if (mode === 'left') s = Math.min(s + d, end - snap)
+      else end = Math.max(end + d, s + snap)
+      cur = { id: task.id, s, e: end }
       onPreview(cur)
     }
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       onPreview(null)
-      if (!moved) select(task.id)
-      else update(task.id, { start: cur.start, due: cur.end })
+      if (!moved) return select(task.id)
+      const sd = Math.floor(cur.s / DAY_MIN)
+      const ed = Math.floor((cur.e - 1) / DAY_MIN)
+      const dates = { start: addDays(winStart, sd), due: addDays(winStart, ed) }
+      if (!fine) return update(task.id, dates)
+      // zoomed in: the hours are part of the plan too (whole days need none)
+      const sm = cur.s - sd * DAY_MIN
+      const em = cur.e - ed * DAY_MIN
+      const whole = sm === 0 && em === DAY_MIN
+      update(task.id, { ...dates, time: whole ? null : hhmm(sm), endTime: whole ? null : em === DAY_MIN ? '23:59' : hhmm(em) })
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
@@ -73,7 +106,7 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
       style={{
         left,
         width,
-        background: `linear-gradient(90deg, ${tint(hue, 70, 86, .95)}, ${tint(hue, 65, 78, .95)})`,
+        background: `linear-gradient(90deg, ${tint(hue, 70, 86, 0.95)}, ${tint(hue, 65, 78, 0.95)})`,
         color: `${tint(hue, 35, 25)}`,
       }}
     >
@@ -110,8 +143,11 @@ export function Timeline() {
   const [winStart, setWinStart] = useState(addDays(t0, -7))
   const [preview, setPreview] = useState<Preview | null>(null)
   const [dayW, setDayW] = useState(DAY_W)
+  const [scrollX, setScrollX] = useState({ left: 0, width: 1000 })
   const scroller = useRef<HTMLDivElement>(null)
   const labelW = legend ? LABEL_W : 0
+  const fine = dayW >= FINE_W
+  const headerH = fine ? 68 : 48
 
   // Zoom is horizontal only. Keep the day under the pointer (or the middle of the view) where it was.
   const anchor = useRef<{ days: number; fx: number } | null>(null)
@@ -125,6 +161,7 @@ export function Timeline() {
     if (w1 === w0) return
     const x = fx ?? (el.clientWidth + lw) / 2
     anchor.current = { days: (el.scrollLeft + x - lw) / w0, fx: x }
+    cur.current = { dayW: w1, labelW: lw } // so a fast scrub of several steps in one frame compounds
     setDayW(w1)
   }
   useLayoutEffect(() => {
@@ -136,6 +173,30 @@ export function Timeline() {
   }, [dayW, labelW])
   const zoomRef = useRef(zoomAbout)
   zoomRef.current = zoomAbout
+
+  // what part of the timeline is on screen (hour labels are only drawn for that)
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    let raf = 0
+    const read = () => {
+      raf = 0
+      setScrollX({ left: el.scrollLeft, width: el.clientWidth })
+    }
+    const on = () => !raf && (raf = requestAnimationFrame(read))
+    read()
+    el.addEventListener('scroll', on, { passive: true })
+    window.addEventListener('resize', on)
+    return () => {
+      el.removeEventListener('scroll', on)
+      window.removeEventListener('resize', on)
+      cancelAnimationFrame(raf)
+    }
+  }, [])
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (el) setScrollX({ left: el.scrollLeft, width: el.clientWidth })
+  }, [dayW, labelW])
 
   // pinch (two fingers) and ctrl/cmd + wheel
   useEffect(() => {
@@ -194,13 +255,39 @@ export function Timeline() {
     if (!last || last.label !== `${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`) months.push({ label: `${MONTHS[dt.getMonth()]} ${dt.getFullYear()}`, x: i * dayW, w: dayW })
     else last.w += dayW
   })
+
+  // hour labels for the days on screen
+  const step = lineStep(dayW)
+  const firstDay = Math.max(0, Math.floor((scrollX.left - labelW) / dayW) - 1)
+  const lastDay = Math.min(DAYS - 1, Math.ceil((scrollX.left + scrollX.width) / dayW) + 1)
+  const hourMarks: { x: number; label: string; key: string }[] = []
+  if (fine) {
+    for (let d = firstDay; d <= lastDay; d++)
+      for (let m = step; m < DAY_MIN; m += step) hourMarks.push({ key: `${d}:${m}`, x: d * dayW + (m / DAY_MIN) * dayW, label: formatClock(Math.floor(m / 60), m % 60) })
+  }
+
   const hueOf = (t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? 285
   const nav = 'grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/60'
-  const zoomBtn = 'glass-soft grid h-9 w-9 place-items-center rounded-full text-lg text-ink-soft hover:bg-white/80'
+  const lines = [`linear-gradient(90deg, rgb(var(--lr-300)/.22) 1px, transparent 1px)`]
+  const sizes = [`${dayW}px 100%`]
+  if (fine) {
+    lines.push(`linear-gradient(90deg, rgb(var(--lr-300)/.12) 1px, transparent 1px)`)
+    sizes.push(`${(step / DAY_MIN) * dayW}px 100%`)
+  }
 
   return (
     <div className="glass relative flex h-full flex-col rounded-[2rem] p-3 md:p-4">
       <div className="mb-2 flex items-center gap-1 px-1">
+        <Tip label={legend ? 'Hide the names column' : 'Show the names column'}>
+          <button
+            role="switch"
+            aria-checked={legend}
+            onClick={() => setSetting('timelineLegend', !legend)}
+            className={`mr-2 flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs transition ${legend ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`}
+          >
+            Legend
+          </button>
+        </Tip>
         <button onClick={() => setWinStart(addDays(winStart, -28))} className={nav} aria-label="Earlier">
           <span className="inline-grid rotate-180 place-items-center">
             <IconChevron />
@@ -221,24 +308,32 @@ export function Timeline() {
           </span>
         </button>
         <span className="ml-2 hidden min-w-0 flex-1 truncate text-[0.65rem] text-ink-faint sm:block">drag bars to shift · drag ends to stretch · pinch to zoom</span>
-        <Tip label={legend ? 'Hide the names column' : 'Show the names column'}>
-          <button
-            role="switch"
-            aria-checked={legend}
-            onClick={() => setSetting('timelineLegend', !legend)}
-            className={`ml-auto flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs transition ${legend ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`}
-          >
-            Legend
-          </button>
-        </Tip>
       </div>
 
       <div ref={scroller} className="scroll-soft min-h-0 flex-1 overflow-auto rounded-2xl bg-white/30" style={{ touchAction: 'pan-x pan-y' }}>
-        <div style={{ width: labelW + gridW }} className="relative min-h-full">
-          {/* header */}
-          <div className="sticky top-0 z-20 flex bg-white/70 backdrop-blur-md">
-            {legend && <div className="sticky left-0 z-30 shrink-0 bg-white/80" style={{ width: labelW }} />}
-            <div className="relative" style={{ width: gridW }}>
+        <div className="flex min-h-full" style={{ width: labelW + gridW }}>
+          {/* names: a column of its own, to the bottom, with a blank corner so it never sits over the dates */}
+          {legend && (
+            <div className="sticky left-0 z-30 shrink-0 bg-white/95" style={{ width: labelW }}>
+              <div className="sticky top-0 z-10 bg-white/90" style={{ height: headerH }} />
+              {rows.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => select(t.id)}
+                  className="block w-full truncate border-t border-white/60 px-3 text-left text-sm hover:bg-white/60"
+                  style={{ height: ROW_H, color: tint(hueOf(t), 45, 36) }}
+                >
+                  {t.title}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="relative shrink-0" style={{ width: gridW }}>
+            {/* day lines (and hour lines when zoomed in) run the whole height, rows or not */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0" style={{ top: headerH, backgroundImage: lines.join(','), backgroundSize: sizes.join(',') }} />
+
+            <div className="sticky top-0 z-20 bg-white/70 backdrop-blur-md" style={{ height: headerH }}>
               <div className="relative h-6">
                 {months.map((m) => (
                   <span key={m.label} className="absolute top-1 truncate pl-2 text-[0.7rem] font-medium text-lilac-700" style={{ left: m.x, width: m.w }}>
@@ -260,33 +355,24 @@ export function Timeline() {
                   )
                 })}
               </div>
+              {fine && (
+                <div className="relative h-4">
+                  {hourMarks.map((h) => (
+                    <span key={h.key} className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[0.6rem] tabular-nums text-ink-faint/80" style={{ left: h.x }}>
+                      {h.label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* rows */}
-          {rows.map((t) => {
-            const has = !!spanOf(t)
-            const hue = hueOf(t)
-            return (
-              <div key={t.id} className="flex border-t border-white/60">
-                {legend && (
-                  <button
-                    onClick={() => select(t.id)}
-                    className="sticky left-0 z-10 shrink-0 truncate bg-white/70 px-3 text-left text-sm backdrop-blur-md hover:bg-white/90"
-                    style={{ width: labelW, height: 44, color: tint(hue, 45, 36) }}
-                  >
-                    {t.title}
-                  </button>
-                )}
+            {rows.map((t) => {
+              const has = !!spanOf(t)
+              return (
                 <div
-                  className="relative"
-                  style={{
-                    width: gridW,
-                    height: 44,
-                    backgroundImage: `linear-gradient(90deg, rgb(var(--lr-300)/.18) 1px, transparent 1px)`,
-                    backgroundSize: `${dayW}px 100%`,
-                    cursor: has ? undefined : 'copy',
-                  }}
+                  key={t.id}
+                  className="relative border-t border-white/60"
+                  style={{ height: ROW_H, cursor: has ? undefined : 'copy' }}
                   onClick={(e) => {
                     if (has) return
                     const rect = e.currentTarget.getBoundingClientRect()
@@ -300,27 +386,18 @@ export function Timeline() {
                     <span className="pointer-events-none absolute left-3 top-3 text-xs italic text-ink-faint">{legend ? 'unscheduled' : `${t.title} · unscheduled`}</span>
                   )}
                 </div>
-              </div>
-            )
-          })}
-          {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint" style={{ marginLeft: labelW }}>No tasks to chart.</p>}
+              )
+            })}
+            {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">No tasks to chart.</p>}
 
-          {/* today line */}
-          <div className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-lilac-500/60" style={{ left: labelW + todayX }} />
+            {/* today line */}
+            <div className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-lilac-500/60" style={{ left: todayX }} />
+          </div>
         </div>
       </div>
 
-      <div data-ui className="absolute bottom-5 right-5 z-30 flex items-center gap-1.5 md:bottom-6 md:right-6">
-        <Tip label="Zoom out">
-          <button onClick={() => zoomAbout(1 / 1.35)} className={zoomBtn}>
-            −
-          </button>
-        </Tip>
-        <Tip label="Zoom in">
-          <button onClick={() => zoomAbout(1.35)} className={zoomBtn}>
-            +
-          </button>
-        </Tip>
+      <div data-ui className="absolute bottom-5 right-5 z-40 md:bottom-6 md:right-6">
+        <ZoomControl onZoom={(f) => zoomAbout(f)} />
       </div>
     </div>
   )
