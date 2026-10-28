@@ -17,6 +17,7 @@ import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
 import { lifter, SPRING } from './lift'
 import { AccountRow } from './Account'
+import { openCompose } from './NewTask'
 import { CountBubble, GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
@@ -648,7 +649,7 @@ function FolderNode(props: NodeProps) {
   }, [editing, folder.id])
 
   const actions = [
-    { label: 'Add a group inside', icon: <IconPlus size={14} />, run: () => onAdd(folder.id) },
+    { label: `New item in ${folder.name}`, icon: <IconPlus size={14} />, run: () => openCompose(null, { folderIds: [folder.id] }) },
     { label: 'Rename', icon: <IconPencil size={14} />, run: () => setEditing(folder.id) },
     {
       label: 'Delete group',
@@ -723,6 +724,21 @@ function FolderNode(props: NodeProps) {
           />
         ) : (
           <span className="truncate">{folder.name}</span>
+        )}
+        {editing !== folder.id && (
+          <Tip label={`New item in ${folder.name}`}>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                openCompose(null, { folderIds: [folder.id] })
+              }}
+              aria-label={`New item in ${folder.name}`}
+              className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-ink-faint/70 transition hover:bg-white/70 hover:text-lilac-600 md:hidden"
+            >
+              <IconPlus size={13} />
+            </button>
+          </Tip>
         )}
         <Count n={count(folder.id)} />
         <GripHandle label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />

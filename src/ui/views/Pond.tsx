@@ -5,11 +5,11 @@ import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from '../../core
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { contactLink, detectContactIntent } from '../../core/people'
 import { bubbleRadius, habitStreak, plannedDate } from '../../core/tasks'
-import type { Task } from '../../core/types'
+import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
 import { IconBell, IconChat, IconList, IconMail, IconPhone, IconThought } from '../icons'
 import { DoneButton, DueChip } from '../shared'
-import { openCompose } from '../NewTask'
+import { openCompose, type ComposePreset } from '../NewTask'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass, useSearchMatcher, useVisibleTasks } from '../useVisible'
@@ -210,6 +210,9 @@ export function Pond() {
   const people = useStore((s) => s.people)
   const scale = useStore((s) => s.settings.sizeByPriority)
   const group = useStore((s) => s.settings.pondGroup)
+  /** The + beside a cluster's name: a new item that already belongs to it (where that means something). */
+  const addHere = (key: string): ComposePreset | null =>
+    key === 'none' || key === 'all' ? null : group === 'folder' ? { folderIds: [key] } : group === 'person' ? { personIds: [key] } : group === 'kind' ? { kind: key as TaskKind } : null
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
   const scopeRef = useRef(scope)
@@ -857,6 +860,17 @@ export function Pond() {
                 )
               ) : (
                 l.label
+              )}
+              {addHere(l.key) && (
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => openCompose(null, addHere(l.key)!)}
+                  aria-label={`New item in ${l.label}`}
+                  title={`New item in ${l.label}`}
+                  className="ml-2 inline-grid h-6 w-6 -translate-y-0.5 place-items-center rounded-full bg-white/65 align-middle font-sans text-base font-normal not-italic leading-none text-lilac-700 shadow-sm transition hover:scale-110 hover:bg-white"
+                >
+                  +
+                </button>
               )}
             </div>
           </div>

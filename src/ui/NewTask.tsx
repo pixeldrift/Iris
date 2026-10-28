@@ -15,11 +15,16 @@ import { askNotify } from './notify'
 interface ComposeState {
   open: boolean
   at: { x: number; y: number } | null
-  /** Groups the new item starts in (from the + beside a group). */
-  folderIds: string[] | null
+  /** What the new item starts with (from the + beside a group, person or type). */
+  preset: ComposePreset | null
 }
-const useCompose = create<ComposeState>(() => ({ open: false, at: null, folderIds: null }))
-export const openCompose = (at: { x: number; y: number } | null = null, folderIds: string[] | null = null) => useCompose.setState({ open: true, at, folderIds })
+export interface ComposePreset {
+  folderIds?: string[]
+  personIds?: string[]
+  kind?: TaskKind
+}
+const useCompose = create<ComposeState>(() => ({ open: false, at: null, preset: null }))
+export const openCompose = (at: { x: number; y: number } | null = null, preset: ComposePreset | null = null) => useCompose.setState({ open: true, at, preset })
 const closeCompose = () => useCompose.setState({ open: false })
 
 /** One exclusive pill: the highlight slides to whichever type is chosen, with a single soft overshoot. */
@@ -70,7 +75,8 @@ function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKi
 
 /** Centred quick-add: the one way to start a new item, from the New button, the N key, the water or a group's +. */
 export function NewTask() {
-  const { open, at, folderIds: startIn } = useCompose()
+  const { open, at, preset } = useCompose()
+  const startIn = preset?.folderIds
   const { mounted, closing } = useExit(open)
   const add = useStore((s) => s.addTask)
   const update = useStore((s) => s.updateTask)
@@ -100,7 +106,7 @@ export function NewTask() {
   useEffect(() => {
     if (open) {
       setTitle('')
-      setKind(null)
+      setKind(preset?.kind ?? null)
       setPlain(false)
       setMore(false)
       spot.current = at ?? { x: 0.2 + Math.random() * 0.6, y: 0.2 + Math.random() * 0.6 }
@@ -117,7 +123,7 @@ export function NewTask() {
     ...(q?.remindAt ? { remindAt: q.remindAt } : {}),
     ...(q?.repeat ? { repeat: q.repeat } : {}),
     ...(q?.folderIds.length || startIn?.length ? { folderIds: [...new Set([...(startIn ?? []), ...(q?.folderIds ?? [])])] } : {}),
-    ...(q?.personIds.length ? { personIds: q.personIds } : {}),
+    ...(q?.personIds.length || preset?.personIds?.length ? { personIds: [...new Set([...(preset?.personIds ?? []), ...(q?.personIds ?? [])])] } : {}),
   })
 
   const expand = () => {
