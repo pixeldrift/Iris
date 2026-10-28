@@ -1,17 +1,18 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { satOf, tint } from '../../core/color'
 import { stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
-import { bubbleRadius, clamp01 } from '../../core/tasks'
+import { clamp01, weightOf } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useFloatDrag } from '../useFloatDrag'
+import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 const QUADS = [
-  { label: 'Tend now', sub: 'matters · pressing', cls: 'right-0 top-0 items-end justify-start text-right', hue: 345 },
-  { label: 'Make time', sub: 'matters · can wait', cls: 'left-0 top-0 items-start justify-start', hue: 285 },
-  { label: 'Quick breeze', sub: 'pressing · small', cls: 'bottom-0 right-0 items-end justify-end text-right', hue: 200 },
-  { label: 'Let it drift', sub: 'neither, for now', cls: 'bottom-0 left-0 items-start justify-end', hue: 150 },
+  { label: 'Tend now', sub: 'matters · pressing', cls: '', edge: 'right-[34px] top-2 items-end text-right md:right-[40px] md:top-3', hue: 345 },
+  { label: 'Make time', sub: 'matters · can wait', cls: '', edge: 'left-[34px] top-2 items-start md:left-[40px] md:top-3', hue: 285 },
+  { label: 'Quick breeze', sub: 'pressing · small', cls: '', edge: 'bottom-2 right-[34px] items-end text-right md:bottom-3 md:right-[40px]', hue: 200 },
+  { label: 'Let it drift', sub: 'neither, for now', cls: '', edge: 'bottom-2 left-[34px] items-start md:bottom-3 md:left-[40px]', hue: 150 },
 ]
 
 const CLAMP = { minX: 0, maxX: 1, minY: 0, maxY: 1 }
@@ -30,7 +31,7 @@ interface Api {
  * separate thing, settled by a little physics so bubbles with the same values sit around
  * their shared spot instead of on top of each other.
  */
-const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: number; hue: number; start: { x: number; y: number }; api: Api }) {
+const Bub = memo(function Bub({ task, r, hue, start, api, scale }: { task: Task; r: number; hue: number; start: { x: number; y: number }; api: Api; scale: number }) {
   const update = useStore((s) => s.updateTask)
   const leave = useLeaveClass(task)
   const el = useRef<HTMLDivElement>(null)
@@ -59,10 +60,14 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
           onPointerDown={(e) => onPointerDown(e, true)}
           onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
           className={`pad grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full p-1.5 text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
-          style={{ '--h': Math.max(0, hue), '--s': satOf(hue) } as React.CSSProperties}
+          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
           title={task.title}
         >
-          <span className="line-clamp-3 break-words font-display text-[0.7rem] leading-[1.1]">{task.title}</span>
+          {scale >= 0.45 && (
+            <span className="line-clamp-3 break-words font-display leading-[1.1]" style={{ fontSize: `${Math.max(0.5, 0.7 * Math.min(1, scale))}rem` }}>
+              {task.title}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -148,7 +153,13 @@ export function Priority() {
   const [dragFrac, setDragFrac] = useState<{ id: string; x: number; y: number } | null>(null)
   const glowRef = useRef<HTMLDivElement>(null)
 
-  const radius = (t: Task) => Math.round(bubbleRadius(t, true) * 0.62)
+  const scale = useStore((s) => s.settings.priorityScale)
+  const setSetting = useStore((s) => s.setSetting)
+  // size follows importance (and a little urgency), here and while a bubble is carried across the grid
+  const radiusFor = (w: number) => Math.max(8, Math.round((44 + w * 44) * 0.62 * scale))
+  const radius = (t: Task) => radiusFor(weightOf(t))
+  const scaleRef = useRef(scale)
+  scaleRef.current = scale
   const hueOf = useCallback((t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? 285, [folders])
 
   const paint = useCallback(() => {
@@ -200,7 +211,7 @@ export function Priority() {
     }
     paint()
     wake()
-  }, [visible, size, paint, wake]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, size, scale, paint, wake]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const api: Api = useMemo(
     () => ({
@@ -232,8 +243,18 @@ export function Priority() {
         const n = nodes.current.get(id)
         const { w, h } = dims.current
         if (!n || !w || !h) return
-        n.hx = Math.min(w - n.r, Math.max(n.r, fx * w))
-        n.hy = Math.min(h - n.r, Math.max(n.r, fy * h))
+        // growing as it is dragged toward "important", deeper in colour toward "urgent"
+        const u = clamp01(fx)
+        const r = Math.max(8, Math.round((44 + weightOf({ importance: clamp01(1 - fy), urgency: u }) * 44) * 0.62 * scaleRef.current))
+        n.r = r
+        const el = els.current.get(id)
+        if (el) {
+          el.style.width = `${r * 2}px`
+          el.style.height = `${r * 2}px`
+          el.querySelector<HTMLElement>('.pad')?.style.setProperty('--u', String(u))
+        }
+        n.hx = Math.min(w - r, Math.max(r, fx * w))
+        n.hy = Math.min(h - r, Math.max(r, fy * h))
         // the glow is the finger's own spot (the real value), so it never lags or jitters
         const g = glowRef.current
         if (g) {
@@ -267,32 +288,50 @@ export function Priority() {
   const glowTask = visible.find((t) => t.id === (dragFrac?.id ?? selectedId))
   const glowAt = glowTask && size.w ? (dragFrac ? { x: dragFrac.x * size.w, y: dragFrac.y * size.h } : { x: glowTask.urgency * size.w, y: (1 - glowTask.importance) * size.h }) : null
 
+  // the card is never much taller than it is wide, however tall the screen
+  const area = useRef<HTMLDivElement>(null)
+  const [cardH, setCardH] = useState<number | null>(null)
+  useEffect(() => {
+    const el = area.current
+    if (!el) return
+    const read = () => setCardH(Math.min(el.clientHeight, el.clientWidth * 1.25))
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    read()
+    return () => ro.disconnect()
+  }, [])
+  const axis = 'pointer-events-none absolute text-xs tracking-wide text-ink-faint'
+  // zoom here is the size of the bubbles; the grid stays put
+  const zoomBubbles = (f: number) => setSetting('priorityScale', Math.min(1.6, Math.max(0.3, useStore.getState().settings.priorityScale * f)))
+
   return (
     <div className="flex h-full flex-col">
-      <div className="flex min-h-0 flex-1 gap-2">
-        <div className="hidden w-5 shrink-0 items-center justify-center md:flex">
-          <span className="-rotate-90 whitespace-nowrap text-xs tracking-wide text-ink-faint">matters less → matters more</span>
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="glass relative min-h-0 flex-1 rounded-[2rem]" style={{ padding: 0 }}>
-            <div ref={field} className="absolute inset-[34px] md:inset-[40px]">
-              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgb(var(--lr-300)/0.35)]" />
-              <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
-              <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
-              {QUADS.map((q) => (
-                <div key={q.label} className={`pointer-events-none absolute flex h-1/2 w-1/2 flex-col p-3 ${q.cls}`}>
-                  <span className="font-display text-base italic" style={{ color: `${tint(q.hue, 35, 45)}`, opacity: 0.75 }}>
-                    {q.label}
-                  </span>
-                  <span className="text-[0.65rem] text-ink-faint">{q.sub}</span>
-                </div>
-              ))}
-              {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} />)}
-              {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
+      <div ref={area} className="flex min-h-0 flex-1 flex-col items-center justify-center">
+        <div className="glass relative w-full shrink-0 rounded-[2rem]" style={{ padding: 0, height: cardH ?? '100%' }}>
+          <span className={`${axis} left-1/2 top-2 -translate-x-1/2 md:top-3`}>Important</span>
+          <span className={`${axis} bottom-2 left-1/2 -translate-x-1/2 md:bottom-3`}>Unimportant</span>
+          <span className={`${axis} left-2 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl] md:left-3`}>Not urgent</span>
+          <span className={`${axis} right-2 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] md:right-3`}>Urgent</span>
+          {/* the four corner names sit outside the grid, so no bubble can cover them */}
+          {QUADS.map((q) => (
+            <div key={q.label} className={`pointer-events-none absolute flex flex-col ${q.edge}`}>
+              <span className="font-display text-base italic" style={{ color: `${tint(q.hue, 35, 45)}`, opacity: 0.8 }}>
+                {q.label}
+              </span>
+              <span className="text-[0.65rem] text-ink-faint">{q.sub}</span>
             </div>
+          ))}
+          <div ref={field} className="absolute inset-x-[34px] bottom-[60px] top-[60px] md:inset-x-[40px]">
+            <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgb(var(--lr-300)/0.35)]" />
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
+            {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} scale={scale} />)}
+            {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
           </div>
-          <p className="py-1.5 text-center text-xs tracking-wide text-ink-faint">less pressing → more pressing</p>
         </div>
+      </div>
+      <div data-ui className="flex justify-center py-2">
+        <ZoomControl onZoom={zoomBubbles} />
       </div>
     </div>
   )

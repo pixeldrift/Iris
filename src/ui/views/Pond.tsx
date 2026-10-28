@@ -118,6 +118,9 @@ const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r:
   const font = Math.max(11, Math.min(15, r / 4.4))
   // the check circle grows with the bubble, but stays a modest size
   const cb = Math.round(Math.max(22, Math.min(28, r * 0.4)))
+  // none until a bubble is fairly urgent; then up to a couple of pixels, a little faster the more urgent it is
+  const jitter = Math.max(0, (task.urgency - 0.45) / 0.55) * 3.2
+  const jitterDur = 0.75 - 0.4 * task.urgency
   const verb = detectContactIntent(task.title)?.verb
   const link = person && verb ? contactLink(verb, person) : null
 
@@ -134,6 +137,8 @@ const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r:
             className={`h-full w-full ${drift ? m.cls : ''}`}
             style={{ '--dur': `${m.dur}s`, '--delay': `${m.delay}s` } as React.CSSProperties}
           >
+            {/* urgent bubbles carry a little nervous energy: a small, quick, random-feeling jitter (relaxed ones just drift) */}
+            <div className={`h-full w-full ${drift && jitter > 0 ? 'jitter' : ''}`} style={{ '--ja': `${jitter}px`, '--jd': `${jitterDur}s`, '--jdelay': `${m.delay / 9}s` } as React.CSSProperties}>
             <div
               role="button"
               tabIndex={0}
@@ -142,7 +147,7 @@ const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r:
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
-              style={{ '--h': Math.max(0, hue), '--s': satOf(hue) } as React.CSSProperties}
+              style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
             >
               <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
                 {task.title || 'Untitled'}
@@ -191,6 +196,7 @@ const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r:
                   </a>
                 )}
               </span>
+            </div>
             </div>
           </div>
         </div>
