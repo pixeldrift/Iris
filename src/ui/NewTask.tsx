@@ -150,7 +150,9 @@ export function NewTask() {
     if (more) return setMore(false)
     if (!draftId) {
       const q = parsed
-      setDraftId(add({ title: q?.title || title.trim(), kind: shownKind, ...spot.current, ...fieldsFrom(q), draft: true }))
+      const clean = q?.title || title.trim()
+      setDraftId(add({ title: clean, kind: shownKind, ...spot.current, ...fieldsFrom(q), draft: true }))
+      setTitle(clean) // what was understood (day, time, repeat...) now lives in the fields below, not in the line
     }
     setMore(true)
   }
