@@ -92,6 +92,8 @@ interface State {
   savePerson: (p: Partial<Person> & { name: string }) => string
   deletePerson: (id: string) => void
   togglePersonFavorite: (id: string) => void
+  /** Throw away a task that was only being set up in the quick-add box. */
+  discardDraft: (id: string) => void
   /** Set (or clear with null) the alert on a task. */
   setReminder: (id: string, at: number | null) => void
 
@@ -211,7 +213,7 @@ export const useStore = create<State>()(
         }
         task.folderIds = task.folderIds.filter((f) => folders.some((x) => x.id === f))
         set((s) => ({ tasks: [...s.tasks, task] }))
-        get().checkContact(id)
+        if (!task.draft) get().checkContact(id)
         return id
       },
       updateTask: (id, patch) =>
@@ -404,6 +406,7 @@ export const useStore = create<State>()(
         return person.id
       },
       setReminder: (id, at) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false } : t)) })),
+      discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
       togglePersonFavorite: (id) => set((s) => ({ people: s.people.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)) })),
       deletePerson: (id) =>
         set((s) => ({
@@ -526,6 +529,8 @@ export const useStore = create<State>()(
         // sections added in later versions slot in at the end; unknown ones are dropped
         const saved = (p as Partial<State>).sidebar
         const order = [...(saved?.order ?? []).filter((x) => (SECTION_IDS as readonly string[]).includes(x)), ...SECTION_IDS.filter((x) => !(saved?.order ?? []).includes(x))]
+        // a task left half-made when the page closed is not a task
+        if (p.tasks) p.tasks = p.tasks.filter((t) => !t.draft)
         return { ...current, ...p, settings, sidebar: { order, collapsed: saved?.collapsed ?? [] } }
       },
       onRehydrateStorage: () => (s) => {
