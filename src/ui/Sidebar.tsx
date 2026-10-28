@@ -656,7 +656,9 @@ function FolderNode(props: NodeProps) {
     // the carried row narrows to the depth it would take (into a folder = one level inside it)
     const rowDepth = (id: string | null) => Number(document.querySelector<HTMLElement>(`[data-folder-row="${id}"]`)?.dataset.depth ?? 0)
     // the carried row stays exactly as picked up, and only steps in when it would nest inside the lit row
-    lifter.setInset(next?.kind === 'into' ? Math.max(15.2, (rowDepth(next.parentId) + 1 - depth) * 15.2) : 0)
+    // (and widens to the shallower level when pulled out; otherwise it is exactly the size it was)
+    const target = !next ? depth : next.kind === 'into' ? rowDepth(next.parentId) + 1 : next.depth
+    lifter.setInset((target - depth) * 15.2)
   }
 
   const onPointerDown = usePointerDrag({

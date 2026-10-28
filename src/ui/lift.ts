@@ -93,7 +93,7 @@ export const lifter = {
     c.style.marginLeft = `${px}px`
     // measured from the row's own width (a nested row is already narrower than the list), so the right edge never overshoots
     c.style.width = `${active.cw - px}px`
-    c.style.paddingLeft = px ? '0.6rem' : ''
+    c.style.paddingLeft = px > 0 ? '0.6rem' : ''
   },
 
   /** Vertical centre of the lifted copy on screen: where the item visibly is, whatever the grab point. */

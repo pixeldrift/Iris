@@ -124,6 +124,7 @@ export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>)
     label: task.title,
     lift: () => el.current,
     touchNeedsHandle: true,
+    touchHold: true,
     onClick: () => select(task.id),
     onEnd: ({ target }) => {
       if (target) useStore.getState().dropTask(task.id, target)

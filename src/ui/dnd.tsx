@@ -48,11 +48,20 @@ interface Options {
   resolve?: (x: number, y: number) => string | null
   /** Touch must start from a handle so scrolling still works. */
   touchNeedsHandle?: boolean
+  /** With `touchNeedsHandle`: a finger resting on the card (not just the handle) for a moment also picks it up; moving sooner scrolls as usual. */
+  touchHold?: boolean
   onStart?: () => void
   onMove?: (x: number, y: number, dx: number, dy: number) => void
   onEnd?: (e: DragEnd) => void
   onClick?: (e: PointerEvent) => void
 }
+
+const HOLD_MS = 380
+/** True while a held finger is carrying something: the page must not scroll under it. */
+let holding = false
+window.addEventListener('touchmove', (e) => holding && e.cancelable && e.preventDefault(), { passive: false })
+window.addEventListener('touchend', () => (holding = false), { passive: true })
+window.addEventListener('touchcancel', () => (holding = false), { passive: true })
 
 export function usePointerDrag(opts: Options) {
   const optsRef = useRef(opts)
@@ -65,8 +74,9 @@ export function usePointerDrag(opts: Options) {
     const sy = e.clientY
     const t0 = Date.now()
 
-    // Touch on a card body must keep scrolling: only a plain tap is handled.
-    if (e.pointerType === 'touch' && o.touchNeedsHandle && !isHandle) {
+    // Touch on a card body must keep scrolling: only a plain tap is handled, or a press-and-hold if asked for.
+    const touchBody = e.pointerType === 'touch' && o.touchNeedsHandle && !isHandle
+    if (touchBody && !o.touchHold) {
       const up = (ev: PointerEvent) => {
         window.removeEventListener('pointerup', up)
         if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 8 && Date.now() - t0 < 600) optsRef.current.onClick?.(ev)
@@ -126,9 +136,36 @@ export function usePointerDrag(opts: Options) {
     }
     const up = (ev: PointerEvent) => finish(ev, false)
     const cancel = (ev: PointerEvent) => finish(ev, true)
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-    window.addEventListener('pointercancel', cancel)
+    const arm = () => {
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', up)
+      window.addEventListener('pointercancel', cancel)
+    }
+    if (!touchBody) return arm()
+
+    // press-and-hold on a card: a still finger picks it up (a tiny buzz says so); a moving one is scrolling
+    const abandon = () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointermove', early)
+      window.removeEventListener('pointerup', earlyUp)
+      window.removeEventListener('pointercancel', abandon)
+    }
+    const early = (ev: PointerEvent) => {
+      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8) abandon()
+    }
+    const earlyUp = (ev: PointerEvent) => {
+      abandon()
+      if (Date.now() - t0 < 600) optsRef.current.onClick?.(ev)
+    }
+    const timer = window.setTimeout(() => {
+      abandon()
+      holding = true
+      navigator.vibrate?.(8)
+      arm()
+    }, HOLD_MS)
+    window.addEventListener('pointermove', early)
+    window.addEventListener('pointerup', earlyUp)
+    window.addEventListener('pointercancel', abandon)
   }, [])
 }
 
