@@ -4,7 +4,7 @@ import type { ParsedContact } from '../core/people'
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
 import { IconChevronDown, IconHeart } from './icons'
-import { composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
+import { allCategories, composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
 import { lookupCity, lookupZip } from './geo'
 import { canPickContacts, pickContact } from './contacts'
 
@@ -23,7 +23,7 @@ const closePerson = () => usePersonDialog.setState({ open: false })
 
 const field = 'well w-full rounded-xl px-3 py-2 text-sm'
 
-const blank = { first: '', last: '', phone: '', email: '', notes: '', favorite: false }
+const blank = { first: '', last: '', phone: '', email: '', notes: '', favorite: false, categories: [] as string[] }
 
 export function PersonDialog() {
   const { open, id, defaults, onSaved } = usePersonDialog()
@@ -31,8 +31,11 @@ export function PersonDialog() {
   const save = useStore((s) => s.savePerson)
   const del = useStore((s) => s.deletePerson)
   const showToast = useStore((s) => s.showToast)
+  const [newCat, setNewCat] = useState('')
+  const [addingCat, setAddingCat] = useState(false)
   const existing = id ? people.find((p) => p.id === id) : undefined
   const [f, setF] = useState(blank)
+  const categories = allCategories([...people, { categories: f.categories }])
   const [line, setLine] = useState('') // the address as one line
   const [parts, setParts] = useState<AddressParts>(emptyAddress())
   const [split, setSplit] = useState(false) // the address as separate boxes
@@ -45,7 +48,7 @@ export function PersonDialog() {
     const base = { ...(defaults as Record<string, string>), ...(existing ?? {}) } as Record<string, string>
     const names = base.first || base.last ? { first: base.first ?? '', last: base.last ?? '' } : splitName(base.name ?? '')
     // new people start hearted while there is room in the sidebar for them
-    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite : favorites < MAX_FAVORITES })
+    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite : favorites < MAX_FAVORITES, categories: existing?.categories ?? [] })
     const known = base.street || base.city || base.state || base.zip ? { street: base.street ?? '', city: base.city ?? '', state: base.state ?? '', zip: base.zip ?? '' } : parseAddress(base.address ?? '')
     setParts(known)
     setLine(base.address || composeAddress(known))
@@ -121,7 +124,7 @@ export function PersonDialog() {
         className="space-y-3"
       >
         <div className="flex items-center">
-          <h3 className="font-display text-xl">{existing ? 'Edit person' : 'Add a person'}</h3>
+          <h3 className="font-display text-xl">{existing?.isMe ? 'My details' : existing ? 'Edit person' : 'Add a person'}</h3>
           <button
             type="button"
             onClick={() => {
@@ -197,9 +200,60 @@ export function PersonDialog() {
           )}
           {note && <p className="mt-1 text-[0.7rem] text-ink-faint">{note}</p>}
         </div>
+        <div>
+          <span className="mb-1 block text-xs font-medium text-ink-soft">Category</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {categories.map((c) => {
+              const on = f.categories.some((x) => x.toLowerCase() === c.toLowerCase())
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setF((p) => ({ ...p, categories: on ? p.categories.filter((x) => x.toLowerCase() !== c.toLowerCase()) : [...p.categories, c] }))}
+                  className={`rounded-full px-2.5 py-1 text-xs transition ${on ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
+                >
+                  {c}
+                </button>
+              )
+            })}
+            {addingCat ? (
+              <input
+                autoFocus
+                value={newCat}
+                onChange={(e) => setNewCat(e.target.value)}
+                onBlur={() => {
+                  setAddingCat(false)
+                  setNewCat('')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.stopPropagation()
+                    setAddingCat(false)
+                    setNewCat('')
+                  }
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const c = newCat.trim()
+                    if (c && !f.categories.some((x) => x.toLowerCase() === c.toLowerCase())) setF((p) => ({ ...p, categories: [...p.categories, c] }))
+                    setAddingCat(false)
+                    setNewCat('')
+                  }
+                }}
+                placeholder="New category"
+                aria-label="New category"
+                className="well w-32 rounded-full px-3 py-1 text-xs"
+              />
+            ) : (
+              <button type="button" onClick={() => setAddingCat(true)} className="rounded-full bg-white/50 px-2.5 py-1 text-xs text-lilac-700 transition hover:bg-white/80">
+                + New
+              </button>
+            )}
+          </div>
+        </div>
         <textarea className={`${field} resize-none`} rows={2} placeholder="Notes" value={f.notes} onChange={set('notes')} />
         <div className="flex items-center gap-2 pt-1">
-          {existing && (
+          {existing && !existing.isMe && (
             <button
               type="button"
               onClick={async () => {

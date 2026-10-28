@@ -28,6 +28,7 @@ export function TagInput({ taskId }: { taskId: string }) {
   const [open, setOpen] = useState(false)
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
   const labelled = useMemo(() => folders.map((f) => ({ f, label: pathLabel(folders, f.id) })), [folders])
 
@@ -72,7 +73,7 @@ export function TagInput({ taskId }: { taskId: string }) {
   }
 
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <div className="well flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
         {task.folderIds.map((fid) => {
           const f = folders.find((x) => x.id === fid)
@@ -100,7 +101,11 @@ export function TagInput({ taskId }: { taskId: string }) {
             setCursor(0)
             setOpen(true)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true)
+            // once the on-screen keyboard has risen, bring the box (and its suggestions above it) into view
+            window.setTimeout(() => wrapRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350)
+          }}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown') {

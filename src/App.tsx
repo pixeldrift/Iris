@@ -7,6 +7,7 @@ import { DialogHost } from './ui/dialogs'
 import { DragLayer } from './ui/dnd'
 import { ContactPromptHost, PersonDialog } from './ui/PeopleDialogs'
 import { AccountHost } from './ui/Account'
+import { SettingsDialog } from './ui/SettingsDialog'
 import { ReminderHost } from './ui/Reminders'
 import { ToastHost } from './ui/Toast'
 import { UpdateBubble } from './ui/UpdateBubble'
@@ -86,6 +87,7 @@ export default function App() {
       <ContactPromptHost />
       <ReminderHost />
       <AccountHost />
+      <SettingsDialog />
       <DialogHost />
       <ToastHost />
       <UpdateBubble />

@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { addDays, today } from '../core/dates'
 import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '../core/folders'
 import { sameName } from '../core/fuzzy'
-import { MAX_FAVORITES } from '../core/people'
+import { fullName, MAX_FAVORITES, splitName } from '../core/people'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
@@ -97,6 +97,8 @@ interface State {
   togglePersonFavorite: (id: string) => void
   /** Throw away a task that was only being set up in the quick-add box. */
   discardDraft: (id: string) => void
+  /** Make sure the signed-in person has their own contact entry (the same id on every device). */
+  ensureMe: (user: { id: string; name: string; email: string }) => void
   /** Set (or clear with null) the alert on a task. */
   setReminder: (id: string, at: number | null) => void
 
@@ -416,6 +418,14 @@ export const useStore = create<State>()(
         return person.id
       },
       setReminder: (id, at) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false } : t)) })),
+      ensureMe: (user) => {
+        const id = `me-${user.id}`
+        if (get().people.some((p) => p.id === id)) return
+        const n = splitName(user.name || user.email.split('@')[0])
+        set((s) => ({
+          people: [...s.people, { id, name: fullName(n.first, n.last), first: n.first, last: n.last, phone: '', email: user.email, address: '', notes: '', hue: 285, favorite: false, isMe: true, createdAt: Date.now() }],
+        }))
+      },
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
       togglePersonFavorite: (id) => {
         const p = get().people.find((x) => x.id === id)

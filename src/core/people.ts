@@ -166,3 +166,13 @@ export function composeAddress(a: AddressParts): string {
   const region = [a.state.trim(), a.zip.trim()].filter(Boolean).join(' ')
   return [a.street.trim(), a.city.trim(), region].filter(Boolean).join(', ')
 }
+
+/** Starting categories for the address book; people can also get any custom ones. */
+export const PRESET_CATEGORIES = ['Family', 'Friend', 'Coworker']
+
+/** Presets first, then every custom category in use (alphabetical). */
+export function allCategories(people: Pick<Person, 'categories'>[]): string[] {
+  const custom = new Set<string>()
+  for (const p of people) for (const c of p.categories ?? []) if (!PRESET_CATEGORIES.some((x) => x.toLowerCase() === c.toLowerCase())) custom.add(c)
+  return [...PRESET_CATEGORIES, ...[...custom].sort((a, b) => a.localeCompare(b))]
+}

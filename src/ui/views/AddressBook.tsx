@@ -4,6 +4,7 @@ import { fuzzyScore } from '../../core/fuzzy'
 import { useStore } from '../../state/store'
 import { IconHeart, IconPlus } from '../icons'
 import { openPerson } from '../PeopleDialogs'
+import { allCategories } from '../../core/people'
 import { CountBubble } from '../shared'
 import { Tip } from '../Tip'
 
@@ -15,12 +16,15 @@ export function AddressBook() {
   const toggle = useStore((s) => s.togglePersonFavorite)
   const setScope = useStore((s) => s.setScope)
   const [q, setQ] = useState('')
+  const [cat, setCat] = useState<string | null>(null)
+  const cats = allCategories(people)
 
   const rows = useMemo(() => {
     const t = q.trim()
-    const list = t ? people.filter((p) => `${p.name} ${p.email} ${p.phone}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : people
+    const inCat = cat ? people.filter((p) => (p.categories ?? []).some((c) => c.toLowerCase() === cat.toLowerCase())) : people
+    const list = t ? inCat.filter((p) => `${p.name} ${p.email} ${p.phone}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : inCat
     return [...list].sort((a, b) => a.name.localeCompare(b.name))
-  }, [people, q])
+  }, [people, q, cat])
   const groups = useMemo(() => {
     const m = new Map<string, typeof rows>()
     for (const p of rows) {
@@ -46,7 +50,19 @@ export function AddressBook() {
           </button>
         </Tip>
       </div>
-      <div className="scroll-soft mt-3 min-h-0 flex-1 overflow-y-auto">
+      <div className="no-scrollbar mt-2.5 flex items-center gap-1.5 overflow-x-auto py-0.5" role="group" aria-label="Category">
+        {[null, ...cats].map((c) => (
+          <button
+            key={c ?? 'all'}
+            onClick={() => setCat(c)}
+            aria-pressed={cat === c}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs transition ${cat === c ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
+          >
+            {c ?? 'All'}
+          </button>
+        ))}
+      </div>
+      <div className="scroll-soft mt-2 min-h-0 flex-1 overflow-y-auto">
         {groups.map(([letter, list]) => (
           <section key={letter} className="mb-2">
             <h3 className="px-2 pb-0.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-ink-faint">{letter}</h3>
@@ -59,8 +75,11 @@ export function AddressBook() {
                       {p.name[0]?.toUpperCase()}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-[0.95rem]">{p.name}</span>
-                      <span className="block truncate text-xs text-ink-soft">{[p.phone, p.email].filter(Boolean).join(' · ') || 'No details yet'}</span>
+                      <span className="block truncate text-[0.95rem]">
+                        {p.name}
+                        {p.isMe && <span className="ml-1.5 rounded-full bg-lilac-100 px-1.5 py-0.5 align-middle text-[0.62rem] font-medium text-lilac-700">Me</span>}
+                      </span>
+                      <span className="block truncate text-xs text-ink-soft">{[...(p.categories ?? []), p.phone, p.email].filter(Boolean).join(' · ') || 'No details yet'}</span>
                     </span>
                   </button>
                   <button onClick={() => setScope({ type: 'person', id: p.id })} className="shrink-0 transition hover:scale-110" title="Show their open tasks" aria-label={`${n} open tasks for ${p.name}`}>

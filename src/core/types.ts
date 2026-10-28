@@ -118,6 +118,10 @@ export interface Person {
   name: string
   first?: string
   last?: string
+  /** The signed-in person's own entry (created from their account). */
+  isMe?: boolean
+  /** Labels like Family or Friend, for grouping the address book. */
+  categories?: string[]
   phone: string
   email: string
   /** The address as one line (always kept in step with the parts below). */
