@@ -23,8 +23,10 @@ export async function POST(request: Request) {
     const who = await getVerifier().check(request)
     if (!('userId' in who)) console.warn('sync: token refused:', who.reason)
     if (!('userId' in who)) return json({ error: 'The server did not accept your sign-in token', reason: who.reason }, 401)
-    const body = parseRequest(await request.json())
-    return json(await applySync(getPool(), who.userId, body))
+    const body = parseRequest(await request.json(), who.userId)
+    const out = await applySync(getPool(), who.userId, body)
+    // `cursor` is what the first version of the app read (personal workspace only)
+    return json({ ...out, cursor: out.cursors[who.userId] ?? 0 })
   } catch (e) {
     if (e instanceof BadRequest || e instanceof SyntaxError) return json({ error: e.message }, 400)
     console.error('sync failed', e)

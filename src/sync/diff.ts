@@ -8,19 +8,24 @@ export interface Change {
   id: string
   data: Record<string, unknown> | null
   updatedAt: number
+  /** Which workspace it lives in (absent = the signed-in person's personal one). */
+  workspaceId?: string
 }
 
 /** What this device last agreed on with the server. Persisted between visits. */
 export interface SyncMemory {
   userId: string | null
-  cursor: number
+  /** workspace id -> the highest server seq seen there (the personal workspace's id is the user id) */
+  cursors: Record<string, number>
+  /** key -> workspace, only for entities outside the personal workspace (so a deletion knows where to go) */
+  wsOf: Record<string, string>
   /** key -> hash of the entity as the server last had it */
   known: Record<string, string>
   /** key -> the clock (ms) of the last change this device knows of */
   stamps: Record<string, number>
 }
 
-export const emptyMemory = (): SyncMemory => ({ userId: null, cursor: 0, known: {}, stamps: {} })
+export const emptyMemory = (): SyncMemory => ({ userId: null, cursors: {}, wsOf: {}, known: {}, stamps: {} })
 
 export const keyOf = (kind: Kind, id: string) => `${kind}:${id}`
 
@@ -39,6 +44,7 @@ export interface Entity {
   kind: Kind
   id: string
   data: Record<string, unknown>
+  workspaceId?: string
 }
 
 /**
@@ -54,13 +60,14 @@ export function localChanges(entities: Entity[], memory: SyncMemory, now: number
     seen.add(key)
     if (memory.known[key] === hashOf(e.data)) continue
     stamps[key] = now
-    changes.push({ kind: e.kind, id: e.id, data: e.data, updatedAt: now })
+    changes.push({ kind: e.kind, id: e.id, data: e.data, updatedAt: now, ...(e.workspaceId ? { workspaceId: e.workspaceId } : {}) })
   }
   for (const key of Object.keys(memory.known)) {
     if (seen.has(key)) continue
     const [kind, ...rest] = key.split(':')
     stamps[key] = now
-    changes.push({ kind: kind as Kind, id: rest.join(':'), data: null, updatedAt: now })
+    const workspaceId = memory.wsOf[key]
+    changes.push({ kind: kind as Kind, id: rest.join(':'), data: null, updatedAt: now, ...(workspaceId ? { workspaceId } : {}) })
   }
   return { changes, stamps }
 }

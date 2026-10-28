@@ -42,3 +42,12 @@ describe('remoteToApply', () => {
     expect(remoteToApply(remote, new Map(), new Map())).toHaveLength(1)
   })
 })
+
+describe('workspaces', () => {
+  it('sends the workspace along, including for a deletion', () => {
+    const shared: Entity = { kind: 'task', id: 's', data: { id: 's', title: 'S' }, workspaceId: 'team' }
+    expect(localChanges([shared], emptyMemory(), 5).changes[0].workspaceId).toBe('team')
+    const mem = { ...emptyMemory(), known: { [keyOf('task', 's')]: 'x' }, wsOf: { [keyOf('task', 's')]: 'team' } }
+    expect(localChanges([], mem, 6).changes).toEqual([{ kind: 'task', id: 's', data: null, updatedAt: 6, workspaceId: 'team' }])
+  })
+})
