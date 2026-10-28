@@ -607,7 +607,8 @@ function GroupMenu({ n, name, actions }: { n: number; name: string; actions: { l
       </span>
       <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="!min-w-0 !p-1" onMouseEnter={() => hover() && show()} onMouseLeave={() => hover() && hide()}>
         <div className="flex items-center gap-0.5">
-          {actions.map((a) => (
+          {/* the everyday action sits under the thumb (right); delete is furthest away */}
+          {[...actions].reverse().map((a) => (
             <button
               key={a.label}
               aria-label={a.label}
