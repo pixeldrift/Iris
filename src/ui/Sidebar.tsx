@@ -504,7 +504,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
               toggleFavorite(person.id)
             }}
             className="rounded-md p-1 text-lilac-500 hover:bg-lilac-100"
-            aria-label={`Unfavourite ${person.name}`}
+            aria-label={`Unfavorite ${person.name}`}
           >
             <IconHeart size={14} filled />
           </button>
@@ -810,7 +810,7 @@ function FolderNode(props: NodeProps) {
 
 const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255, GRAY]
 
-/** Everything about one folder in one place: rename it, colour it, add inside it, delete it. */
+/** Everything about one folder in one place: rename it, color it, add inside it, delete it. */
 function FolderOptions({
   folder,
   open,
@@ -849,7 +849,7 @@ function FolderOptions({
         />
       </label>
 
-      {/* flower and colour palettes side by side, 4 x 3 each; the hue slider sits under both */}
+      {/* flower and color palettes side by side, 4 x 3 each; the hue slider sits under both */}
       <div className="mt-3.5 grid grid-cols-2 gap-3">
         <div>
           <div className="text-xs font-medium text-ink-soft">Flower</div>
@@ -871,13 +871,13 @@ function FolderOptions({
           </div>
         </div>
         <div>
-          <div className="text-xs font-medium text-ink-soft">Colour</div>
+          <div className="text-xs font-medium text-ink-soft">Color</div>
           <div className="mt-1.5 grid grid-cols-4 gap-0.5">
             {SWATCHES.map((h) => (
               <button
                 key={h}
                 onClick={() => updateFolder(folder.id, { hue: h })}
-                aria-label={h === GRAY ? 'Colour gray' : `Colour ${h}`}
+                aria-label={h === GRAY ? 'Color gray' : `Color ${h}`}
                 aria-pressed={folder.hue === h}
                 className="grid h-8 place-items-center rounded-lg transition hover:bg-lilac-100/60"
               >
@@ -899,7 +899,7 @@ function FolderOptions({
         value={folder.hue}
         onChange={(e) => updateFolder(folder.id, { hue: Number(e.target.value) })}
         className="soft hue mt-2"
-        aria-label="Custom colour"
+        aria-label="Custom color"
       />
 
       <div className="mt-3 flex items-center border-t border-white/60 pt-2.5">
@@ -928,9 +928,9 @@ function FolderOptions({
 
 /**
  * The room a dragged folder will take. It opens (with a gentle spring) where the item would land,
- * nudging its neighbours apart. It answers hit-tests as the same folder so the target never flickers.
+ * nudging its neighbors apart. It answers hit-tests as the same folder so the target never flickers.
  */
-/** Where a drop would land: a coloured bar laid over the seam, which takes no room, so nothing shifts until you let go. */
+/** Where a drop would land: a colored bar laid over the seam, which takes no room, so nothing shifts until you let go. */
 function Gap({ open }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
   return (
     <div aria-hidden data-gap className="pointer-events-none relative z-10 h-0">

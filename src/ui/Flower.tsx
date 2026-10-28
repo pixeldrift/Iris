@@ -5,10 +5,10 @@ import type { FlowerShape } from '../core/types'
 /**
  * Folder flowers. The artwork lives in real SVG files, one per shape, in `src/assets/flowers/`:
  * open and edit them in any vector editor (see the README there). This file only loads them,
- * repeats the petals to the requested count, and applies a folder's colour.
+ * repeats the petals to the requested count, and applies a folder's color.
  *
  * Each shape has its own silhouette (radial, cup, spike, bell…), not just a different petal
- * count or colour, so folders stay distinguishable at 18px and in greyscale. Shapes made of
+ * count or color, so folders stay distinguishable at 18px and in grayscale. Shapes made of
  * repeated petals take a `petals` count, so the count could later carry meaning (e.g. priority)
  * without redrawing anything.
  */
@@ -71,7 +71,7 @@ function inner(shape: FlowerShape, petals?: number): string {
 const tones = (hue: number, mono: boolean): CSSProperties =>
   mono
     ? ({
-        // one hue in four lightnesses: the shape reads, and nothing can clash with the chosen colour
+        // one hue in four lightnesses: the shape reads, and nothing can clash with the chosen color
         '--flower-base': `${tint(hue, 50, 58)}`,
         '--flower-light': `${tint(hue, 50, 72)}`,
         '--flower-deep': `${tint(hue, 50, 44)}`,
@@ -97,7 +97,7 @@ export function Flower({
   shape?: FlowerShape
   /** Only for shapes with variable rings (blossom, daisy, lily, cosmos, pinwheel, sunflower). */
   petals?: number
-  /** Draw in a single colour (the folder's own), centres and all. Used in pickers. */
+  /** Draw in a single color (the folder's own), centres and all. Used in pickers. */
   mono?: boolean
   className?: string
 }) {

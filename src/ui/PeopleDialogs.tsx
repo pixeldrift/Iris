@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatPhone } from '../core/locale'
 import { create } from 'zustand'
 import type { ParsedContact } from '../core/people'
 import { useStore } from '../state/store'
@@ -128,7 +129,7 @@ export function PersonDialog() {
           <button
             type="button"
             onClick={() => {
-              if (!f.favorite && favorites - (existing?.favorite ? 1 : 0) >= MAX_FAVORITES) return showToast(`The sidebar keeps ${MAX_FAVORITES} favourites. Unheart someone to make room.`)
+              if (!f.favorite && favorites - (existing?.favorite ? 1 : 0) >= MAX_FAVORITES) return showToast(`The sidebar keeps ${MAX_FAVORITES} favorites. Unheart someone to make room.`)
               setF((p) => ({ ...p, favorite: !p.favorite }))
             }}
             aria-pressed={f.favorite}
@@ -154,7 +155,7 @@ export function PersonDialog() {
           <input className={field} placeholder="Last name" aria-label="Last name" autoComplete="family-name" value={f.last} onChange={set('last')} />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input className={field} placeholder="Phone" inputMode="tel" value={f.phone} onChange={set('phone')} />
+          <input className={field} placeholder="Phone" inputMode="tel" value={f.phone} onChange={set('phone')} onBlur={() => setF((p) => ({ ...p, phone: formatPhone(p.phone) }))} />
           <input className={field} placeholder="Email" inputMode="email" value={f.email} onChange={set('email')} />
         </div>
         <div>

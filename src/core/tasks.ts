@@ -1,4 +1,5 @@
 import { addDays, diffDays, fromISO, today } from './dates'
+import { formatClock } from './locale'
 import { currentOccurrence, repeatOf, repeatStreak, taskOnDate } from './recurrence'
 import { descendantIds } from './folders'
 import type { Folder, Scope, SortKey, Task } from './types'
@@ -108,8 +109,7 @@ export function spanOf(t: Task): { start: string; end: string } | null {
 /** `15:30` -> `3:30 pm`, `09:00` -> `9 am`. */
 export function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number)
-  const hour = h % 12 === 0 ? 12 : h % 12
-  return `${hour}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'am' : 'pm'}`
+  return formatClock(h, m)
 }
 
 /** Consecutive occurrences done (a habit's streak). */

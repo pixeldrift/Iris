@@ -1,4 +1,5 @@
 import { addDays, fromISO, MONTHS, toISO } from './dates'
+import { dayFirst, formatDate } from './locale'
 import { fuzzyScore } from './fuzzy'
 import { pathOf } from './folders'
 import { describeRecurrence } from './recurrence'
@@ -266,10 +267,12 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
   }
   if (!date) {
     r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(\d{1,2})\/(\d{1,2})\b(?!\/)/i)
-    if (r.m && Number(r.m[2]) >= 1 && Number(r.m[2]) <= 12 && Number(r.m[3]) >= 1 && Number(r.m[3]) <= 31) {
+    // month first by default (US); day first when the date style is set that way
+    const [mm, dd] = dayFirst() ? [Number(r.m?.[3]), Number(r.m?.[2])] : [Number(r.m?.[2]), Number(r.m?.[3])]
+    if (r.m && mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
       dueMode = !!r.m[1]
-      let d = new Date(now.getFullYear(), Number(r.m[2]) - 1, Number(r.m[3]))
-      if (toISO(d) < todayISO) d = new Date(now.getFullYear() + 1, Number(r.m[2]) - 1, Number(r.m[3]))
+      let d = new Date(now.getFullYear(), mm - 1, dd)
+      if (toISO(d) < todayISO) d = new Date(now.getFullYear() + 1, mm - 1, dd)
       date = toISO(d)
       t = r.rest
     }
@@ -282,12 +285,12 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     const [y, mo, d] = day.split('-').map(Number)
     if (date || start) out.remindAt = new Date(y, mo - 1, d, h, m).getTime()
     out.kind = out.kind ?? 'task'
-    if (out.remindAt) out.chips.push(`Remind ${fromISO(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}${start ? ` · ${formatTime(start)}` : ''}`)
+    if (out.remindAt) out.chips.push(`Remind ${formatDate(day, { weekday: true })}${start ? ` · ${formatTime(start)}` : ''}`)
   } else {
     if (date) {
       if (dueMode) out.due = date
       else out.day = date
-      out.chips.push(dueMode ? `Due ${fromISO(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}` : fromISO(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }))
+      out.chips.push(dueMode ? `Due ${formatDate(date, { weekday: true })}` : formatDate(date, { weekday: true }))
     }
     if (start) {
       out.time = start

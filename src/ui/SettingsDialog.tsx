@@ -4,6 +4,8 @@ import { useStore } from '../state/store'
 import type { Settings } from '../state/store'
 import { Modal } from './dialogs'
 import { BASE_HUE } from './theme'
+import { DATE_STYLES, deviceTimeZone } from '../core/locale'
+import { SegmentedToggle } from './SegmentedToggle'
 import { askNotify, notifyState } from './notify'
 import { useState } from 'react'
 
@@ -78,6 +80,8 @@ export function SettingsDialog() {
   }
   const space = useStore((s) => s.settings.sidebarSpace)
   const hue = useStore((s) => s.settings.themeHue)
+  const dateFormat = useStore((s) => s.settings.dateFormat)
+  const clockFormat = useStore((s) => s.settings.clockFormat)
   const sound = useStore((s) => s.settings.sound)
   const volume = useStore((s) => s.settings.volume)
   const setSetting = useStore((s) => s.setSetting)
@@ -105,15 +109,38 @@ export function SettingsDialog() {
           <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
         </Group>
-        <Group title="Colour">
+        <Group title="Color">
           <div className="px-2 py-1.5">
             <div className="flex items-baseline justify-between text-sm">
-              <span>Interface colour</span>
+              <span>Interface color</span>
               <span className="text-[0.7rem] text-ink-faint">{Math.abs(hue - BASE_HUE) < 1 ? 'original' : ''}</span>
             </div>
             <div className="relative mt-1 pb-3">
-              <input type="range" min={0} max={360} value={hue} onChange={(e) => setSetting('themeHue', Number(e.target.value))} className="soft hue" aria-label="Interface colour" {...peekProps} />
+              <input type="range" min={0} max={360} value={hue} onChange={(e) => setSetting('themeHue', Number(e.target.value))} className="soft hue" aria-label="Interface color" {...peekProps} />
               <DefaultDot at={BASE_HUE / 360} color="#9f6fcd" label="Back to the original violet" onReset={() => setSetting('themeHue', BASE_HUE)} />
+            </div>
+          </div>
+        </Group>
+        <Group title="Region">
+          <div className="space-y-2 px-2 py-1.5">
+            <div>
+              <div className="mb-1 text-sm">Dates</div>
+              <SegmentedToggle label="Date format" value={dateFormat} options={DATE_STYLES} onChange={(v) => setSetting('dateFormat', v)} />
+            </div>
+            <div>
+              <div className="mb-1 text-sm">Clock</div>
+              <SegmentedToggle
+                label="Clock"
+                value={clockFormat}
+                options={[
+                  { id: '12', label: '12-hour' },
+                  { id: '24', label: '24-hour' },
+                ]}
+                onChange={(v) => setSetting('clockFormat', v)}
+              />
+            </div>
+            <div className="text-sm">
+              Time zone <span className="ml-1 text-[0.7rem] text-ink-faint">{deviceTimeZone().replace(/_/g, ' ')} · follows this device</span>
             </div>
           </div>
         </Group>

@@ -1,4 +1,5 @@
 import { addDays, fromISO, toISO, WEEKDAYS } from './dates'
+import { formatClock, formatDate } from './locale'
 import { anchorOf, nextOccurrence, repeatOf } from './recurrence'
 import type { Task } from './types'
 
@@ -52,13 +53,13 @@ export function reminderPresets(t: Task, now: number): ReminderPreset[] {
 export function formatReminder(at: number, now: number): string {
   const d = new Date(at)
   const h = d.getHours()
-  const time = `${h % 12 === 0 ? 12 : h % 12}${d.getMinutes() ? ':' + String(d.getMinutes()).padStart(2, '0') : ''} ${h < 12 ? 'am' : 'pm'}`
+  const time = formatClock(h, d.getMinutes())
   const day = toISO(d)
   const today = toISO(new Date(now))
   if (day === today) return `${time} today`
   if (day === addDays(today, 1)) return `${time} tomorrow`
   if (day < addDays(today, 7) && day > today) return `${WEEKDAYS[d.getDay()].slice(0, 3)} ${time}`
-  return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`
+  return `${formatDate(day, { now: new Date(now) })}, ${time}`
 }
 
 /** `datetime-local` value (local time, `YYYY-MM-DDTHH:MM`) <-> epoch ms. */

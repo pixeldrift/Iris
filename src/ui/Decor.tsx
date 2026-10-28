@@ -10,7 +10,7 @@ function rng(seed: number) {
   }
 }
 
-// built from the theme's violets, so the colour slider recolours the wisteria too
+// built from the theme's violets, so the color slider recolors the wisteria too
 const SHADES = [
   'var(--color-lilac-200)',
   'var(--color-lilac-300)',

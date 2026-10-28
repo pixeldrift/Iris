@@ -24,7 +24,7 @@
 
 :root {
   color-scheme: light;
-  /* the violet as plain r g b, for translucent shadows (the colour slider rewrites these) */
+  /* the violet as plain r g b, for translucent shadows (the color slider rewrites these) */
   --lr-200: 225 208 244;
   --lr-300: 205 177 235;
   --lr-400: 183 143 223;
@@ -381,7 +381,7 @@ input[type='date'] {
   box-shadow: inset 2px 3px 6px rgb(var(--lr-deep)/0.22), inset -1px -2px 4px rgba(255, 255, 255, 0.3), 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 
-/* hue slider for folder colours */
+/* hue slider for folder colors */
 input[type='range'].hue::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, hsl(0 62% 78%), hsl(40 62% 76%), hsl(90 50% 76%), hsl(150 50% 76%), hsl(200 62% 78%), hsl(255 62% 80%), hsl(300 62% 80%), hsl(340 62% 80%));
   opacity: 1;

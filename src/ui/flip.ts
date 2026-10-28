@@ -3,7 +3,7 @@ import { useDnd } from './dnd'
 import { SPRING } from './lift'
 
 /**
- * Neighbours glide to their new places (with the same gentle spring) when a list reorders.
+ * Neighbors glide to their new places (with the same gentle spring) when a list reorders.
  * Mark each item `data-flip="<id>"` (or `data-<attr>`). Positions are measured relative to `root`, so scrolling
  * never reads as movement, and nothing animates while a drag is previewing a gap.
  */

@@ -8,7 +8,7 @@ export interface FloatOptions {
   toClient?: (fx: number, fy: number) => { cx: number; cy: number }
   fromClient?: (cx: number, cy: number) => { fx: number; fy: number }
   clamp?: { minX: number; maxX: number; minY: number; maxY: number }
-  /** Called while dragging with the node's new centre (as a fraction). */
+  /** Called while dragging with the node's new center (as a fraction). */
   onDrag?: (fx: number, fy: number) => void
   onGrab?: () => void
   /** Node renders itself at the pointer everywhere (no chip needed). */

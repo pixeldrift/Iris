@@ -125,7 +125,7 @@ export function usePointerDrag(opts: Options) {
         window.addEventListener('click', swallow, { capture: true, once: true })
         window.setTimeout(() => window.removeEventListener('click', swallow, true), 50)
         const target = cancelled ? null : (cur.resolve ?? targetAt)(ev.clientX, ev.clientY)
-        // apply the drop first, then clear the drag, so lists re-render once and neighbours can glide
+        // apply the drop first, then clear the drag, so lists re-render once and neighbors can glide
         cur.onEnd?.({ target, x: ev.clientX, y: ev.clientY })
         useDnd.setState({ drag: null, over: null, liftH: 0 })
         if (lifted) lifter.end(target, ev.clientX, ev.clientY)

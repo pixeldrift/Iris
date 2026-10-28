@@ -104,7 +104,7 @@ export const lifter = {
     if (active) badge(active.wrap, show)
   },
 
-  /** Vertical centre of the lifted copy on screen: where the item visibly is, whatever the grab point. */
+  /** Vertical center of the lifted copy on screen: where the item visibly is, whatever the grab point. */
   centerY(): number | null {
     if (!active) return null
     const r = active.clone.getBoundingClientRect()

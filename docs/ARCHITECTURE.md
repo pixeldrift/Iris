@@ -60,7 +60,7 @@ src/ui/      React components (platform specific: SwiftUI)
   `ui/water.ts` so the bubbles' bobbing (`Pond.tsx`) arrives with the same front. It renders at reduced
   resolution, only while a ripple is alive, and drops resolution itself if frames run long.
   **Refraction hook:** in the shader's `main()`, `g` is the surface slope. Sample a backdrop texture at
-  `p + g * k` for background displacement, or per colour channel with different `k` for chromatic
+  `p + g * k` for background displacement, or per color channel with different `k` for chromatic
   aberration, and composite it inside `shade()`.
 * A deploy writes `dist/version.json`; the running app polls it and shows the "newer Lilac is ready"
   bubble when the id changes.

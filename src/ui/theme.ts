@@ -1,9 +1,9 @@
 import { useStore } from '../state/store'
 
-/** The violet the interface was drawn in; sliding the colour moves everything from here. */
+/** The violet the interface was drawn in; sliding the color moves everything from here. */
 export const BASE_HUE = 271
 
-// the palette's own colours; each keeps its lightness and saturation and only turns round the colour wheel
+// the palette's own colors; each keeps its lightness and saturation and only turns round the color wheel
 const TOKENS: Record<string, string> = {
   '--color-lilac-50': '#f8f3fd',
   '--color-lilac-100': '#f0e7fa',
@@ -17,7 +17,7 @@ const TOKENS: Record<string, string> = {
   '--color-ink-soft': '#7b6e8e',
   '--color-ink-faint': '#a99fba',
 }
-// the same colours as "r g b", for the translucent shadows and glows written as rgb(var(--lr-x) / alpha)
+// the same colors as "r g b", for the translucent shadows and glows written as rgb(var(--lr-x) / alpha)
 const RGB: Record<string, [number, number, number]> = {
   '--lr-200': [225, 208, 244],
   '--lr-300': [205, 177, 235],

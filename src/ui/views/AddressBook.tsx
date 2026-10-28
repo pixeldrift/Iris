@@ -89,7 +89,7 @@ export function AddressBook() {
                     <button
                       onClick={() => toggle(p.id)}
                       aria-pressed={p.favorite}
-                      aria-label={p.favorite ? `Unfavourite ${p.name}` : `Favourite ${p.name}`}
+                      aria-label={p.favorite ? `Unfavorite ${p.name}` : `Favorite ${p.name}`}
                       className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-white/70 ${p.favorite ? 'text-lilac-500' : 'text-ink-faint'}`}
                     >
                       <IconHeart size={18} filled={p.favorite} />

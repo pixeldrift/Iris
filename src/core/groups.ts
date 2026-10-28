@@ -6,7 +6,7 @@ export interface Group {
   key: string
   label: string
   taskIds: string[]
-  /** The group's own colour (a folder's or person's hue), when it has one. */
+  /** The group's own color (a folder's or person's hue), when it has one. */
   hue?: number
   /** For folder groups: the trail from the top (School › English 101), so the title reads as a breadcrumb. */
   path?: { id: string; name: string }[]
