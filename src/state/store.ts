@@ -32,6 +32,8 @@ export interface Settings {
   timelineLegend: boolean
   /** The interface's base color, as a hue (271 is the original violet). */
   themeHue: number
+  /** Priority grid: how big the bubbles are drawn (1 = normal). The grid itself never changes. */
+  priorityScale: number
   /** How dates are written (see core/locale). */
   dateFormat: 'us' | 'us-numeric' | 'dmy' | 'iso'
   clockFormat: '12' | '24'
@@ -139,6 +141,7 @@ const DEFAULT_SETTINGS: Settings = {
   sidebarSpace: 0.5,
   timelineLegend: false,
   themeHue: 271,
+  priorityScale: 1,
   dateFormat: 'us',
   clockFormat: '12',
 }
