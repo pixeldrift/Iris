@@ -6,6 +6,7 @@ import { useStore } from '../state/store'
 import { IconBell, IconClose } from './icons'
 import { DatePicker } from './DatePicker'
 import { askNotify, notifyState } from './notify'
+import { SegmentedToggle } from './SegmentedToggle'
 import { TimePicker } from './TimePicker'
 
 const toHHMM = (ms: number) => `${String(new Date(ms).getHours()).padStart(2, '0')}:${String(new Date(ms).getMinutes()).padStart(2, '0')}`
@@ -42,18 +43,12 @@ export function ReminderField({ task }: { task: Task }) {
           </button>
         </div>
       )}
-      <div className="flex flex-wrap gap-1.5">
-        {presets.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => set(p.at)}
-            aria-pressed={task.remindAt === p.at}
-            className={`rounded-full px-2.5 py-1 text-xs transition ${task.remindAt === p.at ? 'bg-lilac-500 text-white' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedToggle
+        label="Remind me"
+        value={presets.find((p) => p.at === task.remindAt)?.id ?? null}
+        options={presets}
+        onChange={(id) => set(task.remindAt === presets.find((p) => p.id === id)?.at ? null : (presets.find((p) => p.id === id)?.at ?? null))}
+      />
       <div className="mt-2 grid grid-cols-2 gap-3">
         <DatePicker
           label="Or pick a day"

@@ -52,7 +52,7 @@ interface State {
   /** Sidebar sections: their order and which are folded shut. */
   sidebar: { order: string[]; collapsed: string[] }
   contactPrompt: ContactPrompt | null
-  toast: { id: number; text: string } | null
+  toast: { id: number; text: string; action?: { label: string; run: () => void } } | null
 
   setScope: (s: Scope) => void
   setView: (v: ViewId) => void
@@ -83,7 +83,7 @@ interface State {
   rollover: () => void
   /** Dragging a bubble into another pond cluster re-tags it to match. */
   assignToGroup: (taskId: string, mode: PondGroup, key: string) => void
-  showToast: (text: string) => void
+  showToast: (text: string, action?: { label: string; run: () => void }) => void
 
   addFolder: (name: string, parentId?: string | null) => string
   ensureFolderPath: (path: string, parentId?: string | null) => string
@@ -334,10 +334,10 @@ export const useStore = create<State>()(
         }
         sound.plink()
       },
-      showToast: (text) => {
+      showToast: (text, action) => {
         const id = Date.now()
-        set({ toast: { id, text } })
-        window.setTimeout(() => set((s) => (s.toast?.id === id ? { toast: null } : s)), 3600)
+        set({ toast: { id, text, action } })
+        window.setTimeout(() => set((s) => (s.toast?.id === id ? { toast: null } : s)), action ? 6000 : 3600)
       },
 
       addFolder: (name, parentId = null) => {

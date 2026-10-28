@@ -2,11 +2,10 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { dayLabel, shortDate, weekdayName } from '../core/dates'
 import { pathOf } from '../core/folders'
 import type { Folder, PondGroup } from '../core/types'
-import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
-import { IconClose, IconEye, IconMenu, IconPlus, IconSearch, IconSound, IconSoundOff } from './icons'
+import { IconClose, IconMenu, IconPlus, IconSearch, IconUndo, IconRedo } from './icons'
+import { redo, undo, useHistory } from '../state/history'
 import { useSearchMatcher, useVisibleTasks } from './useVisible'
-import { MenuItem, Popover } from './Popover'
 import { VIEWS } from './Sidebar'
 import { Tip } from './Tip'
 
@@ -21,129 +20,22 @@ const GROUPS: { id: PondGroup; label: string }[] = [
 const btn = (on: boolean) =>
   `grid h-9 w-9 shrink-0 place-items-center rounded-full transition ${on ? 'glass-soft bg-white text-lilac-700 shadow-sm' : 'glass-soft text-ink-soft hover:bg-white/70'}`
 
-/** Tap = sound on/off. Hold (or right-click) = every individual sound option. */
-function SoundButton() {
-  const s = useStore((st) => st.settings)
-  const set = useStore((st) => st.setSetting)
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-  const timer = useRef(0)
-  const held = useRef(false)
-
-  const options: { key: 'sfxDrops' | 'sfxChimes' | 'sfxPops' | 'ambient'; label: string; hint: string }[] = [
-    { key: 'sfxDrops', label: 'Water drops', hint: 'when you add' },
-    { key: 'sfxChimes', label: 'Chimes & blooms', hint: 'finish, tag, move' },
-    { key: 'sfxPops', label: 'Bubble pops', hint: 'when you delete' },
-    { key: 'ambient', label: 'Ambient wind chimes', hint: 'always on' },
-  ]
-
+function UndoRedo() {
+  const { undoLabel, redoLabel } = useHistory()
+  const off = 'pointer-events-none opacity-35'
   return (
     <>
-      <span ref={ref} className="inline-flex">
-        <Tip label={s.sound ? 'Sound on · tap to mute · hold for options' : 'Sound off · tap to unmute · hold for options'}>
-          <button
-            aria-pressed={s.sound}
-            className={btn(false)}
-            onPointerDown={() => {
-              held.current = false
-              window.clearTimeout(timer.current)
-              timer.current = window.setTimeout(() => {
-                held.current = true
-                setOpen(true)
-              }, 450)
-            }}
-            onPointerUp={() => window.clearTimeout(timer.current)}
-            onPointerLeave={() => window.clearTimeout(timer.current)}
-            onPointerCancel={() => window.clearTimeout(timer.current)}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setOpen(true)
-            }}
-            onClick={() => {
-              if (held.current) return
-              unlock()
-              set('sound', !s.sound)
-            }}
-          >
-            {s.sound ? <IconSound /> : <IconSoundOff />}
-          </button>
-        </Tip>
-      </span>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="w-64">
-        <div className="px-3 pb-1 pt-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">Sound</div>
-        <MenuItem
-          onClick={() => {
-            unlock()
-            set('sound', !s.sound)
-          }}
-          trailing={<Switch on={s.sound} />}
-        >
-          All sound
-        </MenuItem>
-        {options.map((o) => (
-          <MenuItem
-            key={o.key}
-            onClick={() => {
-              unlock()
-              set(o.key, !s[o.key])
-            }}
-            trailing={<Switch on={s[o.key] && s.sound} />}
-          >
-            <span className={s.sound ? '' : 'opacity-50'}>
-              {o.label}
-              <span className="block text-[0.68rem] font-normal text-ink-faint">{o.hint}</span>
-            </span>
-          </MenuItem>
-        ))}
-        <div className="px-3 pb-2 pt-1">
-          <input type="range" min={0.1} max={1} step={0.05} value={s.volume} onChange={(e) => set('volume', Number(e.target.value))} className="soft" aria-label="Volume" />
-        </div>
-      </Popover>
+      <Tip label={undoLabel ? `Undo: ${undoLabel}` : 'Nothing to undo'}>
+        <button onClick={undo} aria-label="Undo" aria-disabled={!undoLabel} className={`${btn(false)} ${undoLabel ? '' : off}`}>
+          <IconUndo />
+        </button>
+      </Tip>
+      <Tip label={redoLabel ? `Redo: ${redoLabel}` : 'Nothing to redo'}>
+        <button onClick={redo} aria-label="Redo" aria-disabled={!redoLabel} className={`${btn(false)} ${redoLabel ? '' : off}`}>
+          <IconRedo />
+        </button>
+      </Tip>
     </>
-  )
-}
-
-/** Every on/off display option, tucked under one menu. */
-function ViewMenu() {
-  const view = useStore((st) => st.view)
-  const s = useStore((st) => st.settings)
-  const set = useStore((st) => st.setSetting)
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-  const items: { key: 'sizeByPriority' | 'drift' | 'showDone'; label: string; hint: string; pondOnly?: boolean }[] = [
-    { key: 'sizeByPriority', label: 'Bigger when more important', hint: 'bubble size', pondOnly: true },
-    { key: 'drift', label: 'Gentle drifting', hint: 'floating on the water', pondOnly: true },
-    { key: 'showDone', label: 'Show bloomed tasks', hint: 'finished tasks stay visible' },
-  ]
-  return (
-    <>
-      <span ref={ref} className="inline-flex">
-        <Tip label="View options">
-          <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className={btn(open)}>
-            <IconEye />
-          </button>
-        </Tip>
-      </span>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="w-72">
-        <div className="px-3 pb-1 pt-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">View</div>
-        {items
-          .filter((i) => !i.pondOnly || view === 'pond')
-          .map((i) => (
-            <MenuItem key={i.key} onClick={() => set(i.key, !s[i.key])} trailing={<Switch on={s[i.key]} />}>
-              {i.label}
-              <span className="block text-[0.68rem] font-normal text-ink-faint">{i.hint}</span>
-            </MenuItem>
-          ))}
-      </Popover>
-    </>
-  )
-}
-
-function Switch({ on }: { on: boolean }) {
-  return (
-    <span className={`relative h-5 w-9 rounded-full transition ${on ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
-      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? 'left-[1.1rem]' : 'left-0.5'}`} />
-    </span>
   )
 }
 
@@ -274,8 +166,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             </button>
           </Tip>
         )}
-        {scope.type !== 'contacts' && <ViewMenu />}
-        <SoundButton />
+        <UndoRedo />
       </div>
       <Tip label="New task">
         <button

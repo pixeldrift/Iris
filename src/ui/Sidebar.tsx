@@ -12,7 +12,7 @@ import { Logo } from './Decor'
 import { askConfirm } from './dialogs'
 import { FLOWER_SHAPES, Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
-import { Popover } from './Popover'
+import { MenuItem, Popover } from './Popover'
 import { useIsMobile } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
@@ -573,6 +573,58 @@ interface NodeProps {
   onAdd: (parent: string) => void
 }
 
+/** The count bubble doubles as the group's little menu: hover it with a mouse, tap it on a phone. */
+function GroupMenu({ n, name, actions }: { n: number; name: string; actions: { label: string; icon: React.ReactNode; run: () => void }[] }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  const timer = useRef(0)
+  const hover = () => window.matchMedia('(hover: hover)').matches
+  const show = () => {
+    window.clearTimeout(timer.current)
+    setOpen(true)
+  }
+  const hide = () => {
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setOpen(false), 180)
+  }
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  return (
+    <>
+      <span ref={ref} className="ml-auto inline-flex" onMouseEnter={() => hover() && show()} onMouseLeave={() => hover() && hide()}>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            setOpen((o) => !o)
+          }}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`${name}: ${n} ${n === 1 ? 'item' : 'items'}. Open menu`}
+          className="rounded-full transition hover:scale-105"
+        >
+          <CountBubble n={n} />
+        </button>
+      </span>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="w-44" onMouseEnter={() => hover() && show()} onMouseLeave={() => hover() && hide()}>
+        {actions.map((a) => (
+          <MenuItem
+            key={a.label}
+            onClick={() => {
+              setOpen(false)
+              a.run()
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-ink-faint">{a.icon}</span>
+              {a.label}
+            </span>
+          </MenuItem>
+        ))}
+      </Popover>
+    </>
+  )
+}
+
 function FolderNode(props: NodeProps) {
   const { folder, depth, editing, setEditing, collapsed, toggle, count, onAdd } = props
   const folders = useStore((s) => s.folders)
@@ -654,10 +706,10 @@ function FolderNode(props: NodeProps) {
   }, [editing, folder.id])
 
   const actions = [
-    { label: `New item in ${folder.name}`, icon: <IconPlus size={14} />, run: () => openCompose(null, { folderIds: [folder.id] }) },
+    { label: 'Add', icon: <IconPlus size={14} />, run: () => openCompose(null, { folderIds: [folder.id] }) },
     { label: 'Rename', icon: <IconPencil size={14} />, run: () => setEditing(folder.id) },
     {
-      label: 'Delete group',
+      label: 'Delete',
       icon: <IconTrash size={14} />,
       run: async () => {
         if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
@@ -728,43 +780,21 @@ function FolderNode(props: NodeProps) {
             className="well min-w-0 flex-1 rounded-lg px-2 py-0.5"
           />
         ) : (
-          <span className="truncate">{folder.name}</span>
-        )}
-        {editing !== folder.id && (
-          <Tip label={`New item in ${folder.name}`}>
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
+          <span
+            className="truncate"
+            onClick={(e) => {
+              // already filtered to this group, with a mouse: the name is the thing to edit
+              if (active && window.matchMedia('(hover: hover)').matches) {
                 e.stopPropagation()
-                openCompose(null, { folderIds: [folder.id] })
-              }}
-              aria-label={`New item in ${folder.name}`}
-              className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-ink-faint/70 transition hover:bg-white/70 hover:text-lilac-600 md:hidden"
-            >
-              <IconPlus size={13} />
-            </button>
-          </Tip>
-        )}
-        <Count n={count(folder.id)} />
-        <GripHandle label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />
-        {editing !== folder.id && (
-          <span className="absolute right-8 flex items-center gap-0.5 rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
-            {actions.map((b) => (
-              <Tip key={b.label} label={b.label}>
-                <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    b.run()
-                  }}
-                  className="rounded-md p-1 text-ink-faint hover:bg-lilac-100 hover:text-lilac-600"
-                >
-                  {b.icon}
-                </button>
-              </Tip>
-            ))}
+                setEditing(folder.id)
+              }
+            }}
+          >
+            {folder.name}
           </span>
         )}
+        <GroupMenu n={count(folder.id)} name={folder.name} actions={actions} />
+        <GripHandle label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />
       </div>
       <Gap open={slotHere !== null} indent={slotHere?.depth ?? 0} line />
       {isOpen && kids.map((k) => <FolderNode key={k.id} {...props} folder={k} depth={depth + 1} />)}
