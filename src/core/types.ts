@@ -10,6 +10,10 @@ export interface Recurrence {
   byDay?: number[]
   /** Monthly: day of the month (absent = the day of `from`; 31 in a short month means its last day). */
   monthDay?: number
+  /** Monthly, with one weekday in `byDay`: the nth such weekday of the month (1-4, or -1 for the last): "the third Tuesday". */
+  nth?: number
+  /** Chosen with the Custom option (so the full controls stay open). */
+  custom?: boolean
   from: string
 }
 
@@ -45,6 +49,10 @@ export interface Task {
   log: string[]
   /** A repeating task or habit. Each occurrence is ticked off in `log`; the task itself is never "done". */
   repeat: Recurrence | null
+  /** Events: any number of reminders, each as minutes before the start (0 = at the start). */
+  alerts: number[]
+  /** Which of those have already gone off (`<start ms>:<minutes>`), so each fires once per occurrence. */
+  alertsDone: string[]
   /** An alert: when to nudge (epoch ms), and whether it has already gone off. */
   remindAt: number | null
   reminded: boolean
@@ -110,6 +118,10 @@ export interface Person {
   name: string
   first?: string
   last?: string
+  /** The signed-in person's own entry (created from their account). */
+  isMe?: boolean
+  /** Labels like Family or Friend, for grouping the address book. */
+  categories?: string[]
   phone: string
   email: string
   /** The address as one line (always kept in step with the parts below). */

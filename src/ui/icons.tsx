@@ -48,6 +48,24 @@ export const IconSearch = (p: P) => (
     <path d="m20 20-4.2-4.2" />
   </Svg>
 )
+export const IconPerson = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
+  </Svg>
+)
+export const IconGear = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6" />
+  </Svg>
+)
+export const IconSignOut = (p: P) => (
+  <Svg {...p}>
+    <path d="M9 4.5H6.5A1.5 1.5 0 0 0 5 6v12a1.5 1.5 0 0 0 1.5 1.5H9" />
+    <path d="M14 8l4 4-4 4M18 12H9.5" />
+  </Svg>
+)
 export const IconList = (p: P) => (
   <Svg {...p}>
     <path d="M9 6h11M9 12h11M9 18h11" />

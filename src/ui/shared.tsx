@@ -25,12 +25,18 @@ export function CountBubble({ n, className = '' }: { n: number; className?: stri
 }
 
 export const KINDS = [
-  { id: 'task', label: 'Task' },
-  { id: 'event', label: 'Event' },
-  { id: 'habit', label: 'Habit' },
-  { id: 'list', label: 'List' },
-  { id: 'idea', label: 'Idea' },
+  { id: 'task', label: 'Task', hint: 'Task: something to get done.' },
+  { id: 'event', label: 'Event', hint: 'Event: a specific occurrence with a time or place.' },
+  { id: 'habit', label: 'Habit', hint: 'Habit: something you repeat, with a streak to keep.' },
+  { id: 'list', label: 'List', hint: 'List: a set of things to check off, like groceries.' },
+  { id: 'idea', label: 'Idea', hint: 'Idea: a loose thought to keep for later.' },
 ] as const
+
+/** One light italic line saying what the chosen type is for. */
+export function KindHint({ kind, className = '' }: { kind: string; className?: string }) {
+  const hint = KINDS.find((k) => k.id === kind)?.hint
+  return hint ? <p className={`text-xs font-light italic text-ink-soft/80 ${className}`}>{hint}</p> : null
+}
 
 export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
   const toggle = useStore((s) => s.toggleDone)

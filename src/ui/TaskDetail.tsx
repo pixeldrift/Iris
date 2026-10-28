@@ -3,14 +3,13 @@ import { ListEditor } from './ListEditor'
 import { ReminderField } from './ReminderField'
 import { EventFields, RecentStrip, RepeatField } from './KindFields'
 import { useEffect, useRef, useState } from 'react'
-import { WEEKDAYS } from '../core/dates'
 import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
 import { DatePicker } from './DatePicker'
 import { askConfirm } from './dialogs'
 import { IconCheck, IconClose, IconTrash } from './icons'
-import { DoneButton, KINDS, STATUSES } from './shared'
+import { DoneButton, KindHint, KINDS, STATUSES } from './shared'
 import { TagInput } from './TagInput'
 import { Tip } from './Tip'
 
@@ -19,7 +18,7 @@ function SoftSlider({ label, left, right, value, onChange }: { label: string; le
     <label className="block">
       <span className="mb-0.5 block text-xs font-medium text-ink-soft">{label}</span>
       <input type="range" min={0} max={1} step="any" value={value} onChange={(e) => onChange(Number(e.target.value))} className="soft" aria-label={label} />
-      <span className="flex justify-between text-[0.68rem] text-ink-faint">
+      <span className="-mt-1.5 flex justify-between text-[0.68rem] leading-none text-ink-faint">
         <span>{left}</span>
         <span>{right}</span>
       </span>
@@ -38,6 +37,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
   return (
     <>
       {withKind && (
+      <div className="space-y-1.5">
       <div className="flex gap-1.5">
         {KINDS.map((k) => (
           <button
@@ -48,6 +48,8 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
             {k.label}
           </button>
         ))}
+      </div>
+        <KindHint kind={task.kind} className="px-0.5" />
       </div>
       )}
 
@@ -66,7 +68,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
         </div>
       )}
 
-      <ReminderField task={task} />
+      {task.kind !== 'event' && <ReminderField task={task} />}
 
       <textarea
         value={task.notes}
@@ -77,8 +79,8 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
       />
 
       <div className="space-y-3">
-        <SoftSlider label="How much it matters" left="a passing thought" right="close to my heart" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
-        <SoftSlider label="How pressing it feels" left="whenever" right="the tide is coming" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} />
+        <SoftSlider label="How much it matters" left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
+        <SoftSlider label="How urgent it is" left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} />
       </div>
 
       <div className="space-y-3">
@@ -103,36 +105,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
           </div>
         </div>
         )}
-        {task.kind !== 'event' && task.kind !== 'habit' && !task.repeat && (
-        <div>
-          <span className="mb-1 block text-xs font-medium text-ink-soft">
-            Only on these days <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
-          </span>
-          <div className="flex gap-1">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => {
-              const on = !!task.days?.includes(i)
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  aria-pressed={on}
-                  aria-label={WEEKDAYS[i]}
-                  onClick={() => {
-                    const cur = task.days ?? []
-                    const next = on ? cur.filter((d) => d !== i) : [...cur, i].sort()
-                    update(task.id, { days: next.length ? next : null })
-                  }}
-                  className={`grid h-8 flex-1 place-items-center rounded-full text-xs transition ${on ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
-                >
-                  {l}
-                </button>
-              )
-            })}
-          </div>
-          {!!task.days?.length && task.rollover && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
         </div>
-        )}
-      </div>
 
       {task.kind !== 'habit' && (
       <div>
@@ -235,7 +208,7 @@ export function TaskDetail() {
           <div className="flex items-center gap-2">
             <button
               onClick={async () => {
-                if (await askConfirm({ title: 'Let this one go?', message: `“${task.title || 'Untitled'}” will pop and be gone.`, confirmLabel: 'Pop it', cancelLabel: 'Keep', danger: true })) del(task.id)
+                if (await askConfirm({ title: 'Delete this item?', message: `“${task.title || 'Untitled'}” will be deleted.`, confirmLabel: 'Delete', cancelLabel: 'Keep', danger: true })) del(task.id)
               }}
               className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-faint transition hover:text-[#b04a6e]"
             >

@@ -3,10 +3,11 @@ import { persist } from 'zustand/middleware'
 import { addDays, today } from '../core/dates'
 import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '../core/folders'
 import { sameName } from '../core/fuzzy'
-import { MAX_FAVORITES } from '../core/people'
+import { fullName, MAX_FAVORITES, splitName } from '../core/people'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
+import { eventStart } from '../core/reminders'
 import { rolloverDay, urgencyForDue } from '../core/tasks'
 import type { Folder, Person, PondGroup, Scope, SortKey, Task, TaskKind, TaskStatus, ViewId } from '../core/types'
 import * as sound from '../audio/engine'
@@ -33,7 +34,8 @@ export interface ContactPrompt {
   verb: ContactVerb
 }
 
-export const SECTION_IDS = ['views', 'people', 'week', 'folders'] as const
+// (the Views list is pinned at the top and is not one of the movable sections)
+export const SECTION_IDS = ['people', 'week', 'folders'] as const
 
 interface State {
   tasks: Task[]
@@ -95,6 +97,8 @@ interface State {
   togglePersonFavorite: (id: string) => void
   /** Throw away a task that was only being set up in the quick-add box. */
   discardDraft: (id: string) => void
+  /** Make sure the signed-in person has their own contact entry (the same id on every device). */
+  ensureMe: (user: { id: string; name: string; email: string }) => void
   /** Set (or clear with null) the alert on a task. */
   setReminder: (id: string, at: number | null) => void
 
@@ -194,6 +198,8 @@ export const useStore = create<State>()(
           place: '',
           log: [],
           repeat: null,
+          alerts: [],
+          alertsDone: [],
           remindAt: null,
           reminded: false,
           status: 'todo',
@@ -412,6 +418,14 @@ export const useStore = create<State>()(
         return person.id
       },
       setReminder: (id, at) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false } : t)) })),
+      ensureMe: (user) => {
+        const id = `me-${user.id}`
+        if (get().people.some((p) => p.id === id)) return
+        const n = splitName(user.name || user.email.split('@')[0])
+        set((s) => ({
+          people: [...s.people, { id, name: fullName(n.first, n.last), first: n.first, last: n.last, phone: '', email: user.email, address: '', notes: '', hue: 285, favorite: false, isMe: true, createdAt: Date.now() }],
+        }))
+      },
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
       togglePersonFavorite: (id) => {
         const p = get().people.find((x) => x.id === id)
@@ -482,7 +496,7 @@ export const useStore = create<State>()(
     }),
     {
       name: 'lilac-v1',
-      version: 10,
+      version: 11,
       partialize: (s) => ({
         tasks: s.tasks,
         folders: s.folders,
@@ -529,6 +543,17 @@ export const useStore = create<State>()(
               return { ...t, repeat: t.days?.length ? { freq: 'weekly' as const, interval: 1, byDay: t.days, from } : { freq: 'daily' as const, interval: 1, from }, days: null }
             }
             return { ...t, repeat: t.repeat ?? null }
+          })
+        }
+        if (from < 11) {
+          // events keep their reminders as "minutes before the start"; an old one-off reminder becomes one of those
+          p.tasks = (p.tasks ?? []).map((t) => {
+            const alerts = t.alerts ?? []
+            const start = t.kind === 'event' ? eventStart(t) : null
+            if (start && t.remindAt !== null && t.remindAt <= start && !alerts.length) {
+              return { ...t, alerts: [Math.round((start - t.remindAt) / 60000)], alertsDone: t.reminded ? [`${start}:${Math.round((start - t.remindAt) / 60000)}`] : [], remindAt: null, reminded: false }
+            }
+            return { ...t, alerts, alertsDone: t.alertsDone ?? [] }
           })
         }
         p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }

@@ -3,7 +3,11 @@ import { create } from 'zustand'
 import { accountsConfigured, authClient } from '../sync/auth'
 import { forgetAccountData, startSync, syncNow, useSync } from '../sync/engine'
 import { askConfirm, Modal } from './dialogs'
+import { IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
+import { openPerson } from './PeopleDialogs'
 import { Popover } from './Popover'
+import { openSettings } from './SettingsDialog'
+import { useStore } from '../state/store'
 
 const useAuthDialog = create<{ open: boolean; mode: 'in' | 'up' }>(() => ({ open: false, mode: 'in' }))
 export const openAuth = (mode: 'in' | 'up' = 'in') => useAuthDialog.setState({ open: true, mode })
@@ -17,6 +21,11 @@ export function AccountHost() {
 function AccountSync() {
   const { data } = authClient.useSession()
   const userId = data?.user.id ?? null
+  const ensureMe = useStore((s) => s.ensureMe)
+  useEffect(() => {
+    // your own entry in the address book, made from your account (the same on every device)
+    if (data?.user) ensureMe({ id: data.user.id, name: data.user.name, email: data.user.email })
+  }, [data?.user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => (userId ? startSync(userId) : undefined), [userId])
   return <AuthDialog />
 }
@@ -106,6 +115,7 @@ export function AccountRow() {
 function AccountMenu() {
   const { data } = authClient.useSession()
   const sync = useSync()
+  const people = useStore((s) => s.people)
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
   if (!data) {
@@ -118,6 +128,9 @@ function AccountMenu() {
   const status =
     sync.status === 'syncing' ? 'Syncing…' : sync.status === 'offline' ? 'Offline: saved on this device' : sync.status === 'error' ? 'Couldn’t sync. Tap Sync now to retry' : sync.lastAt ? `Synced ${ago(sync.lastAt)}` : 'Signed in'
   const dot = sync.status === 'error' ? 'bg-[#c95b88]' : sync.status === 'offline' ? 'bg-ink-faint' : sync.status === 'syncing' ? 'animate-pulse bg-lilac-400' : 'bg-[#6fc29a]'
+  const me = people.find((p) => p.id === `me-${data.user.id}`)
+  const initial = (data.user.name || data.user.email)[0]?.toUpperCase()
+  const item = 'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-lilac-100/70'
   return (
     <>
       <button
@@ -128,41 +141,62 @@ function AccountMenu() {
         aria-label={`Account: ${data.user.name || data.user.email}. ${status}`}
         className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
       >
-        {(data.user.name || data.user.email)[0]?.toUpperCase()}
+        {initial}
         <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white/80 ${dot}`} />
       </button>
-      <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-72 p-1.5">
-        <div className="px-3 py-1.5">
-          <div className="truncate text-sm">{data.user.name || data.user.email}</div>
-          <div className="truncate text-xs text-ink-faint">{data.user.email}</div>
-          <div className={`mt-1 text-xs ${sync.status === 'error' ? 'text-[#9a4566]' : 'text-ink-soft'}`}>{status}</div>
-          {sync.peers > 0 && sync.status !== 'error' && (
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-lilac-700">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lilac-400" />
-              Also open on {sync.peers === 1 ? 'another device' : `${sync.peers} other devices`}: updates arrive live
-            </div>
-          )}
-          {sync.status === 'error' && sync.error && <div className="mt-1 break-words rounded-lg bg-white/60 px-2 py-1 text-[0.7rem] text-ink-soft">{sync.error}</div>}
+      <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-60 p-1.5">
+        <div className="flex items-center gap-2.5 px-2.5 pb-2 pt-1.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-lilac-200 text-base font-semibold text-lilac-700">{initial}</span>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium leading-tight">{data.user.name || data.user.email}</div>
+            <div className="truncate text-xs text-ink-faint">{data.user.email}</div>
+          </div>
         </div>
+        <div className={`mx-2.5 mb-1.5 flex items-center gap-1.5 rounded-lg bg-white/50 px-2 py-1 text-[0.7rem] ${sync.status === 'error' ? 'text-[#9a4566]' : 'text-ink-soft'}`}>
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+          <span className="min-w-0 flex-1 truncate">{status}</span>
+          {sync.peers > 0 && sync.status !== 'error' && <span className="shrink-0 text-lilac-700">live</span>}
+        </div>
+        {sync.status === 'error' && sync.error && <div className="mx-2.5 mb-1.5 break-words rounded-lg bg-white/60 px-2 py-1 text-[0.7rem] text-ink-soft">{sync.error}</div>}
+        {sync.peers > 0 && sync.status !== 'error' && <div className="mx-2.5 mb-1.5 text-[0.7rem] text-lilac-700">Also open on {sync.peers === 1 ? 'another device' : `${sync.peers} other devices`}</div>}
         <button
+          className={item}
+          onClick={() => {
+            setMenu(false)
+            if (me) openPerson({ id: me.id })
+          }}
+        >
+          <IconPerson size={16} /> My details
+        </button>
+        <button
+          className={item}
+          onClick={() => {
+            setMenu(false)
+            openSettings()
+          }}
+        >
+          <IconGear size={16} /> My settings
+        </button>
+        <button
+          className={item}
           onClick={() => {
             setMenu(false)
             void syncNow(data.user.id)
           }}
-          className="w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-lilac-100/70"
         >
-          Sync now
+          <IconRepeat size={16} /> Sync now
         </button>
+        <div aria-hidden className="mx-2.5 my-1 h-px bg-ink-faint/20" />
         <button
+          className={`${item} text-[#9a4566]`}
           onClick={async () => {
             setMenu(false)
             if (!(await askConfirm({ title: 'Sign out?', message: 'Your pond stays safe in your account. It is removed from this device until you sign in again.', confirmLabel: 'Sign out', cancelLabel: 'Stay signed in' }))) return
             await authClient.signOut()
             forgetAccountData()
           }}
-          className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#9a4566] hover:bg-lilac-100/70"
         >
-          Sign out
+          <IconSignOut size={16} /> Sign out
         </button>
       </Popover>
     </>

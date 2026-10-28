@@ -1,4 +1,5 @@
 import { addDays, fromISO, toISO, WEEKDAYS } from './dates'
+import { anchorOf, nextOccurrence, repeatOf } from './recurrence'
 import type { Task } from './types'
 
 const MIN = 60_000
@@ -69,4 +70,67 @@ export const toLocalInput = (ms: number): string => {
 export const fromLocalInput = (s: string): number | null => {
   const ms = new Date(s).getTime()
   return Number.isNaN(ms) ? null : ms
+}
+
+/** "At the time", "10 minutes before", "1 hour before", "2 days before". */
+export function alertLabel(minutes: number): string {
+  if (minutes <= 0) return 'At the time'
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'} before`
+  if (minutes % 10080 === 0) return unit(minutes / 10080, 'week')
+  if (minutes % 1440 === 0) return unit(minutes / 1440, 'day')
+  if (minutes % 60 === 0) return unit(minutes / 60, 'hour')
+  return unit(minutes, 'minute')
+}
+
+/** The reminders offered for an event, in the order they read best. */
+export const ALERT_CHOICES = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080]
+
+/** The next choice not already used: what the + button adds. */
+export const nextAlertChoice = (have: number[]): number => [60, 1440, 10, 0, 30, 120, 5, 15, 2880, 10080].find((m) => !have.includes(m)) ?? 60
+
+export interface DueAlert {
+  task: Task
+  /** Identifies this reminder for this occurrence, so it fires once. */
+  key: string
+  minutes: number
+  start: number
+}
+
+/**
+ * Event reminders that have come due. An alert fires from its time until an hour after the event starts (a
+ * device that was closed still tells you shortly after it opens, unless the event is long gone).
+ */
+export function dueAlerts(tasks: Task[], now: number, startsFor: (t: Task) => number[]): DueAlert[] {
+  const out: DueAlert[] = []
+  for (const t of tasks) {
+    if (t.draft || t.kind !== 'event' || !t.alerts?.length || t.status === 'done') continue
+    for (const start of startsFor(t)) {
+      for (const minutes of t.alerts) {
+        const at = start - minutes * 60_000
+        const key = `${start}:${minutes}`
+        if (at <= now && now <= start + 3_600_000 && !t.alertsDone?.includes(key)) out.push({ task: t, key, minutes, start })
+      }
+    }
+  }
+  return out
+}
+
+/** Start times (ms) worth checking reminders for: the event itself, or its coming occurrences when it repeats. */
+export function eventStartsFor(t: Task, now: number): number[] {
+  if (!t.time) return []
+  const r = repeatOf(t)
+  if (!r) {
+    const s = eventStart(t)
+    return s === null ? [] : [s]
+  }
+  const out: number[] = []
+  let day = addDays(toISO(new Date(now)), -1)
+  for (let i = 0; i < 4; i++) {
+    const d = nextOccurrence(r, day, anchorOf(t))
+    if (!d || d > addDays(toISO(new Date(now)), 10)) break
+    const s = eventStart({ day: d, time: t.time })
+    if (s !== null) out.push(s)
+    day = addDays(d, 1)
+  }
+  return out
 }

@@ -16,6 +16,8 @@ export function normalizeTask(raw: Record<string, unknown>): Task {
     place: '',
     log: [],
     repeat: null,
+    alerts: [],
+    alertsDone: [],
     remindAt: null,
     reminded: false,
     status: 'todo',

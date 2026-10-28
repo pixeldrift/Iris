@@ -4,7 +4,7 @@ import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
-import { dueReminders, eventStart, formatReminder, reminderPresets } from './reminders'
+import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
 import { matchesQuery } from './search'
@@ -354,6 +354,28 @@ describe('recurrence', () => {
   })
 })
 
+describe('nth weekday of the month', () => {
+  const r = { freq: 'monthly' as const, interval: 1, byDay: [2], nth: 3, from: '2026-01-01' }
+  it('every third Tuesday', () => {
+    expect(occursOn(r, '2026-10-20')).toBe(true) // Tue 20 Oct 2026 is the third Tuesday
+    expect(occursOn(r, '2026-10-13')).toBe(false)
+    expect(occursOn(r, '2026-10-27')).toBe(false)
+    expect(occursOn(r, '2026-11-17')).toBe(true)
+    expect(describeRecurrence(r)).toBe('Monthly on the 3rd Tuesday')
+  })
+  it('last Friday', () => {
+    const last = { ...r, byDay: [5], nth: -1 }
+    expect(occursOn(last, '2026-10-30')).toBe(true)
+    expect(occursOn(last, '2026-10-23')).toBe(false)
+    expect(describeRecurrence(last)).toBe('Monthly on the last Friday')
+  })
+  it('is understood when typed', () => {
+    const q = parseQuickAdd('Book club every third tuesday 7pm', new Date(2026, 9, 27, 10, 0), { folders: [], people: [] })
+    expect(q.repeat).toMatchObject({ freq: 'monthly', byDay: [2], nth: 3 })
+    expect(q.title).toBe('Book club')
+  })
+})
+
 describe('quick add', () => {
   const now = new Date(2026, 9, 27, 10, 0) // Tue 27 Oct 2026, 10:00
   const { folders, people } = seedData()
@@ -443,5 +465,32 @@ describe('names and addresses', () => {
   it('puts the parts back together', () => {
     expect(composeAddress({ street: '12 Elm St', city: 'Springfield', state: 'IL', zip: '62704' })).toBe('12 Elm St, Springfield, IL 62704')
     expect(composeAddress({ street: '', city: 'Springfield', state: 'IL', zip: '' })).toBe('Springfield, IL')
+  })
+})
+
+describe('event reminders: as many as you like', () => {
+  const base = seedData().tasks[0]
+  const ev = { ...base, kind: 'event' as const, day: '2026-03-10', time: '15:00', alerts: [1440, 60, 0], alertsDone: [] as string[] }
+  const at = (d: number, h: number, mi = 0) => new Date(2026, 2, d, h, mi).getTime()
+  const fire = (now: number, t = ev) => dueAlerts([t], now, (x) => eventStartsFor(x, now)).map((a) => a.minutes).sort((a, b) => b - a)
+  it('labels them plainly', () => {
+    expect([0, 5, 60, 120, 1440, 2880, 90].map(alertLabel)).toEqual(['At the time', '5 minutes before', '1 hour before', '2 hours before', '1 day before', '2 days before', '90 minutes before'])
+  })
+  it('each fires when its time comes, and only once', () => {
+    expect(fire(at(9, 14))).toEqual([]) // before the day-before reminder
+    expect(fire(at(9, 15, 1))).toEqual([1440])
+    expect(fire(at(10, 14, 5))).toEqual([1440, 60]) // two are due together
+    const start = at(10, 15)
+    expect(fire(at(10, 14, 5), { ...ev, alertsDone: [`${start}:1440`] })).toEqual([60]) // one already went off
+    expect(fire(at(10, 15, 1), { ...ev, alertsDone: [`${start}:1440`, `${start}:60`] })).toEqual([0])
+  })
+  it('goes quiet long after the event, and for finished events', () => {
+    expect(fire(at(10, 17))).toEqual([])
+    expect(fire(at(10, 14, 5), { ...ev, status: 'done' })).toEqual([])
+  })
+  it('a repeating event reminds for its coming occurrence', () => {
+    const weekly = { ...ev, day: '2026-03-03', alerts: [60], repeat: { freq: 'weekly' as const, interval: 1, byDay: [2], from: '2026-03-03' } }
+    expect(fire(at(10, 14, 30), weekly)).toEqual([60]) // Tue 10 Mar 15:00
+    expect(eventStartsFor(weekly, at(10, 14, 30)).includes(at(10, 15))).toBe(true)
   })
 })

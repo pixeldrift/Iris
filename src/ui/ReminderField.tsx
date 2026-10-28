@@ -1,9 +1,19 @@
 import { useState } from 'react'
-import { formatReminder, fromLocalInput, reminderPresets, toLocalInput } from '../core/reminders'
+import { toISO } from '../core/dates'
+import { formatReminder, reminderPresets } from '../core/reminders'
 import type { Task } from '../core/types'
 import { useStore } from '../state/store'
 import { IconBell, IconClose } from './icons'
+import { DatePicker } from './DatePicker'
 import { askNotify, notifyState } from './notify'
+import { TimePicker } from './TimePicker'
+
+const toHHMM = (ms: number) => `${String(new Date(ms).getHours()).padStart(2, '0')}:${String(new Date(ms).getMinutes()).padStart(2, '0')}`
+const at = (day: string, hhmm: string) => {
+  const [y, mo, d] = day.split('-').map(Number)
+  const [h, m] = hhmm.split(':').map(Number)
+  return new Date(y, mo - 1, d, h, m).getTime()
+}
 
 /** "Remind me": quick choices, or an exact date and time. Clearing it removes the alert. */
 export function ReminderField({ task }: { task: Task }) {
@@ -44,18 +54,19 @@ export function ReminderField({ task }: { task: Task }) {
           </button>
         ))}
       </div>
-      <label className="mt-2 block text-xs font-medium text-ink-soft">
-        Or pick a time
-        <input
-          type="datetime-local"
-          value={task.remindAt !== null ? toLocalInput(task.remindAt) : ''}
-          onChange={(e) => {
-            const ms = fromLocalInput(e.target.value)
-            if (ms !== null) set(ms)
-          }}
-          className="well mt-1 w-full rounded-xl px-2.5 py-1.5 text-sm font-normal text-ink"
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <DatePicker
+          label="Or pick a day"
+          value={task.remindAt !== null ? toISO(new Date(task.remindAt)) : null}
+          onChange={(d) => (d ? set(at(d, task.remindAt !== null ? toHHMM(task.remindAt) : '09:00')) : set(null))}
         />
-      </label>
+        <TimePicker
+          label="and a time"
+          value={task.remindAt !== null ? toHHMM(task.remindAt) : null}
+          placeholder="Pick a time"
+          onChange={(t) => (t ? set(at(task.remindAt !== null ? toISO(new Date(task.remindAt)) : toISO(new Date()), t)) : undefined)}
+        />
+      </div>
       {task.remindAt !== null && perm === 'denied' && <p className="mt-1.5 text-[0.68rem] text-ink-faint">Notifications are blocked for Lilac, so you’ll only see this one while the app is open.</p>}
       {task.remindAt !== null && perm === 'unsupported' && <p className="mt-1.5 text-[0.68rem] text-ink-faint">This browser can’t send notifications, so you’ll see it while the app is open.</p>}
     </div>
