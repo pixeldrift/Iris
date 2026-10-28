@@ -132,6 +132,16 @@ body.dragging {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
   50% { transform: translate(4px, 10px) rotate(1.8deg); }
 }
+@keyframes jitter {
+  0%, 100% { transform: translate(0, 0); }
+  14% { transform: translate(calc(var(--ja, 0px) * 0.9), calc(var(--ja, 0px) * -0.5)); }
+  29% { transform: translate(calc(var(--ja, 0px) * -0.6), calc(var(--ja, 0px) * 0.8)); }
+  43% { transform: translate(calc(var(--ja, 0px) * 0.3), calc(var(--ja, 0px) * 1)); }
+  57% { transform: translate(calc(var(--ja, 0px) * -1), calc(var(--ja, 0px) * -0.2)); }
+  71% { transform: translate(calc(var(--ja, 0px) * 0.7), calc(var(--ja, 0px) * 0.4)); }
+  86% { transform: translate(calc(var(--ja, 0px) * -0.3), calc(var(--ja, 0px) * -0.9)); }
+}
+.jitter { animation: jitter var(--jd, 0.6s) linear var(--jdelay, 0s) infinite; }
 .drift-a { animation: drift-a var(--dur, 12s) ease-in-out var(--delay, 0s) infinite; }
 .drift-b { animation: drift-b var(--dur, 14s) ease-in-out var(--delay, 0s) infinite; }
 .drift-c { animation: drift-c var(--dur, 10s) ease-in-out var(--delay, 0s) infinite; }
@@ -178,19 +188,19 @@ body.dragging {
 .pad {
   background:
     radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
-    radial-gradient(circle at 70% 80%, hsla(var(--h, 285), calc(70% * var(--s, 1) * (0.72 + 0.56 * var(--u, 0.5))), calc(91% - 12% * var(--u, 0.5)), calc(0.5 + 0.3 * var(--u, 0.5))), transparent 70%),
+    radial-gradient(circle at 70% 80%, hsla(var(--h, 285), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
     rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
-    0 0 0 1px hsla(var(--h, 285), calc(50% * var(--s, 1) * (0.72 + 0.56 * var(--u, 0.5))), calc(80% - 10% * var(--u, 0.5)), calc(0.15 + 0.2 * var(--u, 0.5))),
-    0 12px 30px -10px hsla(var(--h, 285), calc(45% * var(--s, 1) * (0.72 + 0.56 * var(--u, 0.5))), calc(52% - 14% * var(--u, 0.5)), calc(0.2 + 0.3 * var(--u, 0.5)));
+    0 0 0 1px hsla(var(--h, 285), calc(50% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(86% - 22% * var(--u, 0.5)), calc(0.08 + 0.34 * var(--u, 0.5))),
+    0 12px 30px -10px hsla(var(--h, 285), calc(45% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(62% - 28% * var(--u, 0.5)), calc(0.12 + 0.46 * var(--u, 0.5)));
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drift-a, .drift-b, .drift-c { animation: none; }
+  .drift-a, .drift-b, .drift-c, .jitter { animation: none; }
 }
 
 /* ---------- soft sliders ---------- */
