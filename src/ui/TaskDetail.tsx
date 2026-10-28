@@ -9,7 +9,7 @@ import { useStore } from '../state/store'
 import { useExit } from './anim'
 import { DatePicker } from './DatePicker'
 import { askConfirm } from './dialogs'
-import { IconCheck, IconClose, IconTrash } from './icons'
+import { IconCheck, IconClose, IconPencil, IconTrash } from './icons'
 import { DoneButton, KindHint, KINDS, STATUSES } from './shared'
 import { TagInput } from './TagInput'
 import { Tip } from './Tip'
@@ -127,6 +127,7 @@ export function TaskDetail() {
   const select = useStore((s) => s.select)
   const checkContact = useStore((s) => s.checkContact)
   const titleRef = useRef<HTMLInputElement>(null)
+  const [editingTitle, setEditingTitle] = useState(false)
 
   // keep the last task around so the panel can animate out
   const last = useRef(live)
@@ -156,8 +157,11 @@ export function TaskDetail() {
     return () => window.removeEventListener('keydown', onKey)
   }, [id, select])
 
+  // a fresh, still-unnamed item opens ready to type; an existing one opens as plain text
   useEffect(() => {
-    if (id && live?.title === 'New task') titleRef.current?.select()
+    const fresh = !!id && (live?.title === 'New task' || live?.title === '')
+    setEditingTitle(fresh)
+    if (fresh) requestAnimationFrame(() => titleRef.current?.select())
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task || !mounted) return null
@@ -175,14 +179,39 @@ export function TaskDetail() {
       >
         <header className="flex items-center gap-3 px-5 pb-2 pt-5">
           <DoneButton task={task} size={26} />
-          <input
-            ref={titleRef}
-            value={task.title}
-            onChange={(e) => update(task.id, { title: e.target.value })}
-            onBlur={() => checkContact(task.id)}
-            placeholder="What’s floating in your mind?"
-            className="well min-w-0 flex-1 rounded-xl px-3 py-1.5 font-display text-xl placeholder:text-ink-faint"
-          />
+          {editingTitle ? (
+            <input
+              ref={titleRef}
+              autoFocus
+              value={task.title}
+              onChange={(e) => update(task.id, { title: e.target.value })}
+              onBlur={() => {
+                checkContact(task.id)
+                setEditingTitle(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Escape') {
+                  e.stopPropagation()
+                  e.currentTarget.blur()
+                }
+              }}
+              placeholder="What’s floating in your mind?"
+              className="well min-w-0 flex-1 rounded-xl px-3 py-1.5 font-display text-xl placeholder:text-ink-faint"
+            />
+          ) : (
+            // plain, easy-to-read text; tap it to edit
+            <button
+              type="button"
+              onClick={() => setEditingTitle(true)}
+              aria-label="Edit title"
+              className={`group flex min-w-0 flex-1 items-center gap-2 rounded-xl py-1 text-left font-display text-xl leading-snug transition hover:bg-white/40 ${task.title ? '' : 'text-ink-faint'}`}
+            >
+              <span className="min-w-0 break-words">{task.title || 'Untitled'}</span>
+              <span className="shrink-0 text-ink-faint/70 transition group-hover:text-lilac-600">
+                <IconPencil size={14} />
+              </span>
+            </button>
+          )}
           <Tip label="Close">
             <button onClick={() => select(null)} className="-mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/70 hover:text-ink">
               <IconClose size={16} />
