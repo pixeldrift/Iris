@@ -26,7 +26,8 @@ export async function POST(request: Request) {
     const body = parseRequest(await request.json(), who.userId)
     const out = await applySync(getPool(), who.userId, body)
     // `cursor` is what the first version of the app read (personal workspace only)
-    return json({ ...out, cursor: out.cursors[who.userId] ?? 0 })
+    // `build` is this deployment's id (same formula as the web build's): a page from an older build learns it is stale
+    return json({ ...out, cursor: out.cursors[who.userId] ?? 0, build: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? null })
   } catch (e) {
     if (e instanceof BadRequest || e instanceof SyntaxError) return json({ error: e.message }, 400)
     console.error('sync failed', e)

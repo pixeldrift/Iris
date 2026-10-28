@@ -14,8 +14,10 @@ interface SyncState {
   error: string | null
   /** Other devices (yours or a collaborator's) open at the same moment. */
   peers: number
+  /** The newest deployed build the server has told us about (the update notice compares it with this page's). */
+  build: string | null
 }
-export const useSync = create<SyncState>(() => ({ status: 'off', lastAt: null, error: null, peers: 0 }))
+export const useSync = create<SyncState>(() => ({ status: 'off', lastAt: null, error: null, peers: 0, build: null }))
 
 const MEMORY_KEY = 'lilac-sync-v1'
 
@@ -125,6 +127,8 @@ interface Reply {
   heads: Record<string, number>
   more: boolean
   peers?: number | null
+  /** The deployed build's id, when the server knows it. */
+  build?: string | null
   rejected?: { kind: string; id: string; workspaceId: string }[]
 }
 
@@ -137,7 +141,9 @@ async function post(body: { cursors: Record<string, number>; changes: Change[]; 
     const detail = (await res.json().catch(() => null)) as { error?: string; reason?: string } | null
     throw new Error(detail?.error ? `${detail.error}${detail.reason ? ` (${detail.reason})` : ''}` : res.status === 404 ? 'The sync API was not found (/api/sync returned 404)' : `Sync failed (HTTP ${res.status})`)
   }
-  return res.json()
+  const out = (await res.json()) as Reply
+  if (out.build) useSync.setState({ build: out.build })
+  return out
 }
 class SignedOut extends Error {
   constructor() {
