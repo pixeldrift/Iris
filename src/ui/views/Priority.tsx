@@ -247,7 +247,7 @@ export function Priority() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="glass relative min-h-0 flex-1 rounded-[2rem]" style={{ padding: 0 }}>
             <div ref={field} className="absolute inset-[34px] md:inset-[40px]">
-              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgba(205,177,235,0.35)]" />
+              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgb(var(--lr-300)/0.35)]" />
               <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
               <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
               {QUADS.map((q) => (

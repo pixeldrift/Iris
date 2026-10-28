@@ -19,7 +19,7 @@ export interface WaterHandle {
  * nothing is a perfect outline.
  *
  * To add refraction later: in main(), `g` is the surface slope. Sample a backdrop
- * texture at `p + g * k` for displacement, or once per colour channel with slightly
+ * texture at `p + g * k` for displacement, or once per color channel with slightly
  * different `k` for chromatic aberration, and composite that in shade().
  */
 const VERT = `

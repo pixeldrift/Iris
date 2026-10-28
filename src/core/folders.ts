@@ -64,7 +64,7 @@ export function reorder(folders: Folder[], id: string, parentId: string | null, 
 }
 
 /**
- * The order new folders cycle through. Neighbouring entries differ a lot in silhouette, and
+ * The order new folders cycle through. Neighboring entries differ a lot in silhouette, and
  * 13 shapes against 8 hues means the same pairing only repeats after 104 folders.
  */
 export const SHAPE_CYCLE: FlowerShape[] = ['blossom', 'tulip', 'daisy', 'rose', 'bell', 'lily', 'poppy', 'sunflower', 'iris', 'pinwheel', 'hibiscus', 'cosmos']

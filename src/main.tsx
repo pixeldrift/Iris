@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { FlowerGallery } from './ui/FlowerGallery'
 import './index.css'
+import './ui/theme'
+import './state/prefs'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>{location.hash === '#flowers' ? <FlowerGallery /> : <App />}</StrictMode>,

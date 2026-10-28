@@ -5,17 +5,17 @@ these files directly (`src/ui/Flower.tsx`): save a file and the flower changes e
 
 **Canvas:** `viewBox="-12 -12 24 24"`, centred on the origin, petals pointing up (−y).
 
-**Colour:** each fill/stroke has a plain fallback colour (so the file looks right on its own) and a
-`style` that takes the folder's colour from a CSS variable:
+**Color:** each fill/stroke has a plain fallback color (so the file looks right on its own) and a
+`style` that takes the folder's color from a CSS variable:
 
 | Variable | Meaning |
 | --- | --- |
-| `--flower-base` | the main petal colour |
+| `--flower-base` | the main petal color |
 | `--flower-light` | highlights, inner petals |
 | `--flower-deep` | veins, stems, dark centres |
 | `--flower-cream` | pale centres |
 
-Fixed colours (a daisy's yellow eye, a white highlight) are written as plain colours.
+Fixed colors (a daisy's yellow eye, a white highlight) are written as plain colors.
 
 **Repeated petals:** draw one petal inside `<defs>` with an `id`, then a ring group:
 

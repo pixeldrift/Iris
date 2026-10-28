@@ -37,12 +37,15 @@ export function Modal({
   children,
   label,
   wide,
+  peek = false,
 }: {
   open: boolean
   onClose: () => void
   children: React.ReactNode
   label: string
   wide?: boolean
+  /** See-through, so whatever a setting changes behind the dialog can be watched while it is adjusted. */
+  peek?: boolean
 }) {
   const { mounted, closing } = useExit(open)
   useEffect(() => {
@@ -54,7 +57,7 @@ export function Modal({
   if (!mounted) return null
   return (
     <div
-      className={`fixed inset-0 z-[120] grid place-items-center bg-ink/15 px-4 py-3 backdrop-blur-[3px] transition-[opacity,padding] duration-200 ease-out ${closing ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[120] grid place-items-center px-4 py-3 transition-[opacity,padding,background-color,backdrop-filter] duration-200 ease-out ${peek ? 'bg-transparent' : 'bg-ink/15 backdrop-blur-[3px]'} ${closing ? 'opacity-0' : 'opacity-100'}`}
       style={{ paddingBottom: 'calc(var(--kb, 0px) + 0.75rem)' }}
       onPointerDown={(e) => e.target === e.currentTarget && onClose()}
     >
@@ -62,7 +65,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full overflow-y-auto rounded-[2rem] p-5 ${closing ? 'pop-out' : 'pop-in'}`}
+        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full overflow-y-auto rounded-[2rem] p-5 transition-opacity duration-200 ${peek ? 'opacity-30' : ''} ${closing ? 'pop-out' : 'pop-in'}`}
       >
         {children}
       </div>

@@ -55,6 +55,7 @@ export default function App() {
     }
   }, [])
 
+  const fmtKey = useStore((s) => s.settings.dateFormat + s.settings.clockFormat)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
@@ -84,10 +85,11 @@ export default function App() {
   }, [])
 
   return (
-    <div className="relative flex h-full overflow-hidden">
+    // a different date or clock style re-draws everything that writes one
+    <div key={fmtKey} className="relative flex h-full overflow-hidden">
       <Decor />
       <Sidebar />
-      <main className={`relative z-10 flex min-w-0 flex-1 flex-col ${view === 'timeline' ? '' : 'pl-[1.15rem]'} transition-[padding] duration-300 md:pl-0 ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
+      <main className={`relative z-10 flex min-w-0 flex-1 flex-col pl-[1.15rem] transition-[padding] duration-300 md:pl-0 ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
         <TopBar onNew={() => openCompose()} />
         <div className="relative min-h-0 flex-1 px-3 pb-3 md:px-4 md:pb-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <View />

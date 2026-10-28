@@ -30,7 +30,7 @@ export function TagInput({ taskId }: { taskId: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const labelled = useMemo(() => folders.map((f) => ({ f, label: pathLabel(folders, f.id) })), [folders])
+  const labeled = useMemo(() => folders.map((f) => ({ f, label: pathLabel(folders, f.id) })), [folders])
 
   const peopleOnly = q.trim().startsWith('@')
   const query = q.trim().replace(/^[#@]/, '')
@@ -44,19 +44,19 @@ export function TagInput({ taskId }: { taskId: string }) {
       .slice(0, 3)
       .map((p) => ({ kind: 'person' as const, id: p.id, label: p.name, hue: p.hue }))
     if (!peopleOnly) {
-      const pool = labelled.filter((x) => !task.folderIds.includes(x.f.id))
+      const pool = labeled.filter((x) => !task.folderIds.includes(x.f.id))
       const ranked = fuzzyRank(leaf, pool, (x) => x.f.name)
       const byPath = query.includes('/') ? fuzzyRank(query, pool, (x) => x.label, 0.5) : []
       for (const m of [...new Set([...byPath, ...ranked])].slice(0, 4)) out.push({ kind: 'folder', id: m.f.id, label: m.label, hue: m.f.hue })
     }
     out.push(...ppl)
     if (!peopleOnly) {
-      const exact = labelled.some((x) => sameName(x.label, query) || (!query.includes('/') && sameName(x.f.name, query)))
+      const exact = labeled.some((x) => sameName(x.label, query) || (!query.includes('/') && sameName(x.f.name, query)))
       if (!exact) out.push({ kind: 'create-folder', label: query })
     }
     if (!people.some((p) => sameName(p.name, leaf))) out.push({ kind: 'create-person', label: leaf })
     return out
-  }, [task, leaf, query, people, labelled, peopleOnly])
+  }, [task, leaf, query, people, labeled, peopleOnly])
 
   if (!task) return null
 

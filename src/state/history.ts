@@ -92,14 +92,14 @@ export function describe(a: Snap, b: Snap): { label: string; touched: string[] }
     b.folders,
     (n) => `Added group ${q(n.name)}`,
     (o) => `Deleted group ${q(o.name)}`,
-    (o, n) => (n.name !== o.name ? `Renamed group ${q(o.name)}` : n.hue !== o.hue ? `Changed colour of ${q(n.name)}` : n.shape !== o.shape ? `Changed flower of ${q(n.name)}` : n.parentId !== o.parentId || n.sort !== o.sort ? `Moved group ${q(n.name)}` : `Edited group ${q(n.name)}`),
+    (o, n) => (n.name !== o.name ? `Renamed group ${q(o.name)}` : n.hue !== o.hue ? `Changed color of ${q(n.name)}` : n.shape !== o.shape ? `Changed flower of ${q(n.name)}` : n.parentId !== o.parentId || n.sort !== o.sort ? `Moved group ${q(n.name)}` : `Edited group ${q(n.name)}`),
   )
   diff(
     a.people,
     b.people,
     (n) => `Added ${q(n.name)}`,
     (o) => `Deleted ${q(o.name)}`,
-    (o, n) => (n.favorite !== o.favorite ? `${n.favorite ? 'Favourited' : 'Unfavourited'} ${q(n.name)}` : `Edited ${q(n.name)}`),
+    (o, n) => (n.favorite !== o.favorite ? `${n.favorite ? 'Favorited' : 'Unfavorited'} ${q(n.name)}` : `Edited ${q(n.name)}`),
   )
   const label = parts.length === 0 ? 'Change' : parts.length === 1 ? parts[0].label : parts.length <= 3 ? parts.map((p) => p.label).join(', ') : `${parts.length} changes`
   return { label, touched: parts.map((p) => p.id).sort() }

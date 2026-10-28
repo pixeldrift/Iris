@@ -49,7 +49,7 @@ export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof Icon
 ]
 
 const rowBase =
-  'group relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1 text-left text-[0.92rem] md:py-1.5 transition select-none'
+  'group relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-[calc(0.18rem+var(--sb)*0.28rem)] text-left text-[0.92rem] transition select-none'
 
 function Count({ n, hideZero = false }: { n: number; hideZero?: boolean }) {
   if (!n && hideZero) return null
@@ -132,7 +132,7 @@ function Section({ id, title, note, action, pinned = false, children }: { id: st
   })
 
   return (
-    <section data-section-id={id} data-flip-section={id} className="mt-2 md:mt-3">
+    <section data-section-id={id} data-flip-section={id} className="mt-[calc(0.3rem+var(--sb)*0.65rem)]">
       <Gap open={zone === 'before'} />
       <div ref={contentRef} {...(pinned ? {} : { 'data-section-content': id })}>
         <div
@@ -207,6 +207,7 @@ export function Sidebar() {
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const open = useStore((s) => s.sidebarOpen)
+  const space = useStore((s) => s.settings.sidebarSpace)
   const setSidebar = useStore((s) => s.setSidebar)
   const addFolder = useStore((s) => s.addFolder)
 
@@ -233,8 +234,8 @@ export function Sidebar() {
 
   // Dragging a bubble onto the left edge pulls the drawer open under it, so it can be dropped into a folder.
   const mobile = useIsMobile()
-  // The sliver is a drop zone, so it only stays where items can be dragged to folders (not the timeline).
-  const sliver = mobile && view !== 'timeline'
+  // The sliver is a drop zone and a grab handle for opening the drawer, in every view.
+  const sliver = mobile
   const dragX = useDnd((st) => (st.drag?.payload.type === 'task' ? st.drag.x : null))
   const openedByDrag = useRef(false)
   useEffect(() => {
@@ -423,6 +424,7 @@ export function Sidebar() {
         } ${swipe !== null ? '!transition-none' : ''}`}
         style={{
           paddingTop: 'env(safe-area-inset-top)',
+          ['--sb' as string]: space,
           transitionTimingFunction: SPRING,
           ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + 1.15rem + ${swipe}px) 0` } : {}),
           ...(mobile ? { touchAction: 'pan-y' } : {}),
@@ -447,17 +449,17 @@ export function Sidebar() {
           className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}
           style={progress !== null ? { opacity: Math.min(1, Math.max(0, progress)), transition: 'none' } : undefined}
         >
-        <div className="flex items-center gap-2.5 px-4 pb-0 pt-3 md:px-5 md:pb-1 md:pt-5">
+        <div className="flex items-center gap-2.5 px-[calc(0.8rem+var(--sb)*0.5rem)] pb-[calc(var(--sb)*0.25rem)] pt-[calc(0.6rem+var(--sb)*1rem)]">
           <Logo />
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
           <AccountRow />
         </div>
 
         <ScrollFade>
-          <nav ref={navRef} className="px-2 pb-4 md:px-3 md:pb-6">
+          <nav ref={navRef} className="px-[calc(0.35rem+var(--sb)*0.6rem)] pb-[calc(0.6rem+var(--sb)*1.2rem)]">
             {sections.views}
             {/* views are how you look; everything below is what you look at */}
-            <div aria-hidden className="mx-3 mb-1 mt-2 h-px md:mb-2 md:mt-3 bg-gradient-to-r from-transparent via-ink-faint/35 to-transparent" />
+            <div aria-hidden className="mx-3 mb-[calc(0.2rem+var(--sb)*0.4rem)] mt-[calc(0.3rem+var(--sb)*0.5rem)] h-px bg-gradient-to-r from-transparent via-ink-faint/35 to-transparent" />
             <div className="mt-1">
               <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
             </div>
@@ -502,7 +504,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
               toggleFavorite(person.id)
             }}
             className="rounded-md p-1 text-lilac-500 hover:bg-lilac-100"
-            aria-label={`Unfavourite ${person.name}`}
+            aria-label={`Unfavorite ${person.name}`}
           >
             <IconHeart size={14} filled />
           </button>
@@ -648,6 +650,8 @@ function FolderNode(props: NodeProps) {
   const slotHere = useFolderSlot((st) => (st.slot?.kind === 'slot' && st.slot.afterId === folder.id ? st.slot : null))
   const dragIsTask = dragPayload?.type === 'task'
   const intoMe = useFolderSlot((st) => st.slot?.kind === 'into' && st.slot.parentId === folder.id)
+  // the group a drop would land inside, so "last child" and "top level" look different while you are still deciding
+  const parentMe = useFolderSlot((st) => st.slot?.kind === 'slot' && st.slot.parentId === folder.id)
 
   const track = useRef({ x: 0, y: 0, dx: 0, raf: 0 })
   const refresh = () => {
@@ -656,12 +660,8 @@ function FolderNode(props: NodeProps) {
     const cur = useFolderSlot.getState().slot
     const same = cur && next && cur.kind === next.kind && cur.afterId === next.afterId && cur.depth === next.depth && cur.parentId === next.parentId && cur.beforeId === next.beforeId
     if (!same && cur !== next) useFolderSlot.setState({ slot: next })
-    // the carried row narrows to the depth it would take (into a folder = one level inside it)
-    const rowDepth = (id: string | null) => Number(document.querySelector<HTMLElement>(`[data-folder-row="${id}"]`)?.dataset.depth ?? 0)
-    // the carried row stays exactly as picked up, and only steps in when it would nest inside the lit row
-    // (and widens to the shallower level when pulled out; otherwise it is exactly the size it was)
-    const target = !next ? depth : next.kind === 'into' ? rowDepth(next.parentId) + 1 : next.depth
-    lifter.setInset((target - depth) * 15.2)
+    // the carried row never slides sideways: the finger alone says what a drop would do, and an arrow says "out one level"
+    lifter.pullOut(!!next && next.kind === 'slot' && next.depth < depth)
   }
 
   const onPointerDown = usePointerDrag({
@@ -670,6 +670,7 @@ function FolderNode(props: NodeProps) {
     touchNeedsHandle: true,
     lift: () => rowRef.current,
     liftOpaque: true,
+    lockX: true,
     resolve: (x, y) => {
       const t = targetAt(x, y)
       if (t === 'froot') return t
@@ -735,7 +736,7 @@ function FolderNode(props: NodeProps) {
         onClick={() => setScope(active ? { type: 'all' } : { type: 'folder', id: folder.id })}
         onDoubleClick={() => setEditing(folder.id)}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
-          (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''
+          (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : parentMe ? 'bg-lilac-100/60 ring-1 ring-lilac-300/70' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}
         // a child's box is shorter, not just its text pushed over: it keeps its right edge and starts further in
         style={{ marginLeft: `${depth * 0.95}rem`, width: `calc(100% - ${depth * 0.95}rem)` }}
@@ -809,7 +810,7 @@ function FolderNode(props: NodeProps) {
 
 const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255, GRAY]
 
-/** Everything about one folder in one place: rename it, colour it, add inside it, delete it. */
+/** Everything about one folder in one place: rename it, color it, add inside it, delete it. */
 function FolderOptions({
   folder,
   open,
@@ -848,7 +849,7 @@ function FolderOptions({
         />
       </label>
 
-      {/* flower and colour palettes side by side, 4 x 3 each; the hue slider sits under both */}
+      {/* flower and color palettes side by side, 4 x 3 each; the hue slider sits under both */}
       <div className="mt-3.5 grid grid-cols-2 gap-3">
         <div>
           <div className="text-xs font-medium text-ink-soft">Flower</div>
@@ -870,13 +871,13 @@ function FolderOptions({
           </div>
         </div>
         <div>
-          <div className="text-xs font-medium text-ink-soft">Colour</div>
+          <div className="text-xs font-medium text-ink-soft">Color</div>
           <div className="mt-1.5 grid grid-cols-4 gap-0.5">
             {SWATCHES.map((h) => (
               <button
                 key={h}
                 onClick={() => updateFolder(folder.id, { hue: h })}
-                aria-label={h === GRAY ? 'Colour gray' : `Colour ${h}`}
+                aria-label={h === GRAY ? 'Color gray' : `Color ${h}`}
                 aria-pressed={folder.hue === h}
                 className="grid h-8 place-items-center rounded-lg transition hover:bg-lilac-100/60"
               >
@@ -898,7 +899,7 @@ function FolderOptions({
         value={folder.hue}
         onChange={(e) => updateFolder(folder.id, { hue: Number(e.target.value) })}
         className="soft hue mt-2"
-        aria-label="Custom colour"
+        aria-label="Custom color"
       />
 
       <div className="mt-3 flex items-center border-t border-white/60 pt-2.5">
@@ -927,14 +928,14 @@ function FolderOptions({
 
 /**
  * The room a dragged folder will take. It opens (with a gentle spring) where the item would land,
- * nudging its neighbours apart. It answers hit-tests as the same folder so the target never flickers.
+ * nudging its neighbors apart. It answers hit-tests as the same folder so the target never flickers.
  */
-/** Where a drop would land: a coloured bar laid over the seam, which takes no room, so nothing shifts until you let go. */
+/** Where a drop would land: a colored bar laid over the seam, which takes no room, so nothing shifts until you let go. */
 function Gap({ open }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
   return (
     <div aria-hidden data-gap className="pointer-events-none relative z-10 h-0">
       <div
-        className={`absolute inset-x-1 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(155,111,196,0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-x-1 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgb(var(--lr-500)/0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
       />
     </div>
   )

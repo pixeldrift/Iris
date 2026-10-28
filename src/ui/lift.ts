@@ -10,7 +10,7 @@
  * Items are found again after the drop through `data-lift-id="<type>:<id>"`.
  */
 export const SPRING = 'cubic-bezier(0.34, 1.32, 0.5, 1)' // mild overshoot, calmer than the pond's bubbles
-const SHADOW = '0 20px 44px -14px rgba(107, 68, 145, 0.5), 0 6px 14px -6px rgba(107, 68, 145, 0.3)'
+const SHADOW = '0 20px 44px -14px rgb(var(--lr-700)/0.5), 0 6px 14px -6px rgb(var(--lr-700)/0.3)'
 
 interface Active {
   el: HTMLElement
@@ -21,6 +21,9 @@ interface Active {
   oy: number
   /** Width of the lifted copy: wide rows lift as a compact card so it stays under the finger. */
   cw: number
+  /** Keep the copy at the row's own left edge: only its height follows the pointer. */
+  lockX: boolean
+  lx: number
 }
 const COMPACT = 280
 let active: Active | null = null
@@ -49,7 +52,7 @@ function copyOf(el: HTMLElement, r: DOMRect) {
 function place(a: Active, x: number, y: number) {
   const h = a.clone.offsetHeight
   return {
-    x: Math.min(window.innerWidth - a.cw - 8, Math.max(8, x - a.ox)),
+    x: a.lockX ? a.lx : Math.min(window.innerWidth - a.cw - 8, Math.max(8, x - a.ox)),
     y: Math.min(window.innerHeight - h - 8, Math.max(8, y - a.oy)),
   }
 }
@@ -60,8 +63,8 @@ function badge(wrap: HTMLElement, show: boolean) {
     if (!show) return
     b = document.createElement('div')
     b.dataset.outArrow = ''
-    b.style.cssText = 'position:absolute;right:0.5rem;top:50%;width:1.4rem;height:1.4rem;margin-top:-0.7rem;border-radius:9999px;background:#9b6fc4;color:#fff;display:grid;place-items:center;opacity:0;transform:scale(0.6);transition:opacity .15s,transform .25s cubic-bezier(0.34,1.45,0.55,1);box-shadow:0 4px 10px -3px rgba(107,68,145,0.5)'
-    b.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20v-7a4 4 0 0 0-4-4H5"/><path d="M9 5 5 9l4 4"/></svg>'
+    b.style.cssText = 'position:absolute;left:-1.45rem;top:50%;width:1.2rem;height:1.2rem;margin-top:-0.6rem;color:var(--color-lilac-600);display:grid;place-items:center;opacity:0;transform:scale(0.6);transition:opacity .15s,transform .25s cubic-bezier(0.34,1.45,0.55,1)'
+    b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20v-7a4 4 0 0 0-4-4H5"/><path d="M9 5 5 9l4 4"/></svg>'
     wrap.appendChild(b)
     void b.offsetWidth
   }
@@ -72,12 +75,12 @@ const nextFrames = (fn: () => void) => requestAnimationFrame(() => requestAnimat
 const at = (x: number, y: number) => `translate(${x}px, ${y}px)`
 
 export const lifter = {
-  begin(el: HTMLElement, px: number, py: number, key: string, opaque = false) {
+  begin(el: HTMLElement, px: number, py: number, key: string, opaque = false, lockX = false) {
     this.cancel()
     const r = el.getBoundingClientRect()
     const { wrap, clone } = copyOf(el, r)
     clone.style.boxShadow = SHADOW
-    if (opaque) clone.style.background = '#fbf7fd'
+    if (opaque) clone.style.background = 'var(--color-lilac-50)'
     clone.style.borderRadius = getComputedStyle(el).borderRadius
     const cw = Math.min(r.width, COMPACT)
     clone.style.width = `${cw}px`
@@ -86,7 +89,7 @@ export const lifter = {
     // picked up: it swells a touch past its lifted size, then settles
     clone.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.065)' }, { transform: 'scale(1.04)' }], { duration: 340, easing: SPRING, fill: 'forwards' })
     // keep the grab point in the same proportion across the (possibly narrower) copy
-    active = { el, wrap, clone, key, ox: ((px - r.left) / r.width) * cw, oy: py - r.top, cw }
+    active = { el, wrap, clone, key, ox: ((px - r.left) / r.width) * cw, oy: py - r.top, cw, lockX, lx: r.left }
     this.move(px, py)
   },
 
@@ -96,23 +99,12 @@ export const lifter = {
     active.wrap.style.transform = at(p.x, p.y)
   },
 
-  /**
-   * Indent the lifted copy from the left (px), narrowing it while its right edge stays put,
-   * so a carried folder shows how deep it would sit.
-   */
-  setInset(px: number) {
-    if (!active) return
-    const c = active.clone
-    badge(active.wrap, px < 0)
-    if (px === 0 && !c.style.marginLeft) return
-    c.style.transition = 'margin-left 0.18s ease-out, width 0.18s ease-out'
-    c.style.marginLeft = `${px}px`
-    // measured from the row's own width (a nested row is already narrower than the list), so the right edge never overshoots
-    c.style.width = `${active.cw - px}px`
-    c.style.paddingLeft = px > 0 ? '0.6rem' : ''
+  /** Show or hide the little "out one level" arrow beside the carried copy. */
+  pullOut(show: boolean) {
+    if (active) badge(active.wrap, show)
   },
 
-  /** Vertical centre of the lifted copy on screen: where the item visibly is, whatever the grab point. */
+  /** Vertical center of the lifted copy on screen: where the item visibly is, whatever the grab point. */
   centerY(): number | null {
     if (!active) return null
     const r = active.clone.getBoundingClientRect()

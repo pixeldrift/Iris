@@ -26,6 +26,15 @@ export interface Settings {
   sortKey: SortKey
   sortDesc: boolean
   pondGroup: PondGroup
+  /** Sidebar spacing, 0 (compact) to 1 (relaxed). */
+  sidebarSpace: number
+  /** Timeline: show the task names in a column on the left instead of on the bars. */
+  timelineLegend: boolean
+  /** The interface's base color, as a hue (271 is the original violet). */
+  themeHue: number
+  /** How dates are written (see core/locale). */
+  dateFormat: 'us' | 'us-numeric' | 'dmy' | 'iso'
+  clockFormat: '12' | '24'
 }
 
 export interface ContactPrompt {
@@ -127,6 +136,11 @@ const DEFAULT_SETTINGS: Settings = {
   sortKey: 'flow',
   sortDesc: false,
   pondGroup: 'free',
+  sidebarSpace: 0.5,
+  timelineLegend: false,
+  themeHue: 271,
+  dateFormat: 'us',
+  clockFormat: '12',
 }
 
 export const applyAudio = (s: Settings) =>
@@ -394,10 +408,10 @@ export const useStore = create<State>()(
 
       savePerson: (p) => {
         const existing = p.id ? get().people.find((x) => x.id === p.id) : undefined
-        // the sidebar has room for six favourites: a seventh is saved, just not hearted
+        // the sidebar has room for six favorites: a seventh is saved, just not hearted
         if (p.favorite && !existing?.favorite && get().people.filter((x) => x.favorite && x.id !== p.id).length >= MAX_FAVORITES) {
           p = { ...p, favorite: false }
-          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favourites. Unheart someone to make room.`)
+          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favorites. Unheart someone to make room.`)
         }
         if (existing) {
           set((s) => ({ people: s.people.map((x) => (x.id === existing.id ? { ...x, ...p } : x)) }))
@@ -431,7 +445,7 @@ export const useStore = create<State>()(
         const p = get().people.find((x) => x.id === id)
         if (!p) return
         if (!p.favorite && get().people.filter((x) => x.favorite).length >= MAX_FAVORITES) {
-          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favourites. Unheart someone to make room.`)
+          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favorites. Unheart someone to make room.`)
           return
         }
         set((s) => ({ people: s.people.map((x) => (x.id === id ? { ...x, favorite: !x.favorite } : x)) }))

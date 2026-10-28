@@ -10,7 +10,15 @@ function rng(seed: number) {
   }
 }
 
-const SHADES = ['#e1d0f4', '#cdb1eb', '#b78fdf', '#d8bff0', '#c9a6e8', '#ecdcf8']
+// built from the theme's violets, so the color slider recolors the wisteria too
+const SHADES = [
+  'var(--color-lilac-200)',
+  'var(--color-lilac-300)',
+  'var(--color-lilac-400)',
+  'color-mix(in srgb, var(--color-lilac-300) 60%, var(--color-lilac-200))',
+  'color-mix(in srgb, var(--color-lilac-400) 60%, var(--color-lilac-300))',
+  'color-mix(in srgb, var(--color-lilac-100) 70%, var(--color-lilac-200))',
+]
 
 /** A drooping lilac panicle: a few hundred tiny four-petal florets. */
 export function LilacSprig({ seed = 1, className = '' }: { seed?: number; className?: string }) {
@@ -35,7 +43,7 @@ export function LilacSprig({ seed = 1, className = '' }: { seed?: number; classN
       {parts.map((f, i) => (
         <g key={i} transform={`translate(${f.x} ${f.y}) rotate(${f.rot}) scale(${f.s})`} opacity={f.o}>
           {[0, 90, 180, 270].map((a) => (
-            <ellipse key={a} cx="0" cy="-5" rx="3.4" ry="5.6" fill={f.c} transform={`rotate(${a})`} />
+            <ellipse key={a} cx="0" cy="-5" rx="3.4" ry="5.6" style={{ fill: f.c }} transform={`rotate(${a})`} />
           ))}
           <circle r="1.5" fill="#fff" opacity=".85" />
         </g>
@@ -58,7 +66,7 @@ export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="-16 -16 32 32" aria-hidden>
       {[0, 72, 144, 216, 288].map((a) => (
-        <ellipse key={a} cx="0" cy="-8" rx="5.2" ry="8" fill="#b78fdf" opacity=".75" transform={`rotate(${a})`} />
+        <ellipse key={a} cx="0" cy="-8" rx="5.2" ry="8" style={{ fill: 'var(--color-lilac-400)' }} opacity=".75" transform={`rotate(${a})`} />
       ))}
       <circle r="3.4" fill="#fff" opacity=".9" />
     </svg>

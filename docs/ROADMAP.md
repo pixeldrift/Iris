@@ -52,19 +52,19 @@ material, the ambient sound bed and the particles, and nothing else.
   recipe). Keep the particle layer cheap (pause when hidden, honour reduced motion).
 
 ## Folder identity
-- **Flower shapes, not just colours. (Shipped: 12 shapes x 12 colours, monochrome in pickers.)** Folders get a flower *shape* as well as a hue (rose, iris, lily,
-  daisy, tulip, lavender…) so they stay distinguishable for colour-blind users and read faster at a glance.
-  Each new folder cycles through the available shapes and colours by default (preselected), and the folder
-  options popover lets you pick any shape and colour you like.
-- **Blended bubbles.** A bubble that lives in more than one folder could show a colour gradient made of
-  its folders' colours (or a small ring of their flowers) instead of only its first folder's hue.
+- **Flower shapes, not just colors. (Shipped: 12 shapes x 12 colors, monochrome in pickers.)** Folders get a flower *shape* as well as a hue (rose, iris, lily,
+  daisy, tulip, lavender…) so they stay distinguishable for color-blind users and read faster at a glance.
+  Each new folder cycles through the available shapes and colors by default (preselected), and the folder
+  options popover lets you pick any shape and color you like.
+- **Blended bubbles.** A bubble that lives in more than one folder could show a color gradient made of
+  its folders' colors (or a small ring of their flowers) instead of only its first folder's hue.
 
 - **Petal fill / highlighting.** Fill or highlight a number of a flower's petals to show something at a
   glance (for example how much of a folder is done, or a priority level), as an alternative to changing the
   petal count. Optional; the SVG petal rings already make individual petals addressable.
 
 ## Polish ideas
-- Folder-specific bubble colours and icons.
+- Folder-specific bubble colors and icons.
 - Manual ordering inside list and board columns.
 - Custom date picker with times; natural-language dates ("call Sarah next Thursday").
 - Haptics on the native app for pops and blooms.

@@ -24,6 +24,14 @@
 
 :root {
   color-scheme: light;
+  /* the violet as plain r g b, for translucent shadows (the color slider rewrites these) */
+  --lr-200: 225 208 244;
+  --lr-300: 205 177 235;
+  --lr-400: 183 143 223;
+  --lr-500: 159 111 205;
+  --lr-700: 107 68 145;
+  --lr-glass: 120 80 170;
+  --lr-deep: 70 35 110;
 }
 
 html,
@@ -55,10 +63,10 @@ body {
   color: var(--color-ink);
   background-color: var(--color-cream-100);
   background-image:
-    radial-gradient(60rem 40rem at 8% -10%, rgba(205, 177, 235, 0.55), transparent 60%),
+    radial-gradient(60rem 40rem at 8% -10%, rgb(var(--lr-300)/0.55), transparent 60%),
     radial-gradient(50rem 38rem at 100% 8%, rgba(244, 205, 221, 0.5), transparent 60%),
     radial-gradient(55rem 40rem at 90% 108%, rgba(207, 228, 214, 0.5), transparent 60%),
-    radial-gradient(40rem 30rem at 0% 100%, rgba(225, 208, 244, 0.5), transparent 60%);
+    radial-gradient(40rem 30rem at 0% 100%, rgb(var(--lr-200)/0.5), transparent 60%);
   background-attachment: fixed;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
@@ -81,7 +89,7 @@ body.dragging {
   border: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 10px 40px -12px rgba(120, 80, 170, 0.22);
+    0 10px 40px -12px rgb(var(--lr-glass)/0.22);
   backdrop-filter: blur(22px) saturate(1.3);
   -webkit-backdrop-filter: blur(22px) saturate(1.3);
 }
@@ -93,7 +101,7 @@ body.dragging {
 .glass-soft {
   background: rgba(255, 255, 255, 0.42);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 6px 24px -10px rgba(120, 80, 170, 0.2);
+  box-shadow: 0 6px 24px -10px rgb(var(--lr-glass)/0.2);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
@@ -106,7 +114,7 @@ body.dragging {
 }
 .scroll-soft {
   scrollbar-width: thin;
-  scrollbar-color: rgba(183, 143, 223, 0.4) transparent;
+  scrollbar-color: rgb(var(--lr-400)/0.4) transparent;
 }
 
 /* ---------- pond ---------- */
@@ -160,8 +168,8 @@ body.dragging {
 /* a bubble that matches what is typed in the search box */
 .search-hit {
   box-shadow:
-    0 0 0 2px rgba(159, 111, 205, 0.85),
-    0 0 26px 4px rgba(159, 111, 205, 0.45),
+    0 0 0 2px rgb(var(--lr-500)/0.85),
+    0 0 26px 4px rgb(var(--lr-500)/0.45),
     0 1px 1px rgba(255, 255, 255, 0.9) inset !important;
 }
 
@@ -211,7 +219,7 @@ input[type='range'].soft::-webkit-slider-thumb {
   border-radius: 9999px;
   background: radial-gradient(circle at 35% 30%, #fff, var(--color-lilac-100));
   border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 3px 12px rgba(107, 68, 145, 0.35);
+  box-shadow: 0 3px 12px rgb(var(--lr-700)/0.35);
 }
 input[type='range'].soft::-moz-range-thumb {
   width: 20px;
@@ -219,7 +227,7 @@ input[type='range'].soft::-moz-range-thumb {
   border-radius: 9999px;
   background: radial-gradient(circle at 35% 30%, #fff, var(--color-lilac-100));
   border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 3px 12px rgba(107, 68, 145, 0.35);
+  box-shadow: 0 3px 12px rgb(var(--lr-700)/0.35);
 }
 
 /* native date inputs, softened */
@@ -335,45 +343,45 @@ input[type='date'] {
 
 /* ---------- wells: anything the user fills in is pressed into the surface ---------- */
 .well {
-  background: linear-gradient(180deg, rgba(107, 68, 145, 0.085), rgba(255, 255, 255, 0.42) 75%);
+  background: linear-gradient(180deg, rgb(var(--lr-700)/0.085), rgba(255, 255, 255, 0.42) 75%);
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow:
-    inset 0 2px 5px rgba(107, 68, 145, 0.22),
-    inset 0 1px 1px rgba(107, 68, 145, 0.14),
+    inset 0 2px 5px rgb(var(--lr-700)/0.22),
+    inset 0 1px 1px rgb(var(--lr-700)/0.14),
     0 1px 0 rgba(255, 255, 255, 0.95);
   transition: box-shadow 0.2s ease, background 0.2s ease;
 }
 .well:focus,
 .well:focus-within {
   outline: none;
-  background: linear-gradient(180deg, rgba(107, 68, 145, 0.1), rgba(255, 255, 255, 0.55) 75%);
+  background: linear-gradient(180deg, rgb(var(--lr-700)/0.1), rgba(255, 255, 255, 0.55) 75%);
   box-shadow:
-    inset 0 2px 5px rgba(107, 68, 145, 0.26),
-    inset 0 1px 1px rgba(107, 68, 145, 0.16),
-    0 0 0 3px rgba(183, 143, 223, 0.35);
+    inset 0 2px 5px rgb(var(--lr-700)/0.26),
+    inset 0 1px 1px rgb(var(--lr-700)/0.16),
+    0 0 0 3px rgb(var(--lr-400)/0.35);
 }
 .well::placeholder { color: var(--color-ink-faint); }
 
 /* the round version, for check boxes: a soft dent in the surface, not a punched-out hole */
 .well-circle {
-  background: radial-gradient(circle at 60% 66%, rgba(255, 255, 255, 0.3), rgba(107, 68, 145, 0.025) 90%);
+  background: radial-gradient(circle at 60% 66%, rgba(255, 255, 255, 0.3), rgb(var(--lr-700)/0.025) 90%);
   border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow:
-    inset 2px 3px 7px rgba(107, 68, 145, 0.12),
+    inset 2px 3px 7px rgb(var(--lr-700)/0.12),
     inset -1px -2px 5px rgba(255, 255, 255, 0.55),
     0 1px 1px rgba(255, 255, 255, 0.6);
   transition: box-shadow 0.25s ease, background 0.25s ease;
 }
 .well-circle:hover {
-  box-shadow: inset 2px 3px 7px rgba(107, 68, 145, 0.17), inset -1px -2px 5px rgba(255, 255, 255, 0.55), 0 1px 1px rgba(255, 255, 255, 0.6);
+  box-shadow: inset 2px 3px 7px rgb(var(--lr-700)/0.17), inset -1px -2px 5px rgba(255, 255, 255, 0.55), 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 .well-circle.is-on {
-  background: radial-gradient(circle at 36% 30%, #cdb0ea, #a67bd2);
-  border-color: rgba(159, 111, 205, 0.35);
-  box-shadow: inset 2px 3px 6px rgba(70, 35, 110, 0.22), inset -1px -2px 4px rgba(255, 255, 255, 0.3), 0 1px 1px rgba(255, 255, 255, 0.6);
+  background: radial-gradient(circle at 36% 30%, var(--color-lilac-300), var(--color-lilac-500));
+  border-color: rgb(var(--lr-500)/0.35);
+  box-shadow: inset 2px 3px 6px rgb(var(--lr-deep)/0.22), inset -1px -2px 4px rgba(255, 255, 255, 0.3), 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 
-/* hue slider for folder colours */
+/* hue slider for folder colors */
 input[type='range'].hue::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, hsl(0 62% 78%), hsl(40 62% 76%), hsl(90 50% 76%), hsl(150 50% 76%), hsl(200 62% 78%), hsl(255 62% 80%), hsl(300 62% 80%), hsl(340 62% 80%));
   opacity: 1;

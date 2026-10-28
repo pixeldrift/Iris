@@ -8,7 +8,7 @@ export interface SimNode {
   y: number
   vx: number
   vy: number
-  /** Where the node "wants" to be (saved position or its cluster centre). */
+  /** Where the node "wants" to be (saved position or its cluster center). */
   hx: number
   hy: number
   r: number

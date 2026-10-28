@@ -1,3 +1,5 @@
+import { formatDate } from './locale'
+
 // Dates are plain `YYYY-MM-DD` strings in local time: no timezone surprises.
 
 export const pad = (n: number) => String(n).padStart(2, '0')
@@ -49,8 +51,7 @@ export function dayLabel(date: string, now = today()): string {
 }
 
 export function shortDate(s: string): string {
-  const d = fromISO(s)
-  return `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`
+  return formatDate(s)
 }
 
 /** Friendly relative label for chips: "Thu", "Mar 4", "Yesterday"... */

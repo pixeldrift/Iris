@@ -44,6 +44,8 @@ interface Options {
   lift?: () => HTMLElement | null
   /** Give the lifted copy a solid background, so text underneath can't show through it. */
   liftOpaque?: boolean
+  /** The lifted copy stays at the item's own left edge (only its height follows the pointer). */
+  lockX?: boolean
   /** Which drop target is under the pointer (default: nearest `data-drop`). */
   resolve?: (x: number, y: number) => string | null
   /** Touch must start from a handle so scrolling still works. */
@@ -98,7 +100,7 @@ export function usePointerDrag(opts: Options) {
         const src = optsRef.current.lift?.()
         if (src) {
           lifted = true
-          lifter.begin(src, sx, sy, `${optsRef.current.payload.type}:${optsRef.current.payload.id}`, !!optsRef.current.liftOpaque)
+          lifter.begin(src, sx, sy, `${optsRef.current.payload.type}:${optsRef.current.payload.id}`, !!optsRef.current.liftOpaque, !!optsRef.current.lockX)
           useDnd.setState({ liftH: src.offsetHeight })
         }
         optsRef.current.onStart?.()
@@ -123,7 +125,7 @@ export function usePointerDrag(opts: Options) {
         window.addEventListener('click', swallow, { capture: true, once: true })
         window.setTimeout(() => window.removeEventListener('click', swallow, true), 50)
         const target = cancelled ? null : (cur.resolve ?? targetAt)(ev.clientX, ev.clientY)
-        // apply the drop first, then clear the drag, so lists re-render once and neighbours can glide
+        // apply the drop first, then clear the drag, so lists re-render once and neighbors can glide
         cur.onEnd?.({ target, x: ev.clientX, y: ev.clientY })
         useDnd.setState({ drag: null, over: null, liftH: 0 })
         if (lifted) lifter.end(target, ev.clientX, ev.clientY)
