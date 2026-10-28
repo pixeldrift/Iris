@@ -6,7 +6,7 @@ import { useExit } from './anim'
 import { IconChevronDown, IconClose } from './icons'
 import { TagInput } from './TagInput'
 import { TaskFields } from './TaskDetail'
-import { KINDS } from './shared'
+import { KindHint, KINDS } from './shared'
 import type { TaskKind } from '../core/types'
 import { parseQuickAdd } from '../core/quickadd'
 import { askNotify } from './notify'
@@ -26,6 +26,19 @@ export interface ComposePreset {
 const useCompose = create<ComposeState>(() => ({ open: false, at: null, preset: null }))
 export const openCompose = (at: { x: number; y: number } | null = null, preset: ComposePreset | null = null) => useCompose.setState({ open: true, at, preset })
 const closeCompose = () => useCompose.setState({ open: false })
+
+/** Things the line understands, shown one at a time as faded hints (each one a different kind of detail). */
+const EXAMPLES = [
+  'ex. Return library books',
+  'ex. Dentist friday at 2:30pm',
+  'ex. Yoga every mon/wed/fri 7am',
+  'ex. Remind me to call Mom at 5pm',
+  'ex. Pay rent every month on the 1st',
+  'ex. Study group tomorrow 3-4:30pm',
+  'ex. Birthday gift for Mom by oct 31',
+  'ex. Water the plants every 2 weeks',
+  'ex. idea: a poem about rain',
+]
 
 /** One exclusive pill: the highlight slides to whichever type is chosen, with a single soft overshoot. */
 function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKind) => void }) {
@@ -54,7 +67,7 @@ function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKi
       )}
       {KINDS.map((k, i) => (
         <span key={k.id} className="relative flex items-center">
-          {i > 0 && <span aria-hidden className="h-3.5 w-px bg-ink-faint/25" />}
+          {i > 0 && <span aria-hidden className={`h-3.5 w-px bg-ink-faint/25 transition-opacity duration-200 ${value === k.id || value === KINDS[i - 1].id ? 'opacity-0' : ''}`} />}
           <button
             type="button"
             role="radio"
@@ -92,6 +105,13 @@ export function NewTask() {
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const ref = useRef<HTMLInputElement>(null)
+  const [hint, setHint] = useState(0)
+  useEffect(() => {
+    if (!open) return
+    setHint(Math.floor(Math.random() * EXAMPLES.length)) // a different one each time it opens
+    const t = window.setInterval(() => setHint((h) => h + 1), 3600)
+    return () => window.clearInterval(t)
+  }, [open])
   const spot = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 })
   const parsed = useMemo(() => (plain || more || !title.trim() ? null : parseQuickAdd(title, new Date(), { folders, people })), [title, plain, more, folders, people])
   const shownKind: TaskKind = draft?.kind ?? kind ?? parsed?.kind ?? 'task'
@@ -174,16 +194,23 @@ export function NewTask() {
         {/* only the quick line is a form (Enter places it); the editor below has its own buttons */}
         <form onSubmit={submit}>
         <div className="flex items-center">
-          <input
-            ref={ref}
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value)
-              if (draftId) update(draftId, { title: e.target.value })
-            }}
-            placeholder="Call Sarah tomorrow at 3pm…"
-            className="well min-w-0 flex-1 rounded-2xl px-3.5 py-2 font-display text-xl placeholder:text-ink-faint"
-          />
+          <div className="relative min-w-0 flex-1">
+            <input
+              ref={ref}
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value)
+                if (draftId) update(draftId, { title: e.target.value })
+              }}
+              aria-label="New item"
+              className="well w-full rounded-2xl px-3.5 py-2 font-display text-xl"
+            />
+            {!title && (
+              <span key={hint} aria-hidden className="hint-swap pointer-events-none absolute inset-y-0 left-3.5 right-3 flex items-center truncate font-display text-xl italic text-ink-faint/50">
+                {EXAMPLES[hint % EXAMPLES.length]}
+              </span>
+            )}
+          </div>
           <button type="button" onClick={closeCompose} className="grid h-8 w-8 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">
             <IconClose size={16} />
           </button>
@@ -210,10 +237,11 @@ export function NewTask() {
             }}
           />
           <button type="submit" className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm text-white shadow shadow-lilac-500/30">
-            Place it
+            + Add
           </button>
         </div>
         </form>
+        <KindHint kind={shownKind} className="mt-1.5 px-1" />
         <button
           type="button"
           onClick={expand}

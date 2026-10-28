@@ -97,7 +97,7 @@ function weekMonths(days: string[]): string {
   return names.length === 1 ? MONTHS[names[0]] : names.map((m) => MONTHS[m].slice(0, 3)).join('–')
 }
 
-function Section({ id, title, note, action, children }: { id: string; title: string; note?: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Section({ id, title, note, action, pinned = false, children }: { id: string; title: string; note?: string; action?: React.ReactNode; pinned?: boolean; children: React.ReactNode }) {
   const collapsed = useStore((s) => s.sidebar.collapsed.includes(id))
   const toggle = useStore((s) => s.toggleSection)
   const moveSection = useStore((s) => s.moveSection)
@@ -134,11 +134,12 @@ function Section({ id, title, note, action, children }: { id: string; title: str
   return (
     <section data-section-id={id} data-flip-section={id} className="mt-3">
       <Gap open={zone === 'before'} />
-      <div ref={contentRef} data-section-content={id}>
+      <div ref={contentRef} {...(pinned ? {} : { 'data-section-content': id })}>
         <div
           ref={headRef}
           data-lift-id={`section:${id}`}
-          onPointerDown={(e) => onPointerDown(e)}
+          onPointerDown={(e) => !pinned && onPointerDown(e)}
+          onClick={pinned ? () => toggle(id) : undefined}
           className={`group relative mb-0.5 flex cursor-pointer select-none items-center gap-1 rounded-xl px-1.5 py-1 transition hover:bg-white/35 ${dragging ? 'opacity-40' : ''}`}
         >
           <button
@@ -157,7 +158,7 @@ function Section({ id, title, note, action, children }: { id: string; title: str
           <div className="ml-auto flex items-center" onPointerDown={(e) => e.stopPropagation()}>
             {action}
           </div>
-          <GripHandle label="Drag to move this section" onPointerDown={onPointerDown} />
+          {!pinned && <GripHandle label="Drag to move this section" onPointerDown={onPointerDown} />}
         </div>
         <Collapse open={!collapsed && !dragging}>{children}</Collapse>
       </div>
@@ -256,7 +257,7 @@ export function Sidebar() {
 
   const sections: Record<string, React.ReactNode> = {
     views: (
-      <Section id="views" title="Views">
+      <Section id="views" title="Views" pinned>
         {VIEWS.map((v) => (
           <button
             key={v.id}
@@ -275,7 +276,7 @@ export function Sidebar() {
     people: (
       <Section
         id="people"
-        title="People"
+        title="People &amp; Places"
         action={
           <Tip label="Add a person">
             <button onClick={() => openPerson()} className="rounded-lg p-1 text-ink-faint transition hover:bg-white/60 hover:text-lilac-600">
@@ -454,6 +455,9 @@ export function Sidebar() {
 
         <ScrollFade>
           <nav ref={navRef} className="px-3 pb-6">
+            {sections.views}
+            {/* views are how you look; everything below is what you look at */}
+            <div aria-hidden className="mx-3 mb-2 mt-3 h-px bg-gradient-to-r from-transparent via-ink-faint/35 to-transparent" />
             <div className="mt-1">
               <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
             </div>
@@ -497,7 +501,7 @@ function PersonRow({ person, count }: { person: Person; count: number }) {
               e.stopPropagation()
               toggleFavorite(person.id)
             }}
-            className="rounded-md p-1 text-[#c95b88] hover:bg-lilac-100"
+            className="rounded-md p-1 text-lilac-500 hover:bg-lilac-100"
             aria-label={`Unfavourite ${person.name}`}
           >
             <IconHeart size={14} filled />

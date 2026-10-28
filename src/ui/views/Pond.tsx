@@ -883,7 +883,7 @@ export function Pond() {
       <WaterRipples ref={water} className="z-10" />
 
       {visible.length === 0 && (
-        <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to plant a thought</p>
+        <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to float an idea…</p>
       )}
       {visible.length > 0 && (
         <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it</p>

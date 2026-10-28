@@ -147,6 +147,16 @@ body.dragging {
 }
 .slide-in-right { animation: slide-in-right 0.3s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 
+/* the example hint in the new-item box: fades in, holds, fades out */
+@keyframes hint-swap {
+  0% { opacity: 0; transform: translateY(3px); }
+  14% { opacity: 1; transform: translateY(0); }
+  86% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.hint-swap { animation: hint-swap 3.6s ease-in-out both; }
+@media (prefers-reduced-motion: reduce) { .hint-swap { animation: none; } }
+
 /* a bubble that matches what is typed in the search box */
 .search-hit {
   box-shadow:
