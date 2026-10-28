@@ -551,7 +551,7 @@ function slotFor(folders: Folder[], dragId: string, startDepth: number, y: numbe
     rows.push({ id: el.dataset.folderRow!, depth: Number(el.dataset.depth), mid: r.top + r.height / 2 })
     // straight onto the middle of a row: it becomes that folder's child
     // (once a row is lit it stays lit a little beyond its edges, so a resting finger can't flicker it)
-    const pad = current?.kind === 'into' && current.parentId === el.dataset.folderRow ? 0.1 : 0.28
+    const pad = current?.kind === 'into' && current.parentId === el.dataset.folderRow ? 0.1 : 0.2
     if (y >= r.top + r.height * pad && y <= r.bottom - r.height * pad) onto = el.dataset.folderRow!
   })
   if (onto) return { kind: 'into', afterId: null, depth: 0, parentId: onto, beforeId: null }
@@ -655,8 +655,8 @@ function FolderNode(props: NodeProps) {
     if (!same && cur !== next) useFolderSlot.setState({ slot: next })
     // the carried row narrows to the depth it would take (into a folder = one level inside it)
     const rowDepth = (id: string | null) => Number(document.querySelector<HTMLElement>(`[data-folder-row="${id}"]`)?.dataset.depth ?? 0)
-    const shown = next ? (next.kind === 'into' ? rowDepth(next.parentId) + 1 : next.depth) : depth
-    lifter.setInset(shown * 15.2)
+    // the carried row stays exactly as picked up, and only steps in when it would nest inside the lit row
+    lifter.setInset(next?.kind === 'into' ? Math.max(15.2, (rowDepth(next.parentId) + 1 - depth) * 15.2) : 0)
   }
 
   const onPointerDown = usePointerDrag({
@@ -924,19 +924,14 @@ function FolderOptions({
  * The room a dragged folder will take. It opens (with a gentle spring) where the item would land,
  * nudging its neighbours apart. It answers hit-tests as the same folder so the target never flickers.
  */
-function Gap({ open, id, indent = 0, line = false }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
-  const h = useDnd((s) => s.liftH)
+/** Where a drop would land: a coloured bar laid over the seam, which takes no room, so nothing shifts until you let go. */
+function Gap({ open, indent = 0, line = false }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
   return (
-    <div
-      {...(id ? { 'data-drop': `folder:${id}` } : {})}
-      aria-hidden
-      data-gap
-      className="flex items-center overflow-hidden px-2"
-      style={{ height: open ? h : 0, transition: `height 0.32s ${SPRING}`, paddingLeft: line ? `${0.6 + indent * 0.95 + 0.4}rem` : undefined }}
-    >
-      {!line && (
-        <div className={`h-full w-full rounded-xl bg-lilac-200/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} />
-      )}
+    <div aria-hidden data-gap className="pointer-events-none relative z-10 h-0">
+      <div
+        className={`absolute right-2 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(155,111,196,0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
+        style={{ left: `${0.6 + (line ? indent * 0.95 : 0) + 0.4}rem` }}
+      />
     </div>
   )
 }

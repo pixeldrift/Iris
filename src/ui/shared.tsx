@@ -82,6 +82,10 @@ export function FolderChips({ task, max = 3 }: { task: Task; max?: number }) {
 export function DueChip({ task, compact = false }: { task: Task; compact?: boolean }) {
   const when = plannedDate(task)
   if (!when) return null
+  if (when === today() && !isOverdue(task)) {
+    // today needs no date: the time if there is one, otherwise just "Today"
+    return <span className="whitespace-nowrap rounded-full bg-lilac-200/80 px-2 py-0.5 text-[0.7rem] leading-none text-lilac-700">{task.time ? formatTime(task.time) : 'Today'}</span>
+  }
   const late = isOverdue(task)
   return (
     <span
@@ -99,12 +103,14 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
 /** A soft dot whose size hints at weight, with no number attached. */
 export function WeightDot({ task }: { task: Task }) {
   const w = weightOf(task)
+  const folders = useStore((st) => st.folders)
+  const group = folders.find((f) => f.id === task.folderIds[0])
   const s = 6 + w * 10
   return (
     <span className="grid h-5 w-5 shrink-0 place-items-center" title="">
       <span
-        className="rounded-full bg-gradient-to-br from-lilac-200 to-lilac-500"
-        style={{ width: s, height: s, opacity: 0.55 + w * 0.45 }}
+        className={`rounded-full ${group ? '' : 'bg-gradient-to-br from-lilac-200 to-lilac-500'}`}
+        style={{ width: s, height: s, opacity: 0.55 + w * 0.45, ...(group ? { background: `linear-gradient(135deg, ${tint(group.hue, 62, 78)}, ${tint(group.hue, 50, 56)})` } : {}) }}
       />
     </span>
   )
