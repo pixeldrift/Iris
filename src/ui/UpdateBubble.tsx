@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useExit } from './anim'
+import { useSync } from '../sync/engine'
 import { Flower } from './Flower'
 
 declare const __BUILD_ID__: string
 
 /** Polls /version.json; when the deployed build differs from this one, offers a refresh. */
 export function UpdateBubble() {
-  const [stale, setStale] = useState(false)
+  const [polledStale, setStale] = useState(false)
+  // the sync API reports the deployed build with every answer, so an open, signed-in app finds out within seconds
+  const serverBuild = useSync((s) => s.build)
+  const stale = polledStale || (!!serverBuild && serverBuild !== __BUILD_ID__)
   const [dismissed, setDismissed] = useState(false)
   const open = stale && !dismissed
   const { mounted, closing } = useExit(open, 220)
@@ -24,7 +28,7 @@ export function UpdateBubble() {
       }
     }
     void check()
-    const iv = window.setInterval(check, 5 * 60_000)
+    const iv = window.setInterval(check, 60_000)
     const vis = () => document.visibilityState === 'visible' && void check()
     document.addEventListener('visibilitychange', vis)
     window.addEventListener('focus', vis)
