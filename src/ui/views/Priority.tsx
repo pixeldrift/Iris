@@ -9,10 +9,10 @@ import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 const QUADS = [
-  { label: 'Tend now', sub: 'urgent & important', cls: '', edge: 'right-[26px] top-2 items-end text-right md:right-[30px] md:top-2.5', hue: 345 },
-  { label: 'Make time', sub: 'not urgent, but important', cls: '', edge: 'left-[26px] top-2 items-start md:left-[30px] md:top-2.5', hue: 285 },
-  { label: 'Knock it out', sub: 'urgent but unimportant', cls: '', edge: 'bottom-2 right-[26px] items-end text-right md:bottom-2.5 md:right-[30px]', hue: 200 },
-  { label: 'Whenever', sub: 'unimportant, not urgent', cls: '', edge: 'bottom-2 left-[26px] items-start md:bottom-2.5 md:left-[30px]', hue: 150 },
+  { label: 'Tend now', sub: 'urgent & important', cls: '', edge: 'right-3 top-2 items-end text-right md:right-4 md:top-2.5', hue: 345 },
+  { label: 'Make time', sub: 'not urgent, but important', cls: '', edge: 'left-3 top-2 items-start md:left-4 md:top-2.5', hue: 285 },
+  { label: 'Knock it out', sub: 'urgent but unimportant', cls: '', edge: 'bottom-2 right-3 items-end text-right md:bottom-2.5 md:right-4', hue: 200 },
+  { label: 'Whenever', sub: 'unimportant, not urgent', cls: '', edge: 'bottom-2 left-3 items-start md:bottom-2.5 md:left-4', hue: 150 },
 ]
 
 const CLAMP = { minX: 0, maxX: 1, minY: 0, maxY: 1 }
@@ -327,18 +327,6 @@ export function Priority() {
     <div className="flex h-full flex-col">
       <div ref={area} className="flex min-h-0 flex-1 flex-col items-center justify-center">
         <div ref={card} className="glass relative w-full shrink-0 rounded-[2rem]" style={{ padding: 0, height: cardH ?? '100%' }}>
-          <span className={`${axis} left-1/2 top-2 -translate-x-1/2 md:top-2.5`} ref={(el) => {
-              labelEls.current.important = el
-            }} style={axisStyle}>Important</span>
-          <span className={`${axis} bottom-2 left-1/2 -translate-x-1/2 md:bottom-2.5`} ref={(el) => {
-              labelEls.current.unimportant = el
-            }} style={axisStyle}>Unimportant</span>
-          <span className={`${axis} left-1 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl] md:left-1.5`} ref={(el) => {
-              labelEls.current.noturgent = el
-            }} style={axisStyle}>Not urgent</span>
-          <span className={`${axis} right-1 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] md:right-1.5`} ref={(el) => {
-              labelEls.current.urgent = el
-            }} style={axisStyle}>Urgent</span>
           {/* the four corner names sit outside the grid, so no bubble can cover them */}
           {QUADS.map((q) => (
             <div key={q.label} className={`pointer-events-none absolute flex flex-col ${q.edge}`}>
@@ -348,8 +336,45 @@ export function Priority() {
               <span className="mt-0.5 text-[0.65rem] leading-none text-ink-faint">{q.sub}</span>
             </div>
           ))}
-          <div ref={field} className="absolute inset-x-[26px] bottom-[46px] top-[46px] md:inset-x-[30px]">
+          <div ref={field} className="absolute inset-x-2.5 bottom-[42px] top-[42px] md:inset-x-3.5">
             <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgb(var(--lr-300)/0.35)]" />
+            {/* the axis names sit just inside the grid, so the card needs no side margin for them */}
+            <span
+              className={`${axis} left-1/2 top-1.5 -translate-x-1/2`}
+              ref={(el) => {
+                labelEls.current.important = el
+              }}
+              style={axisStyle}
+            >
+              Important
+            </span>
+            <span
+              className={`${axis} bottom-1.5 left-1/2 -translate-x-1/2`}
+              ref={(el) => {
+                labelEls.current.unimportant = el
+              }}
+              style={axisStyle}
+            >
+              Unimportant
+            </span>
+            <span
+              className={`${axis} left-1.5 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl]`}
+              ref={(el) => {
+                labelEls.current.noturgent = el
+              }}
+              style={axisStyle}
+            >
+              Not urgent
+            </span>
+            <span
+              className={`${axis} right-1.5 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl]`}
+              ref={(el) => {
+                labelEls.current.urgent = el
+              }}
+              style={axisStyle}
+            >
+              Urgent
+            </span>
             <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
             <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
             {/* under the bubbles, so a carried bubble's title stays readable */}
