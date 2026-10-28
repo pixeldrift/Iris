@@ -4,30 +4,19 @@ import { habitStreak } from '../core/tasks'
 import type { Recurrence, Task } from '../core/types'
 import { useStore } from '../state/store'
 import { DatePicker } from './DatePicker'
+import { TimePicker } from './TimePicker'
 import { IconRepeat } from './icons'
 
 /** An event: the day, a start and end time, and where. */
 export function EventFields({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
-  const time = (label: string, key: 'time' | 'endTime', min?: string | null) => (
-    <label className="text-xs font-medium text-ink-soft">
-      {label}
-      <input
-        type="time"
-        value={task[key] ?? ''}
-        min={min ?? undefined}
-        onChange={(e) => update(task.id, { [key]: e.target.value || null })}
-        className="well mt-1 w-full rounded-xl px-2.5 py-1.5 text-sm font-normal text-ink"
-      />
-    </label>
-  )
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <DatePicker label="Date" value={task.day} onChange={(v) => update(task.id, { day: v })} />
         <span />
-        {time('Starts', 'time')}
-        {time('Ends', 'endTime', task.time)}
+        <TimePicker label="Starts" value={task.time} onChange={(v) => update(task.id, { time: v })} />
+        <TimePicker label="Ends" value={task.endTime} onChange={(v) => update(task.id, { endTime: v })} />
       </div>
       <label className="block text-xs font-medium text-ink-soft">
         Where
