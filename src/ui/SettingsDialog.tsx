@@ -139,7 +139,7 @@ export function SettingsDialog() {
               />
               <DefaultDot at={0.5} color="#a39cb0" label="Reset spacing" onReset={() => setSetting('sidebarSpace', 0.5)} />
             </div>
-            <div className="flex justify-between text-[0.68rem] text-ink-faint">
+            <div className="-mt-1.5 flex justify-between text-[0.68rem] text-ink-faint">
               <span>Compact</span>
               <span>Relaxed</span>
             </div>
