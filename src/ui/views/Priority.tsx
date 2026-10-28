@@ -335,8 +335,8 @@ export function Priority() {
             {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} scale={scale} />)}
             {dragFrac && glowTask && size.w > 0 && (
               <>
-                <div ref={axisX} aria-hidden className="pointer-events-none absolute z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: dragFrac.x * size.w, top: size.h / 2, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 8px 2px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
-                <div ref={axisY} aria-hidden className="pointer-events-none absolute z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: size.w / 2, top: dragFrac.y * size.h, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 8px 2px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
+                <div ref={axisX} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.5, left: dragFrac.x * size.w, top: size.h / 2, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
+                <div ref={axisY} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.5, left: size.w / 2, top: dragFrac.y * size.h, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
               </>
             )}
             {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
