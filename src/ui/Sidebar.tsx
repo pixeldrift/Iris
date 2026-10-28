@@ -49,7 +49,7 @@ export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof Icon
 ]
 
 const rowBase =
-  'group relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-[0.92rem] transition select-none'
+  'group relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1 text-left text-[0.92rem] md:py-1.5 transition select-none'
 
 function Count({ n, hideZero = false }: { n: number; hideZero?: boolean }) {
   if (!n && hideZero) return null
@@ -132,7 +132,7 @@ function Section({ id, title, note, action, pinned = false, children }: { id: st
   })
 
   return (
-    <section data-section-id={id} data-flip-section={id} className="mt-3">
+    <section data-section-id={id} data-flip-section={id} className="mt-2 md:mt-3">
       <Gap open={zone === 'before'} />
       <div ref={contentRef} {...(pinned ? {} : { 'data-section-content': id })}>
         <div
@@ -447,17 +447,17 @@ export function Sidebar() {
           className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}
           style={progress !== null ? { opacity: Math.min(1, Math.max(0, progress)), transition: 'none' } : undefined}
         >
-        <div className="flex items-center gap-2.5 px-5 pb-1 pt-5">
+        <div className="flex items-center gap-2.5 px-4 pb-0 pt-3 md:px-5 md:pb-1 md:pt-5">
           <Logo />
           <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
           <AccountRow />
         </div>
 
         <ScrollFade>
-          <nav ref={navRef} className="px-3 pb-6">
+          <nav ref={navRef} className="px-2 pb-4 md:px-3 md:pb-6">
             {sections.views}
             {/* views are how you look; everything below is what you look at */}
-            <div aria-hidden className="mx-3 mb-2 mt-3 h-px bg-gradient-to-r from-transparent via-ink-faint/35 to-transparent" />
+            <div aria-hidden className="mx-3 mb-1 mt-2 h-px md:mb-2 md:mt-3 bg-gradient-to-r from-transparent via-ink-faint/35 to-transparent" />
             <div className="mt-1">
               <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
             </div>
@@ -927,12 +927,11 @@ function FolderOptions({
  * nudging its neighbours apart. It answers hit-tests as the same folder so the target never flickers.
  */
 /** Where a drop would land: a coloured bar laid over the seam, which takes no room, so nothing shifts until you let go. */
-function Gap({ open, indent = 0, line = false }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
+function Gap({ open }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
   return (
     <div aria-hidden data-gap className="pointer-events-none relative z-10 h-0">
       <div
-        className={`absolute right-2 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(155,111,196,0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
-        style={{ left: `${0.6 + (line ? indent * 0.95 : 0) + 0.4}rem` }}
+        className={`absolute inset-x-1 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(155,111,196,0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
       />
     </div>
   )

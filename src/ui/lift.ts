@@ -53,6 +53,21 @@ function place(a: Active, x: number, y: number) {
     y: Math.min(window.innerHeight - h - 8, Math.max(8, y - a.oy)),
   }
 }
+/** A small arrow that appears beside a carried row while it is being pulled out a level. */
+function badge(wrap: HTMLElement, show: boolean) {
+  let b = wrap.querySelector<HTMLElement>('[data-out-arrow]')
+  if (!b) {
+    if (!show) return
+    b = document.createElement('div')
+    b.dataset.outArrow = ''
+    b.style.cssText = 'position:absolute;right:0.5rem;top:50%;width:1.4rem;height:1.4rem;margin-top:-0.7rem;border-radius:9999px;background:#9b6fc4;color:#fff;display:grid;place-items:center;opacity:0;transform:scale(0.6);transition:opacity .15s,transform .25s cubic-bezier(0.34,1.45,0.55,1);box-shadow:0 4px 10px -3px rgba(107,68,145,0.5)'
+    b.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20v-7a4 4 0 0 0-4-4H5"/><path d="M9 5 5 9l4 4"/></svg>'
+    wrap.appendChild(b)
+    void b.offsetWidth
+  }
+  b.style.opacity = show ? '1' : '0'
+  b.style.transform = show ? 'scale(1)' : 'scale(0.6)'
+}
 const nextFrames = (fn: () => void) => requestAnimationFrame(() => requestAnimationFrame(fn))
 const at = (x: number, y: number) => `translate(${x}px, ${y}px)`
 
@@ -88,6 +103,7 @@ export const lifter = {
   setInset(px: number) {
     if (!active) return
     const c = active.clone
+    badge(active.wrap, px < 0)
     if (px === 0 && !c.style.marginLeft) return
     c.style.transition = 'margin-left 0.18s ease-out, width 0.18s ease-out'
     c.style.marginLeft = `${px}px`
