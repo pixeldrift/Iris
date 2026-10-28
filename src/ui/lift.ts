@@ -58,8 +58,9 @@ function place(a: Active, x: number, y: number) {
 }
 const ICONS = {
   // the text-editor glyphs: arrow plus four lines
-  in: '<path d="M4 5h16M4 19h16M13 12h7M3.5 12h6M7.5 9 10.5 12l-3 3"/>',
-  out: '<path d="M4 5h16M4 19h16M13 12h7M10.5 12h-6M7.5 9 4.5 12l3 3"/>',
+  // a line on top; below it an arrow stepping in (to the right) or sticking out (to the left)
+  in: '<path d="M4 8h12M8 16h12M17 13l3 3-3 3"/>',
+  out: '<path d="M8 8h12M16 16H4M7 13l-3 3 3 3"/>',
 }
 
 /** The indent / outdent symbol shown inside the carried row, at its left, while a drop would nest it or lift it out. */
