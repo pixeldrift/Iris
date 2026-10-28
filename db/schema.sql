@@ -13,14 +13,17 @@
 -- id); sharing is "add someone to a workspace" (`workspace_members`). Sync pulls every workspace you belong to.
 -- That is the groundwork for several people contributing to the same tasks and groups.
 
-create sequence if not exists entities_seq;
-
 create table if not exists workspaces (
   id          text primary key,
   name        text not null default '',
   personal    boolean not null default false,
+  -- The "something changed" counter. Every write in the workspace bumps it by one, in the same statement as the
+  -- write, so it is gapless and in commit order. A device that has read up to `head_seq` has seen everything, and
+  -- "has anything changed?" is one tiny primary-key read: compare head_seq with the cursor you hold.
+  head_seq    bigint not null default 0,
   created_at  timestamptz not null default now()
 );
+alter table workspaces add column if not exists head_seq bigint not null default 0;
 
 create table if not exists workspace_members (
   workspace_id  text not null references workspaces (id) on delete cascade,
@@ -44,8 +47,8 @@ create table if not exists entities (
   updated_by    text,
   rev           bigint  not null default 1,
   deleted       boolean not null default false,
-  -- server order, bumped on every write: devices pull "everything after the last seq I saw" per workspace
-  seq           bigint  not null default nextval('entities_seq'),
+  -- this workspace's head_seq at the time of the write: devices pull "everything after the last seq I saw"
+  seq           bigint  not null,
   primary key (workspace_id, kind, id)
 );
 
@@ -65,6 +68,9 @@ begin
     alter table entities drop column user_id;
   end if;
 end $$;
+
+-- Earlier copies numbered writes from one global sequence; make each workspace's counter start above what it has.
+update workspaces w set head_seq = greatest(w.head_seq, coalesce((select max(e.seq) from entities e where e.workspace_id = w.id), 0));
 
 create index if not exists entities_pull_idx on entities (workspace_id, seq);
 

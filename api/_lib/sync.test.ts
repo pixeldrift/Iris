@@ -7,7 +7,7 @@ const SCHEMA = readFileSync(new URL('../../db/schema.sql', import.meta.url), 'ut
 let db: PGlite
 const task = (id: string, title: string, updatedAt: number, workspaceId?: string): Change => ({ kind: 'task', id, data: { id, title }, updatedAt, ...(workspaceId ? { workspaceId } : {}) })
 // shorthand: `me` is both the user id and the id of their personal workspace
-const sync = (me: string, req: Partial<SyncRequest> & { cursor?: number }) => applySync(db, me, { cursors: req.cursor !== undefined ? { [me]: req.cursor } : (req.cursors ?? {}), changes: req.changes ?? [], device: req.device, active: req.active })
+const sync = (me: string, req: Partial<SyncRequest> & { cursor?: number }) => applySync(db, me, { cursors: req.cursor !== undefined ? { [me]: req.cursor } : (req.cursors ?? {}), changes: req.changes ?? [], device: req.device, active: req.active, light: req.light, beat: req.beat })
 const seq = (r: { cursors: Record<string, number> }, me: string) => r.cursors[me] ?? 0
 
 beforeAll(async () => {
@@ -55,6 +55,49 @@ describe('sync', () => {
     const second = await sync('cy', { cursor: seq(first, 'cy') })
     expect(first.changes.length + second.changes.length).toBe(510)
     expect(second.more).toBe(false)
+  })
+})
+
+describe('the "something changed" counter', () => {
+  it('counts every write, and a light check is just that counter', async () => {
+    const quiet = await sync('jo', { changes: [] })
+    expect(quiet.heads).toEqual({ jo: 0 })
+    const wrote = await sync('jo', { changes: [task('j1', 'A', 1), task('j2', 'B', 1)] })
+    expect(wrote.heads.jo).toBe(2)
+    const light = await sync('jo', { light: true })
+    expect(light.heads).toEqual({ jo: 2 })
+    expect(light.changes).toEqual([])
+    expect(light.peers).toBeNull() // no beat: no presence work
+    // news for a device that is behind; nothing for one that is level
+    const pull = await sync('jo', { cursor: 0 })
+    expect(pull.changes).toHaveLength(2)
+    expect(pull.cursors.jo).toBe(2)
+    expect((await sync('jo', { light: true })).heads.jo).toBe(pull.cursors.jo)
+  })
+
+  it('numbers writes in order with no gaps, and rewrites move an entity to the front', async () => {
+    await sync('kim', { changes: [task('k1', 'one', 1), task('k2', 'two', 1), task('k1', 'one again', 2)] })
+    const all = await sync('kim', {})
+    expect(all.heads.kim).toBe(3)
+    expect(all.changes.map((c) => [c.id, c.workspaceId])).toEqual([['k2', 'kim'], ['k1', 'kim']])
+    const rows = (await db.query<{ id: string; seq: string }>(`select id, seq from entities where workspace_id = 'kim' order by seq`)).rows
+    expect(rows.map((r) => [r.id, Number(r.seq)])).toEqual([['k2', 2], ['k1', 3]])
+  })
+
+  it('a refused stale write leaves a gap, and catching up jumps the cursor to the head so nobody polls forever', async () => {
+    await sync('lou', { changes: [task('l1', 'new', 50)] })
+    await sync('lou', { changes: [task('l1', 'stale', 10)] }) // loses to the newer write but still bumps the counter
+    const r = await sync('lou', {})
+    expect(r.heads.lou).toBe(2)
+    expect(r.changes).toHaveLength(1)
+    expect(r.cursors.lou).toBe(2) // at the head, not at the row's seq (1)
+    expect((await sync('lou', { cursors: r.cursors, light: true })).heads.lou).toBe(r.cursors.lou)
+  })
+
+  it('beats refresh presence and count peers', async () => {
+    await sync('mo', { device: { id: 'a' }, active: true })
+    const beat = await sync('mo', { light: true, beat: true, device: { id: 'b' }, active: true })
+    expect(beat.peers).toBe(1)
   })
 })
 
@@ -133,6 +176,9 @@ describe('upgrading the first version of the schema', () => {
     const r = await applySync(old, 'ivy', { cursors: {}, changes: [] })
     expect(r.changes).toMatchObject([{ id: 'old1', workspaceId: 'ivy', data: { title: 'Before' }, updatedAt: 7 }])
     expect(r.workspaces[0]).toMatchObject({ id: 'ivy', personal: true })
+    expect(r.heads.ivy).toBeGreaterThanOrEqual(1) // the counter starts above the old sequence numbers
+    const next = await applySync(old, 'ivy', { cursors: r.cursors, changes: [task('new1', 'After', 9)] })
+    expect(next.changes.map((c) => c.id)).toEqual(['new1'])
   })
 })
 

@@ -20,14 +20,21 @@ that keeps that data in a Neon Postgres database so every device shows the same 
   `engine.ts` talks to the store and the network).
 - **When it runs:** a moment after any edit, when the app comes back into view, when the device comes back online,
   and on a timer. Offline edits are kept and sent later.
-- **Presence, and polling that adapts.** Every sync tells the server which device this is and whether the app is
-  visible (`devices` table). The reply says how many *other* devices were open in the last minute (`peers`).
-  Alone, a device asks every 15 s (45 s when hidden); with a peer open at the same moment, both ask every 2 s, so
-  a task added on the laptop drops into the phone's pond within a couple of seconds, with the water-drop sound and a
-  ripple (`announceArrivals` in `src/sync/engine.ts`). The first device to notice the other can take up to one calm
-  interval, after which both are quick. The account menu shows "Also open on another device" while this is on.
-  A true push channel (server-sent events or a realtime service) can replace the fast poll later without changing
-  anything else.
+- **A "something changed" counter, so waiting is cheap.** Each workspace has a `head_seq` counter. Every write bumps
+  it by one *in the same statement as the write*, so it is gapless and in commit order (that also removes the classic
+  race where a reader skips a row that was still committing). A device that has pulled up to the head has seen
+  everything. "Has anything changed?" is therefore one tiny read of that counter per workspace (`lightCheck` in
+  `api/_lib/sync.ts`), compared with the cursor the device holds; only when a head is ahead does it do a full sync.
+  A counter rather than a timestamp: it is monotonic, immune to clock skew, and is the cursor itself.
+- **Presence, and a pace that adapts.** Every ~15 s a device also "beats": it checks in (the `devices` table) and
+  learns how many *other* devices were open in the last minute (`peers`). Alone (app visible) a device asks every 15 s
+  (45 s when hidden). With another device open at the same moment, both ask about once a second, and edits are sent
+  within ~250 ms instead of 1.2 s, so a task added on the laptop drops into the phone's pond in about a second, with the
+  water-drop sound and a ripple (`announceArrivals` in `src/sync/engine.ts`). The first device to notice the other can
+  take up to one calm interval. The account menu shows "Also open on another device" while this is on.
+  Cost while waiting: one primary-key read per check (about one per second per device in fast mode, none beyond the
+  15 s beat otherwise); each check is still a function invocation, which real push (a managed realtime channel that
+  just pings "workspace X changed") would remove later without changing anything else here.
 - **Workspaces (groundwork for sharing).** Entities belong to a *workspace*, not a person: everyone has a personal
   workspace (its id is their user id), and `workspace_members` (owner / editor / viewer) is what sharing will use.
   The API already pulls every workspace you belong to with a cursor each, checks roles on writes (a viewer's writes

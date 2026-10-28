@@ -121,12 +121,14 @@ function applyRemote(changes: Change[]): Map<string, unknown> {
 interface Reply {
   changes: Change[]
   cursors: Record<string, number>
+  /** Each workspace's "something changed" counter: above your cursor means news. */
+  heads: Record<string, number>
   more: boolean
-  peers?: number
+  peers?: number | null
   rejected?: { kind: string; id: string; workspaceId: string }[]
 }
 
-async function post(body: { cursors: Record<string, number>; changes: Change[]; device?: { id: string; label: string }; active?: boolean }, retried = false): Promise<Reply> {
+async function post(body: { cursors: Record<string, number>; changes: Change[]; device?: { id: string; label: string }; active?: boolean; light?: boolean; beat?: boolean }, retried = false): Promise<Reply> {
   const token = await apiToken(retried)
   if (!token) throw new SignedOut()
   const res = await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
@@ -215,6 +217,7 @@ async function syncOnce(userId: string) {
       mem = { ...mem, cursors: { ...mem.cursors, ...resp.cursors }, stamps }
       saveMemory(mem)
       useSync.setState({ peers: resp.peers ?? 0 })
+      lastBeat = Date.now() // a full sync checks in too
       if (arrived.length && isVisible()) announceArrivals(arrived)
       if (!resp.more) break
     }
@@ -234,14 +237,48 @@ function announceArrivals(ids: string[]) {
   for (const id of ids.slice(0, 3)) window.dispatchEvent(new CustomEvent('lilac:added', { detail: { id } }))
 }
 
-/** How often to ask: quickly while another device is open at the same moment, calmly otherwise. */
-const FAST_MS = 2000
+/**
+ * How often to ask. A check is one small read of a counter ("has anything changed?"), so it can be frequent:
+ * about once a second while another device is open at the same moment, calmly otherwise.
+ */
+const FAST_MS = 1000
 const CALM_MS = 15_000
 const HIDDEN_MS = 45_000
+/** How often a device checks in (presence) and re-counts the others. */
+const BEAT_MS = 15_000
+
+let lastBeat = 0
 
 /**
- * Keep syncing while someone is signed in: a moment after any edit, when the app comes back into view, and on a
- * timer whose pace depends on whether another device is open right now (the server tells us in every reply).
+ * The cheap question: has any workspace moved past what this device has seen? Only if so is there a full sync.
+ * Also checks in now and then (a beat) so other devices know this one is open.
+ */
+async function poll(userId: string) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    useSync.setState({ status: 'offline' })
+    return
+  }
+  const mem = loadMemory()
+  if (mem.userId !== userId) return syncNow(userId) // never synced here yet
+  const beat = Date.now() - lastBeat > BEAT_MS
+  try {
+    const resp = await post({ cursors: mem.cursors, changes: [], light: true, beat, device: deviceInfo(), active: isVisible() })
+    if (beat) {
+      lastBeat = Date.now()
+      if (typeof resp.peers === 'number') useSync.setState({ peers: resp.peers })
+    }
+    const news = Object.entries(resp.heads).some(([ws, head]) => head > (mem.cursors[ws] ?? 0))
+    if (news) return syncNow(userId)
+    useSync.setState({ status: 'idle', lastAt: Date.now(), error: null })
+  } catch (e) {
+    if (e instanceof SignedOut) return useSync.setState({ status: 'off', error: null })
+    useSync.setState({ status: navigator.onLine === false ? 'offline' : 'error', error: e instanceof Error ? e.message : 'Sync failed' })
+  }
+}
+
+/**
+ * Keep syncing while someone is signed in: a moment after any edit, when the app comes back into view, and by
+ * asking the cheap question on a timer whose pace depends on whether another device is open right now.
  */
 export function startSync(userId: string): () => void {
   let edit = 0
@@ -249,27 +286,28 @@ export function startSync(userId: string): () => void {
   let stopped = false
   const soon = () => {
     window.clearTimeout(edit)
-    edit = window.setTimeout(() => void syncNow(userId), 1200)
+    // with another device open, send almost at once; alone there is no hurry (edits batch up)
+    edit = window.setTimeout(() => void syncNow(userId), useSync.getState().peers > 0 ? 250 : 1200)
   }
   const unsub = useStore.subscribe((s, prev) => {
     if (s.tasks !== prev.tasks || s.folders !== prev.folders || s.people !== prev.people) soon()
   })
-  const tick = async () => {
-    await syncNow(userId)
+  const tick = async (full: boolean) => {
+    await (full ? syncNow(userId) : poll(userId))
     if (stopped) return
     const fast = isVisible() && useSync.getState().peers > 0
     window.clearTimeout(loop)
-    loop = window.setTimeout(tick, fast ? FAST_MS : isVisible() ? CALM_MS : HIDDEN_MS)
+    loop = window.setTimeout(() => void tick(false), fast ? FAST_MS : isVisible() ? CALM_MS : HIDDEN_MS)
   }
   const wake = () => {
     if (!isVisible()) return
     window.clearTimeout(loop)
-    void tick()
+    void tick(true)
   }
   document.addEventListener('visibilitychange', wake)
   window.addEventListener('online', wake)
   window.addEventListener('focus', wake)
-  void tick()
+  void tick(true)
   return () => {
     stopped = true
     unsub()
