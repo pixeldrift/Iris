@@ -27,6 +27,8 @@ export type TaskStatus = 'todo' | 'doing' | 'done'
 
 export interface Task {
   id: string
+  /** The shared workspace it lives in; absent = the person's own. (Sharing has no UI yet.) */
+  workspaceId?: string
   title: string
   notes: string
   kind: TaskKind
@@ -88,6 +90,8 @@ export type FlowerShape =
 
 export interface Folder {
   id: string
+  /** As on Task. */
+  workspaceId?: string
   name: string
   parentId: string | null
   /** Hue 0..360 used for the folder's dot and chips. */

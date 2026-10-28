@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { drop } from '../audio/engine'
 import { apiToken } from './auth'
 import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normalize'
 import { seedData } from '../core/seed'
@@ -11,15 +12,22 @@ interface SyncState {
   status: SyncStatus
   lastAt: number | null
   error: string | null
+  /** Other devices (yours or a collaborator's) open at the same moment. */
+  peers: number
 }
-export const useSync = create<SyncState>(() => ({ status: 'off', lastAt: null, error: null }))
+export const useSync = create<SyncState>(() => ({ status: 'off', lastAt: null, error: null, peers: 0 }))
 
 const MEMORY_KEY = 'lilac-sync-v1'
 
 const loadMemory = (): SyncMemory => {
   try {
     const raw = localStorage.getItem(MEMORY_KEY)
-    return raw ? { ...emptyMemory(), ...JSON.parse(raw) } : emptyMemory()
+    if (!raw) return emptyMemory()
+    const m = { ...emptyMemory(), ...JSON.parse(raw) } as SyncMemory & { cursor?: number }
+    // the first version kept one cursor, for what is now the personal workspace
+    if (typeof m.cursor === 'number' && m.userId && !Object.keys(m.cursors).length) m.cursors = { [m.userId]: m.cursor }
+    delete m.cursor
+    return m
   } catch {
     return emptyMemory()
   }
@@ -35,12 +43,27 @@ const saveMemory = (m: SyncMemory) => {
 /** Everything that syncs: tasks, folders and people. (Settings and layout stay on the device.) */
 function entities(): Entity[] {
   const s = useStore.getState()
-  return [
-    ...s.tasks.map((t): Entity => ({ kind: 'task', id: t.id, data: t as unknown as Record<string, unknown> })),
-    ...s.folders.map((f): Entity => ({ kind: 'folder', id: f.id, data: f as unknown as Record<string, unknown> })),
-    ...s.people.map((p): Entity => ({ kind: 'person', id: p.id, data: p as unknown as Record<string, unknown> })),
-  ]
+  const mk = (kind: Entity['kind'], x: { id: string; workspaceId?: string }): Entity => ({ kind, id: x.id, data: x as unknown as Record<string, unknown>, ...(x.workspaceId ? { workspaceId: x.workspaceId } : {}) })
+  return [...s.tasks.map((t) => mk('task', t)), ...s.folders.map((f) => mk('folder', f)), ...s.people.map((p) => mk('person', p))]
 }
+
+/** This browser, as the server knows it (to tell when two are open at once). */
+function deviceInfo(): { id: string; label: string } {
+  let id = ''
+  try {
+    id = localStorage.getItem('lilac-device') ?? ''
+    if (!id) {
+      id = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      localStorage.setItem('lilac-device', id)
+    }
+  } catch {
+    id = 'ephemeral-' + Math.random().toString(36).slice(2)
+  }
+  const ua = navigator.userAgent
+  const label = /iPhone|iPad/.test(ua) ? 'iPhone / iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Browser'
+  return { id, label }
+}
+const isVisible = () => typeof document === 'undefined' || document.visibilityState === 'visible'
 const hashes = () => new Map(entities().map((e) => [keyOf(e.kind, e.id), hashOf(e.data)]))
 
 /** The ids of the built-in sample data: not worth uploading over an account that already has real data. */
@@ -95,7 +118,15 @@ function applyRemote(changes: Change[]): Map<string, unknown> {
   return stored
 }
 
-async function post(body: { cursor: number; changes: Change[] }, retried = false): Promise<{ changes: Change[]; cursor: number; more: boolean }> {
+interface Reply {
+  changes: Change[]
+  cursors: Record<string, number>
+  more: boolean
+  peers?: number
+  rejected?: { kind: string; id: string; workspaceId: string }[]
+}
+
+async function post(body: { cursors: Record<string, number>; changes: Change[]; device?: { id: string; label: string }; active?: boolean }, retried = false): Promise<Reply> {
   const token = await apiToken(retried)
   if (!token) throw new SignedOut()
   const res = await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
@@ -138,12 +169,14 @@ async function syncOnce(userId: string) {
     return
   }
   useSync.setState({ status: 'syncing', error: null })
+  const device = deviceInfo()
   try {
     let mem = loadMemory()
-    if (mem.userId !== userId) {
+    const returning = mem.userId === userId // not the first sync of this account on this device
+    if (!returning) {
       // first time this account is used on this device
       mem = { ...emptyMemory(), userId }
-      const peek = await post({ cursor: 0, changes: [] })
+      const peek = await post({ cursors: {}, changes: [], device, active: isVisible() })
       if (peek.changes.length > 0) {
         // the account already has data: the built-in samples would only be clutter on top of it
         const samples = sampleKeys()
@@ -158,22 +191,31 @@ async function syncOnce(userId: string) {
       const ents = entities()
       const { changes, stamps } = localChanges(ents, mem, Date.now())
       const pushed = hashes()
-      const resp = await post({ cursor: mem.cursor, changes })
+      const resp = await post({ cursors: mem.cursors, changes, device, active: isVisible() })
+      const rejected = new Set((resp.rejected ?? []).map((r) => keyOf(r.kind as Kind, r.id)))
       for (const c of changes) {
         const key = keyOf(c.kind, c.id)
+        // (a refused change is dropped quietly for now: there is no way to share yet, so it cannot really happen)
         if (c.data === null) delete mem.known[key]
         else mem.known[key] = pushed.get(key) ?? hashOf(c.data)
+        if (c.workspaceId && !rejected.has(key)) mem.wsOf[key] = c.workspaceId
       }
       const apply = remoteToApply(resp.changes, hashes(), pushed)
+      // things another device just added: they arrive with a drop and a ripple, like something you placed yourself
+      const have = new Set(useStore.getState().tasks.map((t) => t.id))
+      const arrived = returning ? apply.filter((c) => c.kind === 'task' && c.data && !have.has(c.id)).map((c) => c.id) : []
       const stored = applyRemote(apply)
       for (const c of apply) {
         const key = keyOf(c.kind, c.id)
         if (c.data === null) delete mem.known[key]
         else mem.known[key] = hashOf(stored.get(key))
+        if (c.workspaceId && c.workspaceId !== userId) mem.wsOf[key] = c.workspaceId
         stamps[key] = c.updatedAt
       }
-      mem = { ...mem, cursor: resp.cursor, stamps }
+      mem = { ...mem, cursors: { ...mem.cursors, ...resp.cursors }, stamps }
       saveMemory(mem)
+      useSync.setState({ peers: resp.peers ?? 0 })
+      if (arrived.length && isVisible()) announceArrivals(arrived)
       if (!resp.more) break
     }
     useSync.setState({ status: 'idle', lastAt: Date.now(), error: null })
@@ -186,26 +228,53 @@ async function syncOnce(userId: string) {
   }
 }
 
-/** Keep syncing while someone is signed in: after edits, on a timer, and when the tab comes back. */
+/** A drop of water for something that just arrived from another device (a few at most: a burst is one splash). */
+function announceArrivals(ids: string[]) {
+  drop(0)
+  for (const id of ids.slice(0, 3)) window.dispatchEvent(new CustomEvent('lilac:added', { detail: { id } }))
+}
+
+/** How often to ask: quickly while another device is open at the same moment, calmly otherwise. */
+const FAST_MS = 2000
+const CALM_MS = 15_000
+const HIDDEN_MS = 45_000
+
+/**
+ * Keep syncing while someone is signed in: a moment after any edit, when the app comes back into view, and on a
+ * timer whose pace depends on whether another device is open right now (the server tells us in every reply).
+ */
 export function startSync(userId: string): () => void {
-  let timer = 0
+  let edit = 0
+  let loop = 0
+  let stopped = false
   const soon = () => {
-    window.clearTimeout(timer)
-    timer = window.setTimeout(() => void syncNow(userId), 1200)
+    window.clearTimeout(edit)
+    edit = window.setTimeout(() => void syncNow(userId), 1200)
   }
   const unsub = useStore.subscribe((s, prev) => {
     if (s.tasks !== prev.tasks || s.folders !== prev.folders || s.people !== prev.people) soon()
   })
-  const poll = window.setInterval(() => void syncNow(userId), 30_000)
-  const wake = () => document.visibilityState === 'visible' && void syncNow(userId)
+  const tick = async () => {
+    await syncNow(userId)
+    if (stopped) return
+    const fast = isVisible() && useSync.getState().peers > 0
+    window.clearTimeout(loop)
+    loop = window.setTimeout(tick, fast ? FAST_MS : isVisible() ? CALM_MS : HIDDEN_MS)
+  }
+  const wake = () => {
+    if (!isVisible()) return
+    window.clearTimeout(loop)
+    void tick()
+  }
   document.addEventListener('visibilitychange', wake)
   window.addEventListener('online', wake)
   window.addEventListener('focus', wake)
-  void syncNow(userId)
+  void tick()
   return () => {
+    stopped = true
     unsub()
-    window.clearTimeout(timer)
-    window.clearInterval(poll)
+    window.clearTimeout(edit)
+    window.clearTimeout(loop)
     document.removeEventListener('visibilitychange', wake)
     window.removeEventListener('online', wake)
     window.removeEventListener('focus', wake)
@@ -221,5 +290,5 @@ export function forgetAccountData() {
   }
   const seed = seedData()
   useStore.setState({ tasks: seed.tasks, folders: seed.folders, people: seed.people, scope: { type: 'all' }, selectedId: null })
-  useSync.setState({ status: 'off', lastAt: null, error: null })
+  useSync.setState({ status: 'off', lastAt: null, error: null, peers: 0 })
 }

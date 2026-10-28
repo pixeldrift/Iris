@@ -18,8 +18,21 @@ that keeps that data in a Neon Postgres database so every device shows the same 
   since it last synced plus the last `seq` it saw; the server applies them (last write wins per entity, by the
   device's clock) and returns everything newer. The client side is `src/sync/` (`diff.ts` is pure and tested;
   `engine.ts` talks to the store and the network).
-- **When it runs:** a moment after any edit, every 30 s, when the tab regains focus, and when the device comes
-  back online. Offline edits are kept and sent later.
+- **When it runs:** a moment after any edit, when the app comes back into view, when the device comes back online,
+  and on a timer. Offline edits are kept and sent later.
+- **Presence, and polling that adapts.** Every sync tells the server which device this is and whether the app is
+  visible (`devices` table). The reply says how many *other* devices were open in the last minute (`peers`).
+  Alone, a device asks every 15 s (45 s when hidden); with a peer open at the same moment, both ask every 2 s, so
+  a task added on the laptop drops into the phone's pond within a couple of seconds, with the water-drop sound and a
+  ripple (`announceArrivals` in `src/sync/engine.ts`). The first device to notice the other can take up to one calm
+  interval, after which both are quick. The account menu shows "Also open on another device" while this is on.
+  A true push channel (server-sent events or a realtime service) can replace the fast poll later without changing
+  anything else.
+- **Workspaces (groundwork for sharing).** Entities belong to a *workspace*, not a person: everyone has a personal
+  workspace (its id is their user id), and `workspace_members` (owner / editor / viewer) is what sharing will use.
+  The API already pulls every workspace you belong to with a cursor each, checks roles on writes (a viewer's writes
+  are refused), tags each row with who last wrote it (`updated_by`) and how many times (`rev`), and counts
+  collaborators' open devices as peers. What is missing is the UI and the invitation flow: see COLLABORATION.md.
 - **First sign-in on a device:** if the account is empty, this device's data is uploaded. If the account already
   has data, the built-in sample data here is dropped and the account's data comes down (anything you created on
   this device before signing in is still uploaded).
@@ -30,7 +43,9 @@ that keeps that data in a Neon Postgres database so every device shows the same 
 
 1. In the Neon project, turn on **Auth** (done) and copy its **Auth URL**. Add your site's address
    (production, and any preview URLs you want to sign in on) to Neon Auth's allowed / trusted domains.
-2. Create the data table: open the Neon SQL editor and run `db/schema.sql` (safe to re-run).
+2. Create or upgrade the data tables: open the Neon SQL editor and run `db/schema.sql`. It is safe to re-run and it
+   upgrades an older copy in place (existing data moves into each person's personal workspace). **Run it before
+   deploying a version that needs it.**
 3. In the Vercel project's Environment Variables set `DATABASE_URL` (pooled), `VITE_NEON_AUTH_URL` and
    `NEON_AUTH_BASE_URL` (both the Auth URL). `VITE_NEON_AUTH_URL` is baked into the build, so redeploy after
    adding it. See `.env.example`.

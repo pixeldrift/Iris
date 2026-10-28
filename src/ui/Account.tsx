@@ -136,6 +136,12 @@ function AccountMenu() {
           <div className="truncate text-sm">{data.user.name || data.user.email}</div>
           <div className="truncate text-xs text-ink-faint">{data.user.email}</div>
           <div className={`mt-1 text-xs ${sync.status === 'error' ? 'text-[#9a4566]' : 'text-ink-soft'}`}>{status}</div>
+          {sync.peers > 0 && sync.status !== 'error' && (
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-lilac-700">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lilac-400" />
+              Also open on {sync.peers === 1 ? 'another device' : `${sync.peers} other devices`}: updates arrive live
+            </div>
+          )}
           {sync.status === 'error' && sync.error && <div className="mt-1 break-words rounded-lg bg-white/60 px-2 py-1 text-[0.7rem] text-ink-soft">{sync.error}</div>}
         </div>
         <button
