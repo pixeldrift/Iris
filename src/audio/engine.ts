@@ -13,8 +13,10 @@ export interface AudioConfig {
   pops: boolean
   ambient: boolean
   volume: number
+  /** iPhones silence web audio when the ring switch is on; this plays anyway (and may pause other apps' music). */
+  overrideSilent: boolean
 }
-let cfg: AudioConfig = { master: true, drops: true, chimes: true, pops: true, ambient: false, volume: 0.7 }
+let cfg: AudioConfig = { master: true, drops: true, chimes: true, pops: true, ambient: false, volume: 0.7, overrideSilent: false }
 let ambientOn = false
 
 // D major pentatonic over three octaves: anything sounds consonant.
@@ -48,8 +50,63 @@ function ensure(): AudioContext | null {
     reverbIn.connect(conv).connect(master)
 
   }
-  if (ctx.state === 'suspended') void ctx.resume()
+  // iOS also leaves a context 'interrupted' after a call, the lock screen or a trip to another app
+  if ((ctx.state as string) !== 'running') void ctx.resume().catch(() => {})
   return ctx
+}
+
+/** Is sound actually able to play right now? (Browsers keep it suspended until a tap.) */
+export const audioRunning = () => !!ctx && ctx.state === 'running'
+
+/** Bring audio back after the app was backgrounded or interrupted. */
+export function resumeAudio() {
+  if (activated) ensure()
+}
+
+// ---- the phone's own rules ----
+// By default web audio follows the ring switch like any other app sound ('ambient' also lets music keep playing).
+// With overrideSilent the page holds a 'playback' session, kept alive by a silent looping clip on older iOS.
+let keepAlive: HTMLAudioElement | null = null
+
+function silentClip(): string {
+  const rate = 8000
+  const n = rate / 2
+  const b = new Uint8Array(44 + n).fill(128)
+  const dv = new DataView(b.buffer)
+  const str = (o: number, s: string) => [...s].forEach((ch, i) => dv.setUint8(o + i, ch.charCodeAt(0)))
+  str(0, 'RIFF')
+  dv.setUint32(4, 36 + n, true)
+  str(8, 'WAVEfmt ')
+  dv.setUint32(16, 16, true)
+  dv.setUint16(20, 1, true)
+  dv.setUint16(22, 1, true)
+  dv.setUint32(24, rate, true)
+  dv.setUint32(28, rate, true)
+  dv.setUint16(32, 1, true)
+  dv.setUint16(34, 8, true)
+  str(36, 'data')
+  dv.setUint32(40, n, true)
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }))
+}
+
+function applySession() {
+  if (typeof navigator === 'undefined') return
+  try {
+    const s = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
+    if (s) s.type = cfg.overrideSilent ? 'playback' : 'ambient'
+  } catch {
+    /* not supported */
+  }
+  if (cfg.overrideSilent && cfg.master) {
+    if (!keepAlive) {
+      keepAlive = new Audio(silentClip())
+      keepAlive.loop = true
+      keepAlive.setAttribute('playsinline', '')
+    }
+    void keepAlive.play().catch(() => {})
+  } else if (keepAlive) {
+    keepAlive.pause()
+  }
 }
 
 let activated = false
@@ -57,7 +114,15 @@ let activated = false
 /** Call from a user gesture; starts ambient if the settings ask for it. */
 export function unlock() {
   activated = true
-  ensure()
+  const c = ensure()
+  applySession()
+  if (c) {
+    // a silent blip inside the tap is what fully wakes iOS audio
+    const s = c.createBufferSource()
+    s.buffer = c.createBuffer(1, 1, 22050)
+    s.connect(c.destination)
+    s.start(0)
+  }
   setAmbient(cfg.master && cfg.ambient)
 }
 
@@ -67,7 +132,10 @@ const can = (k: 'drops' | 'chimes' | 'pops') => cfg.master && cfg[k]
 export function setAudioConfig(c: AudioConfig) {
   cfg = c
   if (ctx) master.gain.setTargetAtTime(c.volume, ctx.currentTime, 0.05)
-  if (activated) setAmbient(c.master && c.ambient)
+  if (activated) {
+    applySession()
+    setAmbient(c.master && c.ambient)
+  }
 }
 
 /** A soft water droplet with an echo. `pan` -1..1. */
