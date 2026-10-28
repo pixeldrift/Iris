@@ -30,6 +30,8 @@ export interface Settings {
   sidebarSpace: number
   /** Timeline: show the task names in a column on the left instead of on the bars. */
   timelineLegend: boolean
+  /** The interface's base colour, as a hue (271 is the original violet). */
+  themeHue: number
 }
 
 export interface ContactPrompt {
@@ -131,9 +133,9 @@ const DEFAULT_SETTINGS: Settings = {
   sortKey: 'flow',
   sortDesc: false,
   pondGroup: 'free',
-  // phones start tighter than desktops
-  sidebarSpace: typeof window !== 'undefined' && window.innerWidth < 768 ? 0.25 : 0.7,
+  sidebarSpace: 0.5,
   timelineLegend: false,
+  themeHue: 271,
 }
 
 export const applyAudio = (s: Settings) =>

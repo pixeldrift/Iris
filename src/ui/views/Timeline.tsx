@@ -16,12 +16,9 @@ const LABEL_W = 190
 
 type Preview = { id: string; start: string; end: string }
 
-function Caret({ dir }: { dir: 'left' | 'right' }) {
-  return (
-    <svg width="5" height="9" viewBox="0 0 5 9" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d={dir === 'left' ? 'M4 1 1 4.5 4 8' : 'M1 1l3 3.5L1 8'} />
-    </svg>
-  )
+/** An end grip: just a dot, since it stretches the bar rather than moving it. */
+function Dot() {
+  return <span className="block h-1.5 w-1.5 rounded-full bg-current" />
 }
 
 function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task; winStart: string; dayW: number; legend: boolean; onPreview: (p: Preview | null) => void; preview: Preview | null }) {
@@ -72,7 +69,7 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
   return (
     <div
       onPointerDown={begin('move')}
-      className={`absolute top-1.5 flex h-8 cursor-grab touch-none items-center overflow-hidden rounded-full px-4 text-xs shadow-sm ring-1 ring-white/80 transition-[box-shadow] hover:shadow-md ${task.status === 'done' ? 'opacity-50' : ''} ${leave}`}
+      className={`absolute top-1.5 flex h-8 cursor-grab touch-none items-center overflow-hidden rounded-full px-5 text-xs shadow-sm ring-1 ring-white/80 transition-[box-shadow] hover:shadow-md ${task.status === 'done' ? 'opacity-50' : ''} ${leave}`}
       style={{
         left,
         width,
@@ -80,8 +77,8 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
         color: `${tint(hue, 35, 25)}`,
       }}
     >
-      <span onPointerDown={begin('left')} className="absolute inset-y-0 left-0 flex w-3.5 cursor-ew-resize items-center justify-start pl-0.5 opacity-50" aria-hidden>
-        <Caret dir="left" />
+      <span onPointerDown={begin('left')} className="absolute inset-y-0 left-0 flex w-4 cursor-ew-resize items-center justify-start pl-1.5 opacity-55" aria-hidden>
+        <Dot />
       </span>
       {legend ? (
         // the names live in the legend, so the bar only says "I can be dragged"
@@ -93,8 +90,8 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
       ) : (
         <span className="truncate px-1">{task.title}</span>
       )}
-      <span onPointerDown={begin('right')} className="absolute inset-y-0 right-0 flex w-3.5 cursor-ew-resize items-center justify-end pr-0.5 opacity-50" aria-hidden>
-        <Caret dir="right" />
+      <span onPointerDown={begin('right')} className="absolute inset-y-0 right-0 flex w-4 cursor-ew-resize items-center justify-end pr-1.5 opacity-55" aria-hidden>
+        <Dot />
       </span>
     </div>
   )
@@ -286,7 +283,7 @@ export function Timeline() {
                   style={{
                     width: gridW,
                     height: 44,
-                    backgroundImage: `linear-gradient(90deg, rgba(205,177,235,.18) 1px, transparent 1px)`,
+                    backgroundImage: `linear-gradient(90deg, rgb(var(--lr-300)/.18) 1px, transparent 1px)`,
                     backgroundSize: `${dayW}px 100%`,
                     cursor: has ? undefined : 'copy',
                   }}

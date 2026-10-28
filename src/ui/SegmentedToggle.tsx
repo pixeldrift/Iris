@@ -32,7 +32,7 @@ export function SegmentedToggle<T extends string>({
   }, [])
   const spring = 'cubic-bezier(0.34, 1.35, 0.55, 1)'
   return (
-    <div role="radiogroup" aria-label={label} className={`no-scrollbar relative inline-flex max-w-full min-w-0 items-center overflow-x-auto rounded-full bg-white/50 p-0.5 shadow-[inset_0_1px_2px_rgba(107,68,145,0.12)] ${className}`}>
+    <div role="radiogroup" aria-label={label} className={`no-scrollbar relative inline-flex max-w-full min-w-0 items-center overflow-x-auto rounded-full bg-white/50 p-0.5 shadow-[inset_0_1px_2px_rgb(var(--lr-700)/0.12)] ${className}`}>
       {box && (
         <span
           aria-hidden

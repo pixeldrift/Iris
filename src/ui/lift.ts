@@ -10,7 +10,7 @@
  * Items are found again after the drop through `data-lift-id="<type>:<id>"`.
  */
 export const SPRING = 'cubic-bezier(0.34, 1.32, 0.5, 1)' // mild overshoot, calmer than the pond's bubbles
-const SHADOW = '0 20px 44px -14px rgba(107, 68, 145, 0.5), 0 6px 14px -6px rgba(107, 68, 145, 0.3)'
+const SHADOW = '0 20px 44px -14px rgb(var(--lr-700)/0.5), 0 6px 14px -6px rgb(var(--lr-700)/0.3)'
 
 interface Active {
   el: HTMLElement
@@ -63,7 +63,7 @@ function badge(wrap: HTMLElement, show: boolean) {
     if (!show) return
     b = document.createElement('div')
     b.dataset.outArrow = ''
-    b.style.cssText = 'position:absolute;left:-1.45rem;top:50%;width:1.2rem;height:1.2rem;margin-top:-0.6rem;color:#8a58b8;display:grid;place-items:center;opacity:0;transform:scale(0.6);transition:opacity .15s,transform .25s cubic-bezier(0.34,1.45,0.55,1)'
+    b.style.cssText = 'position:absolute;left:-1.45rem;top:50%;width:1.2rem;height:1.2rem;margin-top:-0.6rem;color:var(--color-lilac-600);display:grid;place-items:center;opacity:0;transform:scale(0.6);transition:opacity .15s,transform .25s cubic-bezier(0.34,1.45,0.55,1)'
     b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20v-7a4 4 0 0 0-4-4H5"/><path d="M9 5 5 9l4 4"/></svg>'
     wrap.appendChild(b)
     void b.offsetWidth
@@ -80,7 +80,7 @@ export const lifter = {
     const r = el.getBoundingClientRect()
     const { wrap, clone } = copyOf(el, r)
     clone.style.boxShadow = SHADOW
-    if (opaque) clone.style.background = '#fbf7fd'
+    if (opaque) clone.style.background = 'var(--color-lilac-50)'
     clone.style.borderRadius = getComputedStyle(el).borderRadius
     const cw = Math.min(r.width, COMPACT)
     clone.style.width = `${cw}px`

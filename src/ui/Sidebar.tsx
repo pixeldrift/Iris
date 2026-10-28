@@ -935,7 +935,7 @@ function Gap({ open }: { open: boolean; id?: string; indent?: number; line?: boo
   return (
     <div aria-hidden data-gap className="pointer-events-none relative z-10 h-0">
       <div
-        className={`absolute inset-x-1 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgba(155,111,196,0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-x-1 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgb(var(--lr-500)/0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
       />
     </div>
   )

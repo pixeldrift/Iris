@@ -3,6 +3,7 @@ import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
 import type { Settings } from '../state/store'
 import { Modal } from './dialogs'
+import { BASE_HUE } from './theme'
 import { askNotify, notifyState } from './notify'
 import { useState } from 'react'
 
@@ -37,6 +38,22 @@ function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; la
   )
 }
 
+/** A small dot under a slider marking its default; tapping it puts the slider back there. */
+function DefaultDot({ at, onReset, color, label }: { at: number; onReset: () => void; color: string; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onReset}
+      aria-label={label}
+      title={label}
+      className="absolute bottom-[-0.25rem] grid h-5 w-5 -translate-x-1/2 place-items-center"
+      style={{ left: `calc(0.55rem + (100% - 1.1rem) * ${at})` }}
+    >
+      <span className="block h-1.5 w-1.5 rounded-full transition-transform hover:scale-150" style={{ background: color }} />
+    </button>
+  )
+}
+
 const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section>
     <h4 className="px-2 pb-0.5 pt-2 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">{title}</h4>
@@ -49,7 +66,18 @@ export function SettingsDialog() {
   const { open } = useSettingsDialog()
   const [perm, setPerm] = useState(notifyState())
   const [peek, setPeek] = useState(false)
+  // the dialog fades while a slider is held, so what it changes can be watched behind it
+  const peekProps = {
+    onPointerDown: () => {
+      setPeek(true)
+      window.addEventListener('pointerup', () => setPeek(false), { once: true })
+      window.addEventListener('pointercancel', () => setPeek(false), { once: true })
+    },
+    onKeyDown: () => setPeek(true),
+    onKeyUp: () => setPeek(false),
+  }
   const space = useStore((s) => s.settings.sidebarSpace)
+  const hue = useStore((s) => s.settings.themeHue)
   const sound = useStore((s) => s.settings.sound)
   const volume = useStore((s) => s.settings.volume)
   const setSetting = useStore((s) => s.setSetting)
@@ -77,30 +105,38 @@ export function SettingsDialog() {
           <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
         </Group>
+        <Group title="Colour">
+          <div className="px-2 py-1.5">
+            <div className="flex items-baseline justify-between text-sm">
+              <span>Interface colour</span>
+              <span className="text-[0.7rem] text-ink-faint">{Math.abs(hue - BASE_HUE) < 1 ? 'original' : ''}</span>
+            </div>
+            <div className="relative mt-1 pb-3">
+              <input type="range" min={0} max={360} value={hue} onChange={(e) => setSetting('themeHue', Number(e.target.value))} className="soft hue" aria-label="Interface colour" {...peekProps} />
+              <DefaultDot at={BASE_HUE / 360} color="#9f6fcd" label="Back to the original violet" onReset={() => setSetting('themeHue', BASE_HUE)} />
+            </div>
+          </div>
+        </Group>
         <Group title="Sidebar">
           <div className="px-2 py-1.5">
             <div className="flex items-baseline justify-between text-sm">
               <span>Spacing</span>
               <span className="text-[0.7rem] text-ink-faint">{space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
             </div>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={space}
-              onChange={(e) => setSetting('sidebarSpace', Number(e.target.value))}
-              // the dialog fades while the slider is held, so the sidebar can be watched changing behind it
-              onPointerDown={() => {
-                setPeek(true)
-                window.addEventListener('pointerup', () => setPeek(false), { once: true })
-                window.addEventListener('pointercancel', () => setPeek(false), { once: true })
-              }}
-              onKeyDown={() => setPeek(true)}
-              onKeyUp={() => setPeek(false)}
-              className="soft mt-1"
-              aria-label="Sidebar spacing"
-            />
+            <div className="relative mt-1 pb-3">
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={space}
+                onChange={(e) => setSetting('sidebarSpace', Number(e.target.value))}
+                {...peekProps}
+                className="soft"
+                aria-label="Sidebar spacing"
+              />
+              <DefaultDot at={0.5} color="#a39cb0" label="Reset spacing" onReset={() => setSetting('sidebarSpace', 0.5)} />
+            </div>
             <div className="flex justify-between text-[0.68rem] text-ink-faint">
               <span>Compact</span>
               <span>Relaxed</span>

@@ -18,7 +18,7 @@ function Card({ task }: { task: Task }) {
         ref={el}
         data-lift-id={`task:${task.id}`}
         onPointerDown={(e) => onPointerDown(e)}
-        className={`rise-in group cursor-pointer rounded-2xl border border-white/80 bg-white/65 p-3 shadow-[0_6px_20px_-10px_rgba(107,68,145,0.3)] transition hover:-translate-y-0.5 hover:bg-white/85 ${leave}`}
+        className={`rise-in group cursor-pointer rounded-2xl border border-white/80 bg-white/65 p-3 shadow-[0_6px_20px_-10px_rgb(var(--lr-700)/0.3)] transition hover:-translate-y-0.5 hover:bg-white/85 ${leave}`}
       >
         <div className="flex items-start gap-2">
           <DoneButton task={task} size={20} />
