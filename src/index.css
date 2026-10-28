@@ -193,7 +193,8 @@ body.dragging {
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
-    0 0 0 1px hsla(var(--h, 285), calc(50% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(86% - 22% * var(--u, 0.5)), calc(0.08 + 0.34 * var(--u, 0.5))),
+    /* the thin outline keeps the group's color however pale the inside gets (urgency only softens the fill) */
+    0 0 0 1px hsla(var(--h, 285), calc(62% * var(--s, 1)), 70%, 0.6),
     0 12px 30px -10px hsla(var(--h, 285), calc(45% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(62% - 28% * var(--u, 0.5)), calc(0.12 + 0.46 * var(--u, 0.5)));
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
