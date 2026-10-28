@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, dayLabel, diffDays, monthGrid, ordinalSuffix, startOfWeek } from './dates'
+import { addDays, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
@@ -7,6 +7,8 @@ import { seedData } from './seed'
 import { dueReminders, eventStart, formatReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
+import { matchesQuery } from './search'
+import { composeAddress, parseAddress, splitName } from './people'
 
 describe('dates', () => {
   it('adds and diffs days across month boundaries', () => {
@@ -391,5 +393,55 @@ describe('quick add', () => {
   })
   it('leaves plain text alone', () => {
     expect(p('Buy oat milk')).toMatchObject({ title: 'Buy oat milk', chips: [] })
+  })
+})
+
+describe('search', () => {
+  const { tasks, folders, people } = seedData()
+  const ctx = { folders, people }
+  const now = today() // the sample data is dated relative to today
+  const hit = (q: string) => tasks.filter((t) => matchesQuery(t, q, ctx, now)).map((t) => t.title)
+  it('finds words in the title, notes, groups, people and list items', () => {
+    expect(hit('osmosis')).toEqual(['Lab report: osmosis'])
+    expect(hit('biology')).toContain('Lab report: osmosis') // via its group
+    expect(hit('rose')).toContain('Call grandma') // via the tagged person
+    expect(hit('lemons')).toEqual(['Groceries']) // inside a list
+    expect(hit('LAB   report')).toEqual(['Lab report: osmosis']) // any case, any spacing
+    expect(hit('zzz')).toEqual([])
+  })
+  it('understands dates the way people type them', () => {
+    const lab = tasks.find((t) => t.title.startsWith('Lab'))!
+    const due = fromISO(lab.due!)
+    const short = `${MONTHS[due.getMonth()].slice(0, 3)} ${due.getDate()}`
+    expect(hit('tomorrow')).toContain('Lab report: osmosis')
+    expect(hit(WEEKDAYS[due.getDay()])).toContain('Lab report: osmosis')
+    expect(hit(short)).toContain('Lab report: osmosis')
+    expect(hit(`${due.getDate()}${ordinalSuffix(due.getDate())}`)).toContain('Lab report: osmosis')
+  })
+  it('knows kinds and states', () => {
+    expect(hit('habit')).toContain('Morning stretch')
+    expect(hit('bloomed')).toContain('Water the ferns')
+  })
+})
+
+describe('names and addresses', () => {
+  it('splits a full name into first and last', () => {
+    expect(splitName('Sarah Lee')).toEqual({ first: 'Sarah', last: 'Lee' })
+    expect(splitName('Dr. Anita Rao Patel')).toEqual({ first: 'Dr. Anita Rao', last: 'Patel' })
+    expect(splitName('Madonna')).toEqual({ first: 'Madonna', last: '' })
+    expect(splitName('')).toEqual({ first: '', last: '' })
+  })
+  it('reads a one-line address into parts', () => {
+    expect(parseAddress('12 Elm Street, Springfield, IL 62704')).toEqual({ street: '12 Elm Street', city: 'Springfield', state: 'IL', zip: '62704' })
+    expect(parseAddress('12 Elm St Springfield IL 62704')).toEqual({ street: '12 Elm St', city: 'Springfield', state: 'IL', zip: '62704' })
+    expect(parseAddress('500 Oak Ave Apt 4B, Austin, tx 78701-1234')).toEqual({ street: '500 Oak Ave Apt 4B', city: 'Austin', state: 'TX', zip: '78701' })
+    expect(parseAddress('62704')).toEqual({ street: '', city: '', state: '', zip: '62704' })
+    expect(parseAddress('Springfield, IL')).toEqual({ street: '', city: 'Springfield', state: 'IL', zip: '' })
+    expect(parseAddress('The Old Mill')).toEqual({ street: 'The Old Mill', city: '', state: '', zip: '' })
+    expect(parseAddress('')).toEqual({ street: '', city: '', state: '', zip: '' })
+  })
+  it('puts the parts back together', () => {
+    expect(composeAddress({ street: '12 Elm St', city: 'Springfield', state: 'IL', zip: '62704' })).toBe('12 Elm St, Springfield, IL 62704')
+    expect(composeAddress({ street: '', city: 'Springfield', state: 'IL', zip: '' })).toBe('Springfield, IL')
   })
 })

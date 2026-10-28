@@ -99,3 +99,70 @@ export function parseVCards(text: string): ParsedContact[] {
   }
   return out
 }
+
+/** The sidebar holds seven rows under People: up to this many hearted people, plus the Address book. */
+export const MAX_FAVORITES = 6
+
+export const fullName = (first: string, last: string) => `${first.trim()} ${last.trim()}`.trim()
+
+/** "Sarah Lee" -> Sarah / Lee; "Dr. Anita Rao Patel" -> "Dr. Anita Rao" / Patel; "Madonna" -> Madonna / "". */
+export function splitName(name: string): { first: string; last: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length <= 1) return { first: parts[0] ?? '', last: '' }
+  return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] }
+}
+
+export interface AddressParts {
+  street: string
+  city: string
+  state: string
+  zip: string
+}
+
+export const emptyAddress = (): AddressParts => ({ street: '', city: '', state: '', zip: '' })
+
+const US_STATES = 'AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split(' ')
+const STREET_SUFFIX = /\b(?:st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|way|pl|place|ter|terrace|pkwy|parkway|hwy|highway|cir|circle|sq|square|trl|trail|aly|alley)\.?(?:\s+(?:apt|unit|ste|suite|#)\s*[\w-]+)?(?:\s+[NSEW]{1,2}\b)?/i
+
+/**
+ * Best-effort split of a one-line US address: "12 Elm St, Springfield, IL 62704", "12 Elm St Springfield IL 62704",
+ * or just "62704" / "Springfield, IL". Whatever can't be placed stays in `street`.
+ */
+export function parseAddress(line: string): AddressParts {
+  const out = emptyAddress()
+  let rest = line.trim().replace(/\s+/g, ' ')
+  if (!rest) return out
+  const zip = /(?:^|[\s,])(\d{5})(?:-\d{4})?\s*$/.exec(rest)
+  if (zip) {
+    out.zip = zip[1]
+    rest = rest.slice(0, zip.index).replace(/[\s,]+$/, '')
+  }
+  const st = /(?:^|[\s,])([A-Za-z]{2})\.?\s*$/.exec(rest)
+  const before = st ? rest.slice(0, st.index) : ''
+  if (st && US_STATES.includes(st[1].toUpperCase()) && (zip || /,\s*$/.test(before) || /\s/.test(before.trim()))) {
+    out.state = st[1].toUpperCase()
+    rest = rest.slice(0, st.index).replace(/[\s,]+$/, '')
+  }
+  if (!rest) return out
+  const segs = rest.split(',').map((x) => x.trim()).filter(Boolean)
+  if (segs.length >= 2) {
+    out.city = segs[segs.length - 1]
+    out.street = segs.slice(0, -1).join(', ')
+  } else if (/^\d/.test(segs[0])) {
+    // "12 Elm St Springfield": the city is what follows the street suffix (and unit)
+    const m = STREET_SUFFIX.exec(segs[0])
+    if (m && m.index + m[0].length < segs[0].length) {
+      out.street = segs[0].slice(0, m.index + m[0].length).trim()
+      out.city = segs[0].slice(m.index + m[0].length).trim()
+    } else out.street = segs[0]
+  } else if (out.state || out.zip) {
+    out.city = segs[0] // "Springfield, IL" / "Springfield 62704": no street number, so it is a place
+  } else out.street = segs[0]
+  return out
+}
+
+/** The parts back to one line: "12 Elm St, Springfield, IL 62704". */
+export function composeAddress(a: AddressParts): string {
+  const region = [a.state.trim(), a.zip.trim()].filter(Boolean).join(' ')
+  return [a.street.trim(), a.city.trim(), region].filter(Boolean).join(', ')
+}

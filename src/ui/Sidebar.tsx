@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GRAY, tint } from '../core/color'
 import { addDays, diffDays, fromISO, MONTHS, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds, placeInTree, type Placement, type TreeRow } from '../core/folders'
+import { MAX_FAVORITES } from '../core/people'
 import { taskOnDate } from '../core/recurrence'
 import type { Folder, Person, ViewId } from '../core/types'
 import { useStore } from '../state/store'
@@ -17,6 +18,7 @@ import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
 import { lifter, SPRING } from './lift'
 import { AccountRow } from './Account'
+import { openCompose } from './NewTask'
 import { CountBubble, GripHandle } from './shared'
 import { Tip } from './Tip'
 import {
@@ -199,7 +201,8 @@ export function Sidebar() {
   const setView = useStore((s) => s.setView)
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
-  const tasks = useStore((s) => s.tasks)
+  const allTasks = useStore((s) => s.tasks)
+  const tasks = useMemo(() => allTasks.filter((t) => !t.draft), [allTasks])
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const open = useStore((s) => s.sidebarOpen)
@@ -281,7 +284,7 @@ export function Sidebar() {
           </Tip>
         }
       >
-        {people.filter((p) => p.favorite).map((p) => (
+        {people.filter((p) => p.favorite).slice(0, MAX_FAVORITES).map((p) => (
           <PersonRow key={p.id} person={p} count={live.filter((t) => t.personIds.includes(p.id)).length} />
         ))}
         {people.some((p) => p.favorite) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}
@@ -647,7 +650,7 @@ function FolderNode(props: NodeProps) {
   }, [editing, folder.id])
 
   const actions = [
-    { label: 'Add a group inside', icon: <IconPlus size={14} />, run: () => onAdd(folder.id) },
+    { label: `New item in ${folder.name}`, icon: <IconPlus size={14} />, run: () => openCompose(null, { folderIds: [folder.id] }) },
     { label: 'Rename', icon: <IconPencil size={14} />, run: () => setEditing(folder.id) },
     {
       label: 'Delete group',
@@ -722,6 +725,21 @@ function FolderNode(props: NodeProps) {
           />
         ) : (
           <span className="truncate">{folder.name}</span>
+        )}
+        {editing !== folder.id && (
+          <Tip label={`New item in ${folder.name}`}>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                openCompose(null, { folderIds: [folder.id] })
+              }}
+              aria-label={`New item in ${folder.name}`}
+              className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-ink-faint/70 transition hover:bg-white/70 hover:text-lilac-600 md:hidden"
+            >
+              <IconPlus size={13} />
+            </button>
+          </Tip>
         )}
         <Count n={count(folder.id)} />
         <GripHandle label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />

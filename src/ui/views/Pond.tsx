@@ -5,14 +5,14 @@ import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from '../../core
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { contactLink, detectContactIntent } from '../../core/people'
 import { bubbleRadius, habitStreak, plannedDate } from '../../core/tasks'
-import type { Task } from '../../core/types'
+import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
 import { IconBell, IconChat, IconList, IconMail, IconPhone, IconThought } from '../icons'
 import { DoneButton, DueChip } from '../shared'
-import { openCompose } from '../NewTask'
+import { openCompose, type ComposePreset } from '../NewTask'
 import { Tip } from '../Tip'
 import { useFloatDrag } from '../useFloatDrag'
-import { useLeaveClass, useVisibleTasks } from '../useVisible'
+import { useLeaveClass, useSearchMatcher, useVisibleTasks } from '../useVisible'
 import { WATER } from '../water'
 import { WaterRipples, type WaterHandle } from '../WaterRipples'
 
@@ -59,7 +59,7 @@ interface PondApi {
   isFree: () => boolean
 }
 
-const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number; api: PondApi; start: { x: number; y: number } }) {
+const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null }) {
   const update = useStore((s) => s.updateTask)
   const drift = useStore((s) => s.settings.drift)
   const folders = useStore((s) => s.folders)
@@ -140,7 +140,7 @@ const Lily = memo(function Lily({ task, r, api, start }: { task: Task; r: number
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
-              }`}
+              } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
               style={{ '--h': Math.max(0, hue), '--s': satOf(hue) } as React.CSSProperties}
             >
               <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font }}>
@@ -204,11 +204,15 @@ interface Rec {
 }
 
 export function Pond() {
-  const visible = useVisibleTasks()
+  const visible = useVisibleTasks(false, 'keep') // a search fades the others here instead of removing them
+  const matcher = useSearchMatcher()
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const scale = useStore((s) => s.settings.sizeByPriority)
   const group = useStore((s) => s.settings.pondGroup)
+  /** The + beside a cluster's name: a new item that already belongs to it (where that means something). */
+  const addHere = (key: string): ComposePreset | null =>
+    key === 'none' || key === 'all' ? null : group === 'folder' ? { folderIds: [key] } : group === 'person' ? { personIds: [key] } : group === 'kind' ? { kind: key as TaskKind } : null
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
   const scopeRef = useRef(scope)
@@ -857,12 +861,23 @@ export function Pond() {
               ) : (
                 l.label
               )}
+              {addHere(l.key) && (
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => openCompose(null, addHere(l.key)!)}
+                  aria-label={`New item in ${l.label}`}
+                  title={`New item in ${l.label}`}
+                  className="ml-2 inline-grid h-6 w-6 -translate-y-0.5 place-items-center rounded-full bg-white/65 align-middle font-sans text-base font-normal not-italic leading-none text-lilac-700 shadow-sm transition hover:scale-110 hover:bg-white"
+                >
+                  +
+                </button>
+              )}
             </div>
           </div>
         ))}
 
         {w > 0 &&
-          visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} />)}
+          visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} />)}
       </div>
 
       <WaterRipples ref={water} className="z-10" />

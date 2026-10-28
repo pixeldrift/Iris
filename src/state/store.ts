@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { addDays, today } from '../core/dates'
 import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '../core/folders'
 import { sameName } from '../core/fuzzy'
+import { MAX_FAVORITES } from '../core/people'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
@@ -55,6 +56,9 @@ interface State {
   setView: (v: ViewId) => void
   select: (id: string | null) => void
   setSidebar: (open: boolean) => void
+  /** What is typed in the search box (not saved). Views filter or highlight by it. */
+  search: string
+  setSearch: (q: string) => void
   setSetting: <K extends keyof Settings>(k: K, v: Settings[K]) => void
   toggleSection: (id: string) => void
   /** Put a sidebar section before `beforeId` (null = last). */
@@ -89,6 +93,8 @@ interface State {
   savePerson: (p: Partial<Person> & { name: string }) => string
   deletePerson: (id: string) => void
   togglePersonFavorite: (id: string) => void
+  /** Throw away a task that was only being set up in the quick-add box. */
+  discardDraft: (id: string) => void
   /** Set (or clear with null) the alert on a task. */
   setReminder: (id: string, at: number | null) => void
 
@@ -150,6 +156,8 @@ export const useStore = create<State>()(
       setView: (view) => set({ view, sidebarOpen: false }),
       select: (selectedId) => set({ selectedId }),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
+      search: '',
+      setSearch: (search) => set({ search }),
       setSetting: (k, v) => {
         set((s) => ({ settings: { ...s.settings, [k]: v } }))
         applyAudio(get().settings)
@@ -206,7 +214,7 @@ export const useStore = create<State>()(
         }
         task.folderIds = task.folderIds.filter((f) => folders.some((x) => x.id === f))
         set((s) => ({ tasks: [...s.tasks, task] }))
-        get().checkContact(id)
+        if (!task.draft) get().checkContact(id)
         return id
       },
       updateTask: (id, patch) =>
@@ -380,6 +388,11 @@ export const useStore = create<State>()(
 
       savePerson: (p) => {
         const existing = p.id ? get().people.find((x) => x.id === p.id) : undefined
+        // the sidebar has room for six favourites: a seventh is saved, just not hearted
+        if (p.favorite && !existing?.favorite && get().people.filter((x) => x.favorite && x.id !== p.id).length >= MAX_FAVORITES) {
+          p = { ...p, favorite: false }
+          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favourites. Unheart someone to make room.`)
+        }
         if (existing) {
           set((s) => ({ people: s.people.map((x) => (x.id === existing.id ? { ...x, ...p } : x)) }))
           return existing.id
@@ -399,7 +412,16 @@ export const useStore = create<State>()(
         return person.id
       },
       setReminder: (id, at) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false } : t)) })),
-      togglePersonFavorite: (id) => set((s) => ({ people: s.people.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)) })),
+      discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
+      togglePersonFavorite: (id) => {
+        const p = get().people.find((x) => x.id === id)
+        if (!p) return
+        if (!p.favorite && get().people.filter((x) => x.favorite).length >= MAX_FAVORITES) {
+          get().showToast(`The sidebar keeps ${MAX_FAVORITES} favourites. Unheart someone to make room.`)
+          return
+        }
+        set((s) => ({ people: s.people.map((x) => (x.id === id ? { ...x, favorite: !x.favorite } : x)) }))
+      },
       deletePerson: (id) =>
         set((s) => ({
           people: s.people.filter((p) => p.id !== id),
@@ -521,6 +543,8 @@ export const useStore = create<State>()(
         // sections added in later versions slot in at the end; unknown ones are dropped
         const saved = (p as Partial<State>).sidebar
         const order = [...(saved?.order ?? []).filter((x) => (SECTION_IDS as readonly string[]).includes(x)), ...SECTION_IDS.filter((x) => !(saved?.order ?? []).includes(x))]
+        // a task left half-made when the page closed is not a task
+        if (p.tasks) p.tasks = p.tasks.filter((t) => !t.draft)
         return { ...current, ...p, settings, sidebar: { order, collapsed: saved?.collapsed ?? [] } }
       },
       onRehydrateStorage: () => (s) => {

@@ -10,7 +10,8 @@ import { Tip } from '../Tip'
 /** Everyone you know. Heart the ones who should be one tap away in the sidebar. */
 export function AddressBook() {
   const people = useStore((s) => s.people)
-  const tasks = useStore((s) => s.tasks)
+  const allTasks = useStore((s) => s.tasks)
+  const tasks = useMemo(() => allTasks.filter((t) => !t.draft), [allTasks])
   const toggle = useStore((s) => s.togglePersonFavorite)
   const setScope = useStore((s) => s.setScope)
   const [q, setQ] = useState('')

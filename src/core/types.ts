@@ -27,6 +27,8 @@ export type TaskStatus = 'todo' | 'doing' | 'done'
 
 export interface Task {
   id: string
+  /** Being set up in the quick-add box: kept out of every view, count and sync until placed. */
+  draft?: boolean
   /** The shared workspace it lives in; absent = the person's own. (Sharing has no UI yet.) */
   workspaceId?: string
   title: string
@@ -104,10 +106,18 @@ export interface Folder {
 
 export interface Person {
   id: string
+  /** The full name as shown (first + last). */
   name: string
+  first?: string
+  last?: string
   phone: string
   email: string
+  /** The address as one line (always kept in step with the parts below). */
   address: string
+  street?: string
+  city?: string
+  state?: string
+  zip?: string
   notes: string
   hue: number
   /** Hearted people are the ones kept as shortcuts in the sidebar. */

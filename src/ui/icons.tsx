@@ -42,6 +42,12 @@ export const IconRepeat = (p: P) => (
     <path d="M14.5 4v4h4M9.5 20v-4h-4" />
   </Svg>
 )
+export const IconSearch = (p: P) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m20 20-4.2-4.2" />
+  </Svg>
+)
 export const IconList = (p: P) => (
   <Svg {...p}>
     <path d="M9 6h11M9 12h11M9 18h11" />

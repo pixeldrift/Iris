@@ -1,3 +1,4 @@
+import type { Task } from '../core/types'
 import { ListEditor } from './ListEditor'
 import { ReminderField } from './ReminderField'
 import { EventFields, RecentStrip, RepeatField } from './KindFields'
@@ -26,13 +27,138 @@ function SoftSlider({ label, left, right, value, onChange }: { label: string; le
   )
 }
 
-export function TaskDetail() {
-  const id = useStore((s) => s.selectedId)
-  const live = useStore((s) => s.tasks.find((t) => t.id === s.selectedId))
+/** Every editable field of a task, one under another. Used by the side panel and by the quick-add box. */
+export function TaskFields({ task, withKind = true }: { task: Task; withKind?: boolean }) {
   const people = useStore((s) => s.people)
   const update = useStore((s) => s.updateTask)
   const setDue = useStore((s) => s.setDue)
   const setStatus = useStore((s) => s.setStatus)
+  const linked = people.filter((p) => task.personIds.includes(p.id))
+  const links = linked.flatMap((p) => allLinks(p).map((l) => ({ ...l, who: p.name.split(' ')[0] })))
+  return (
+    <>
+      {withKind && (
+      <div className="flex gap-1.5">
+        {KINDS.map((k) => (
+          <button
+            key={k.id}
+            onClick={() => update(task.id, { kind: k.id })}
+            className={`rounded-full px-3 py-1 text-xs transition ${task.kind === k.id ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
+          >
+            {k.label}
+          </button>
+        ))}
+      </div>
+      )}
+
+      {task.kind === 'list' && <ListEditor task={task} />}
+      {task.kind === 'event' && <EventFields task={task} />}
+      {task.kind !== 'list' && <RepeatField task={task} />}
+      {(!!task.repeat || task.kind === 'habit') && <RecentStrip task={task} />}
+
+      {links.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {links.map((l) => (
+            <a key={l.href} href={l.href} className="rounded-full bg-lilac-100 px-3.5 py-1.5 text-sm text-lilac-700 shadow-sm transition hover:bg-lilac-200">
+              {l.label} {l.who}
+            </a>
+          ))}
+        </div>
+      )}
+
+      <ReminderField task={task} />
+
+      <textarea
+        value={task.notes}
+        onChange={(e) => update(task.id, { notes: e.target.value })}
+        placeholder="Notes, thoughts, anything…"
+        rows={3}
+        className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
+      />
+
+      <div className="space-y-3">
+        <SoftSlider label="How much it matters" left="a passing thought" right="close to my heart" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
+        <SoftSlider label="How pressing it feels" left="whenever" right="the tide is coming" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} />
+      </div>
+
+      <div className="space-y-3">
+        {task.kind !== 'event' && task.kind !== 'habit' && (
+        <div className="grid grid-cols-2 gap-3">
+          <DatePicker label="Do on" value={task.day} onChange={(v) => update(task.id, { day: v })} />
+          <DatePicker label="Due by" value={task.due} onChange={(v) => setDue(task.id, v)} />
+          <DatePicker label="Begins (timeline)" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
+          <div className="text-xs font-medium text-ink-soft">
+            If I don’t finish
+            <button
+              type="button"
+              onClick={() => update(task.id, { rollover: !task.rollover })}
+              aria-pressed={task.rollover}
+              className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
+            >
+              {task.rollover ? 'Carry to next day' : 'Leave it here'}
+              <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
+                <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
+              </span>
+            </button>
+          </div>
+        </div>
+        )}
+        {task.kind !== 'event' && task.kind !== 'habit' && !task.repeat && (
+        <div>
+          <span className="mb-1 block text-xs font-medium text-ink-soft">
+            Only on these days <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
+          </span>
+          <div className="flex gap-1">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => {
+              const on = !!task.days?.includes(i)
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={WEEKDAYS[i]}
+                  onClick={() => {
+                    const cur = task.days ?? []
+                    const next = on ? cur.filter((d) => d !== i) : [...cur, i].sort()
+                    update(task.id, { days: next.length ? next : null })
+                  }}
+                  className={`grid h-8 flex-1 place-items-center rounded-full text-xs transition ${on ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
+                >
+                  {l}
+                </button>
+              )
+            })}
+          </div>
+          {!!task.days?.length && task.rollover && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
+        </div>
+        )}
+      </div>
+
+      {task.kind !== 'habit' && (
+      <div>
+        <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
+        <div className="flex gap-1.5">
+          {STATUSES.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setStatus(task.id, s.id)}
+              title={s.hint}
+              className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
+            >
+              {s.one}
+            </button>
+          ))}
+        </div>
+      </div>
+      )}
+    </>
+  )
+}
+
+export function TaskDetail() {
+  const id = useStore((s) => s.selectedId)
+  const live = useStore((s) => s.tasks.find((t) => t.id === s.selectedId))
+  const update = useStore((s) => s.updateTask)
   const del = useStore((s) => s.deleteTask)
   const select = useStore((s) => s.select)
   const checkContact = useStore((s) => s.checkContact)
@@ -72,8 +198,6 @@ export function TaskDetail() {
 
   if (!task || !mounted) return null
 
-  const linked = people.filter((p) => task.personIds.includes(p.id))
-  const links = linked.flatMap((p) => allLinks(p).map((l) => ({ ...l, who: p.name.split(' ')[0] })))
 
   return (
     <>
@@ -103,118 +227,7 @@ export function TaskDetail() {
         </header>
 
         <div className="scroll-soft min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-3 pt-2">
-          <div className="flex gap-1.5">
-            {KINDS.map((k) => (
-              <button
-                key={k.id}
-                onClick={() => update(task.id, { kind: k.id })}
-                className={`rounded-full px-3 py-1 text-xs transition ${task.kind === k.id ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
-
-          {task.kind === 'list' && <ListEditor task={task} />}
-          {task.kind === 'event' && <EventFields task={task} />}
-          {task.kind !== 'list' && <RepeatField task={task} />}
-          {(!!task.repeat || task.kind === 'habit') && <RecentStrip task={task} />}
-
-          {links.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {links.map((l) => (
-                <a key={l.href} href={l.href} className="rounded-full bg-lilac-100 px-3.5 py-1.5 text-sm text-lilac-700 shadow-sm transition hover:bg-lilac-200">
-                  {l.label} {l.who}
-                </a>
-              ))}
-            </div>
-          )}
-
-          <ReminderField task={task} />
-
-          <textarea
-            value={task.notes}
-            onChange={(e) => update(task.id, { notes: e.target.value })}
-            placeholder="Notes, thoughts, anything…"
-            rows={3}
-            className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
-          />
-
-          <div className="space-y-3">
-            <SoftSlider label="How much it matters" left="a passing thought" right="close to my heart" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
-            <SoftSlider label="How pressing it feels" left="whenever" right="the tide is coming" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} />
-          </div>
-
-          <div className="space-y-3">
-            {task.kind !== 'event' && task.kind !== 'habit' && (
-            <div className="grid grid-cols-2 gap-3">
-              <DatePicker label="Do on" value={task.day} onChange={(v) => update(task.id, { day: v })} />
-              <DatePicker label="Due by" value={task.due} onChange={(v) => setDue(task.id, v)} />
-              <DatePicker label="Begins (timeline)" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
-              <div className="text-xs font-medium text-ink-soft">
-                If I don’t finish
-                <button
-                  type="button"
-                  onClick={() => update(task.id, { rollover: !task.rollover })}
-                  aria-pressed={task.rollover}
-                  className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
-                >
-                  {task.rollover ? 'Carry to next day' : 'Leave it here'}
-                  <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
-                    <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
-                  </span>
-                </button>
-              </div>
-            </div>
-            )}
-            {task.kind !== 'event' && task.kind !== 'habit' && !task.repeat && (
-            <div>
-              <span className="mb-1 block text-xs font-medium text-ink-soft">
-                Only on these days <span className="font-normal text-ink-faint">{task.days?.length ? '' : '· any day'}</span>
-              </span>
-              <div className="flex gap-1">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((l, i) => {
-                  const on = !!task.days?.includes(i)
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      aria-pressed={on}
-                      aria-label={WEEKDAYS[i]}
-                      onClick={() => {
-                        const cur = task.days ?? []
-                        const next = on ? cur.filter((d) => d !== i) : [...cur, i].sort()
-                        update(task.id, { days: next.length ? next : null })
-                      }}
-                      className={`grid h-8 flex-1 place-items-center rounded-full text-xs transition ${on ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
-                    >
-                      {l}
-                    </button>
-                  )
-                })}
-              </div>
-              {!!task.days?.length && task.rollover && <p className="mt-1 text-[0.68rem] text-ink-faint">If missed, it moves to the next of these days, unless that’s after the due date.</p>}
-            </div>
-            )}
-          </div>
-
-          {task.kind !== 'habit' && (
-          <div>
-            <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
-            <div className="flex gap-1.5">
-              {STATUSES.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setStatus(task.id, s.id)}
-                  title={s.hint}
-                  className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
-                >
-                  {s.one}
-                </button>
-              ))}
-            </div>
-          </div>
-          )}
+          <TaskFields task={task} />
         </div>
 
         <footer className="space-y-3 border-t border-white/60 px-5 pb-4 pt-3">
