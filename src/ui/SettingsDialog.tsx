@@ -74,7 +74,7 @@ export function SettingsDialog() {
       const block = e.currentTarget.closest('[data-slider-block]')?.getBoundingClientRect()
       const box = e.currentTarget.closest('[role=dialog]')?.getBoundingClientRect()
       if (!block || !box) return
-      const pad = 8
+      const pad = 3
       setCrop({ top: block.top - box.top - pad, left: block.left - box.left - pad, right: box.right - block.right - pad, bottom: box.bottom - block.bottom - pad })
       window.addEventListener('pointerup', () => setCrop(null), { once: true })
       window.addEventListener('pointercancel', () => setCrop(null), { once: true })
@@ -83,7 +83,7 @@ export function SettingsDialog() {
       if (e.repeat) return
       const block = e.currentTarget.closest('[data-slider-block]')?.getBoundingClientRect()
       const box = e.currentTarget.closest('[role=dialog]')?.getBoundingClientRect()
-      if (block && box) setCrop({ top: block.top - box.top - 8, left: block.left - box.left - 8, right: box.right - block.right - 8, bottom: box.bottom - block.bottom - 8 })
+      if (block && box) setCrop({ top: block.top - box.top - 3, left: block.left - box.left - 3, right: box.right - block.right - 3, bottom: box.bottom - block.bottom - 3 })
     },
     onKeyUp: () => setCrop(null),
   }
@@ -122,19 +122,19 @@ export function SettingsDialog() {
           <div className="px-2 py-1.5" data-slider-block>
             <div className="flex items-baseline justify-between text-sm">
               <span>Color</span>
-              <span className="text-[0.7rem] text-ink-faint">{Math.abs(hue - BASE_HUE) < 1 ? 'original' : ''}</span>
+              <span className="text-[0.7rem] text-ink-faint">{Math.abs(hue - BASE_HUE) < 1 ? 'Default' : ''}</span>
             </div>
-            <div className="relative mt-1 pb-2">
-              <input type="range" min={0} max={360} value={hue} onChange={(e) => setSetting('themeHue', Number(e.target.value))} className="soft hue" aria-label="Interface color" {...peekProps} />
+            <div className="relative mt-1 pb-1">
+              <input type="range" min={0} max={360} value={hue} onChange={(e) => setSetting('themeHue', Number(e.target.value))} className="soft hue relative z-10" aria-label="Interface color" {...peekProps} />
               <DefaultDot at={BASE_HUE / 360} color="#9f6fcd" label="Back to the original violet" onReset={() => setSetting('themeHue', BASE_HUE)} />
             </div>
           </div>
           <div className="px-2 py-1.5" data-slider-block>
             <div className="flex items-baseline justify-between text-sm">
               <span>Spacing</span>
-              <span className="text-[0.7rem] text-ink-faint">{space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
+              <span className="text-[0.7rem] text-ink-faint">{Math.abs(space - 0.5) < 0.005 ? 'Default' : space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
             </div>
-            <div className="relative mt-1 pb-2">
+            <div className="relative mt-1 pb-1">
               <input
                 type="range"
                 min={0}
@@ -143,12 +143,12 @@ export function SettingsDialog() {
                 value={space}
                 onChange={(e) => setSetting('sidebarSpace', Number(e.target.value))}
                 {...peekProps}
-                className="soft"
+                className="soft relative z-10"
                 aria-label="Sidebar spacing"
               />
               <DefaultDot at={0.5} color="#a39cb0" label="Reset spacing" onReset={() => setSetting('sidebarSpace', 0.5)} />
             </div>
-            <div className="-mt-1.5 flex justify-between text-[0.68rem] text-ink-faint">
+            <div className="-mt-2.5 flex justify-between text-[0.68rem] text-ink-faint">
               <span>Compact</span>
               <span>Relaxed</span>
             </div>
