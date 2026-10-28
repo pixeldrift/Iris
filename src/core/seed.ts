@@ -13,6 +13,8 @@ const mk = (partial: Partial<Task> & { title: string }): Task => ({
   place: '',
   log: [],
   repeat: null,
+  alerts: [],
+  alertsDone: [],
   remindAt: null,
   reminded: false,
   status: 'todo',

@@ -108,6 +108,14 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     if (r.m) rec = { freq: 'monthly', interval: 1, monthDay: r.m[1] ? monthDay(r.m[1]) : undefined, from: todayISO }
   }
   if (!rec) {
+    // every third tuesday, every last friday
+    r = take(t, new RegExp(`\\severy\\s+(first|second|third|fourth|last|1st|2nd|3rd|4th)\\s+${DAY_RE}\\b`, 'i'))
+    if (r.m) {
+      const nth = ({ first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3, fourth: 4, '4th': 4, last: -1 } as Record<string, number>)[r.m[1].toLowerCase()]
+      rec = { freq: 'monthly', interval: 1, byDay: [weekdayOf(r.m[2])], nth, from: todayISO }
+    }
+  }
+  if (!rec) {
     r = take(t, /\severy\s+weekdays?\b/i)
     if (r.m) rec = { freq: 'weekly', interval: 1, byDay: [1, 2, 3, 4, 5], from: todayISO }
   }

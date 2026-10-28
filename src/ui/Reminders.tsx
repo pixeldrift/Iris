@@ -3,18 +3,20 @@ import { create } from 'zustand'
 import { chime } from '../audio/engine'
 import { addDays, toISO } from '../core/dates'
 import { anchorOf, nextOccurrence, repeatOf } from '../core/recurrence'
-import { dueReminders, formatReminder } from '../core/reminders'
+import { alertLabel, dueAlerts, dueReminders, eventStartsFor, formatReminder } from '../core/reminders'
 import { useStore } from '../state/store'
 import { IconBell, IconClose } from './icons'
 import { showSystem } from './notify'
 
-const useAlerts = create<{ ids: string[] }>(() => ({ ids: [] }))
-const dismiss = (id: string) => useAlerts.setState((s) => ({ ids: s.ids.filter((x) => x !== id) }))
+/** Cards on screen: which task, and what to say about it ("Starts in 1 hour"). */
+const useAlerts = create<{ items: { id: string; note: string }[] }>(() => ({ items: [] }))
+const dismiss = (id: string) => useAlerts.setState((s) => ({ items: s.items.filter((x) => x.id !== id) }))
+const note = (minutes: number) => (minutes <= 0 ? 'Starting now' : `Starts in ${alertLabel(minutes).replace(' before', '')}`)
 
 /** Watches the clock: when a reminder comes due it chimes, shows a card, and posts a system notification. */
 export function ReminderHost() {
   const tasks = useStore((s) => s.tasks)
-  const ids = useAlerts((s) => s.ids)
+  const items = useAlerts((s) => s.items)
   const select = useStore((s) => s.select)
   const setReminder = useStore((s) => s.setReminder)
   const toggleDone = useStore((s) => s.toggleDone)
@@ -22,25 +24,36 @@ export function ReminderHost() {
   useEffect(() => {
     const check = () => {
       const st = useStore.getState()
-      const due = dueReminders(st.tasks, Date.now())
-      if (!due.length) return
+      const now = Date.now()
+      const due = dueReminders(st.tasks, now)
+      const alerts = dueAlerts(st.tasks, now, (t) => eventStartsFor(t, now))
+      if (!due.length && !alerts.length) return
       useStore.setState((s) => ({
         tasks: s.tasks.map((t) => {
-          if (!due.some((d) => d.id === t.id)) return t
-          // a repeating task's alert comes round again: same time of day, next occurrence
-          const r = repeatOf(t)
-          const nextDay = r && t.remindAt !== null ? nextOccurrence(r, addDays(toISO(new Date(t.remindAt)), 1), anchorOf(t)) : null
-          if (nextDay && t.remindAt !== null) {
-            const at = new Date(t.remindAt)
-            const [y, m, d] = nextDay.split('-').map(Number)
-            return { ...t, remindAt: new Date(y, m - 1, d, at.getHours(), at.getMinutes()).getTime(), reminded: false }
+          let next = t
+          if (due.some((d) => d.id === t.id)) {
+            // a repeating task's alert comes round again: same time of day, next occurrence
+            const r = repeatOf(t)
+            const nextDay = r && t.remindAt !== null ? nextOccurrence(r, addDays(toISO(new Date(t.remindAt)), 1), anchorOf(t)) : null
+            if (nextDay && t.remindAt !== null) {
+              const at = new Date(t.remindAt)
+              const [y, m, d] = nextDay.split('-').map(Number)
+              next = { ...t, remindAt: new Date(y, m - 1, d, at.getHours(), at.getMinutes()).getTime(), reminded: false }
+            } else next = { ...t, reminded: true }
           }
-          return { ...t, reminded: true }
+          const fired = alerts.filter((a) => a.task.id === t.id).map((a) => a.key)
+          if (fired.length) {
+            // remember what has gone off (and forget occurrences long past, so the list stays short)
+            const keep = (next.alertsDone ?? []).filter((k) => now - Number(k.split(':')[0]) < 7 * 86_400_000)
+            next = { ...next, alertsDone: [...keep, ...fired] }
+          }
+          return next
         }),
       }))
-      useAlerts.setState((s) => ({ ids: [...new Set([...s.ids, ...due.map((t) => t.id)])] }))
+      const cards = [...due.map((t) => ({ id: t.id, note: formatReminder(t.remindAt!, now) })), ...alerts.map((a) => ({ id: a.task.id, note: note(a.minutes) }))]
+      useAlerts.setState((s) => ({ items: [...s.items.filter((x) => !cards.some((c) => c.id === x.id)), ...cards] }))
       chime()
-      for (const t of due) void showSystem(t.id, t.title || 'Reminder', formatReminder(t.remindAt!, Date.now()))
+      for (const c of cards) void showSystem(c.id, st.tasks.find((t) => t.id === c.id)?.title || 'Reminder', c.note)
     }
     check()
     const timer = window.setInterval(check, 10_000)
@@ -63,18 +76,21 @@ export function ReminderHost() {
     }
   }, [select])
 
-  const shown = ids.map((id) => tasks.find((t) => t.id === id)).filter((t) => !!t)
+  const shown = items.flatMap((i) => {
+    const t = tasks.find((x) => x.id === i.id)
+    return t ? [{ t, note: i.note }] : []
+  })
   if (!shown.length) return null
   return (
     <div className="pointer-events-none fixed inset-x-3 top-3 z-[135] flex flex-col items-center gap-2 md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-      {shown.map((t) => (
+      {shown.map(({ t, note: text }) => (
         <div key={t.id} role="alert" className="glass glass-strong pop-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-3xl p-3.5 shadow-xl shadow-lilac-500/20">
           <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-100 text-lilac-600">
             <IconBell size={16} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-base leading-tight">{t.title || 'Untitled'}</p>
-            <p className="text-xs text-ink-soft">{t.remindAt ? formatReminder(t.remindAt, Date.now()) : ''}</p>
+            <p className="text-xs text-ink-soft">{text}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <button onClick={() => (select(t.id), dismiss(t.id))} className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30">
                 Open

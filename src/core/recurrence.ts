@@ -2,6 +2,17 @@ import { addDays, diffDays, fromISO, ordinalSuffix, toISO, WEEKDAYS } from './da
 import type { Recurrence, Task } from './types'
 
 const daysIn = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
+/** The date (1-31) of the nth (1-4) or last (-1) given weekday in a month. */
+export function nthWeekdayOfMonth(year: number, month: number, weekday: number, nth: number): number {
+  const count = daysIn(year, month)
+  if (nth < 0) {
+    const lastDow = new Date(year, month, count).getDay()
+    return count - ((lastDow - weekday + 7) % 7)
+  }
+  const firstDow = new Date(year, month, 1).getDay()
+  return 1 + ((weekday - firstDow + 7) % 7) + 7 * (nth - 1)
+}
+
 const weekStart = (s: string) => addDays(s, -fromISO(s).getDay())
 
 /** Does the series fall on `date`? `anchor` is where it starts (never before it). */
@@ -21,6 +32,7 @@ export function occursOn(r: Recurrence, date: string, anchor: string = r.from): 
     case 'monthly': {
       const months = (d.getFullYear() - a.getFullYear()) * 12 + d.getMonth() - a.getMonth()
       if (months % n !== 0) return false
+      if (r.nth && r.byDay?.length) return d.getDay() === r.byDay[0] && d.getDate() === nthWeekdayOfMonth(d.getFullYear(), d.getMonth(), r.byDay[0], r.nth)
       return d.getDate() === Math.min(r.monthDay ?? a.getDate(), daysIn(d.getFullYear(), d.getMonth()))
     }
     case 'yearly': {
@@ -95,6 +107,7 @@ export function describeRecurrence(r: Recurrence): string {
       return `${n === 1 ? 'Every' : `Every ${n} weeks on`}${n === 1 && !days.length ? ' week' : days.length ? ` ${names}` : ''}`
     }
     case 'monthly':
+      if (r.nth && r.byDay?.length) return `${n === 1 ? 'Monthly' : `Every ${n} months`} on the ${r.nth < 0 ? 'last' : `${r.nth}${ordinalSuffix(r.nth)}`} ${WEEKDAYS[r.byDay[0]]}`
       return `${n === 1 ? 'Monthly' : `Every ${n} months`} on the ${dom}${ordinalSuffix(dom)}`
     case 'yearly':
       return n === 1 ? 'Every year' : `Every ${n} years`

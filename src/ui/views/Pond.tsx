@@ -160,7 +160,7 @@ const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r:
                 ) : (
                   <DoneButton task={task} size={cb} />
                 )}
-                {task.remindAt !== null && !task.reminded && (
+                {((task.remindAt !== null && !task.reminded) || (task.alerts?.length ?? 0) > 0) && (
                   <span title="Reminder set" role="img" aria-label="Reminder set" className="text-lilac-500">
                     <IconBell size={15} />
                   </span>

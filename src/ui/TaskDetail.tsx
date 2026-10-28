@@ -68,7 +68,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
         </div>
       )}
 
-      <ReminderField task={task} />
+      {task.kind !== 'event' && <ReminderField task={task} />}
 
       <textarea
         value={task.notes}
