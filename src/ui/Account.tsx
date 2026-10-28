@@ -167,6 +167,17 @@ function AccountMenu() {
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
           <span className="min-w-0 flex-1 truncate">{status}</span>
           {sync.peers > 0 && sync.status !== 'error' && <span className="shrink-0 text-lilac-700">live</span>}
+          <button
+            onClick={() => void syncNow(data.user.id)}
+            disabled={sync.status === 'syncing'}
+            aria-label="Sync now"
+            title="Sync now"
+            className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/80 hover:text-lilac-700"
+          >
+            <span className={`inline-grid ${sync.status === 'syncing' ? 'animate-spin' : ''}`}>
+              <IconRepeat size={13} />
+            </span>
+          </button>
         </div>
         {sync.status === 'error' && sync.error && <div className="mx-2.5 mb-1.5 break-words rounded-lg bg-white/60 px-2 py-1 text-[0.7rem] text-ink-soft">{sync.error}</div>}
         {sync.peers > 0 && sync.status !== 'error' && <div className="mx-2.5 mb-1.5 text-[0.7rem] text-lilac-700">Also open on {sync.peers === 1 ? 'another device' : `${sync.peers} other devices`}</div>}
@@ -187,15 +198,6 @@ function AccountMenu() {
           }}
         >
           <IconGear size={16} /> My settings
-        </button>
-        <button
-          className={item}
-          onClick={() => {
-            setMenu(false)
-            void syncNow(data.user.id)
-          }}
-        >
-          <IconRepeat size={16} /> Sync now
         </button>
         <div aria-hidden className="mx-2.5 my-1 h-px bg-ink-faint/20" />
         <button

@@ -48,7 +48,7 @@ function DefaultDot({ at, onReset, color, label }: { at: number; onReset: () => 
       onClick={onReset}
       aria-label={label}
       title={label}
-      className="absolute bottom-[-0.25rem] grid h-5 w-5 -translate-x-1/2 place-items-center"
+      className="absolute bottom-[0.05rem] grid h-5 w-5 -translate-x-1/2 place-items-center"
       style={{ left: `calc(0.55rem + (100% - 1.1rem) * ${at})` }}
     >
       <span className="block h-1.5 w-1.5 rounded-full transition-transform hover:scale-150" style={{ background: color }} />
@@ -109,15 +109,39 @@ export function SettingsDialog() {
           <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
         </Group>
-        <Group title="Color">
+        <Group title="Look & Feel">
           <div className="px-2 py-1.5">
             <div className="flex items-baseline justify-between text-sm">
-              <span>Interface color</span>
+              <span>Color</span>
               <span className="text-[0.7rem] text-ink-faint">{Math.abs(hue - BASE_HUE) < 1 ? 'original' : ''}</span>
             </div>
-            <div className="relative mt-1 pb-3">
+            <div className="relative mt-1 pb-2">
               <input type="range" min={0} max={360} value={hue} onChange={(e) => setSetting('themeHue', Number(e.target.value))} className="soft hue" aria-label="Interface color" {...peekProps} />
               <DefaultDot at={BASE_HUE / 360} color="#9f6fcd" label="Back to the original violet" onReset={() => setSetting('themeHue', BASE_HUE)} />
+            </div>
+          </div>
+          <div className="px-2 py-1.5">
+            <div className="flex items-baseline justify-between text-sm">
+              <span>Spacing</span>
+              <span className="text-[0.7rem] text-ink-faint">{space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
+            </div>
+            <div className="relative mt-1 pb-2">
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={space}
+                onChange={(e) => setSetting('sidebarSpace', Number(e.target.value))}
+                {...peekProps}
+                className="soft"
+                aria-label="Sidebar spacing"
+              />
+              <DefaultDot at={0.5} color="#a39cb0" label="Reset spacing" onReset={() => setSetting('sidebarSpace', 0.5)} />
+            </div>
+            <div className="flex justify-between text-[0.68rem] text-ink-faint">
+              <span>Compact</span>
+              <span>Relaxed</span>
             </div>
           </div>
         </Group>
@@ -141,32 +165,6 @@ export function SettingsDialog() {
             </div>
             <div className="text-sm">
               Time zone <span className="ml-1 text-[0.7rem] text-ink-faint">{deviceTimeZone().replace(/_/g, ' ')} · follows this device</span>
-            </div>
-          </div>
-        </Group>
-        <Group title="Sidebar">
-          <div className="px-2 py-1.5">
-            <div className="flex items-baseline justify-between text-sm">
-              <span>Spacing</span>
-              <span className="text-[0.7rem] text-ink-faint">{space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
-            </div>
-            <div className="relative mt-1 pb-3">
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={space}
-                onChange={(e) => setSetting('sidebarSpace', Number(e.target.value))}
-                {...peekProps}
-                className="soft"
-                aria-label="Sidebar spacing"
-              />
-              <DefaultDot at={0.5} color="#a39cb0" label="Reset spacing" onReset={() => setSetting('sidebarSpace', 0.5)} />
-            </div>
-            <div className="flex justify-between text-[0.68rem] text-ink-faint">
-              <span>Compact</span>
-              <span>Relaxed</span>
             </div>
           </div>
         </Group>
