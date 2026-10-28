@@ -12,7 +12,7 @@ import { Logo } from './Decor'
 import { askConfirm } from './dialogs'
 import { FLOWER_SHAPES, Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
-import { MenuItem, Popover } from './Popover'
+import { Popover } from './Popover'
 import { useIsMobile } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
@@ -605,21 +605,23 @@ function GroupMenu({ n, name, actions }: { n: number; name: string; actions: { l
           <CountBubble n={n} />
         </button>
       </span>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="w-44" onMouseEnter={() => hover() && show()} onMouseLeave={() => hover() && hide()}>
-        {actions.map((a) => (
-          <MenuItem
-            key={a.label}
-            onClick={() => {
-              setOpen(false)
-              a.run()
-            }}
-          >
-            <span className="flex items-center gap-2">
-              <span className="text-ink-faint">{a.icon}</span>
-              {a.label}
-            </span>
-          </MenuItem>
-        ))}
+      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="!min-w-0 !p-1" onMouseEnter={() => hover() && show()} onMouseLeave={() => hover() && hide()}>
+        <div className="flex items-center gap-0.5">
+          {actions.map((a) => (
+            <button
+              key={a.label}
+              aria-label={a.label}
+              title={a.label}
+              onClick={() => {
+                setOpen(false)
+                a.run()
+              }}
+              className={`grid h-9 w-9 place-items-center rounded-xl text-ink-soft transition hover:bg-lilac-100/80 ${a.label === 'Delete' ? 'hover:text-[#b04a6e]' : 'hover:text-lilac-700'}`}
+            >
+              {a.icon}
+            </button>
+          ))}
+        </div>
       </Popover>
     </>
   )
