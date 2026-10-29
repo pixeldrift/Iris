@@ -506,3 +506,20 @@ describe('event reminders: as many as you like', () => {
     expect(eventStartsFor(weekly, at(10, 14, 30)).includes(at(10, 15))).toBe(true)
   })
 })
+
+import { dropSampleCopies } from './seed'
+describe('sample data identity', () => {
+  it('gives the same ids every time, so sync can recognise the samples', () => {
+    expect(seedData().tasks.map((t) => t.id)).toEqual(seedData().tasks.map((t) => t.id))
+  })
+  it('removes stray copies of a sample but keeps the real one, and never a lone sample or a real task', () => {
+    const real = seedData().tasks[3] // "Repot the lilac"
+    const list = [real, { ...real, id: 'seed-900' }, { ...real, id: 'seed-901' }, { ...real, id: 'mine-1', title: 'Something I wrote' }, { ...real, id: 'abc', title: real.title }]
+    expect(dropSampleCopies(list).map((t) => t.id)).toEqual([real.id, 'mine-1', 'abc'])
+    // only copies, none with the real id: the oldest stays
+    expect(dropSampleCopies([{ ...real, id: 'seed-900' }, { ...real, id: 'seed-50' }]).map((t) => t.id)).toEqual(['seed-50'])
+    // a lone sample (even with an unfamiliar id) is left alone
+    const lone = [{ ...real, id: 'seed-900' }]
+    expect(dropSampleCopies(lone)).toBe(lone)
+  })
+})
