@@ -30,8 +30,8 @@ export function TimePicker({ label, value, onChange, placeholder = 'No time' }: 
         <span className={value ? '' : 'text-ink-faint'}>{value ? formatTime(value) : placeholder}</span>
         <span className="text-ink-faint">▾</span>
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} className="w-60 p-3">
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} className="!min-w-0 w-40 p-2.5">
+        <div className="grid grid-cols-[1fr_1fr_auto] gap-1">
           {/* tall lists fade toward the edge with more beyond it, and show the same little scroll arrow as elsewhere */}
           <div className="flex h-48 flex-col">
             <ScrollFade>
@@ -69,7 +69,7 @@ export function TimePicker({ label, value, onChange, placeholder = 'No time' }: 
               Clear
             </button>
           )}
-          <button type="button" className="ml-auto rounded-full bg-lilac-500 px-5 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => setOpen(false)}>
+          <button type="button" className="ml-auto rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => setOpen(false)}>
             Done
           </button>
         </div>

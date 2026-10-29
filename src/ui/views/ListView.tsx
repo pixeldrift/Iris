@@ -114,7 +114,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
           <span data-lift-extra className="hidden items-center gap-1 sm:flex">
             <FolderChips task={task} max={2} />
           </span>
-          <span data-lift-extra>
+          <span data-lift-extra className="flex items-center">
             <DueChip task={task} compact />
           </span>
           {/* with a mouse: a trash can that appears on hover (swiping is for touch) */}
