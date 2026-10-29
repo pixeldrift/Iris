@@ -29,6 +29,19 @@
 - **Native iPhone app (SwiftUI).** Port `src/core` first (types, fuzzy match, folder tree, flocking sim,
   grouping), then the views. `ContactsUI`'s contact picker replaces the web .vcf import.
 
+## Images and files
+- **Attach images to an item**, and later other file types (PDFs, documents). They show on the item's details panel
+  and as a small thumbnail on its bubble and list row. Storage is the open question: object storage (Vercel Blob or
+  Neon-adjacent S3) with the item holding only a reference, thumbnails generated on upload, and a size limit per
+  account; offline, images are queued on the device and uploaded when sync next runs.
+- **Drop things onto the pond.** Drag an image, a text snippet, a link or a file from the desktop (or share one in
+  from the phone) onto the water and a new item is created from it: the text becomes the title or notes, an image
+  becomes an attachment (with its file name as the title), a link keeps its address and page title. Dropping onto a
+  group in the sidebar files it there at the same time.
+- **Pictures for people.** A profile picture for your own avatar (the account menu, My Profile) and a photo for
+  each person in the address book, shown in the sidebar, address book and on bubbles tagged with them. Cropped to a
+  circle on upload; falls back to the colored initial.
+
 ## Sound
 - **Better effects and a real soundtrack.** Make every sound distinct, so a chime never sounds like a drop or a pop,
   and grow the ambient bed into layered, mixable sounds: a babbling brook, wind, wind chimes, crickets, frogs,
