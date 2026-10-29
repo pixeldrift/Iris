@@ -177,8 +177,11 @@ export function TaskDetail() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         aria-label="Task details"
       >
-        <header className="flex items-center gap-3 px-5 pb-2 pt-5">
-          <DoneButton task={task} size={26} />
+        <header className="flex items-start gap-3 px-5 pb-2 pt-5">
+          {/* stays level with the first line of the title when it wraps */}
+          <span className="mt-[5px] shrink-0">
+            <DoneButton task={task} size={26} />
+          </span>
           {editingTitle ? (
             <input
               ref={titleRef}
@@ -219,7 +222,7 @@ export function TaskDetail() {
           </Tip>
         </header>
 
-        <div className="scroll-soft min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-3 pt-2">
+        <div className="scroll-soft min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-3 pt-2" style={{ paddingBottom: 'calc(0.75rem + var(--kb, 0px) * 0.5)' }}>
           <TaskFields task={task} />
         </div>
 

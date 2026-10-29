@@ -83,11 +83,16 @@ export function DatePicker({
           <button className="rounded-full px-2 py-1 text-lilac-700 hover:bg-lilac-100/80" onClick={() => (onChange(toISO(fromISO(addDays(t0, 1)))), setOpen(false))}>
             Tomorrow
           </button>
+        </div>
+        <div className="mt-3 flex items-center">
           {value && (
-            <button className="rounded-full px-2 py-1 text-ink-faint hover:bg-white/70" onClick={() => (onChange(null), setOpen(false))}>
+            <button type="button" className="rounded-full px-3 py-1.5 text-sm text-ink-faint hover:bg-white/70 hover:text-ink" onClick={() => (onChange(null), setOpen(false))}>
               Clear
             </button>
           )}
+          <button type="button" className="ml-auto rounded-full bg-lilac-500 px-5 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => setOpen(false)}>
+            Done
+          </button>
         </div>
       </Popover>
     </div>
