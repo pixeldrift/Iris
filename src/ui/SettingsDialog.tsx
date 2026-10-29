@@ -3,11 +3,11 @@ import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
 import type { Settings } from '../state/store'
 import { Modal } from './dialogs'
-import { BASE_HUE } from './theme'
+import { applySpace, applyTheme, BASE_HUE, setScrubbing } from './theme'
 import { DATE_STYLES, deviceTimeZone } from '../core/locale'
 import { SegmentedToggle } from './SegmentedToggle'
 import { askNotify, notifyState } from './notify'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const useSettingsDialog = create<{ open: boolean }>(() => ({ open: false }))
 export const openSettings = () => useSettingsDialog.setState({ open: true })
@@ -48,7 +48,7 @@ function DefaultDot({ at, onReset, color, label }: { at: number; onReset: () => 
       onClick={onReset}
       aria-label={label}
       title={label}
-      className="absolute bottom-[0.05rem] grid h-5 w-5 -translate-x-1/2 place-items-center"
+      className="absolute bottom-[-0.15rem] z-20 grid h-3.5 w-3.5 -translate-x-1/2 place-items-center"
       style={{ left: `calc(0.55rem + (100% - 1.1rem) * ${at})` }}
     >
       <span className="block h-1.5 w-1.5 rounded-full transition-transform hover:scale-150" style={{ background: color }} />
@@ -62,6 +62,56 @@ const Group = ({ title, children }: { title: string; children: React.ReactNode }
     {children}
   </section>
 )
+
+/**
+ * A range that previews straight onto the page while it is dragged (no store update, so no React re-render of the
+ * app per tick) and saves when you let go (or pause).
+ */
+function LiveRange({ value, preview, commit, ...rest }: { value: number; preview: (v: number) => void; commit: (v: number) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+  const [local, setLocal] = useState(value)
+  const dragging = useRef(false)
+  const timer = useRef(0)
+  // follow the saved value (a reset dot, another device) whenever it is not being dragged
+  useEffect(() => {
+    if (!dragging.current) setLocal(value)
+  }, [value])
+  const save = (v: number) => {
+    window.clearTimeout(timer.current)
+    commit(v)
+  }
+  return (
+    <input
+      {...rest}
+      type="range"
+      value={local}
+      onChange={(e) => {
+        const v = Number(e.target.value)
+        dragging.current = true
+        setScrubbing(true)
+        setLocal(v)
+        preview(v)
+        window.clearTimeout(timer.current)
+        timer.current = window.setTimeout(() => save(v), 400)
+      }}
+      onPointerUp={(e) => {
+        dragging.current = false
+        setScrubbing(false)
+        save(Number((e.target as HTMLInputElement).value))
+      }}
+      onPointerCancel={() => {
+        dragging.current = false
+        setScrubbing(false)
+      }}
+      onBlur={() => setScrubbing(false)}
+      onKeyUp={(e) => {
+        dragging.current = false
+        setScrubbing(false)
+        save(Number((e.target as HTMLInputElement).value))
+        rest.onKeyUp?.(e)
+      }}
+    />
+  )
+}
 
 /** One place for the display, sound and notification options (also reachable from the icons at the top). */
 export function SettingsDialog() {
@@ -125,7 +175,7 @@ export function SettingsDialog() {
               <span className="text-[0.7rem] text-ink-faint">{Math.abs(hue - BASE_HUE) < 1 ? 'Default' : ''}</span>
             </div>
             <div className="relative mt-1 pb-1">
-              <input type="range" min={0} max={360} value={hue} onChange={(e) => setSetting('themeHue', Number(e.target.value))} className="soft hue relative z-10" aria-label="Interface color" {...peekProps} />
+              <LiveRange min={0} max={360} value={hue} preview={applyTheme} commit={(v) => setSetting('themeHue', v)} className="soft hue relative z-10" aria-label="Interface color" {...peekProps} />
               <DefaultDot at={BASE_HUE / 360} color="#9f6fcd" label="Back to the original violet" onReset={() => setSetting('themeHue', BASE_HUE)} />
             </div>
           </div>
@@ -135,13 +185,13 @@ export function SettingsDialog() {
               <span className="text-[0.7rem] text-ink-faint">{Math.abs(space - 0.5) < 0.005 ? 'Default' : space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
             </div>
             <div className="relative mt-1 pb-1">
-              <input
-                type="range"
+              <LiveRange
                 min={0}
                 max={1}
                 step={0.01}
                 value={space}
-                onChange={(e) => setSetting('sidebarSpace', Number(e.target.value))}
+                preview={applySpace}
+                commit={(v) => setSetting('sidebarSpace', v)}
                 {...peekProps}
                 className="soft relative z-10"
                 aria-label="Sidebar spacing"

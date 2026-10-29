@@ -47,7 +47,8 @@ function Row({ task }: { task: Task }) {
 
 export function ListView() {
   const visible = useVisibleTasks()
-  const { sortKey, sortDesc } = useStore((s) => s.settings)
+  const sortKey = useStore((s) => s.settings.sortKey)
+  const sortDesc = useStore((s) => s.settings.sortDesc)
   const set = useStore((s) => s.setSetting)
   const addTask = useStore((s) => s.addTask)
 

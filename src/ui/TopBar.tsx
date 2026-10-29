@@ -64,7 +64,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const view = useStore((s) => s.view)
-  const settings = useStore((s) => s.settings)
+  const pondGroup = useStore((s) => s.settings.pondGroup)
   const set = useStore((s) => s.setSetting)
   const setSidebar = useStore((s) => s.setSidebar)
   const setScope = useStore((s) => s.setScope)
@@ -184,9 +184,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             <button
               key={g.id}
               onClick={() => set('pondGroup', g.id)}
-              aria-pressed={settings.pondGroup === g.id}
+              aria-pressed={pondGroup === g.id}
               className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition ${
-                settings.pondGroup === g.id ? 'bg-lilac-500 text-white shadow-md shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'
+                pondGroup === g.id ? 'bg-lilac-500 text-white shadow-md shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'
               }`}
             >
               {g.label}
