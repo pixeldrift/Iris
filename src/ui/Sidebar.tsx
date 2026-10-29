@@ -25,7 +25,7 @@ import { FolderNode } from './sidebar/FolderNode'
 export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof IconPond }[] = [
   { id: 'pond', label: 'Pond', hint: 'Freeform', icon: IconPond },
   { id: 'list', label: 'List', hint: 'Sortable', icon: IconList },
-  { id: 'board', label: 'Board', hint: 'Kanban', icon: IconBoard },
+  { id: 'board', label: 'Progress', hint: 'Stages', icon: IconBoard },
   { id: 'priority', label: 'Priority', hint: 'Eisenhower', icon: IconPriority },
   { id: 'calendar', label: 'Calendar', hint: 'Schedule', icon: IconCalendar },
   { id: 'timeline', label: 'Timeline', hint: 'Gantt', icon: IconTimeline },

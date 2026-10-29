@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { dayLabel, weekdayName } from '../core/dates'
+import { formatDate } from '../core/locale'
 import { pathOf } from '../core/folders'
 import type { Folder, PondGroup } from '../core/types'
 import { useStore } from '../state/store'
@@ -98,28 +99,27 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             : scope.type === 'person'
               ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
               : (pathOf(folders, scope.id).at(-1)?.name ?? 'Group')
-  const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? dayLabel(scope.date) : ''
+  const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? (dayLabel(scope.date) === weekdayName(scope.date) ? formatDate(scope.date) : dayLabel(scope.date)) : ''
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
-      <button aria-label="Menu" onClick={() => setSidebar(true)} className="glass-soft grid h-9 w-9 place-items-center rounded-full md:hidden">
+      <button aria-label="Menu" onClick={() => setSidebar(true)} className="glass-soft order-1 grid h-9 w-9 place-items-center rounded-full md:hidden">
         <IconMenu />
       </button>
-      <div className="order-1 min-w-0 flex-1">
-        <h2 className="truncate font-display text-2xl leading-tight md:text-3xl">{scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label}</h2>
-        <p className="truncate text-xs text-ink-soft">
-          {scope.type === 'contacts' ? (
-            sub
-          ) : (
-            <>
-              {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
-              {sub ? ` · ${sub}` : ''}
-            </>
-          )}
-        </p>
-      </div>
+      <h2 className="order-2 min-w-0 flex-1 truncate font-display text-2xl leading-9 md:text-3xl md:leading-9">{scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label}</h2>
+      {/* its own full-width line under the title row, so a long list of groups has room to wrap */}
+      <p className="order-6 -mt-1 basis-full text-xs leading-snug text-ink-soft">
+        {scope.type === 'contacts' ? (
+          sub
+        ) : (
+          <>
+            {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
+            {sub ? ` · ${sub}` : ''}
+          </>
+        )}
+      </p>
       {searchShown && (
-        <div className="relative order-4 basis-full md:order-2 md:basis-64">
+        <div className="relative order-7 basis-full md:order-3 md:basis-64">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
             <IconSearch size={15} />
           </span>
@@ -158,7 +158,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           </span>
         </div>
       )}
-      <div className="order-2 flex items-center gap-1.5">
+      <div className="order-4 flex items-center gap-1.5">
         {scope.type !== 'contacts' && (
           <Tip label="Search">
             <button onClick={() => setSearchOpen((o) => !o)} aria-pressed={searchShown} className={btn(searchShown)}>
@@ -171,14 +171,14 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       <Tip label="New task">
         <button
           onClick={onNew}
-          className="order-3 flex h-9 items-center gap-1.5 rounded-full bg-lilac-500 px-4 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600"
+          className="order-5 flex h-9 items-center gap-1.5 rounded-full bg-lilac-500 px-4 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600"
         >
           <IconPlus size={16} /> <span className="hidden sm:inline">New</span>
         </button>
       </Tip>
 
       {view === 'pond' && scope.type !== 'contacts' && (
-        <div className="no-scrollbar order-4 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 py-1" role="group" aria-label="Arrange the pond">
+        <div className="no-scrollbar order-8 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 py-1" role="group" aria-label="Arrange the pond">
           <span className="shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">Gather by</span>
           {GROUPS.map((g) => (
             <button

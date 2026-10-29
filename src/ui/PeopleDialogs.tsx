@@ -4,7 +4,9 @@ import { create } from 'zustand'
 import type { ParsedContact } from '../core/people'
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
-import { IconChevronDown, IconHeart } from './icons'
+import type { PersonExtra } from '../core/types'
+import { DatePicker } from './DatePicker'
+import { IconChevronDown, IconClose, IconHeart, IconPlus } from './icons'
 import { allCategories, composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
 import { lookupCity, lookupZip } from './geo'
 import { canPickContacts, pickContact } from './contacts'
@@ -24,7 +26,15 @@ const closePerson = () => usePersonDialog.setState({ open: false })
 
 const field = 'well w-full rounded-xl px-3 py-2 text-sm'
 
-const blank = { first: '', last: '', phone: '', email: '', notes: '', favorite: false, categories: [] as string[] }
+const blank = { first: '', last: '', phone: '', email: '', notes: '', favorite: false, categories: [] as string[], extras: [] as PersonExtra[], birthday: null as string | null }
+
+const EXTRA_KINDS: { id: PersonExtra['kind']; label: string; placeholder: string; labels: string[] }[] = [
+  { id: 'phone', label: 'Phone', placeholder: 'Phone number', labels: ['Mobile', 'Home', 'Work'] },
+  { id: 'email', label: 'Email', placeholder: 'Email address', labels: ['Home', 'Work', 'School'] },
+  { id: 'address', label: 'Address', placeholder: 'Street, city, state ZIP', labels: ['Home', 'Work'] },
+  { id: 'link', label: 'Website', placeholder: 'https://', labels: ['Website', 'Social'] },
+  { id: 'other', label: 'Other', placeholder: 'Detail', labels: ['Note'] },
+]
 
 export function PersonDialog() {
   const { open, id, defaults, onSaved } = usePersonDialog()
@@ -49,7 +59,7 @@ export function PersonDialog() {
     const base = { ...(defaults as Record<string, string>), ...(existing ?? {}) } as Record<string, string>
     const names = base.first || base.last ? { first: base.first ?? '', last: base.last ?? '' } : splitName(base.name ?? '')
     // new people start hearted while there is room in the sidebar for them
-    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite && !existing.isMe : favorites < MAX_FAVORITES, categories: existing?.categories ?? [] })
+    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite && !existing.isMe : favorites < MAX_FAVORITES, categories: existing?.categories ?? [], extras: existing?.extras ?? [], birthday: existing?.birthday ?? null })
     const known = base.street || base.city || base.state || base.zip ? { street: base.street ?? '', city: base.city ?? '', state: base.state ?? '', zip: base.zip ?? '' } : parseAddress(base.address ?? '')
     setParts(known)
     setLine(base.address || composeAddress(known))
@@ -113,12 +123,40 @@ export function PersonDialog() {
   const name = fullName(f.first, f.last)
 
   return (
-    <Modal open={open} onClose={closePerson} label={existing ? 'Edit person' : 'Add person'} wide>
+    <Modal
+      open={open}
+      onClose={closePerson}
+      footer={
+        <div className="flex items-center gap-2">
+    {existing && !existing.isMe && (
+      <button
+        type="button"
+        onClick={async () => {
+          if (await askConfirm({ title: `Remove ${existing.name}?`, message: 'They’ll be untagged from tasks. The tasks stay.', confirmLabel: 'Remove', danger: true })) {
+            closePerson()
+            del(existing.id)
+          }
+        }}
+        className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-[#b04a6e]"
+      >
+        Remove
+      </button>
+    )}
+    <button type="button" onClick={closePerson} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
+      Cancel
+    </button>
+    <button type="submit" form="person-form" disabled={!name} className="rounded-full bg-lilac-500 px-5 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition disabled:opacity-40">
+      Save
+    </button>
+  </div>
+      }
+      label={existing ? 'Edit person' : 'Add person'} wide>
       <form
+        id="person-form"
         onSubmit={(e) => {
           e.preventDefault()
           if (!name) return
-          const pid = save({ ...f, name, ...parts, address: composeAddress(parts), ...(existing ? { id: existing.id } : {}) })
+          const pid = save({ ...f, extras: f.extras.filter((x) => x.value.trim()), name, ...parts, address: composeAddress(parts), ...(existing ? { id: existing.id } : {}) })
           closePerson()
           onSaved?.(pid)
         }}
@@ -161,6 +199,47 @@ export function PersonDialog() {
           <input className={field} placeholder="Phone" inputMode="tel" value={f.phone} onChange={set('phone')} onBlur={() => setF((p) => ({ ...p, phone: formatPhone(p.phone) }))} />
           <input className={field} placeholder="Email" inputMode="email" value={f.email} onChange={set('email')} />
         </div>
+        {/* any number of further numbers, emails, addresses…, each with a label of its own */}
+        {f.extras.map((x) => {
+          const kind = EXTRA_KINDS.find((k) => k.id === x.kind)!
+          const patch = (p: Partial<PersonExtra>) => setF((cur) => ({ ...cur, extras: cur.extras.map((e) => (e.id === x.id ? { ...e, ...p } : e)) }))
+          return (
+            <div key={x.id} className="flex items-center gap-1.5">
+              <input list={`labels-${x.kind}`} className={`${field} !w-24 shrink-0`} placeholder={kind.label} aria-label={`${kind.label} label`} value={x.label} onChange={(e) => patch({ label: e.target.value })} />
+              <datalist id={`labels-${x.kind}`}>
+                {kind.labels.map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
+              <input
+                className={`${field} min-w-0 flex-1`}
+                placeholder={kind.placeholder}
+                aria-label={`${kind.label} ${x.label}`}
+                inputMode={x.kind === 'phone' ? 'tel' : x.kind === 'email' ? 'email' : x.kind === 'link' ? 'url' : undefined}
+                value={x.value}
+                onChange={(e) => patch({ value: e.target.value })}
+                onBlur={() => x.kind === 'phone' && patch({ value: formatPhone(x.value) })}
+              />
+              <button type="button" onClick={() => setF((cur) => ({ ...cur, extras: cur.extras.filter((e) => e.id !== x.id) }))} aria-label={`Remove ${kind.label}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-[#b04a6e]">
+                <IconClose size={12} />
+              </button>
+            </div>
+          )
+        })}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-ink-soft">Add</span>
+          {EXTRA_KINDS.map((k) => (
+            <button
+              key={k.id}
+              type="button"
+              onClick={() => setF((cur) => ({ ...cur, extras: [...cur.extras, { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), kind: k.id, label: k.labels[0], value: '' }] }))}
+              className="flex items-center gap-1 rounded-full bg-white/50 px-2.5 py-1 text-xs text-lilac-700 transition hover:bg-white/80"
+            >
+              <IconPlus size={11} /> {k.label}
+            </button>
+          ))}
+        </div>
+        <DatePicker label="Birthday" value={f.birthday} onChange={(v) => setF((cur) => ({ ...cur, birthday: v }))} />
         <div>
           <div className="flex items-center gap-1.5">
             {/* open: this box is just the street (the rest has its own boxes below); closed: the whole address on one line */}
@@ -258,28 +337,6 @@ export function PersonDialog() {
           </div>
         )}
         <textarea className={`${field} resize-none`} rows={2} placeholder="Notes" value={f.notes} onChange={set('notes')} />
-        <div className="flex items-center gap-2 pt-1">
-          {existing && !existing.isMe && (
-            <button
-              type="button"
-              onClick={async () => {
-                if (await askConfirm({ title: `Remove ${existing.name}?`, message: 'They’ll be untagged from tasks. The tasks stay.', confirmLabel: 'Remove', danger: true })) {
-                  closePerson()
-                  del(existing.id)
-                }
-              }}
-              className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-[#b04a6e]"
-            >
-              Remove
-            </button>
-          )}
-          <button type="button" onClick={closePerson} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
-            Cancel
-          </button>
-          <button type="submit" disabled={!name} className="rounded-full bg-lilac-500 px-5 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition disabled:opacity-40">
-            Save
-          </button>
-        </div>
       </form>
     </Modal>
   )
@@ -303,12 +360,12 @@ export function ContactPromptHost() {
   }
 
   return (
-    <Modal open={!!prompt} onClose={() => resolve(null)} label="Add contact details">
-      <h3 className="font-display text-xl">Add {first}’s details?</h3>
-      <p className="mt-1.5 text-sm text-ink-soft">
-        Looks like you want to {verbWord} {p.name}. Add {p.verb === 'email' ? 'an email' : 'a number'} and the bubble gets a one-tap {verbWord} link.
-      </p>
-      <div className="mt-5 flex flex-wrap justify-end gap-2">
+    <Modal
+      open={!!prompt}
+      onClose={() => resolve(null)}
+      label="Add contact details"
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
         <button onClick={() => resolve(null)} className="rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
           No thanks
         </button>
@@ -333,6 +390,12 @@ export function ContactPromptHost() {
           Add details
         </button>
       </div>
+      }
+    >
+      <h3 className="font-display text-xl">Add {first}’s details?</h3>
+      <p className="mt-1.5 text-sm text-ink-soft">
+        Looks like you want to {verbWord} {p.name}. Add {p.verb === 'email' ? 'an email' : 'a number'} and the bubble gets a one-tap {verbWord} link.
+      </p>
     </Modal>
   )
 }

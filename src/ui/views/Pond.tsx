@@ -603,12 +603,13 @@ export function Pond() {
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to float an idea…</p>
       )}
       {visible.length > 0 && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">
+        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-32 pr-40 text-left text-xs text-ink-faint/80 sm:block">
           {pop ? 'Pop mode: tap bubbles to pop them · undo brings one back' : 'Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
         </p>
       )}
 
-      <div data-ui className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5">
+      {/* top right: pop mode. bottom right: zoom. bottom left: frame all */}
+      <div data-ui className="absolute right-3 top-3 z-10">
         <Tip label={pop ? 'Stop popping' : 'Pop mode: tap bubbles to delete them'}>
           <button
             onClick={() => setPop((p) => !p)}
@@ -619,7 +620,11 @@ export function Pond() {
             <IconPop size={19} />
           </button>
         </Tip>
+      </div>
+      <div data-ui className="absolute bottom-3 right-3 z-10">
         <ZoomControl onZoom={(f) => zoomAbout(f, w / 2, h / 2)} />
+      </div>
+      <div data-ui className="absolute bottom-3 left-3 z-10">
         <Tip label="Frame all bubbles">
           <button
             onClick={() => frameAll(false)}

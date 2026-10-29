@@ -8,6 +8,7 @@ import { DATE_STYLES, deviceTimeZone } from '../core/locale'
 import { SegmentedToggle } from './SegmentedToggle'
 import { askNotify, notifyState } from './notify'
 import { useEffect, useRef, useState } from 'react'
+import { IconClose } from './icons'
 
 const useSettingsDialog = create<{ open: boolean }>(() => ({ open: false }))
 export const openSettings = () => useSettingsDialog.setState({ open: true })
@@ -27,7 +28,7 @@ function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; la
         unlock()
         set(k, !on)
       }}
-      className={`flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/50 ${indent ? 'ml-5 w-[calc(100%-1.25rem)]' : ''} ${faded ? 'opacity-45' : ''}`}
+      className={`flex w-full items-center gap-3 rounded-xl py-1.5 pr-2 text-left transition hover:bg-white/50 ${indent ? 'pl-7' : 'pl-2'} ${faded ? 'opacity-45' : ''}`}
     >
       <span className="min-w-0 flex-1 text-sm">
         {label}
@@ -147,7 +148,13 @@ export function SettingsDialog() {
   return (
     <Modal open={open} onClose={close} label="My settings" crop={crop}>
       <div className="space-y-1">
-        <h3 className="font-display text-xl">My settings</h3>
+        <div className="flex items-center">
+          <h3 className="font-display text-xl">My settings</h3>
+          {/* options save the moment they change, so there is nothing to confirm: just close */}
+          <button type="button" onClick={close} aria-label="Close settings" className="-mr-1.5 ml-auto grid h-8 w-8 place-items-center rounded-full text-ink-soft transition hover:bg-white/70 hover:text-ink">
+            <IconClose size={16} />
+          </button>
+        </div>
         <Group title="Soundscape">
           <Row k="sound" label="Audio" hint="master control for all sounds" />
           <div className={`mx-2 mb-1 ml-7 transition ${sound ? '' : 'opacity-45'}`}>
@@ -247,11 +254,6 @@ export function SettingsDialog() {
             )}
           </div>
         </Group>
-        <div className="flex justify-end pt-2">
-          <button type="button" onClick={close} className="rounded-full bg-lilac-500 px-5 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30">
-            Done
-          </button>
-        </div>
       </div>
     </Modal>
   )

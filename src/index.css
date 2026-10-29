@@ -379,7 +379,7 @@ input[type='date'] {
   box-shadow: inset 2px 3px 7px rgb(var(--lr-700)/0.17), inset -1px -2px 5px rgba(255, 255, 255, 0.55), 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 .well-circle.is-on {
-  background: radial-gradient(circle at 36% 30%, var(--color-lilac-300), var(--color-lilac-500));
+  background: radial-gradient(circle at 36% 30%, var(--chk-a, var(--color-lilac-300)), var(--chk-b, var(--color-lilac-500)));
   border-color: rgb(var(--lr-500)/0.35);
   box-shadow: inset 2px 3px 6px rgb(var(--lr-deep)/0.22), inset -1px -2px 4px rgba(255, 255, 255, 0.3), 0 1px 1px rgba(255, 255, 255, 0.6);
 }
@@ -426,3 +426,18 @@ body.scrubbing .drift-c,
 body.scrubbing .glow-breathe {
   animation-play-state: paused !important;
 }
+
+/* a flat item (list row, board card) in the same color language as its bubble: the group's tint, a colored outline,
+   deeper and more vibrant when urgent. With no group it uses the theme's violet. */
+.tint {
+  --th: var(--h, 271);
+  background:
+    linear-gradient(100deg, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(92% - 18% * var(--u, 0.5)), calc(0.28 + 0.45 * var(--u, 0.5))), rgba(255, 255, 255, 0.4) 72%),
+    rgba(255, 255, 255, 0.35);
+  border: 1px solid hsla(var(--th), calc(62% * var(--s, 1)), 70%, 0.6);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 6px 18px -12px hsla(var(--th), calc(45% * var(--s, 1)), 45%, 0.4);
+}
+.tint:hover { filter: brightness(1.03); }
+/* pressed: the item lifts away from the page right away, before it has moved at all */
+.lift-on-press { transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.55, 1), box-shadow 0.18s ease; }
+.lift-on-press:active { transform: scale(1.02); box-shadow: 0 14px 28px -10px rgb(var(--lr-700)/0.45), 0 4px 10px -4px rgb(var(--lr-700)/0.3); }

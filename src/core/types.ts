@@ -57,6 +57,8 @@ export interface Task {
   remindAt: number | null
   reminded: boolean
   status: TaskStatus
+  /** Its column in the Progress view when its group defines custom stages (by stage id); else derived from `status`. */
+  stage?: string | null
   /** 0..1 soft weights. Never shown to the user as numbers. */
   importance: number
   urgency: number
@@ -109,6 +111,8 @@ export interface Folder {
   shape: FlowerShape
   /** Manual order among siblings. */
   sort: number
+  /** Custom Progress stages for items in this group (two or more); absent = Pending / In Progress / Completed. */
+  stages?: { id: string; name: string }[]
   createdAt: number
 }
 
@@ -134,7 +138,18 @@ export interface Person {
   hue: number
   /** Hearted people are the ones kept as shortcuts in the sidebar. */
   favorite: boolean
+  /** Any number of further phone numbers, emails, addresses, links or notes (Home, Work, Mobile…). */
+  extras?: PersonExtra[]
+  /** `YYYY-MM-DD`. */
+  birthday?: string | null
   createdAt: number
+}
+
+export interface PersonExtra {
+  id: string
+  kind: 'phone' | 'email' | 'address' | 'link' | 'other'
+  label: string
+  value: string
 }
 
 /** Virtual folders computed from the calendar; they are not stored. */

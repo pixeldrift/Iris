@@ -37,6 +37,7 @@ export function Modal({
   children,
   label,
   wide,
+  footer,
   crop = null,
 }: {
   open: boolean
@@ -44,6 +45,8 @@ export function Modal({
   children: React.ReactNode
   label: string
   wide?: boolean
+  /** Save / Cancel / Delete and the like: pinned to the bottom of the dialog, so they never scroll away with the content. */
+  footer?: React.ReactNode
   /** Shrink the dialog to just this box (insets from its own edges, px) so what a control changes behind it can be watched; null grows it back out. */
   crop?: { top: number; right: number; bottom: number; left: number } | null
 }) {
@@ -79,10 +82,17 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full overflow-y-auto rounded-[2rem] p-5 ${closing ? 'pop-out' : 'pop-in'}`}
+        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full rounded-[2rem] ${footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-5'} ${closing ? 'pop-out' : 'pop-in'}`}
         style={clipping ? { clipPath: live ? `inset(${live.top}px ${live.right}px ${live.bottom}px ${live.left}px round 1.25rem)` : 'inset(0px 0px 0px 0px round 2rem)', transition: 'clip-path 0.4s cubic-bezier(0.34, 1.2, 0.5, 1)' } : undefined}
       >
-        {children}
+        {footer ? (
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-3 pt-5">{children}</div>
+            <div className="shrink-0 border-t border-white/60 px-5 py-3">{footer}</div>
+          </>
+        ) : (
+          children
+        )}
       </div>
     </div>
   )
