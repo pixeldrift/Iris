@@ -14,12 +14,16 @@ const CYCLES = 9
  */
 function Wheel({ items, selected, label, onPick }: { items: string[]; selected: number | null; label: string; onPick: (i: number) => void }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [topRow, setTopRow] = useState(0)
   const n = items.length
   const period = n * ROW
   // start in the middle cycle with the chosen entry (or the first) at the top
   useLayoutEffect(() => {
     const el = ref.current
-    if (el) el.scrollTop = (Math.floor(CYCLES / 2) * n + (selected ?? 0)) * ROW
+    if (el) {
+      el.scrollTop = (Math.floor(CYCLES / 2) * n + (selected ?? 0)) * ROW
+      setTopRow(Math.round(el.scrollTop / ROW))
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // when the value changes from outside, bring it to the top (the nearest copy)
   useEffect(() => {
@@ -35,6 +39,7 @@ function Wheel({ items, selected, label, onPick }: { items: string[]; selected: 
     if (!el) return
     if (el.scrollTop < period * 2) el.scrollTop += period * 3
     else if (el.scrollTop > period * (CYCLES - 3)) el.scrollTop -= period * 3
+    setTopRow(Math.round(el.scrollTop / ROW))
   }
   return (
     <div
@@ -47,7 +52,8 @@ function Wheel({ items, selected, label, onPick }: { items: string[]; selected: 
     >
       {Array.from({ length: n * CYCLES }, (_, k) => {
         const i = k % n
-        const on = selected === i
+        // only one copy is lit: the first one at or below the top of the view
+        const on = selected !== null && k === topRow + ((((selected - topRow) % n) + n) % n)
         return (
           <button
             key={k}
@@ -77,7 +83,6 @@ export function TimePicker({ label, value, onChange, placeholder = '–None–' 
   const pm = h24 >= 12
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12
   const set = (nh12: number, nm: number, npm: boolean) => onChange(`${String((nh12 % 12) + (npm ? 12 : 0)).padStart(2, '0')}:${String(nm).padStart(2, '0')}`)
-  const side = (on: boolean) => `grid w-full place-items-center rounded-full text-sm uppercase transition ${on ? 'bg-lilac-500 text-white shadow' : 'text-ink hover:bg-lilac-100/80'}`
 
   return (
     <div className="block text-xs font-medium text-ink-soft">
@@ -101,13 +106,9 @@ export function TimePicker({ label, value, onChange, placeholder = '–None–' 
             :
           </span>
           <Wheel items={MINUTES} label="Minute" selected={value ? MINUTES.indexOf(String(m).padStart(2, '0')) : null} onPick={(i) => set(h12, Number(MINUTES[i]), pm)} />
-          {/* am and pm line up with the first rows of the lists */}
+          {/* AM and PM loop like the numbers, so every highlighted choice sits in the same top row */}
           <div className="ml-1 w-11">
-            {(['am', 'pm'] as const).map((ap) => (
-              <button key={ap} type="button" aria-pressed={!!value && pm === (ap === 'pm')} onClick={() => set(h12, m, ap === 'pm')} className={side(!!value && pm === (ap === 'pm'))} style={{ height: ROW }}>
-                {ap}
-              </button>
-            ))}
+            <Wheel items={['AM', 'PM']} label="AM or PM" selected={value ? (pm ? 1 : 0) : null} onPick={(i) => set(h12, m, i === 1)} />
           </div>
         </div>
         <div className="mt-2 flex items-center">
