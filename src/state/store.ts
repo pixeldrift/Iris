@@ -8,7 +8,7 @@ import { detectContactIntent, matchPerson, type ContactVerb } from '../core/peop
 import { patchForStage, stageIndex, stagesForTask, stagesOf, type Stage } from '../core/progress'
 import { dropSampleCopies, seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
-import { eventStart } from '../core/reminders'
+import { eventStart, remindFromRule } from '../core/reminders'
 import { rolloverDay, urgencyForDue } from '../core/tasks'
 import type { Folder, Person, PondGroup, Scope, SortKey, Task, TaskKind, TaskStatus, ViewId } from '../core/types'
 import * as sound from '../audio/engine'
@@ -118,7 +118,7 @@ interface State {
   /** Make sure the signed-in person has their own contact entry (the same id on every device). */
   ensureMe: (user: { id: string; name: string; email: string }) => void
   /** Set (or clear with null) the alert on a task. */
-  setReminder: (id: string, at: number | null) => void
+  setReminder: (id: string, at: number | null, before?: number | null) => void
 
   /** Look at a task's title for "call/email Sarah" and link or ask. */
   checkContact: (taskId: string) => void
@@ -249,7 +249,18 @@ export const useStore = create<State>()(
         return id
       },
       updateTask: (id, patch) =>
-        set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            if (t.id !== id) return t
+            const next = { ...t, ...patch }
+            // a "day before" reminder follows its date when the date (or time) moves
+            if (next.remindBefore != null && ('day' in patch || 'due' in patch || 'time' in patch)) {
+              next.remindAt = remindFromRule(next, next.remindBefore)
+              next.reminded = false
+            }
+            return next
+          }),
+        })),
       deleteTask: (id) => {
         if (get().removing[id]) return
         sound.pop()
@@ -458,7 +469,7 @@ export const useStore = create<State>()(
         set((s) => ({ people: [...s.people, person] }))
         return person.id
       },
-      setReminder: (id, at) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false } : t)) })),
+      setReminder: (id, at, before = null) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false, remindBefore: at === null ? null : before } : t)) })),
       ensureMe: (user) => {
         const id = `me-${user.id}`
         if (get().people.some((p) => p.id === id)) return

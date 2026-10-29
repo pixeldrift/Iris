@@ -3,6 +3,7 @@ import { dayFirst, formatDate } from './locale'
 import { fuzzyScore } from './fuzzy'
 import { pathOf } from './folders'
 import { describeRecurrence } from './recurrence'
+import { remindFromRule } from './reminders'
 import { formatTime } from './tasks'
 import type { Folder, Person, Recurrence, TaskKind } from './types'
 
@@ -15,6 +16,8 @@ export interface QuickAdd {
   time?: string
   endTime?: string
   remindAt?: number
+  /** "a day before": days before the item's own date, with no clock time to think about. */
+  remindBefore?: number
   repeat?: Recurrence
   folderIds: string[]
   personIds: string[]
@@ -87,6 +90,16 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
       out.personIds.push(hit.id)
       out.chips.push(`@${hit.name.split(' ')[0]}`)
     } else if (!hit) t += ` ${r.m[0].trim()}`
+  }
+
+  // "remind me a day before" / "a week in advance": relative to the item's own date, so no time is asked for
+  let before: number | null = null
+  const WORDS: Record<string, number> = { a: 1, the: 1, one: 1, '1': 1, two: 2, '2': 2, three: 3, '3': 3 }
+  r = take(t, /\s(?:remind me|alert me|notify me|reminder)(?:\s+to)?\s+(?:(a|the|one|1|two|2|three|3)\s+)?(day|week)s?\s+(?:before|in advance|ahead of time|ahead|earlier|prior)(?=\s|$)/i)
+  if (!r.m) r = take(t, /\s(?:(a|the|one|1|two|2|three|3)\s+)?(day|week)s?\s+(?:in advance|ahead of time|ahead|earlier|prior)(?=\s|$)/i)
+  if (r.m) {
+    before = (WORDS[(r.m[1] ?? 'a').toLowerCase()] ?? 1) * (r.m[2].toLowerCase() === 'week' ? 7 : 1)
+    t = r.rest
   }
 
   // "remind me (to) ..." / "alarm": what follows is when to nudge, not when it happens
@@ -278,6 +291,15 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
 
+  // "remind me tomorrow evening": a part of the day stands for a sensible hour
+  if (remindMode && !start) {
+    r = take(t, /\s(?:in the\s+|this\s+)?(morning|afternoon|evening|tonight|noon|midday|night)\b/i)
+    if (r.m) {
+      start = { morning: '09:00', afternoon: '14:00', evening: '18:00', tonight: '20:00', night: '20:00', noon: '12:00', midday: '12:00' }[r.m[1].toLowerCase()]
+      t = r.rest
+    }
+  }
+
   // put it together
   if (remindMode) {
     const day = date ?? (start && start <= hhmm(now.getHours(), now.getMinutes()) ? addDays(todayISO, 1) : todayISO)
@@ -308,6 +330,13 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     if (start && !out.day) out.day = rec.from
     out.repeat = rec
     out.chips.push(describeRecurrence(rec))
+  }
+
+  if (before !== null && !remindMode) {
+    out.remindBefore = before
+    const at = remindFromRule({ day: out.day ?? null, due: out.due ?? null, time: out.time ?? null }, before, now.getTime())
+    if (at) out.remindAt = at
+    out.chips.push(`Remind ${before === 1 ? 'a day' : before === 7 ? 'a week' : `${before} days`} before`)
   }
 
   out.title = t
