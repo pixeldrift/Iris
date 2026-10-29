@@ -4,7 +4,7 @@ import { contactLink, detectContactIntent } from '../../core/people'
 import { habitStreak, plannedDate } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
-import { IconBell, IconChat, IconList, IconMail, IconPhone, IconThought } from '../icons'
+import { IconBell, IconChat, IconList, IconMail, IconPhone, KindIcon } from '../icons'
 import { DoneButton, DueChip } from '../shared'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass } from '../useVisible'
@@ -78,6 +78,51 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
   const cb = Math.round(Math.max(22, Math.min(28, r * 0.4)))
   const verb = detectContactIntent(task.title)?.verb
   const link = person && verb ? contactLink(verb, person) : null
+  // the little extras, placed along the bottom arc either side of the checkbox (right first, then left, alternating)
+  const extras: { key: string; w: number; node: React.ReactNode }[] = []
+  if (link)
+    extras.push({
+      key: 'link',
+      w: cb,
+      node: (
+        <a
+          href={link.href}
+          title={`${link.label} ${person!.name.split(' ')[0]}`}
+          aria-label={`${link.label} ${person!.name}`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="pop-in grid shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/40 transition hover:scale-110 hover:bg-lilac-600"
+          style={{ width: cb, height: cb }}
+        >
+          {link.label === 'Email' ? <IconMail size={13} /> : link.label === 'Text' ? <IconChat size={13} /> : <IconPhone size={13} />}
+        </a>
+      ),
+    })
+  if ((task.remindAt !== null && !task.reminded) || (task.alerts?.length ?? 0) > 0)
+    extras.push({ key: 'bell', w: 15, node: <span title="Reminder set" role="img" aria-label="Reminder set" className="text-lilac-500"><IconBell size={15} /></span> })
+  if ((!!task.repeat || task.kind === 'habit') && habitStreak(task) > 0)
+    extras.push({ key: 'streak', w: 28, node: <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">↻ {habitStreak(task)}</span> })
+  if (task.kind === 'list')
+    extras.push({
+      key: 'list',
+      w: 34,
+      node: (
+        <span title="List" className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
+          <IconList size={14} />
+          {task.listStyle === 'check' && task.items.length > 0 ? `${task.items.filter((i) => i.done).length}/${task.items.length}` : task.items.length || ''}
+        </span>
+      ),
+    })
+  // the checkbox's centre is `rho` from the bubble's centre; each extra sits on that same circle, `dx` to one side
+  const rho = 0.82 * r - cb / 2
+  const reach = { 1: cb / 2 + 6, [-1]: cb / 2 + 6 } as Record<number, number>
+  const arc = extras.map((it, i) => {
+    const side = i % 2 === 0 ? 1 : -1
+    const dx = reach[side] + it.w / 2
+    reach[side] += it.w + 6
+    const d = Math.min(dx, rho * 0.97)
+    return { ...it, x: r + side * d, y: r + Math.sqrt(Math.max(0, rho * rho - d * d)) }
+  })
 
   return (
     <div
@@ -105,7 +150,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
                 onPointerDown(e, true)
               }}
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
-              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
+              className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
               style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
@@ -118,45 +163,21 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
                   <DueChip task={task} compact />
                 </span>
               )}
-              {/* the action row sits at the bottom of the bubble: checkbox (or idea mark), reminder bell, contact link */}
-              <span className="absolute bottom-[9%] left-1/2 flex -translate-x-1/2 items-center gap-1.5">
-                {task.kind === 'idea' ? (
-                  <span title="Idea" role="img" aria-label="Idea" className="grid place-items-center text-lilac-500" style={{ width: cb, height: cb }}>
-                    <IconThought size={cb} />
-                  </span>
-                ) : (
-                  <DoneButton task={task} size={cb} />
-                )}
-                {((task.remindAt !== null && !task.reminded) || (task.alerts?.length ?? 0) > 0) && (
-                  <span title="Reminder set" role="img" aria-label="Reminder set" className="text-lilac-500">
-                    <IconBell size={15} />
-                  </span>
-                )}
-                {!!task.repeat || task.kind === 'habit' ? habitStreak(task) > 0 && (
-                  <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
-                    ↻ {habitStreak(task)}
-                  </span>
-                ) : null}
-                {task.kind === 'list' && (
-                  <span title="List" className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
-                    <IconList size={14} />
-                    {task.listStyle === 'check' && task.items.length > 0 ? `${task.items.filter((i) => i.done).length}/${task.items.length}` : task.items.length || ''}
-                  </span>
-                )}
-                {link && (
-                  <a
-                    href={link.href}
-                    title={`${link.label} ${person!.name.split(' ')[0]}`}
-                    aria-label={`${link.label} ${person!.name}`}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    className="pop-in grid shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/40 transition hover:scale-110 hover:bg-lilac-600"
-                    style={{ width: cb, height: cb }}
-                  >
-                    {link.label === 'Email' ? <IconMail size={13} /> : link.label === 'Text' ? <IconChat size={13} /> : <IconPhone size={13} />}
-                  </a>
-                )}
+              {/* the type sits at the top; the checkbox always sits at the bottom centre; everything else (reminder, streak, list count, call/email)
+                  rides the bottom arc on either side of it, alternating right and left */}
+              {r >= 46 && (
+                <span title={task.kind} className="absolute left-1/2 top-[9%] -translate-x-1/2 text-lilac-600/70" aria-hidden>
+                  <KindIcon kind={task.kind} size={Math.round(Math.max(12, Math.min(16, r * 0.19)))} />
+                </span>
+              )}
+              <span className="absolute bottom-[9%] left-1/2 -translate-x-1/2">
+                <DoneButton task={task} size={cb} />
               </span>
+              {arc.map((it) => (
+                <span key={it.key} className="absolute flex items-center" style={{ left: it.x, top: it.y, transform: 'translate(-50%, -50%)' }}>
+                  {it.node}
+                </span>
+              ))}
             </div>
           </div>
         </div>

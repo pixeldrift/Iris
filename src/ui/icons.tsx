@@ -261,3 +261,14 @@ export const IconPop = (p: P) => (
     <path d="M18.5 4.5l.9-1.5M20.5 8l1.6-.4M16.6 2.8l.1-1.6" />
   </Svg>
 )
+
+/** A quiet mark for an item's type, shown at the top of its bubble. */
+export const IconTask = (p: P) => (
+  <Svg {...p}>
+    <rect x="4.5" y="4.5" width="15" height="15" rx="4" />
+    <path d="M9 12l2.2 2.2L15.5 9.8" />
+  </Svg>
+)
+export function KindIcon({ kind, size = 14 }: { kind: string; size?: number }) {
+  return kind === 'event' ? <IconCalendar size={size} /> : kind === 'habit' ? <IconRepeat size={size} /> : kind === 'list' ? <IconList size={size} /> : kind === 'idea' ? <IconThought size={size} /> : <IconTask size={size} />
+}
