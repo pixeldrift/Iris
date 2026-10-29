@@ -143,7 +143,7 @@ export function NewTask() {
         className={`glass glass-strong flex max-h-full w-full max-w-md flex-col rounded-[2rem] p-4 ${closing ? 'pop-out' : 'box-spring'}`}
       >
         {/* only the quick line is a form (Enter places it); the editor below has its own buttons */}
-        <form onSubmit={submit}>
+        <form id="new-form" onSubmit={submit}>
         <div className="flex items-center">
           <div className="relative min-w-0 flex-1">
             <input
@@ -185,9 +185,12 @@ export function NewTask() {
               ref.current?.focus() // keep typing
             }}
           />
-          <button type="submit" className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm text-white shadow shadow-lilac-500/30">
-            + Add
-          </button>
+          {/* expanded: Cancel and Add live in a bar pinned to the bottom instead */}
+          {!(more && draft) && (
+            <button type="submit" className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm text-white shadow shadow-lilac-500/30">
+              + Add
+            </button>
+          )}
         </div>
         </form>
         <KindHint kind={shownKind} className="mt-1.5 px-1" />
@@ -206,6 +209,16 @@ export function NewTask() {
           <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2">
             <TaskFields task={draft} withKind={false} />
             <TagInput taskId={draft.id} />
+          </div>
+        )}
+        {more && draft && (
+          <div className="-mx-4 -mb-4 mt-2 flex shrink-0 items-center gap-2 border-t border-white/60 px-4 py-3">
+            <button type="button" onClick={closeCompose} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
+              Cancel
+            </button>
+            <button type="submit" form="new-form" className="rounded-full bg-lilac-500 px-5 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30">
+              + Add
+            </button>
           </div>
         )}
       </div>

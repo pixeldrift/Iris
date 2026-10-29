@@ -10,6 +10,7 @@ export function Popover({
   children,
   align = 'start',
   className = '',
+  footer,
   onMouseEnter,
   onMouseLeave,
 }: {
@@ -19,6 +20,8 @@ export function Popover({
   children: React.ReactNode
   align?: 'start' | 'end'
   className?: string
+  /** Buttons like Delete, pinned to the bottom so they never scroll away with the content. */
+  footer?: React.ReactNode
   onMouseEnter?: () => void
   onMouseLeave?: () => void
 }) {
@@ -101,9 +104,16 @@ export function Popover({
       onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`glass glass-strong fixed z-[150] min-w-[12rem] overflow-y-auto rounded-2xl p-1.5 ${closing ? 'pop-out' : 'pop-in'} ${className}`}
+      className={`glass glass-strong fixed z-[150] min-w-[12rem] rounded-2xl p-1.5 ${footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} ${closing ? 'pop-out' : 'pop-in'} ${className}`}
     >
-      {children}
+      {footer ? (
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+          <div className="shrink-0">{footer}</div>
+        </>
+      ) : (
+        children
+      )}
     </div>,
     document.body,
   )

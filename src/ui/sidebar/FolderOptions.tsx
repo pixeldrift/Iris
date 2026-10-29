@@ -33,7 +33,34 @@ export function FolderOptions({
   }, [open, folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Popover open={open} onClose={onClose} anchor={anchor} className="w-80 p-3.5">
+    <Popover
+      open={open}
+      onClose={onClose}
+      anchor={anchor}
+      className="w-80 p-3.5"
+      footer={
+        <div className="mt-3 flex items-center border-t border-white/60 pt-2.5">
+          <button
+            onClick={() => {
+              onClose()
+              onAdd(folder.id)
+            }}
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
+          >
+            <IconPlus size={14} /> Add inside
+          </button>
+          <button
+            onClick={async () => {
+              onClose()
+              if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
+            }}
+            className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
+          >
+            <IconTrash size={14} /> Delete
+          </button>
+        </div>
+      }
+    >
       <label className="block text-xs font-medium text-ink-soft">
         Name
         <input
@@ -102,26 +129,6 @@ export function FolderOptions({
         aria-label="Custom color"
       />
 
-      <div className="mt-3 flex items-center border-t border-white/60 pt-2.5">
-        <button
-          onClick={() => {
-            onClose()
-            onAdd(folder.id)
-          }}
-          className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
-        >
-          <IconPlus size={14} /> Add inside
-        </button>
-        <button
-          onClick={async () => {
-            onClose()
-            if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
-          }}
-          className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
-        >
-          <IconTrash size={14} /> Delete
-        </button>
-      </div>
     </Popover>
   )
 }
