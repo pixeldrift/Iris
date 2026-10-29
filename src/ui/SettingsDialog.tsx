@@ -113,7 +113,6 @@ export function SettingsDialog() {
               aria-label="Volume"
             />
           </div>
-          <Row k="soundOverrideSilent" label="Play on silent" hint="ignore the ring switch" indent faded={!sound} />
           <Row k="sfxDrops" label="Water drops" hint="when you add" indent faded={!sound} />
           <Row k="sfxChimes" label="Chimes and blooms" hint="finish, tag, move" indent faded={!sound} />
           <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />

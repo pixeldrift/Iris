@@ -20,8 +20,6 @@ export interface Settings {
   sfxPops: boolean
   ambient: boolean
   volume: number
-  /** Keep playing when the phone's ring switch is on silent. */
-  soundOverrideSilent: boolean
   drift: boolean
   sizeByPriority: boolean
   showDone: boolean
@@ -134,7 +132,6 @@ const DEFAULT_SETTINGS: Settings = {
   sfxPops: true,
   ambient: false,
   volume: 0.7,
-  soundOverrideSilent: false,
   drift: true,
   sizeByPriority: true,
   showDone: false,
@@ -157,7 +154,6 @@ export const applyAudio = (s: Settings) =>
     pops: s.sfxPops,
     ambient: s.ambient,
     volume: s.volume,
-    overrideSilent: s.soundOverrideSilent,
   })
 
 export const useStore = create<State>()(

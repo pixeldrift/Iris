@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { redo, undo } from './state/history'
 import { useStore } from './state/store'
-import { audioRunning, resumeAudio, unlock } from './audio/engine'
+import { audioRunning, pauseAudio, resumeAudio, unlock } from './audio/engine'
 import { applyAudio } from './state/store'
 import { Decor } from './ui/Decor'
 import { DialogHost } from './ui/dialogs'
@@ -43,13 +43,15 @@ export default function App() {
       if (audioRunning()) off()
     }
     events.forEach((e) => window.addEventListener(e, first, true))
-    const back = () => document.visibilityState === 'visible' && resumeAudio()
+    const back = () => (document.visibilityState === 'visible' ? resumeAudio() : pauseAudio())
     document.addEventListener('visibilitychange', back)
     window.addEventListener('pageshow', back)
+    window.addEventListener('pagehide', pauseAudio)
     return () => {
       off()
       document.removeEventListener('visibilitychange', back)
       window.removeEventListener('pageshow', back)
+      window.removeEventListener('pagehide', pauseAudio)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
