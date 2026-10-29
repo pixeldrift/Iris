@@ -30,7 +30,7 @@ function impulse(c: AudioContext, seconds = 3.2): AudioBuffer {
   return buf
 }
 
-function ensure(): AudioContext | null {
+function ensure(awake = false): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (!ctx) {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
@@ -49,8 +49,24 @@ function ensure(): AudioContext | null {
 
   }
   // iOS also leaves a context 'interrupted' after a call, the lock screen or a trip to another app
-  if (!hidden() && (ctx.state as string) !== 'running') void ctx.resume().catch(() => {})
+  if ((awake || !hidden()) && (ctx.state as string) !== 'running') void ctx.resume().catch(() => {})
   return ctx
+}
+
+/**
+ * A reminder going off. Unlike the other sounds this plays even when the app is out of sight (a different tab or app),
+ * for as long as the browser lets the page run; then the engine goes back to sleep. It still follows the master sound switch.
+ */
+export function alertChime() {
+  if (!cfg.master) return
+  const c = ensure(true)
+  if (!c) return
+  const i = 5 + Math.floor(Math.random() * 2)
+  const at = c.currentTime + 0.05
+  bell(SCALE[i], at, 0.12, -0.15, 3)
+  bell(SCALE[i + 2], at + 0.16, 0.11, 0.15, 3.5)
+  bell(SCALE[i + 4 > 11 ? 11 : i + 4], at + 0.34, 0.1, 0, 4)
+  if (hidden()) window.setTimeout(() => hidden() && pauseAudio(), 5000)
 }
 
 /** Is sound actually able to play right now? (Browsers keep it suspended until a tap.) */
