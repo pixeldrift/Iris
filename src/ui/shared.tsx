@@ -6,7 +6,7 @@ import { formatTime, isOverdue, plannedDate, weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, usePointerDrag } from './dnd'
-import { IconCheck } from './icons'
+import { IconCheck, IconCheckHint } from './icons'
 import { checkVars, useTaskHue } from './taskColor'
 import { ExampleHint, useExampleIndex } from './ExampleHint'
 
@@ -53,11 +53,23 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
         toggle(task.id)
       }}
       style={{ width: size, height: size, ...checkVars(hue) }}
-      className={`well-circle grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-transparent hover:text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
+      className={`well-circle group/check grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-[color:var(--chk-ring,var(--color-lilac-400))] hover:text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
       aria-label={occ ? (done ? 'Undo this one' : 'Done this one') : done ? 'Mark not done' : 'Mark done'}
       aria-pressed={done}
     >
-      <IconCheck size={size * 0.62} />
+      {done ? (
+        <IconCheck size={size * 0.62} />
+      ) : (
+        // a faint dotted check as a hint; pointing at it firms it up
+        <span className="relative grid place-items-center">
+          <span className="opacity-55 transition-opacity group-hover/check:opacity-0">
+            <IconCheckHint size={size * 0.62} />
+          </span>
+          <span className="absolute opacity-0 transition-opacity group-hover/check:opacity-70">
+            <IconCheck size={size * 0.62} />
+          </span>
+        </span>
+      )}
     </button>
   )
 }

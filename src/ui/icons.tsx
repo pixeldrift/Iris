@@ -180,6 +180,12 @@ export const IconAll = (p: P) => (
     <path d="M12 3.5c-3 3-3 14 0 17M12 3.5c3 3 3 14 0 17M3.5 12h17" opacity=".6" />
   </Svg>
 )
+/** A faint, dotted checkmark: the hint inside an empty checkbox. */
+export const IconCheckHint = (p: P) => (
+  <Svg {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" strokeWidth="2.4" strokeDasharray="0.1 3.6" />
+  </Svg>
+)
 export const IconCheck = (p: P) => (
   <Svg {...p}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />

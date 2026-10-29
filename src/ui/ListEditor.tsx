@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
 import { stageAfterTicks, stagesForTask } from '../core/progress'
-import { IconClose, IconPlus } from './icons'
+import { IconCheckHint, IconClose, IconPlus } from './icons'
 import { SegmentedToggle } from './SegmentedToggle'
 import { checkVars, useTaskHue } from './taskColor'
 
@@ -55,9 +55,9 @@ export function ListEditor({ task }: { task: Task }) {
                 aria-label={`Done: ${it.text}`}
                 onClick={() => patch(it.id, { done: !it.done })}
                 style={checkVars(hue)}
-                className={`well-circle grid h-[1.15rem] w-[1.15rem] shrink-0 place-items-center rounded-full transition ${it.done ? 'is-on text-white' : ''}`}
+                className={`well-circle grid h-[1.15rem] w-[1.15rem] shrink-0 place-items-center rounded-full transition ${it.done ? 'is-on text-white' : 'text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
               >
-                {it.done && <span className="text-[0.6rem] leading-none">✓</span>}
+                {it.done ? <span className="text-[0.6rem] leading-none">✓</span> : <span className="opacity-55"><IconCheckHint size={11} /></span>}
               </button>
             ) : (
               <span aria-hidden className="w-[1.15rem] shrink-0 text-center text-sm tabular-nums text-lilac-500">
