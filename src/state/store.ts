@@ -6,7 +6,7 @@ import { sameName } from '../core/fuzzy'
 import { fullName, MAX_FAVORITES, splitName } from '../core/people'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
 import { patchForStage, stageIndex, stagesForTask, stagesOf, type Stage } from '../core/progress'
-import { dropSampleCopies, seedData } from '../core/seed'
+import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
 import { eventStart, remindFromRule } from '../core/reminders'
 import { rolloverDay, urgencyForDue } from '../core/tasks'
@@ -113,6 +113,11 @@ interface State {
   savePerson: (p: Partial<Person> & { name: string }) => string
   deletePerson: (id: string) => void
   togglePersonFavorite: (id: string) => void
+  /** Add the demo content (anything not already there), or take it away again. */
+  importDemo: () => void
+  removeDemo: () => void
+  /** Start fresh: every task, group and person goes (your own profile stays). */
+  clearEverything: () => void
   /** Throw away a task that was only being set up in the quick-add box. */
   discardDraft: (id: string) => void
   /** Make sure the signed-in person has their own contact entry (the same id on every device). */
@@ -477,6 +482,38 @@ export const useStore = create<State>()(
         set((s) => ({
           people: [...s.people, { id, name: fullName(n.first, n.last), first: n.first, last: n.last, phone: '', email: user.email, address: '', notes: '', hue: 285, favorite: false, isMe: true, createdAt: Date.now() }],
         }))
+      },
+      importDemo: () => {
+        const seed = seedData()
+        const s = get()
+        const tasks = seed.tasks.filter((t) => !s.tasks.some((x) => x.id === t.id))
+        const folders = seed.folders.filter((f) => !s.folders.some((x) => x.id === f.id))
+        const people = seed.people.filter((p) => !s.people.some((x) => x.id === p.id))
+        set((st) => ({ tasks: [...st.tasks, ...tasks], folders: [...st.folders, ...folders], people: [...st.people, ...people] }))
+        get().showToast(tasks.length + folders.length + people.length ? 'Demo data added' : 'The demo data is already here')
+      },
+      removeDemo: () => {
+        set((st) => {
+          const tasks = st.tasks.filter((t) => !isDemoTask(t.id))
+          // a demo group or person stays if something of yours still uses it
+          const usedFolders = new Set(tasks.flatMap((t) => t.folderIds))
+          const usedPeople = new Set(tasks.flatMap((t) => t.personIds))
+          const keepParents = new Set(st.folders.filter((f) => !isDemoFolder(f.id)).map((f) => f.parentId))
+          const folders = st.folders.filter((f) => !isDemoFolder(f.id) || usedFolders.has(f.id) || keepParents.has(f.id))
+          const people = st.people.filter((p) => !isDemoPerson(p.id) || usedPeople.has(p.id))
+          return {
+            tasks,
+            folders,
+            people,
+            selectedId: st.selectedId && tasks.some((t) => t.id === st.selectedId) ? st.selectedId : null,
+            scope: st.scope.type === 'folder' && !folders.some((f) => f.id === (st.scope as { id: string }).id) ? { type: 'all' } : st.scope.type === 'person' && !people.some((p) => p.id === (st.scope as { id: string }).id) ? { type: 'all' } : st.scope,
+          }
+        })
+        get().showToast('Demo data removed')
+      },
+      clearEverything: () => {
+        set((st) => ({ tasks: [], folders: [], people: st.people.filter((p) => p.isMe), scope: { type: 'all' }, selectedId: null }))
+        get().showToast('A fresh start')
       },
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
       togglePersonFavorite: (id) => {

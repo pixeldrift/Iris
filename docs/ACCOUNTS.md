@@ -44,6 +44,15 @@ that keeps that data in a Neon Postgres database so every device shows the same 
   has data, the built-in sample data here is dropped and the account's data comes down (anything you created on
   this device before signing in is still uploaded).
 - **Signing out** removes the account's data from the device (it stays in the account) and restores the sample data.
+- **Clearing and deleting.** My settings > Your data has two destructive actions, each behind a confirmation that
+  asks for the account's email and password again (a re-sign-in proves it; with no account on the device, clearing asks
+  for a typed word instead). *Clear everything* empties tasks, groups and people (the deletions sync as tombstones, so
+  every device follows). *Delete my account* calls `POST /api/account` (`api/account.ts`, `api/_lib/account.ts`): it removes
+  the personal workspace and its entities, the device records, and then, best effort, the person's rows in the `neon_auth`
+  schema (`session`, `account`, `user`), and the device returns to the signed-out starter data. If the login rows can't
+  be removed (a differently named table), the data is still gone and the function log says why.
+- **Demo data.** `src/core/seed.ts` holds the demo content (fixed `demo-` ids). My settings > Demo data adds it or
+  removes it (anything of yours that still uses a demo group or person keeps it). The same content is the starting data.
 - Settings (sound, view options, sidebar layout) stay per-device for now.
 
 ## One-time setup

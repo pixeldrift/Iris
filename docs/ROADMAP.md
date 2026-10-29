@@ -35,8 +35,9 @@
   and so on, each with its own level.
 
 ## Accounts
-- **Email confirmation** when an account is created, **password reset**, and **delete my account** (removing
-  every entity, device and membership on the server, with a confirmation step).
+- **Email confirmation** when an account is created, and **password reset**. (**Delete my account** has shipped:
+  `POST /api/account` removes the person's workspace, devices and sign-in after they re-enter their email and
+  password; "Clear everything" and the demo data switches are in My settings.)
 
 ## Collaboration (future)
 - Share a folder or a single bubble with other people; shared folders show up in everyone's sidebar.

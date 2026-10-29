@@ -5,6 +5,8 @@ import type { Settings } from '../state/store'
 import { Modal } from './dialogs'
 import { applySpace, applyTheme, BASE_HUE, setScrubbing } from './theme'
 import { DATE_STYLES, deviceTimeZone } from '../core/locale'
+import { accountsConfigured } from '../sync/auth'
+import { openDanger } from './DangerZone'
 import { SegmentedToggle } from './SegmentedToggle'
 import { askNotify, notifyState } from './notify'
 import { useEffect, useRef, useState } from 'react'
@@ -256,6 +258,30 @@ export function SettingsDialog() {
               </button>
             )}
           </div>
+        </Group>
+        <Group title="Demo data">
+          <p className="px-2 pb-1 text-[0.7rem] text-ink-faint">A small made-up life that shows off the app: every item type, repeats, lists, events, stages, people.</p>
+          <div className="flex flex-wrap gap-2 px-2 pb-1">
+            <button type="button" onClick={() => useStore.getState().importDemo()} className="glass-soft rounded-full px-3.5 py-1.5 text-sm text-lilac-700 hover:bg-white/80">
+              Add demo data
+            </button>
+            <button type="button" onClick={() => useStore.getState().removeDemo()} className="glass-soft rounded-full px-3.5 py-1.5 text-sm text-ink-soft hover:bg-white/80">
+              Remove demo data
+            </button>
+          </div>
+        </Group>
+        <Group title="Your data">
+          <div className="flex flex-wrap gap-2 px-2 pb-1">
+            <button type="button" onClick={() => openDanger('clear')} className="rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+              Clear everything…
+            </button>
+            {accountsConfigured && (
+              <button type="button" onClick={() => openDanger('delete')} className="rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+                Delete my account…
+              </button>
+            )}
+          </div>
+          <p className="px-2 text-[0.7rem] text-ink-faint">Both ask for your email and password again first.</p>
         </Group>
       </div>
     </Modal>

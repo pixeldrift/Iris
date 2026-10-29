@@ -192,7 +192,7 @@ export function PersonDialog() {
           )}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input className={field} placeholder="First name" aria-label="First name" autoComplete="given-name" value={f.first} onChange={set('first')} autoFocus />
+          <input className={field} placeholder="First name" aria-label="First name" autoComplete="given-name" value={f.first} onChange={set('first')} autoFocus={!existing} />
           <input className={field} placeholder="Last name" aria-label="Last name" autoComplete="family-name" value={f.last} onChange={set('last')} />
         </div>
         <div className="grid grid-cols-2 gap-2">
