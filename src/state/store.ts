@@ -35,6 +35,8 @@ export interface Settings {
   themeHue: number
   /** Priority grid: how big the bubbles are drawn (1 = normal). The grid itself never changes. */
   priorityScale: number
+  /** Labels that appear when you hover (or tap) an icon. */
+  tooltips: boolean
   /** How dates are written (see core/locale). */
   dateFormat: 'us' | 'us-numeric' | 'dmy' | 'iso'
   clockFormat: '12' | '24'
@@ -147,6 +149,7 @@ const DEFAULT_SETTINGS: Settings = {
   timelineLegend: false,
   themeHue: 271,
   priorityScale: 1,
+  tooltips: true,
   dateFormat: 'us',
   clockFormat: '12',
 }

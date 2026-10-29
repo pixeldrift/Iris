@@ -194,7 +194,7 @@ function AccountMenu() {
             if (me) openPerson({ id: me.id })
           }}
         >
-          <IconPerson size={16} /> My details
+          <IconPerson size={16} /> My Profile
         </button>
         <button
           className={item}

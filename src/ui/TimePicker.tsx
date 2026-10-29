@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { formatTime } from '../core/tasks'
 import { Popover } from './Popover'
+import { ScrollFade } from './ScrollFade'
 
 const HOURS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5)
@@ -29,21 +30,30 @@ export function TimePicker({ label, value, onChange, placeholder = 'No time' }: 
         <span className={value ? '' : 'text-ink-faint'}>{value ? formatTime(value) : placeholder}</span>
         <span className="text-ink-faint">▾</span>
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} className="w-60 p-3">
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-          <div role="listbox" aria-label="Hour" className="scroll-soft grid max-h-48 gap-0.5 overflow-y-auto pr-0.5">
-            {HOURS.map((h) => (
-              <button key={h} type="button" role="option" aria-selected={!!value && h === h12} onClick={() => set(h, m, pm)} className={pill(!!value && h === h12)}>
-                {h}
-              </button>
-            ))}
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} className="!min-w-0 w-40 p-2.5">
+        <div className="grid grid-cols-[1fr_1fr_auto] gap-1">
+          {/* tall lists fade toward the edge with more beyond it, and show the same little scroll arrow as elsewhere */}
+          <div className="flex h-48 flex-col">
+            <ScrollFade>
+              <div role="listbox" aria-label="Hour" className="grid gap-0.5 py-2 pr-0.5">
+                {HOURS.map((h) => (
+                  <button key={h} type="button" role="option" aria-selected={!!value && h === h12} onClick={() => set(h, m, pm)} className={pill(!!value && h === h12)}>
+                    {h}
+                  </button>
+                ))}
+              </div>
+            </ScrollFade>
           </div>
-          <div role="listbox" aria-label="Minute" className="scroll-soft grid max-h-48 gap-0.5 overflow-y-auto pr-0.5">
-            {MINUTES.map((mm) => (
-              <button key={mm} type="button" role="option" aria-selected={!!value && mm === m} onClick={() => set(h12, mm, pm)} className={pill(!!value && mm === m)}>
-                {String(mm).padStart(2, '0')}
-              </button>
-            ))}
+          <div className="flex h-48 flex-col">
+            <ScrollFade>
+              <div role="listbox" aria-label="Minute" className="grid gap-0.5 py-2 pr-0.5">
+                {MINUTES.map((mm) => (
+                  <button key={mm} type="button" role="option" aria-selected={!!value && mm === m} onClick={() => set(h12, mm, pm)} className={pill(!!value && mm === m)}>
+                    {String(mm).padStart(2, '0')}
+                  </button>
+                ))}
+              </div>
+            </ScrollFade>
           </div>
           <div className="grid content-start gap-1">
             {(['am', 'pm'] as const).map((ap) => (
@@ -53,15 +63,15 @@ export function TimePicker({ label, value, onChange, placeholder = 'No time' }: 
             ))}
           </div>
         </div>
-        <div className="mt-2 flex justify-between text-xs">
-          <button type="button" className="rounded-full px-2 py-1 text-lilac-700 hover:bg-lilac-100/80" onClick={() => setOpen(false)}>
-            Done
-          </button>
+        <div className="mt-3 flex items-center">
           {value && (
-            <button type="button" className="rounded-full px-2 py-1 text-ink-faint hover:bg-white/70" onClick={() => (onChange(null), setOpen(false))}>
+            <button type="button" className="rounded-full px-3 py-1.5 text-sm text-ink-faint hover:bg-white/70 hover:text-ink" onClick={() => (onChange(null), setOpen(false))}>
               Clear
             </button>
           )}
+          <button type="button" className="ml-auto rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => setOpen(false)}>
+            Done
+          </button>
         </div>
       </Popover>
     </div>

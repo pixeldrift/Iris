@@ -206,7 +206,7 @@ export function NewTask() {
           {more ? 'Fewer details' : 'More details'}
         </button>
         {more && draft && (
-          <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2">
+          <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2" style={{ paddingBottom: "calc(0.25rem + var(--kb, 0px) * 0.5)" }}>
             <TaskFields task={draft} withKind={false} />
             <TagInput taskId={draft.id} />
           </div>

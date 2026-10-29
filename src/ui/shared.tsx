@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { tint } from '../core/color'
-import { relativeLabel, today } from '../core/dates'
+import { addDays, relativeLabel, today } from '../core/dates'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
 import { formatTime, isOverdue, plannedDate, weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, usePointerDrag } from './dnd'
-import { IconCheck } from './icons'
+import { IconCheck, IconCheckHint } from './icons'
 import { checkVars, useTaskHue } from './taskColor'
 import { ExampleHint, useExampleIndex } from './ExampleHint'
 
@@ -53,11 +53,23 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
         toggle(task.id)
       }}
       style={{ width: size, height: size, ...checkVars(hue) }}
-      className={`well-circle grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-transparent hover:text-lilac-400'}`}
+      className={`well-circle group/check grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-[color:var(--chk-ring,var(--color-lilac-400))] hover:text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
       aria-label={occ ? (done ? 'Undo this one' : 'Done this one') : done ? 'Mark not done' : 'Mark done'}
       aria-pressed={done}
     >
-      <IconCheck size={size * 0.62} />
+      {done ? (
+        <IconCheck size={size * 0.62} />
+      ) : (
+        // a faint dotted check as a hint; pointing at it firms it up
+        <span className="relative grid place-items-center">
+          <span className="opacity-55 transition-opacity group-hover/check:opacity-0">
+            <IconCheckHint size={size * 0.62} />
+          </span>
+          <span className="absolute opacity-0 transition-opacity group-hover/check:opacity-70">
+            <IconCheck size={size * 0.62} />
+          </span>
+        </span>
+      )}
     </button>
   )
 }
@@ -71,7 +83,7 @@ export function FolderChips({ task, max = 3 }: { task: Task; max?: number }) {
       {mine.slice(0, max).map((f) => (
         <span
           key={f!.id}
-          className="rounded-full px-2 py-0.5 text-[0.7rem] leading-none"
+          className="inline-flex items-center rounded-full px-2 py-0.5 text-[0.7rem] leading-none"
           style={{ background: `${tint(f!.hue, 70, 88, .85)}`, color: `${tint(f!.hue, 35, 32)}` }}
         >
           {f!.name}
@@ -87,17 +99,18 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
   if (!when) return null
   if (when === today() && !isOverdue(task)) {
     // today needs no date: the time if there is one, otherwise just "Today"
-    return <span className="whitespace-nowrap rounded-full bg-lilac-200/80 px-2 py-0.5 text-[0.7rem] leading-none text-lilac-700">{task.time ? formatTime(task.time) : 'Today'}</span>
+    return <span className="inline-flex items-center whitespace-nowrap rounded-full bg-lilac-200/80 px-2 py-0.5 text-[0.7rem] leading-none text-lilac-700">{task.time ? formatTime(task.time) : 'Today'}</span>
   }
   const late = isOverdue(task)
   return (
     <span
-      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
         late ? 'bg-rose-soft/80 text-[#9a4566]' : when === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
       }`}
     >
       {relativeLabel(when)}
-      {task.kind === 'event' && task.time && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
+      {/* tomorrow is just "Tomorrow"; the time only rides along for days further out */}
+      {task.kind === 'event' && task.time && when !== addDays(today(), 1) && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
       {!compact && task.day && task.due && task.due !== task.day && <i className="ml-1 font-normal opacity-70">· due {relativeLabel(task.due)}</i>}
     </span>
   )

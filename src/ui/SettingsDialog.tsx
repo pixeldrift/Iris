@@ -211,6 +211,9 @@ export function SettingsDialog() {
             </div>
           </div>
         </Group>
+        <Group title="Help">
+          <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
+        </Group>
         <Group title="Region">
           <div className="space-y-2 px-2 py-1.5">
             <div>

@@ -180,6 +180,12 @@ export const IconAll = (p: P) => (
     <path d="M12 3.5c-3 3-3 14 0 17M12 3.5c3 3 3 14 0 17M3.5 12h17" opacity=".6" />
   </Svg>
 )
+/** A faint, dotted checkmark: the hint inside an empty checkbox. */
+export const IconCheckHint = (p: P) => (
+  <Svg {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" strokeWidth="2.4" strokeDasharray="0.1 3.6" />
+  </Svg>
+)
 export const IconCheck = (p: P) => (
   <Svg {...p}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />
@@ -261,3 +267,14 @@ export const IconPop = (p: P) => (
     <path d="M18.5 4.5l.9-1.5M20.5 8l1.6-.4M16.6 2.8l.1-1.6" />
   </Svg>
 )
+
+/** A quiet mark for an item's type, shown at the top of its bubble. */
+export const IconTask = (p: P) => (
+  <Svg {...p}>
+    <rect x="4.5" y="4.5" width="15" height="15" rx="4" />
+    <path d="M9 12l2.2 2.2L15.5 9.8" />
+  </Svg>
+)
+export function KindIcon({ kind, size = 14 }: { kind: string; size?: number }) {
+  return kind === 'event' ? <IconCalendar size={size} /> : kind === 'habit' ? <IconRepeat size={size} /> : kind === 'list' ? <IconList size={size} /> : kind === 'idea' ? <IconThought size={size} /> : <IconTask size={size} />
+}

@@ -5,6 +5,8 @@ import { FlowerGallery } from './ui/FlowerGallery'
 import './index.css'
 import './ui/theme'
 import './state/prefs'
+import './ui/tooltips'
+import './ui/keyboard'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>{location.hash === '#flowers' ? <FlowerGallery /> : <App />}</StrictMode>,
