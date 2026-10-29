@@ -163,7 +163,7 @@ export function PersonDialog() {
         className="space-y-3"
       >
         <div className="flex items-center">
-          <h3 className="font-display text-xl">{existing?.isMe ? 'My details' : existing ? 'Edit person' : 'Add a person'}</h3>
+          <h3 className="font-display text-xl">{existing?.isMe ? 'My Profile' : existing ? 'Edit person' : 'Add a person'}</h3>
           {/* you are linked to everything you make already, so there is nothing to keep in the sidebar */}
           {!existing?.isMe && (
             <button
@@ -337,6 +337,7 @@ export function PersonDialog() {
           </div>
         )}
         <textarea className={`${field} resize-none`} rows={2} placeholder="Notes" value={f.notes} onChange={set('notes')} />
+        {existing?.isMe && <p className="text-xs text-ink-faint">Appears in address book</p>}
       </form>
     </Modal>
   )

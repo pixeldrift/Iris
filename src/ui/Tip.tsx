@@ -1,5 +1,6 @@
 import { cloneElement, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useStore } from '../state/store'
 
 interface Shown {
   label: string
@@ -16,6 +17,7 @@ interface Shown {
  * above the icon; it floats up and fades. A mouse hover keeps it visible.
  */
 export function Tip({ label, children }: { label: string; children: React.ReactElement<Record<string, unknown>> }) {
+  const enabled = useStore((s) => s.settings.tooltips)
   const [tip, setTip] = useState<Shown | null>(null)
   const ref = useRef<HTMLElement | null>(null)
   const timer = useRef<number>(0)
@@ -32,7 +34,7 @@ export function Tip({ label, children }: { label: string; children: React.ReactE
 
   const show = (sticky: boolean) => {
     const el = ref.current
-    if (!el) return
+    if (!el || !enabled) return
     const r = el.getBoundingClientRect()
     window.clearTimeout(timer.current)
     n.current += 1
