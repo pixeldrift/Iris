@@ -38,6 +38,19 @@ export function slotFor(folders: Folder[], dragId: string, startDepth: number, y
   rows.forEach((r, i) => {
     if (r.mid < y) after = i
   })
-  return placeInTree(folders, dragId, rows, after, startDepth + Math.round(dx / INDENT_STEP))
+  const want = startDepth + Math.round(dx / INDENT_STEP)
+  // Pulling left to climb out a level has to work from anywhere in a group, not just below its last child: when the row
+  // that follows is deeper than the depth asked for, jump the slot to the end of the ancestor's block at that depth
+  // (so a second-level group dragged left becomes a first-level group, right after its parent and the siblings it had).
+  const next = rows[after + 1]
+  if (after >= 0 && next && want < next.depth) {
+    const target = Math.max(0, want)
+    let a = after
+    while (a > 0 && rows[a].depth > target) a--
+    let e = a + 1
+    while (e < rows.length && rows[e].depth > rows[a].depth) e++
+    after = e - 1
+  }
+  return placeInTree(folders, dragId, rows, after, want)
 }
 
