@@ -408,3 +408,18 @@ input[type='range'].hue::-moz-range-track {
   padding-block: 0.14em;
   margin-block: -0.14em;
 }
+
+/* a Look & Feel slider is being held: same page, but cheap to repaint every frame */
+body.scrubbing .glass,
+body.scrubbing .glass-soft,
+body.scrubbing .glass-strong,
+body.scrubbing .pad {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.scrubbing .drift-a,
+body.scrubbing .drift-b,
+body.scrubbing .drift-c,
+body.scrubbing .glow-breathe {
+  animation-play-state: paused !important;
+}

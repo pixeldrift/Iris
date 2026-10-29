@@ -207,7 +207,6 @@ export function Sidebar() {
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const open = useStore((s) => s.sidebarOpen)
-  const space = useStore((s) => s.settings.sidebarSpace)
   const setSidebar = useStore((s) => s.setSidebar)
   const addFolder = useStore((s) => s.addFolder)
 
@@ -424,7 +423,6 @@ export function Sidebar() {
         } ${swipe !== null ? '!transition-none' : ''}`}
         style={{
           paddingTop: 'env(safe-area-inset-top)',
-          ['--sb' as string]: space,
           transitionTimingFunction: SPRING,
           ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + 1.15rem + ${swipe}px) 0` } : {}),
           ...(mobile ? { touchAction: 'pan-y' } : {}),

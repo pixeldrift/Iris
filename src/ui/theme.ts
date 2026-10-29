@@ -72,12 +72,26 @@ export function applyTheme(hue: number) {
   }
 }
 
+/** Sidebar spacing is one root variable too, so moving the slider restyles nothing but what reads it. */
+export const applySpace = (v: number) => document.documentElement.style.setProperty('--sb', String(v))
+
+/**
+ * While a Look & Feel slider is held, the page is made cheap to repaint: no blurred glass, no drifting. Dragging
+ * a colour across a 2,000-element page with blur layers is what made it laggy; this is the same look, paused.
+ */
+export const setScrubbing = (on: boolean) => document.body.classList.toggle('scrubbing', on)
+
 let last = NaN
+let lastSpace = NaN
 const sync = () => {
-  const h = useStore.getState().settings.themeHue
-  if (h !== last) {
-    last = h
-    applyTheme(h)
+  const { themeHue, sidebarSpace } = useStore.getState().settings
+  if (themeHue !== last) {
+    last = themeHue
+    applyTheme(themeHue)
+  }
+  if (sidebarSpace !== lastSpace) {
+    lastSpace = sidebarSpace
+    applySpace(sidebarSpace)
   }
 }
 sync()
