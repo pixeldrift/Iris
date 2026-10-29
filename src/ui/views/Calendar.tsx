@@ -12,6 +12,8 @@ import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boolean; loggedOn?: string }) {
+  // an occurrence of a repeating item that came and went without being ticked: still on the calendar (for the record), just quieter
+  const missed = !!loggedOn && loggedOn < today() && !task.log.includes(loggedOn)
   const el = useRef<HTMLDivElement>(null)
   const onPointerDown = useTaskDrag(task, el)
   const folders = useStore((s) => s.folders)
@@ -25,7 +27,7 @@ function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boo
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${(loggedOn ? task.log.includes(loggedOn) : task.status === 'done') ? 'line-through opacity-60' : ''} ${leave}`}
+      className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${(loggedOn ? task.log.includes(loggedOn) : task.status === 'done') ? 'line-through opacity-60' : ''} ${missed ? 'opacity-55 outline-dashed outline-1 -outline-offset-1 outline-ink-faint/50' : ''} ${leave}`}
       style={deadline ? { background: 'transparent', boxShadow: `inset 0 0 0 1px ${tint(hue, 45, 60, .55)}`, color: `${tint(hue, 35, 35)}` } : { background: `${tint(hue, 70, 87, .9)}`, color: `${tint(hue, 35, 28)}` }}
       title={deadline ? `${task.title} (due)` : task.title}
     >

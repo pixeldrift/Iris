@@ -204,6 +204,18 @@ describe('folder ordering', () => {
 
 import { nextAllowedDay, plannedDate, rolloverDay, matchesScope } from './tasks'
 
+describe('repeating items never carry forward', () => {
+  const base = seedData().tasks[0]
+  const series = [
+    { ...base, kind: 'task' as const, repeat: { freq: 'daily' as const, interval: 1, from: '2026-10-01' }, day: '2026-10-01', status: 'todo' as const, rollover: true },
+    { ...base, kind: 'habit' as const, repeat: null, day: '2026-10-01', status: 'todo' as const, rollover: true },
+    { ...base, kind: 'task' as const, repeat: { freq: 'weekly' as const, interval: 1, from: '2026-10-01', byDay: [1] }, day: null, status: 'todo' as const, rollover: true },
+  ]
+  it('is never moved to a later day, however many days pass, and never multiplies', () => {
+    for (const t of series) for (let i = 0; i < 90; i++) expect(rolloverDay(t, addDays('2026-10-02', i))).toBeNull()
+  })
+})
+
 describe('day planning & rollover', () => {
   const base = seedData().tasks[0]
   // 2026-10-26 is a Monday
