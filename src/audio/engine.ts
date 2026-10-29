@@ -174,8 +174,8 @@ function bell(freq: number, when: number, vol: number, pan: number, decay: numbe
   }
 }
 
-/** The chimes sit a quarter quieter than the wind bed they play over. */
-const CHIME_TRIM = 0.75
+/** The chimes sit well below the wind bed they play over (a quarter quieter, then a quarter quieter again). */
+const CHIME_TRIM = 0.75 * 0.75
 
 export function chime(index?: number, vol = 0.09) {
   if (!can('chimes')) return

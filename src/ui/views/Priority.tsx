@@ -375,8 +375,8 @@ export function Priority() {
             >
               Urgent
             </span>
-            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-lilac-300/50" />
-            <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-lilac-300/50" />
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px" style={{ background: 'linear-gradient(180deg, transparent, rgb(var(--lr-300) / 0.5) 16%, rgb(var(--lr-300) / 0.5) 84%, transparent)' }} />
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--lr-300) / 0.5) 16%, rgb(var(--lr-300) / 0.5) 84%, transparent)' }} />
             {/* under the bubbles, so a carried bubble's title stays readable */}
             {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
             {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} scale={scale} />)}
