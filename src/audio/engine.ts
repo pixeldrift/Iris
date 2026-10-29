@@ -182,12 +182,15 @@ function bell(freq: number, when: number, vol: number, pan: number, decay: numbe
   }
 }
 
+/** The chimes sit a quarter quieter than the wind bed they play over. */
+const CHIME_TRIM = 0.75
+
 export function chime(index?: number, vol = 0.09) {
   if (!can('chimes')) return
   const c = ensure()
   if (!c) return
   const f = SCALE[(index ?? Math.floor(Math.random() * SCALE.length)) % SCALE.length]
-  bell(f, c.currentTime, vol, Math.random() * 1.2 - 0.6, 4.5)
+  bell(f, c.currentTime, vol * CHIME_TRIM, Math.random() * 1.2 - 0.6, 4.5)
 }
 
 /** Rising two-note sparkle when a task blooms. */
@@ -196,9 +199,9 @@ export function bloom() {
   const c = ensure()
   if (!c) return
   const i = 4 + Math.floor(Math.random() * 3)
-  bell(SCALE[i], c.currentTime, 0.1, -0.2, 3)
-  bell(SCALE[i + 2], c.currentTime + 0.11, 0.09, 0.2, 3.5)
-  bell(SCALE[i + 4 > 11 ? 11 : i + 4], c.currentTime + 0.24, 0.07, 0, 4)
+  bell(SCALE[i], c.currentTime, 0.1 * CHIME_TRIM, -0.2, 3)
+  bell(SCALE[i + 2], c.currentTime + 0.11, 0.09 * CHIME_TRIM, 0.2, 3.5)
+  bell(SCALE[i + 4 > 11 ? 11 : i + 4], c.currentTime + 0.24, 0.07 * CHIME_TRIM, 0, 4)
 }
 
 /** Bubble pop: a quick rising blip plus a puff of filtered noise. */
@@ -239,7 +242,7 @@ export function plink() {
   if (!can('chimes')) return
   const c = ensure()
   if (!c) return
-  bell(SCALE[5 + Math.floor(Math.random() * 3)], c.currentTime, 0.08, 0, 1.6)
+  bell(SCALE[5 + Math.floor(Math.random() * 3)], c.currentTime, 0.08 * CHIME_TRIM, 0, 1.6)
 }
 
 function startWind() {
