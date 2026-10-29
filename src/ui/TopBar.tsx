@@ -64,7 +64,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const view = useStore((s) => s.view)
-  const pondGroup = useStore((s) => s.pondGroup)
+  const pondGroup = useStore((s) => s.settings.pondGroup)
   const set = useStore((s) => s.setSetting)
   const setSidebar = useStore((s) => s.setSidebar)
   const setScope = useStore((s) => s.setScope)
