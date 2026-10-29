@@ -132,16 +132,6 @@ body.dragging {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
   50% { transform: translate(4px, 10px) rotate(1.8deg); }
 }
-@keyframes jitter {
-  0%, 100% { transform: translate(0, 0); }
-  14% { transform: translate(calc(var(--ja, 0px) * 0.9), calc(var(--ja, 0px) * -0.5)); }
-  29% { transform: translate(calc(var(--ja, 0px) * -0.6), calc(var(--ja, 0px) * 0.8)); }
-  43% { transform: translate(calc(var(--ja, 0px) * 0.3), calc(var(--ja, 0px) * 1)); }
-  57% { transform: translate(calc(var(--ja, 0px) * -1), calc(var(--ja, 0px) * -0.2)); }
-  71% { transform: translate(calc(var(--ja, 0px) * 0.7), calc(var(--ja, 0px) * 0.4)); }
-  86% { transform: translate(calc(var(--ja, 0px) * -0.3), calc(var(--ja, 0px) * -0.9)); }
-}
-.jitter { animation: jitter var(--jd, 0.6s) linear var(--jdelay, 0s) infinite; }
 .drift-a { animation: drift-a var(--dur, 12s) ease-in-out var(--delay, 0s) infinite; }
 .drift-b { animation: drift-b var(--dur, 14s) ease-in-out var(--delay, 0s) infinite; }
 .drift-c { animation: drift-c var(--dur, 10s) ease-in-out var(--delay, 0s) infinite; }
@@ -201,7 +191,7 @@ body.dragging {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drift-a, .drift-b, .drift-c, .jitter { animation: none; }
+  .drift-a, .drift-b, .drift-c { animation: none; }
 }
 
 /* ---------- soft sliders ---------- */
