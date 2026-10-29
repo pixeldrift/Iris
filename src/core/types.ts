@@ -55,6 +55,8 @@ export interface Task {
   alertsDone: string[]
   /** An alert: when to nudge (epoch ms), and whether it has already gone off. */
   remindAt: number | null
+  /** A reminder set relative to the item's day or deadline ("a day before"): how many days. It follows the date if it moves. */
+  remindBefore?: number | null
   reminded: boolean
   status: TaskStatus
   /** Its column in the Progress view when its group defines custom stages (by stage id); else derived from `status`. */

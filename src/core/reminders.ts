@@ -23,12 +23,30 @@ export interface ReminderPreset {
   id: string
   label: string
   at: number
+  /** A reminder relative to the item's date: days before it. */
+  before?: number
 }
 
 const atHour = (day: string, hour: number) => {
   const d = fromISO(day)
   d.setHours(hour, 0, 0, 0)
   return d.getTime()
+}
+
+/** The date a reminder can be "before": the day you plan to do it, else its deadline. */
+export const remindAnchor = (t: Pick<Task, 'day' | 'due'>): string | null => t.day ?? t.due
+
+/**
+ * "A day before" without having to say when: the same time of day if the item has one, otherwise a sensible
+ * morning (9 am). Null when there is no date to be before, or that moment has already gone.
+ */
+export function remindFromRule(t: Pick<Task, 'day' | 'due' | 'time'>, daysBefore: number, now = Date.now()): number | null {
+  const a = remindAnchor(t)
+  if (!a) return null
+  const [h, m] = (t.time ?? '09:00').split(':').map(Number)
+  const d = fromISO(addDays(a, -daysBefore))
+  d.setHours(h, m, 0, 0)
+  return d.getTime() > now ? d.getTime() : null
 }
 
 /** One-tap choices that are still in the future. Events also get "before it starts" options. */
@@ -41,6 +59,13 @@ export function reminderPresets(t: Task, now: number): ReminderPreset[] {
     list.push({ id: '10m', label: '10 min before', at: start - 10 * MIN })
     list.push({ id: '1h', label: '1 hour before', at: start - 60 * MIN })
     list.push({ id: '1d', label: 'A day before', at: start - 24 * 60 * MIN })
+  }
+  // relative to the item's own date: no clock times to think about
+  if (!start && remindAnchor(t)) {
+    for (const [n, label] of [[0, 'Morning of'], [1, 'Day before'], [7, 'Week before']] as const) {
+      const at = remindFromRule(t, n, now)
+      if (at) list.push({ id: `before${n}`, label, at, before: n })
+    }
   }
   list.push({ id: 'in1h', label: 'In an hour', at: now + 60 * MIN })
   const evening = atHour(today, 18)

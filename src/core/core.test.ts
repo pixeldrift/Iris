@@ -330,7 +330,9 @@ describe('reminders', () => {
     expect(ids).toContain('at')
     expect(ids).toContain('10m')
     expect(ids).not.toContain('1h') // 11:30 has passed
-    expect(reminderPresets(base, now).map((p) => p.id)).toEqual(['in1h', 'eve', 'morn'])
+    expect(reminderPresets({ ...base, day: null, due: null }, now).map((p) => p.id)).toEqual(['in1h', 'eve', 'morn'])
+    // with a day or deadline, "relative to it" choices appear (no clock times to think about)
+    expect(reminderPresets({ ...base, day: null, due: '2026-03-20' }, now).map((p) => p.id)).toEqual(expect.arrayContaining(['before0', 'before1', 'before7']))
   })
   it('words times plainly', () => {
     expect(formatReminder(at(2026, 3, 10, 18), now)).toBe('6 pm today')
@@ -521,5 +523,29 @@ describe('sample data identity', () => {
     // a lone sample (even with an unfamiliar id) is left alone
     const lone = [{ ...real, id: 'seed-900' }]
     expect(dropSampleCopies(lone)).toBe(lone)
+  })
+})
+
+import { remindFromRule } from './reminders'
+describe('fuzzy reminders', () => {
+  const now = new Date(2026, 9, 29, 10, 0)
+  it('"a day before" needs no time: morning before, or the same clock time for an event', () => {
+    expect(new Date(remindFromRule({ day: null, due: '2026-11-05', time: null }, 1, now.getTime())!).toString()).toContain('Nov 04 2026 09:00')
+    expect(new Date(remindFromRule({ day: '2026-11-05', due: null, time: '15:30' }, 1, now.getTime())!).toString()).toContain('Nov 04 2026 15:30')
+    expect(remindFromRule({ day: null, due: null, time: null }, 1, now.getTime())).toBeNull()
+    expect(remindFromRule({ day: '2026-10-29', due: null, time: null }, 1, now.getTime())).toBeNull() // already past
+  })
+  it('understands "remind me a day before" and day parts in the quick-add line', () => {
+    const ctx = { folders: [], people: [] }
+    const a = parseQuickAdd('Pay rent nov 6 remind me a day before', now, ctx)
+    expect(a.remindBefore).toBe(1)
+    expect(a.title).toBe('Pay rent')
+    expect(a.remindAt).toBeTruthy()
+    const b = parseQuickAdd('Submit report nov 20 a week in advance', now, ctx)
+    expect(b.remindBefore).toBe(7)
+    const c = parseQuickAdd('Call mom remind me tomorrow evening', now, ctx)
+    expect(new Date(c.remindAt!).getHours()).toBe(18)
+    // a title that merely contains the words is left alone
+    expect(parseQuickAdd('Buy gifts the day before christmas', now, ctx).remindBefore).toBeUndefined()
   })
 })

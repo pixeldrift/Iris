@@ -21,10 +21,11 @@ export function ReminderField({ task }: { task: Task }) {
   const setReminder = useStore((s) => s.setReminder)
   const [perm, setPerm] = useState(notifyState())
   const now = Date.now()
-  const set = async (at: number | null) => {
-    setReminder(task.id, at)
+  const set = async (at: number | null, before: number | null = null) => {
+    setReminder(task.id, at, before)
     if (at !== null) setPerm(await askNotify())
   }
+  const rel = task.remindBefore != null ? (task.remindBefore === 0 ? 'the morning of' : task.remindBefore === 1 ? 'a day before' : task.remindBefore === 7 ? 'a week before' : `${task.remindBefore} days before`) : null
   const presets = reminderPresets(task, now)
 
   return (
@@ -32,10 +33,11 @@ export function ReminderField({ task }: { task: Task }) {
       <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-ink-soft">
         <IconBell size={13} /> Remind me
       </span>
-      {task.remindAt !== null && (
+      {(task.remindAt !== null || rel) && (
         <div className="mb-2 flex items-center gap-2 rounded-xl bg-lilac-100/70 px-3 py-1.5 text-sm text-lilac-700">
           <span className="min-w-0 flex-1 truncate">
-            {formatReminder(task.remindAt, now)}
+            {task.remindAt !== null ? formatReminder(task.remindAt, now) : `Remind ${rel} once it has a day`}
+            {rel && task.remindAt !== null && <i className="ml-1.5 text-xs font-normal text-ink-faint">· {rel}</i>}
             {task.reminded && <i className="ml-1.5 text-xs font-normal text-ink-faint">· sent</i>}
           </span>
           <button onClick={() => set(null)} aria-label="Remove reminder" className="grid h-6 w-6 place-items-center rounded-full text-lilac-600 hover:bg-white/70">
@@ -45,9 +47,14 @@ export function ReminderField({ task }: { task: Task }) {
       )}
       <SegmentedToggle
         label="Remind me"
-        value={presets.find((p) => p.at === task.remindAt)?.id ?? null}
+        value={(task.remindBefore != null ? presets.find((p) => p.before === task.remindBefore) : presets.find((p) => p.at === task.remindAt && p.before === undefined))?.id ?? null}
         options={presets}
-        onChange={(id) => set(task.remindAt === presets.find((p) => p.id === id)?.at ? null : (presets.find((p) => p.id === id)?.at ?? null))}
+        onChange={(id) => {
+          const p = presets.find((x) => x.id === id)
+          if (!p) return
+          const same = task.remindBefore != null ? p.before === task.remindBefore : p.at === task.remindAt
+          return same ? set(null) : set(p.at, p.before ?? null)
+        }}
       />
       <div className="mt-2 grid grid-cols-2 gap-3">
         <DatePicker

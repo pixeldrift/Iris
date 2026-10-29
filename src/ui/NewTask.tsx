@@ -90,6 +90,7 @@ export function NewTask() {
     ...(q?.time ? { time: q.time } : {}),
     ...(q?.endTime ? { endTime: q.endTime } : {}),
     ...(q?.remindAt ? { remindAt: q.remindAt } : {}),
+    ...(q?.remindBefore ? { remindBefore: q.remindBefore } : {}),
     ...(q?.repeat ? { repeat: q.repeat } : {}),
     ...(q?.folderIds.length || startIn?.length ? { folderIds: [...new Set([...(startIn ?? []), ...(q?.folderIds ?? [])])] } : {}),
     ...(q?.personIds.length || preset?.personIds?.length ? { personIds: [...new Set([...(preset?.personIds ?? []), ...(q?.personIds ?? [])])] } : {}),
