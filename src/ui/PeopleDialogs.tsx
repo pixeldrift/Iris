@@ -227,8 +227,8 @@ export function PersonDialog() {
           )
         })}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-ink-soft">Add</span>
-          {EXTRA_KINDS.map((k) => (
+          {/* (an existing "Other" entry still shows; it just can't be added any more) */}
+          {EXTRA_KINDS.filter((k) => k.id !== 'other').map((k) => (
             <button
               key={k.id}
               type="button"
