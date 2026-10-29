@@ -10,45 +10,97 @@ function rng(seed: number) {
   }
 }
 
-// built from the theme's violets, so the color slider recolors the wisteria too
-const SHADES = [
-  'var(--color-lilac-200)',
-  'var(--color-lilac-300)',
-  'var(--color-lilac-400)',
-  'color-mix(in srgb, var(--color-lilac-300) 60%, var(--color-lilac-200))',
-  'color-mix(in srgb, var(--color-lilac-400) 60%, var(--color-lilac-300))',
-  'color-mix(in srgb, var(--color-lilac-100) 70%, var(--color-lilac-200))',
-]
+const W = 240
+const H = 420
+const SCALE = 2
 
-/** A drooping lilac panicle: a few hundred tiny four-petal florets. */
-export function LilacSprig({ seed = 1, className = '' }: { seed?: number; className?: string }) {
-  const parts = useMemo(() => {
-    const r = rng(seed)
-    const florets: { x: number; y: number; s: number; rot: number; c: string; o: number }[] = []
-    for (let i = 0; i < 110; i++) {
-      const t = Math.pow(r(), 0.85)
-      const y = 30 + t * 250
-      const spread = Math.sin(Math.PI * Math.min(1, t * 0.95 + 0.04)) * 62 * (0.4 + t * 0.6)
-      const x = 120 + (r() * 2 - 1) * spread
-      florets.push({ x, y, s: 0.7 + r() * 0.7, rot: r() * 90, c: SHADES[Math.floor(r() * SHADES.length)], o: 0.55 + r() * 0.45 })
+type Art = { mask: string; leaves: string }
+const cache = new Map<number, Art>()
+
+/**
+ * One lilac panicle, drawn once into two small bitmaps instead of hundreds of SVG shapes: a silhouette of the
+ * florets (used as a CSS mask, so the theme's violet shows through it and recolors for free) and the stem and leaves.
+ * The page used to carry ~1,500 SVG elements for this; it is now two image layers per sprig.
+ */
+function paint(seed: number): Art {
+  const hit = cache.get(seed)
+  if (hit) return hit
+  const make = () => {
+    const c = document.createElement('canvas')
+    c.width = W * SCALE
+    c.height = H * SCALE
+    const ctx = c.getContext('2d')!
+    ctx.scale(SCALE, SCALE)
+    return { c, ctx }
+  }
+  const r = rng(seed)
+  const { c: m, ctx: mx } = make()
+  for (let i = 0; i < 110; i++) {
+    const t = Math.pow(r(), 0.85)
+    const y = 30 + t * 250
+    const spread = Math.sin(Math.PI * Math.min(1, t * 0.95 + 0.04)) * 62 * (0.4 + t * 0.6)
+    const x = 120 + (r() * 2 - 1) * spread
+    const s = 0.7 + r() * 0.7
+    const rot = (r() * 90 * Math.PI) / 180
+    const o = 0.55 + r() * 0.45
+    mx.save()
+    mx.translate(x, y)
+    mx.rotate(rot)
+    mx.scale(s, s)
+    mx.fillStyle = `rgba(0,0,0,${o})`
+    for (let a = 0; a < 4; a++) {
+      mx.save()
+      mx.rotate((a * Math.PI) / 2)
+      mx.beginPath()
+      mx.ellipse(0, -5, 3.4, 5.6, 0, 0, Math.PI * 2)
+      mx.fill()
+      mx.restore()
     }
-    return florets
-  }, [seed])
+    mx.restore()
+  }
+  const { c: l, ctx: lx } = make()
+  lx.globalAlpha = 0.7
+  lx.strokeStyle = '#b9d3c0'
+  lx.lineWidth = 2.2
+  lx.beginPath()
+  lx.moveTo(120, 20)
+  lx.bezierCurveTo(118, 140, 124, 260, 120, 420)
+  lx.stroke()
+  lx.fillStyle = '#cfe4d6'
+  lx.beginPath()
+  lx.moveTo(121, 330)
+  lx.bezierCurveTo(80, 300, 40, 310, 20, 340)
+  lx.bezierCurveTo(50, 360, 100, 360, 121, 330)
+  lx.fill()
+  lx.globalAlpha = 0.65
+  lx.fillStyle = '#c2dccb'
+  lx.beginPath()
+  lx.moveTo(121, 370)
+  lx.bezierCurveTo(160, 335, 205, 345, 225, 378)
+  lx.bezierCurveTo(190, 396, 140, 396, 121, 370)
+  lx.fill()
+  const art = { mask: m.toDataURL('image/png'), leaves: l.toDataURL('image/png') }
+  cache.set(seed, art)
+  return art
+}
 
+/** A drooping lilac panicle. */
+export function LilacSprig({ seed = 1, className = '' }: { seed?: number; className?: string }) {
+  const art = useMemo(() => paint(seed), [seed])
   return (
-    <svg viewBox="0 0 240 420" className={className} aria-hidden>
-      <path d="M120 20 C 118 140, 124 260, 120 420" stroke="#b9d3c0" strokeWidth="2.2" fill="none" opacity=".7" />
-      <path d="M121 330 C 80 300, 40 310, 20 340 C 50 360, 100 360, 121 330Z" fill="#cfe4d6" opacity=".7" />
-      <path d="M121 370 C 160 335, 205 345, 225 378 C 190 396, 140 396, 121 370Z" fill="#c2dccb" opacity=".65" />
-      {parts.map((f, i) => (
-        <g key={i} transform={`translate(${f.x} ${f.y}) rotate(${f.rot}) scale(${f.s})`} opacity={f.o}>
-          {[0, 90, 180, 270].map((a) => (
-            <ellipse key={a} cx="0" cy="-5" rx="3.4" ry="5.6" style={{ fill: f.c }} transform={`rotate(${a})`} />
-          ))}
-          <circle r="1.5" fill="#fff" opacity=".85" />
-        </g>
-      ))}
-    </svg>
+    <div className={className} style={{ aspectRatio: `${W} / ${H}` }} aria-hidden>
+      <div className="absolute inset-0" style={{ backgroundImage: `url(${art.leaves})`, backgroundSize: '100% 100%' }} />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(165deg, var(--color-lilac-200), var(--color-lilac-300) 42%, var(--color-lilac-400))',
+          WebkitMaskImage: `url(${art.mask})`,
+          maskImage: `url(${art.mask})`,
+          WebkitMaskSize: '100% 100%',
+          maskSize: '100% 100%',
+        }}
+      />
+    </div>
   )
 }
 
