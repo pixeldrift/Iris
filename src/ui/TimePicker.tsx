@@ -12,7 +12,7 @@ const CYCLES = 9
  * A list that loops for ever: it is laid out several times over and quietly re-centred whenever the scroll gets near
  * an end, so it never runs out. The chosen entry sits at the top, and picking one scrolls it up there.
  */
-function Wheel({ items, selected, label, onPick }: { items: string[]; selected: number | null; label: string; onPick: (i: number) => void }) {
+function Wheel({ items, selected, label, onPick, shown = SHOWN }: { items: string[]; selected: number | null; label: string; onPick: (i: number) => void; shown?: number }) {
   const ref = useRef<HTMLDivElement>(null)
   const [topRow, setTopRow] = useState(0)
   const n = items.length
@@ -48,7 +48,7 @@ function Wheel({ items, selected, label, onPick }: { items: string[]; selected: 
       aria-label={label}
       onScroll={recentre}
       className="no-scrollbar snap-y snap-proximity overflow-y-auto overscroll-contain"
-      style={{ height: ROW * SHOWN, maskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)' }}
+      style={{ height: ROW * shown, maskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)' }}
     >
       {Array.from({ length: n * CYCLES }, (_, k) => {
         const i = k % n
@@ -108,7 +108,7 @@ export function TimePicker({ label, value, onChange, placeholder = '–None–' 
           <Wheel items={MINUTES} label="Minute" selected={value ? MINUTES.indexOf(String(m).padStart(2, '0')) : null} onPick={(i) => set(h12, Number(MINUTES[i]), pm)} />
           {/* AM and PM loop like the numbers, so every highlighted choice sits in the same top row */}
           <div className="ml-1 w-11">
-            <Wheel items={['AM', 'PM']} label="AM or PM" selected={value ? (pm ? 1 : 0) : null} onPick={(i) => set(h12, m, i === 1)} />
+            <Wheel items={['AM', 'PM']} shown={2} label="AM or PM" selected={value ? (pm ? 1 : 0) : null} onPick={(i) => set(h12, m, i === 1)} />
           </div>
         </div>
         <div className="mt-2 flex items-center">
