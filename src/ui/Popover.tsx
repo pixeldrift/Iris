@@ -11,6 +11,7 @@ export function Popover({
   align = 'start',
   className = '',
   footer,
+  matchAnchor = false,
   onMouseEnter,
   onMouseLeave,
 }: {
@@ -22,6 +23,8 @@ export function Popover({
   className?: string
   /** Buttons like Delete, pinned to the bottom so they never scroll away with the content. */
   footer?: React.ReactNode
+  /** Open flush under (or over) the anchor, left edges aligned and the same width. */
+  matchAnchor?: boolean
   onMouseEnter?: () => void
   onMouseLeave?: () => void
 }) {
@@ -90,7 +93,11 @@ export function Popover({
   const up = spaceBelow < 320 && spaceAbove > spaceBelow
   const style: React.CSSProperties = {
     ...(up ? { bottom: window.innerHeight - r.top + 8, maxHeight: Math.max(160, spaceAbove - 8) } : { top: r.bottom + 8, maxHeight: Math.max(160, spaceBelow - 8) }),
-    ...(align === 'end' ? { right: Math.max(8, window.innerWidth - r.right) } : { left: Math.max(8, Math.min(r.left, window.innerWidth - 240)) }),
+    ...(matchAnchor
+      ? { left: Math.max(8, Math.min(r.left, window.innerWidth - Math.max(r.width, 160) - 8)), width: Math.max(r.width, 160), minWidth: 0 }
+      : align === 'end'
+        ? { right: Math.max(8, window.innerWidth - r.right) }
+        : { left: Math.max(8, Math.min(r.left, window.innerWidth - 240)) }),
     maxWidth: 'calc(100vw - 16px)',
     ['--ox' as string]: align === 'end' ? '90%' : '10%',
     ['--oy' as string]: up ? '100%' : '0%',

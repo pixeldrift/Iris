@@ -58,8 +58,8 @@ export function ReminderField({ task }: { task: Task }) {
         <TimePicker
           label="and a time"
           value={task.remindAt !== null ? toHHMM(task.remindAt) : null}
-          placeholder="Pick a time"
-          onChange={(t) => (t ? set(at(task.remindAt !== null ? toISO(new Date(task.remindAt)) : toISO(new Date()), t)) : undefined)}
+          // clearing the time clears the reminder (an alert needs a time)
+          onChange={(t) => (t ? set(at(task.remindAt !== null ? toISO(new Date(task.remindAt)) : toISO(new Date()), t)) : set(null))}
         />
       </div>
       {task.remindAt !== null && perm === 'denied' && <p className="mt-1.5 text-[0.68rem] text-ink-faint">Notifications are blocked for Lilac, so you’ll only see this one while the app is open.</p>}
