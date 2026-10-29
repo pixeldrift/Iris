@@ -5,7 +5,7 @@ import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '
 import { sameName } from '../core/fuzzy'
 import { fullName, MAX_FAVORITES, splitName } from '../core/people'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
-import { seedData } from '../core/seed'
+import { dropSampleCopies, seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
 import { eventStart } from '../core/reminders'
 import { rolloverDay, urgencyForDue } from '../core/tasks'
@@ -586,7 +586,7 @@ export const useStore = create<State>()(
         const saved = (p as Partial<State>).sidebar
         const order = [...(saved?.order ?? []).filter((x) => (SECTION_IDS as readonly string[]).includes(x)), ...SECTION_IDS.filter((x) => !(saved?.order ?? []).includes(x))]
         // a task left half-made when the page closed is not a task
-        if (p.tasks) p.tasks = p.tasks.filter((t) => !t.draft)
+        if (p.tasks) p.tasks = dropSampleCopies(p.tasks.filter((t) => !t.draft))
         return { ...current, ...p, settings, sidebar: { order, collapsed: saved?.collapsed ?? [] } }
       },
       onRehydrateStorage: () => (s) => {

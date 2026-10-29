@@ -5,6 +5,7 @@ import { sortTasks } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { MenuItem, Popover } from '../Popover'
+import { IconTrash } from '../icons'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, QuickAdd, WeightDot, useTaskDrag } from '../shared'
 
@@ -17,29 +18,110 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'title', label: 'A → Z' },
 ]
 
+/**
+ * Swipe a row left to delete it (touch). It only takes over when the finger clearly moves sideways, so scrolling
+ * stays vertical, and a press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
+ */
+function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: React.RefObject<HTMLDivElement | null>, onDelete: () => void) {
+  return (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    const el = row.current
+    if (!el) return
+    const sx = e.clientX
+    const sy = e.clientY
+    let swiping = false
+    const apply = (dx: number) => {
+      el.style.transform = `translateX(${dx}px)`
+      if (reveal.current) reveal.current.style.opacity = String(Math.min(1, Math.abs(dx) / 80))
+    }
+    const end = (commit: boolean, dx: number) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      if (!swiping) return
+      el.style.transition = 'transform 0.22s ease-out'
+      const far = commit && (dx < -el.offsetWidth * 0.35 || dx < -120)
+      if (far) {
+        el.style.transform = 'translateX(-110%)'
+        onDelete()
+      } else {
+        apply(0)
+        window.setTimeout(() => {
+          el.style.transition = ''
+          el.style.transform = ''
+          if (reveal.current) reveal.current.style.opacity = '0'
+        }, 240)
+      }
+    }
+    const move = (ev: PointerEvent) => {
+      if (document.body.classList.contains('dragging')) return end(false, 0) // it was picked up to be dragged instead
+      const dx = ev.clientX - sx
+      const dy = ev.clientY - sy
+      if (!swiping) {
+        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) return end(false, 0) // a scroll
+        if (dx < -12 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+          swiping = true
+          el.style.transition = 'none'
+        } else return
+      }
+      apply(Math.min(0, dx))
+    }
+    const up = (ev: PointerEvent) => end(true, ev.clientX - sx)
+    const cancel = () => end(false, 0)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+  }
+}
+
 function Row({ task }: { task: Task }) {
   const el = useRef<HTMLDivElement>(null)
+  const reveal = useRef<HTMLDivElement>(null)
   const onPointerDown = useTaskDrag(task, el)
+  const del = useStore((s) => s.deleteTask)
+  const swipe = useSwipeToDelete(el, reveal, () => del(task.id))
   const done = task.status === 'done'
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
-      <div
-        ref={el}
-        data-lift-id={`task:${task.id}`}
-        data-flip={task.id}
-        onPointerDown={(e) => onPointerDown(e)}
-        className={`glass-soft group rise-in flex cursor-pointer items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 transition [-webkit-touch-callout:none] hover:bg-white/70 ${leave}`}
-      >
-        <DoneButton task={task} />
-        <WeightDot task={task} />
-        <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
-        <span data-lift-extra className="hidden items-center gap-1 sm:flex">
-          <FolderChips task={task} max={2} />
-        </span>
-        <span data-lift-extra>
-          <DueChip task={task} compact />
-        </span>
+      <div className="relative overflow-hidden rounded-2xl">
+        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-white opacity-0" style={{ background: 'rgb(210 110 140 / 0.9)' }}>
+          <IconTrash size={18} />
+        </div>
+        <div
+          ref={el}
+          data-lift-id={`task:${task.id}`}
+          data-flip={task.id}
+          onPointerDown={(e) => {
+            onPointerDown(e)
+            swipe(e)
+          }}
+          style={{ touchAction: 'pan-y' }}
+          className={`glass-soft group rise-in relative flex cursor-pointer items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 transition-colors [-webkit-touch-callout:none] hover:bg-white/70 ${leave}`}
+        >
+          <DoneButton task={task} />
+          <WeightDot task={task} />
+          <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
+          <span data-lift-extra className="hidden items-center gap-1 sm:flex">
+            <FolderChips task={task} max={2} />
+          </span>
+          <span data-lift-extra>
+            <DueChip task={task} compact />
+          </span>
+          {/* with a mouse: a trash can that appears on hover (swiping is for touch) */}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              del(task.id)
+            }}
+            aria-label="Delete"
+            title="Delete"
+            className="absolute right-1.5 top-1/2 hidden h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-ink-faint opacity-0 shadow-sm transition hover:text-[#b04a6e] md:grid md:group-hover:opacity-100"
+          >
+            <IconTrash size={14} />
+          </button>
+        </div>
       </div>
     </Dim>
   )

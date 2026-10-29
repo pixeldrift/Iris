@@ -34,7 +34,12 @@ const mk = (partial: Partial<Task> & { title: string }): Task => ({
   ...partial,
 })
 
+/**
+ * The built-in sample data. Its ids must come out the same on every call (and every device): they are how sync
+ * recognises the samples, so a fresh copy with new ids would be uploaded as a duplicate of each one.
+ */
 export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[] } {
+  n = 0
   const t = today()
   const f = (id: string, name: string, parentId: string | null, hue: number, shape: FlowerShape): Folder => ({
     id, name, parentId, hue, shape, sort: n, createdAt: 1_700_000_000_000 + ++n,
@@ -80,4 +85,24 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
     { id: 'p-mina', name: 'Mina Park', phone: '', email: 'mina@example.com', address: '', notes: '', hue: 255, favorite: false, createdAt: 1_700_000_000_003 },
   ]
   return { folders, tasks, people }
+}
+
+const num = (id: string) => Number(id.slice(5))
+
+/**
+ * Removes stray copies of the sample items. Earlier versions re-created the samples with new `seed-` ids on every
+ * sign-out, and sign-in then uploaded each copy. For each sample title with more than one `seed-` item, one is kept
+ * (the real sample id if present, else the oldest) and the rest go. A lone sample is never touched.
+ */
+export function dropSampleCopies<T extends Pick<Task, 'id' | 'title'>>(tasks: T[]): T[] {
+  const groups = new Map<string, T[]>()
+  for (const t of tasks) if (/^seed-\d+$/.test(t.id)) groups.set(t.title, [...(groups.get(t.title) ?? []), t])
+  const canon = new Set(seedData().tasks.map((x) => x.id))
+  const drop = new Set<string>()
+  for (const g of groups.values()) {
+    if (g.length < 2) continue
+    const keep = g.find((t) => canon.has(t.id)) ?? [...g].sort((a, b) => num(a.id) - num(b.id))[0]
+    for (const t of g) if (t !== keep) drop.add(t.id)
+  }
+  return drop.size ? tasks.filter((t) => !drop.has(t.id)) : tasks
 }

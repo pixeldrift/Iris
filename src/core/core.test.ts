@@ -204,6 +204,18 @@ describe('folder ordering', () => {
 
 import { nextAllowedDay, plannedDate, rolloverDay, matchesScope } from './tasks'
 
+describe('repeating items never carry forward', () => {
+  const base = seedData().tasks[0]
+  const series = [
+    { ...base, kind: 'task' as const, repeat: { freq: 'daily' as const, interval: 1, from: '2026-10-01' }, day: '2026-10-01', status: 'todo' as const, rollover: true },
+    { ...base, kind: 'habit' as const, repeat: null, day: '2026-10-01', status: 'todo' as const, rollover: true },
+    { ...base, kind: 'task' as const, repeat: { freq: 'weekly' as const, interval: 1, from: '2026-10-01', byDay: [1] }, day: null, status: 'todo' as const, rollover: true },
+  ]
+  it('is never moved to a later day, however many days pass, and never multiplies', () => {
+    for (const t of series) for (let i = 0; i < 90; i++) expect(rolloverDay(t, addDays('2026-10-02', i))).toBeNull()
+  })
+})
+
 describe('day planning & rollover', () => {
   const base = seedData().tasks[0]
   // 2026-10-26 is a Monday
@@ -492,5 +504,22 @@ describe('event reminders: as many as you like', () => {
     const weekly = { ...ev, day: '2026-03-03', alerts: [60], repeat: { freq: 'weekly' as const, interval: 1, byDay: [2], from: '2026-03-03' } }
     expect(fire(at(10, 14, 30), weekly)).toEqual([60]) // Tue 10 Mar 15:00
     expect(eventStartsFor(weekly, at(10, 14, 30)).includes(at(10, 15))).toBe(true)
+  })
+})
+
+import { dropSampleCopies } from './seed'
+describe('sample data identity', () => {
+  it('gives the same ids every time, so sync can recognise the samples', () => {
+    expect(seedData().tasks.map((t) => t.id)).toEqual(seedData().tasks.map((t) => t.id))
+  })
+  it('removes stray copies of a sample but keeps the real one, and never a lone sample or a real task', () => {
+    const real = seedData().tasks[3] // "Repot the lilac"
+    const list = [real, { ...real, id: 'seed-900' }, { ...real, id: 'seed-901' }, { ...real, id: 'mine-1', title: 'Something I wrote' }, { ...real, id: 'abc', title: real.title }]
+    expect(dropSampleCopies(list).map((t) => t.id)).toEqual([real.id, 'mine-1', 'abc'])
+    // only copies, none with the real id: the oldest stays
+    expect(dropSampleCopies([{ ...real, id: 'seed-900' }, { ...real, id: 'seed-50' }]).map((t) => t.id)).toEqual(['seed-50'])
+    // a lone sample (even with an unfamiliar id) is left alone
+    const lone = [{ ...real, id: 'seed-900' }]
+    expect(dropSampleCopies(lone)).toBe(lone)
   })
 })

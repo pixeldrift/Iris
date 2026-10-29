@@ -94,7 +94,15 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
             <div
               role="button"
               tabIndex={0}
-              onPointerDown={(e) => onPointerDown(e, true)}
+              onPointerDown={(e) => {
+                // pop mode: no dragging, no opening; the bubble goes the moment it is touched
+                if (api.popMode()) {
+                  e.stopPropagation()
+                  useStore.getState().deleteTask(task.id)
+                  return
+                }
+                onPointerDown(e, true)
+              }}
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-3 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''

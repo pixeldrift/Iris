@@ -398,6 +398,9 @@ input[type='range'].hue::-moz-range-track {
   50% { transform: scale(1.18); opacity: 1; }
 }
 .glow-breathe { animation: glow-breathe 2.6s ease-in-out infinite; }
+/* pond pop mode: every bubble is a button */
+.pop-mode [data-node] .pad { cursor: pointer !important; }
+
 @media (prefers-reduced-motion: reduce) { .glow-breathe { animation: none; } }
 
 

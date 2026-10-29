@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ZoomControl'
+import { IconPop } from '../icons'
 import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL } from '../../core/flock'
@@ -114,6 +115,9 @@ export function Pond() {
   const radius = useCallback((t: Task) => Math.round(bubbleRadius(t, scale) * rf), [scale, rf])
   const rel = useMemo(() => relations(visible), [visible])
 
+  const [pop, setPop] = useState(false)
+  const popRef = useRef(false)
+  popRef.current = pop
   const live = useRef({ rel, group })
   live.current = { rel, group }
   const FOLLOW_DELAY = 160 // ms the cluster waits before following, so a quick yank is spotted first
@@ -318,6 +322,7 @@ export function Pond() {
         return n ? { x: n.sim.x / dims.current.w, y: n.sim.y / dims.current.h } : { x: 0.5, y: 0.5 }
       },
       isFree: () => live.current.group === 'free',
+      popMode: () => popRef.current,
       grab: (id) => {
         const n = nodes.current.get(id)
         if (n) n.sim.pinned = true
@@ -521,7 +526,7 @@ export function Pond() {
   return (
     <div
       ref={ref}
-      className="relative h-full w-full cursor-[crosshair] touch-none overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]"
+      className={`relative h-full w-full cursor-[crosshair] touch-none overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)] ${pop ? 'pop-mode' : ''}`}
       style={{
         background:
           'radial-gradient(70% 60% at 30% 20%, rgba(255,255,255,0.75), transparent 70%), radial-gradient(60% 60% at 80% 90%, rgb(var(--lr-200)/0.55), transparent 70%), linear-gradient(160deg, rgba(255,255,255,0.5), rgba(240,231,250,0.45))',
@@ -598,10 +603,22 @@ export function Pond() {
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to float an idea…</p>
       )}
       {visible.length > 0 && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it</p>
+        <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-5 pr-60 text-left text-xs text-ink-faint/80 sm:block">
+          {pop ? 'Pop mode: tap bubbles to pop them · undo brings one back' : 'Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
+        </p>
       )}
 
       <div data-ui className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5">
+        <Tip label={pop ? 'Stop popping' : 'Pop mode: tap bubbles to delete them'}>
+          <button
+            onClick={() => setPop((p) => !p)}
+            aria-pressed={pop}
+            aria-label="Pop mode"
+            className={`grid h-9 w-9 place-items-center rounded-full transition ${pop ? 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40' : 'glass-soft text-ink-soft hover:bg-white/80'}`}
+          >
+            <IconPop size={19} />
+          </button>
+        </Tip>
         <ZoomControl onZoom={(f) => zoomAbout(f, w / 2, h / 2)} />
         <Tip label="Frame all bubbles">
           <button

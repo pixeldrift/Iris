@@ -311,29 +311,11 @@ export function Timeline() {
       </div>
 
       <div ref={scroller} className="scroll-soft min-h-0 flex-1 overflow-auto rounded-2xl bg-white/30" style={{ touchAction: 'pan-x pan-y' }}>
-        <div className="flex min-h-full" style={{ width: labelW + gridW }}>
-          {/* names: a column of its own, to the bottom, with a blank corner so it never sits over the dates */}
-          {legend && (
-            <div className="sticky left-0 z-30 shrink-0 bg-white/95" style={{ width: labelW }}>
-              <div className="sticky top-0 z-10 bg-white/90" style={{ height: headerH }} />
-              {rows.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => select(t.id)}
-                  className="block w-full truncate border-t border-white/60 px-3 text-left text-sm hover:bg-white/60"
-                  style={{ height: ROW_H, color: tint(hueOf(t), 45, 36) }}
-                >
-                  {t.title}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="relative shrink-0" style={{ width: gridW }}>
-            {/* day lines (and hour lines when zoomed in) run the whole height, rows or not */}
-            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0" style={{ top: headerH, backgroundImage: lines.join(','), backgroundSize: sizes.join(',') }} />
-
-            <div className="sticky top-0 z-20 bg-white/70 backdrop-blur-md" style={{ height: headerH }}>
+        <div className="flex min-h-full flex-col" style={{ width: labelW + gridW }}>
+          {/* the dates run along the top, over everything; the names column starts below them */}
+          <div className="sticky top-0 z-30 flex bg-white/70 backdrop-blur-md" style={{ height: headerH }}>
+            {legend && <div className="shrink-0" style={{ width: labelW }} />}
+            <div className="relative shrink-0" style={{ width: gridW }}>
               <div className="relative h-6">
                 {months.map((m) => (
                   <span key={m.label} className="absolute top-1 truncate pl-2 text-[0.7rem] font-medium text-lilac-700" style={{ left: m.x, width: m.w }}>
@@ -365,33 +347,56 @@ export function Timeline() {
                 </div>
               )}
             </div>
+          </div>
 
-            {rows.map((t) => {
-              const has = !!spanOf(t)
-              return (
-                <div
-                  key={t.id}
-                  className="relative border-t border-white/60"
-                  style={{ height: ROW_H, cursor: has ? undefined : 'copy' }}
-                  onClick={(e) => {
-                    if (has) return
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const day = addDays(winStart, Math.floor((e.clientX - rect.left) / dayW))
-                    update(t.id, { start: day, due: addDays(day, 2) })
-                  }}
-                >
-                  {has ? (
-                    <Bar task={t} winStart={winStart} dayW={dayW} legend={legend} preview={preview} onPreview={setPreview} />
-                  ) : (
-                    <span className="pointer-events-none absolute left-3 top-3 text-xs italic text-ink-faint">{legend ? 'unscheduled' : `${t.title} · unscheduled`}</span>
-                  )}
-                </div>
-              )
-            })}
-            {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">No tasks to chart.</p>}
+          <div className="flex flex-1">
+            {/* names: a see-through column from the bottom of the header to the bottom of the chart */}
+            {legend && (
+              <div className="sticky left-0 z-20 shrink-0 bg-white/45" style={{ width: labelW }}>
+                {rows.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => select(t.id)}
+                    className="block w-full truncate border-t border-white/60 px-3 text-left text-sm hover:bg-white/60"
+                    style={{ height: ROW_H, color: tint(hueOf(t), 45, 36) }}
+                  >
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* today line */}
-            <div className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-lilac-500/60" style={{ left: todayX }} />
+            <div className="relative shrink-0" style={{ width: gridW }}>
+              {/* day lines (and hour lines when zoomed in) run the whole height, rows or not */}
+              <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: lines.join(','), backgroundSize: sizes.join(',') }} />
+
+              {rows.map((t) => {
+                const has = !!spanOf(t)
+                return (
+                  <div
+                    key={t.id}
+                    className="relative border-t border-white/60"
+                    style={{ height: ROW_H, cursor: has ? undefined : 'copy' }}
+                    onClick={(e) => {
+                      if (has) return
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const day = addDays(winStart, Math.floor((e.clientX - rect.left) / dayW))
+                      update(t.id, { start: day, due: addDays(day, 2) })
+                    }}
+                  >
+                    {has ? (
+                      <Bar task={t} winStart={winStart} dayW={dayW} legend={legend} preview={preview} onPreview={setPreview} />
+                    ) : (
+                      <span className="pointer-events-none absolute left-3 top-3 text-xs italic text-ink-faint">{legend ? 'unscheduled' : `${t.title} · unscheduled`}</span>
+                    )}
+                  </div>
+                )
+              })}
+              {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">No tasks to chart.</p>}
+
+              {/* today line */}
+              <div className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-lilac-500/60" style={{ left: todayX }} />
+            </div>
           </div>
         </div>
       </div>
