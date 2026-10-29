@@ -13,10 +13,8 @@ export interface AudioConfig {
   pops: boolean
   ambient: boolean
   volume: number
-  /** iPhones silence web audio when the ring switch is on; this plays anyway (and may pause other apps' music). */
-  overrideSilent: boolean
 }
-let cfg: AudioConfig = { master: true, drops: true, chimes: true, pops: true, ambient: false, volume: 0.7, overrideSilent: false }
+let cfg: AudioConfig = { master: true, drops: true, chimes: true, pops: true, ambient: false, volume: 0.7 }
 let ambientOn = false
 
 // D major pentatonic over three octaves: anything sounds consonant.
@@ -32,7 +30,7 @@ function impulse(c: AudioContext, seconds = 3.2): AudioBuffer {
   return buf
 }
 
-function ensure(): AudioContext | null {
+function ensure(awake = false): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (!ctx) {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
@@ -51,8 +49,24 @@ function ensure(): AudioContext | null {
 
   }
   // iOS also leaves a context 'interrupted' after a call, the lock screen or a trip to another app
-  if ((ctx.state as string) !== 'running') void ctx.resume().catch(() => {})
+  if ((awake || !hidden()) && (ctx.state as string) !== 'running') void ctx.resume().catch(() => {})
   return ctx
+}
+
+/**
+ * A reminder going off. Unlike the other sounds this plays even when the app is out of sight (a different tab or app),
+ * for as long as the browser lets the page run; then the engine goes back to sleep. It still follows the master sound switch.
+ */
+export function alertChime() {
+  if (!cfg.master) return
+  const c = ensure(true)
+  if (!c) return
+  const i = 5 + Math.floor(Math.random() * 2)
+  const at = c.currentTime + 0.05
+  bell(SCALE[i], at, 0.12, -0.15, 3)
+  bell(SCALE[i + 2], at + 0.16, 0.11, 0.15, 3.5)
+  bell(SCALE[i + 4 > 11 ? 11 : i + 4], at + 0.34, 0.1, 0, 4)
+  if (hidden()) window.setTimeout(() => hidden() && pauseAudio(), 5000)
 }
 
 /** Is sound actually able to play right now? (Browsers keep it suspended until a tap.) */
@@ -60,53 +74,31 @@ export const audioRunning = () => !!ctx && ctx.state === 'running'
 
 /** Bring audio back after the app was backgrounded or interrupted. */
 export function resumeAudio() {
-  if (activated) ensure()
+  if (!activated || hidden()) return
+  ensure()
+  if (ambientOn && ambientTimer === null) scheduleNext()
 }
 
-// ---- the phone's own rules ----
-// By default web audio follows the ring switch like any other app sound ('ambient' also lets music keep playing).
-// With overrideSilent the page holds a 'playback' session, kept alive by a silent looping clip on older iOS.
-let keepAlive: HTMLAudioElement | null = null
-
-function silentClip(): string {
-  const rate = 8000
-  const n = rate / 2
-  const b = new Uint8Array(44 + n).fill(128)
-  const dv = new DataView(b.buffer)
-  const str = (o: number, s: string) => [...s].forEach((ch, i) => dv.setUint8(o + i, ch.charCodeAt(0)))
-  str(0, 'RIFF')
-  dv.setUint32(4, 36 + n, true)
-  str(8, 'WAVEfmt ')
-  dv.setUint32(16, 16, true)
-  dv.setUint16(20, 1, true)
-  dv.setUint16(22, 1, true)
-  dv.setUint32(24, rate, true)
-  dv.setUint32(28, rate, true)
-  dv.setUint16(32, 1, true)
-  dv.setUint16(34, 8, true)
-  str(36, 'data')
-  dv.setUint32(40, n, true)
-  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }))
-}
-
+// ---- good manners on a phone ----
+// 'ambient' lets this app's sounds mix with whatever else is playing (music, a podcast) instead of pausing it,
+// and it follows the ring switch like any other app sound.
 function applySession() {
   if (typeof navigator === 'undefined') return
   try {
     const s = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
-    if (s) s.type = cfg.overrideSilent ? 'playback' : 'ambient'
+    if (s) s.type = 'ambient'
   } catch {
     /* not supported */
   }
-  if (cfg.overrideSilent && cfg.master) {
-    if (!keepAlive) {
-      keepAlive = new Audio(silentClip())
-      keepAlive.loop = true
-      keepAlive.setAttribute('playsinline', '')
-    }
-    void keepAlive.play().catch(() => {})
-  } else if (keepAlive) {
-    keepAlive.pause()
-  }
+}
+
+/** Nothing plays while the app is out of sight: the sound engine is put to sleep and wakes when it is back. */
+const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden'
+
+export function pauseAudio() {
+  if (ambientTimer !== null) window.clearTimeout(ambientTimer)
+  ambientTimer = null
+  if (ctx && ctx.state === 'running') void ctx.suspend().catch(() => {})
 }
 
 let activated = false
@@ -126,7 +118,7 @@ export function unlock() {
   setAmbient(cfg.master && cfg.ambient)
 }
 
-const can = (k: 'drops' | 'chimes' | 'pops') => cfg.master && cfg[k]
+const can = (k: 'drops' | 'chimes' | 'pops') => cfg.master && cfg[k] && !hidden()
 
 /** Apply the user's sound settings. Ambient only runs once audio is unlocked. */
 export function setAudioConfig(c: AudioConfig) {
@@ -284,10 +276,10 @@ function startWind() {
 }
 
 function scheduleNext() {
-  if (!ambientOn) return
+  if (!ambientOn || hidden()) return
   const gap = 1800 + Math.random() * 5200
   ambientTimer = window.setTimeout(() => {
-    if (!ctx || !ambientOn) return
+    if (!ctx || !ambientOn || hidden()) return
     const c = ctx
     // sometimes a gust: a little cascade of notes
     const gust = Math.random() < 0.35 ? 2 + Math.floor(Math.random() * 3) : 1
