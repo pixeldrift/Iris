@@ -72,7 +72,8 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
   )
 
   const done = task.status === 'done'
-  const font = Math.max(11, Math.min(15, r / 4.4))
+  // the type grows and shrinks with the bubble, so a title wraps the same way at every size
+  const font = r * 0.2
   // the check circle grows with the bubble, but stays a modest size
   const cb = Math.round(Math.max(22, Math.min(28, r * 0.4)))
   const verb = detectContactIntent(task.title)?.verb

@@ -7,6 +7,8 @@ import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, usePointerDrag } from './dnd'
 import { IconCheck } from './icons'
+import { checkVars, useTaskHue } from './taskColor'
+import { ExampleHint, useExampleIndex } from './ExampleHint'
 
 /** `label` names a whole column; `one` names a single item's stage. */
 export const STATUSES: { id: TaskStatus; label: string; one: string; hint: string }[] = [
@@ -39,6 +41,7 @@ export function KindHint({ kind, className = '' }: { kind: string; className?: s
 }
 
 export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
+  const hue = useTaskHue(task)
   const toggle = useStore((s) => s.toggleDone)
   const occ = repeatOf(task) ? (currentOccurrence(task, today()) ?? today()) : null
   const done = occ ? task.log.includes(occ) : task.status === 'done'
@@ -49,7 +52,7 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
         e.stopPropagation()
         toggle(task.id)
       }}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, ...checkVars(hue) }}
       className={`well-circle grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-transparent hover:text-lilac-400'}`}
       aria-label={occ ? (done ? 'Undo this one' : 'Done this one') : done ? 'Mark not done' : 'Mark done'}
       aria-pressed={done}
@@ -117,7 +120,7 @@ export function WeightDot({ task }: { task: Task }) {
 }
 
 /** Draggable task card/row used by list, board and calendar. */
-export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>) {
+export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>, onClick?: (e: PointerEvent) => void) {
   const select = useStore((s) => s.select)
   return usePointerDrag({
     payload: { type: 'task', id: task.id },
@@ -125,7 +128,7 @@ export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>)
     lift: () => el.current,
     touchNeedsHandle: true,
     touchHold: true,
-    onClick: () => select(task.id),
+    onClick: (e) => (onClick ? onClick(e) : select(task.id)),
     onEnd: ({ target }) => {
       if (target) useStore.getState().dropTask(task.id, target)
     },
@@ -165,12 +168,16 @@ export function QuickAdd({
   placeholder = 'Add a task…',
   onAdd,
   autoFocus,
+  examples = false,
 }: {
   placeholder?: string
   onAdd: (title: string) => void
   autoFocus?: boolean
+  /** Show the same cross-fading examples as the Add dialog instead of a plain placeholder. */
+  examples?: boolean
 }) {
   const [v, setV] = useState('')
+  const hint = useExampleIndex(examples && !v)
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (autoFocus) ref.current?.focus()
@@ -184,13 +191,16 @@ export function QuickAdd({
         setV('')
       }}
     >
-      <input
-        ref={ref}
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        placeholder={placeholder}
-        className="well w-full rounded-2xl px-4 py-2.5 text-sm"
-      />
+      <div className="relative">
+        <input
+          ref={ref}
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          placeholder={examples ? '' : placeholder}
+          className="well w-full rounded-2xl px-4 py-2.5 text-sm"
+        />
+        {examples && !v && <ExampleHint index={hint} className="left-4 right-3 text-sm" />}
+      </div>
     </form>
   )
 }

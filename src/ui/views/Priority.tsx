@@ -31,7 +31,7 @@ interface Api {
  * separate thing, settled by a little physics so bubbles with the same values sit around
  * their shared spot instead of on top of each other.
  */
-const Bub = memo(function Bub({ task, r, hue, start, api, scale }: { task: Task; r: number; hue: number; start: { x: number; y: number }; api: Api; scale: number }) {
+const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: number; hue: number; start: { x: number; y: number }; api: Api }) {
   const update = useStore((s) => s.updateTask)
   const leave = useLeaveClass(task)
   const el = useRef<HTMLDivElement>(null)
@@ -52,19 +52,19 @@ const Bub = memo(function Bub({ task, r, hue, start, api, scale }: { task: Task;
   )
   const done = task.status === 'done'
   return (
-    <div ref={el} data-node className="absolute left-0 top-0 will-change-transform" style={{ width: r * 2, height: r * 2, transform: `translate(${first.x - r}px, ${first.y - r}px)` }}>
+    <div ref={el} data-node className="absolute left-0 top-0 will-change-transform" style={{ width: r * 2, height: r * 2, transform: `translate(${first.x - r}px, ${first.y - r}px)`, ['--r' as string]: r }}>
       <div className={`bloom-in h-full w-full ${leave}`}>
         <div
           role="button"
           tabIndex={0}
           onPointerDown={(e) => onPointerDown(e, true)}
           onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
-          className={`pad grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full p-1.5 text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
-          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
+          className={`pad grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
+          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency, padding: 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
           title={task.title}
         >
-          {scale >= 0.45 && (
-            <span className="line-clamp-3 break-words font-display leading-[1.1]" style={{ fontSize: `${Math.max(0.5, 0.7 * Math.min(1, scale))}rem`, textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
+          {r >= 14 && (
+            <span className="line-clamp-3 break-words font-display leading-[1.1]" style={{ fontSize: 'calc(var(--r) * 0.26 * 1px)', textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
               {task.title}
             </span>
           )}
@@ -259,6 +259,7 @@ export function Priority() {
         if (el) {
           el.style.width = `${r * 2}px`
           el.style.height = `${r * 2}px`
+          el.style.setProperty('--r', String(r))
           el.querySelector<HTMLElement>('.pad')?.style.setProperty('--u', String(u))
         }
         n.hx = Math.min(w, Math.max(0, fx * w))
@@ -306,18 +307,6 @@ export function Priority() {
   const glowTask = visible.find((t) => t.id === (dragFrac?.id ?? selectedId))
   const glowAt = glowTask && size.w ? (dragFrac ? { x: dragFrac.x * size.w, y: dragFrac.y * size.h } : { x: glowTask.urgency * size.w, y: (1 - glowTask.importance) * size.h }) : null
 
-  // the card is never much taller than it is wide, however tall the screen
-  const area = useRef<HTMLDivElement>(null)
-  const [cardH, setCardH] = useState<number | null>(null)
-  useEffect(() => {
-    const el = area.current
-    if (!el) return
-    const read = () => setCardH(Math.min(el.clientHeight, el.clientWidth * 1.25))
-    const ro = new ResizeObserver(read)
-    ro.observe(el)
-    read()
-    return () => ro.disconnect()
-  }, [])
   const axis = 'pointer-events-none absolute text-xs tracking-wide transition-colors duration-200'
   const axisStyle = { color: 'color-mix(in srgb, var(--dragc, var(--color-ink-faint)) calc(var(--k, 0) * 100%), var(--color-ink-faint))' } as React.CSSProperties
   // zoom here is the size of the bubbles; the grid stays put
@@ -325,8 +314,8 @@ export function Priority() {
 
   return (
     <div className="flex h-full flex-col">
-      <div ref={area} className="flex min-h-0 flex-1 flex-col items-center justify-center">
-        <div ref={card} className="glass relative w-full shrink-0 rounded-[2rem]" style={{ padding: 0, height: cardH ?? '100%' }}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div ref={card} className="glass relative min-h-0 w-full flex-1 rounded-[2rem]" style={{ padding: 0 }}>
           {/* the four corner names sit outside the grid, so no bubble can cover them */}
           {QUADS.map((q) => (
             <div key={q.label} className={`pointer-events-none absolute flex flex-col ${q.edge}`}>
@@ -379,7 +368,7 @@ export function Priority() {
             <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--lr-300) / 0.5) 16%, rgb(var(--lr-300) / 0.5) 84%, transparent)' }} />
             {/* under the bubbles, so a carried bubble's title stays readable */}
             {glowTask && glowAt && <Glow x={glowAt.x} y={glowAt.y} hue={hueOf(glowTask)} task={glowTask} field={field} live={!!dragFrac} glowRef={glowRef} />}
-            {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} scale={scale} />)}
+            {size.w > 0 && visible.map((t) => <Bub key={t.id} task={t} r={radius(t)} hue={hueOf(t)} start={{ x: t.urgency * size.w, y: (1 - t.importance) * size.h }} api={api} />)}
             {dragFrac && glowTask && size.w > 0 && (
               <>
                 <div ref={axisX} aria-hidden className="pointer-events-none absolute z-10 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ opacity: 0.25, left: dragFrac.x * size.w, top: size.h / 2, background: tint(hueOf(glowTask), 80, 55), boxShadow: `0 0 4px 1px ${tint(hueOf(glowTask), 85, 60, 0.7)}` }} />
@@ -389,7 +378,7 @@ export function Priority() {
           </div>
         </div>
       </div>
-      <div data-ui className="flex justify-center py-2">
+      <div data-ui className="flex justify-end px-2 pt-2">
         <ZoomControl onZoom={zoomBubbles} />
       </div>
     </div>

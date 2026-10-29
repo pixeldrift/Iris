@@ -6,14 +6,16 @@ import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { MenuItem, Popover } from '../Popover'
 import { IconTrash } from '../icons'
+import { BatchEditor } from '../BatchEditor'
+import { colorVars, useTaskHue } from '../taskColor'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, QuickAdd, WeightDot, useTaskDrag } from '../shared'
 
 const SORTS: { id: SortKey; label: string }[] = [
-  { id: 'flow', label: 'Top of mind' },
-  { id: 'due', label: 'Due date' },
+  { id: 'flow', label: 'Priority' },
   { id: 'importance', label: 'Importance' },
   { id: 'urgency', label: 'Urgency' },
+  { id: 'due', label: 'Due date' },
   { id: 'created', label: 'Newest' },
   { id: 'title', label: 'A → Z' },
 ]
@@ -74,10 +76,12 @@ function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: R
   }
 }
 
-function Row({ task }: { task: Task }) {
+function Row({ task, selected, selecting, onToggle }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void }) {
   const el = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
-  const onPointerDown = useTaskDrag(task, el)
+  const hue = useTaskHue(task)
+  // Shift-click (or select mode) picks the item instead of opening it
+  const onPointerDown = useTaskDrag(task, el, (e) => (e.shiftKey || selecting ? onToggle() : useStore.getState().select(task.id)))
   const del = useStore((s) => s.deleteTask)
   const swipe = useSwipeToDelete(el, reveal, () => del(task.id))
   const done = task.status === 'done'
@@ -96,9 +100,14 @@ function Row({ task }: { task: Task }) {
             onPointerDown(e)
             swipe(e)
           }}
-          style={{ touchAction: 'pan-y' }}
-          className={`glass-soft group rise-in relative flex cursor-pointer items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 transition-colors [-webkit-touch-callout:none] hover:bg-white/70 ${leave}`}
+          style={{ touchAction: 'pan-y', ...colorVars(hue, task.urgency) }}
+          className={`tint lift-on-press group rise-in relative flex cursor-pointer items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
         >
+          {(selecting || selected) && (
+            <span aria-hidden className={`well-circle grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.65rem] leading-none text-white ${selected ? 'is-on' : ''}`}>
+              {selected ? '✓' : ''}
+            </span>
+          )}
           <DoneButton task={task} />
           <WeightDot task={task} />
           <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
@@ -140,6 +149,19 @@ export function ListView() {
   useFlip(listRef)
   const anchor = useRef<HTMLButtonElement>(null)
 
+  // several at once: Shift-click on a computer, the Select button on a phone
+  const [selectMode, setSelectMode] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [batch, setBatch] = useState(false)
+  const del = useStore((s) => s.deleteTask)
+  const ids = rows.filter((t) => picked.has(t.id)).map((t) => t.id)
+  const selecting = selectMode || picked.size > 0
+  const toggle = (id: string) => setPicked((p) => new Set(p.has(id) ? [...p].filter((x) => x !== id) : [...p, id]))
+  const clear = () => {
+    setPicked(new Set())
+    setSelectMode(false)
+  }
+
   return (
     <div className="glass mx-auto flex h-full max-w-3xl flex-col rounded-[2rem] p-4 md:p-5">
       <div className="mb-3 flex items-center gap-2">
@@ -168,14 +190,40 @@ export function ListView() {
         >
           {sortDesc ? '↑ reversed' : '↓'}
         </button>
+        <button
+          onClick={() => (selecting ? clear() : setSelectMode(true))}
+          aria-pressed={selecting}
+          title="Select several items (or hold Shift and click)"
+          className={`rounded-full px-3 py-1.5 text-sm transition ${selecting ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`}
+        >
+          {selecting ? 'Done' : 'Select'}
+        </button>
         <span className="ml-auto text-xs text-ink-faint">{rows.length} floating</span>
       </div>
-      <QuickAdd onAdd={(title) => addTask({ title })} />
+      {ids.length > 0 && (
+        <div className="mb-3 flex items-center gap-2 rounded-2xl bg-white/60 px-3 py-1.5 text-sm">
+          <span className="text-lilac-700">{ids.length} selected</span>
+          <button onClick={() => setBatch(true)} className="ml-auto rounded-full bg-lilac-500 px-3.5 py-1 text-sm font-medium text-white shadow shadow-lilac-500/30">
+            Edit
+          </button>
+          <button
+            onClick={() => {
+              ids.forEach((id) => del(id))
+              clear()
+            }}
+            className="rounded-full px-3 py-1 text-sm text-ink-soft hover:text-[#b04a6e]"
+          >
+            Delete
+          </button>
+        </div>
+      )}
+      <BatchEditor ids={ids} open={batch && ids.length > 0} onClose={() => setBatch(false)} />
+      <QuickAdd examples onAdd={(title) => addTask({ title })} />
       <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">
       <ScrollFade className="pr-2">
       <div ref={listRef} className="space-y-2 py-1">
         {rows.map((t) => (
-          <Row key={t.id} task={t} />
+          <Row key={t.id} task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} />
         ))}
         {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">Nothing here yet. Still water.</p>}
       </div>

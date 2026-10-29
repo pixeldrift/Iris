@@ -1,7 +1,10 @@
 import { useRef } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
+import { stageAfterTicks, stagesForTask } from '../core/progress'
 import { IconClose, IconPlus } from './icons'
+import { SegmentedToggle } from './SegmentedToggle'
+import { checkVars, useTaskHue } from './taskColor'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -16,7 +19,17 @@ export function ListEditor({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const add = useRef<HTMLInputElement>(null)
   const items = task.items
-  const set = (next: ListItem[]) => update(task.id, { items: next })
+  const folders = useStore((s) => s.folders)
+  const move = useStore((s) => s.moveToStage)
+  const hue = useTaskHue(task)
+  const set = (next: ListItem[]) => {
+    update(task.id, { items: next })
+    // ticking things off carries the list along: first tick = In Progress, last tick = Completed
+    if (task.listStyle === 'check') {
+      const to = stageAfterTicks(task, stagesForTask(task, folders), next)
+      if (to !== null) move(task.id, to)
+    }
+  }
   const patch = (id: string, p: Partial<ListItem>) => set(items.map((i) => (i.id === id ? { ...i, ...p } : i)))
 
   const commit = () => {
@@ -28,18 +41,9 @@ export function ListEditor({ task }: { task: Task }) {
 
   return (
     <div>
-      <div className="flex items-center gap-1.5">
-        <span className="mr-auto text-xs font-medium text-ink-soft">Marked with</span>
-        {STYLES.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => update(task.id, { listStyle: s.id })}
-            aria-pressed={task.listStyle === s.id}
-            className={`rounded-full px-2.5 py-0.5 text-xs transition ${task.listStyle === s.id ? 'bg-lilac-500 text-white' : 'bg-white/50 text-ink-soft hover:bg-white/80'}`}
-          >
-            {s.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-ink-soft">Marked with</span>
+        <SegmentedToggle label="Marked with" value={task.listStyle} options={STYLES} onChange={(v) => update(task.id, { listStyle: v })} />
       </div>
       <ul className="mt-2 space-y-1">
         {items.map((it, n) => (
@@ -50,7 +54,8 @@ export function ListEditor({ task }: { task: Task }) {
                 aria-checked={it.done}
                 aria-label={`Done: ${it.text}`}
                 onClick={() => patch(it.id, { done: !it.done })}
-                className={`grid h-[1.15rem] w-[1.15rem] shrink-0 place-items-center rounded-full border transition ${it.done ? 'border-lilac-500 bg-lilac-500 text-white' : 'border-lilac-300 bg-white/60'}`}
+                style={checkVars(hue)}
+                className={`well-circle grid h-[1.15rem] w-[1.15rem] shrink-0 place-items-center rounded-full transition ${it.done ? 'is-on text-white' : ''}`}
               >
                 {it.done && <span className="text-[0.6rem] leading-none">✓</span>}
               </button>

@@ -29,6 +29,15 @@
 - **Native iPhone app (SwiftUI).** Port `src/core` first (types, fuzzy match, folder tree, flocking sim,
   grouping), then the views. `ContactsUI`'s contact picker replaces the web .vcf import.
 
+## Sound
+- **Better effects and a real soundtrack.** Make every sound distinct, so a chime never sounds like a drop or a pop,
+  and grow the ambient bed into layered, mixable sounds: a babbling brook, wind, wind chimes, crickets, frogs,
+  and so on, each with its own level.
+
+## Accounts
+- **Email confirmation** when an account is created, **password reset**, and **delete my account** (removing
+  every entity, device and membership on the server, with a confirmation step).
+
 ## Collaboration (future)
 - Share a folder or a single bubble with other people; shared folders show up in everyone's sidebar.
 - People you tag can become collaborators: assign a task, see who changed what, gentle presence

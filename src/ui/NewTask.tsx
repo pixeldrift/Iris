@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { EXAMPLES, ExampleHint } from './ExampleHint'
 import { SegmentedToggle } from './SegmentedToggle'
 import { create } from 'zustand'
 import { useStore } from '../state/store'
@@ -28,18 +29,6 @@ const useCompose = create<ComposeState>(() => ({ open: false, at: null, preset: 
 export const openCompose = (at: { x: number; y: number } | null = null, preset: ComposePreset | null = null) => useCompose.setState({ open: true, at, preset })
 const closeCompose = () => useCompose.setState({ open: false })
 
-/** Things the line understands, shown one at a time as faded hints (each one a different kind of detail). */
-const EXAMPLES = [
-  'ex. Return library books',
-  'ex. Dentist friday at 2:30pm',
-  'ex. Yoga every mon/wed/fri 7am',
-  'ex. Remind me to call Mom at 5pm',
-  'ex. Pay rent every month on the 1st',
-  'ex. Study group tomorrow 3-4:30pm',
-  'ex. Birthday gift for Mom by oct 31',
-  'ex. Water the plants every 2 weeks',
-  'ex. idea: a poem about rain',
-]
 
 /** One exclusive pill: the highlight slides to whichever type is chosen, with a single soft overshoot. */
 function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKind) => void }) {
@@ -168,9 +157,7 @@ export function NewTask() {
               className="well w-full rounded-2xl px-3.5 py-2 font-display text-xl"
             />
             {!title && (
-              <span key={hint} aria-hidden className="hint-swap pointer-events-none absolute inset-y-0 left-3.5 right-3 flex items-center truncate font-display text-xl italic text-ink-faint/50">
-                {EXAMPLES[hint % EXAMPLES.length]}
-              </span>
+              <ExampleHint index={hint} className="left-3.5 right-3 font-display text-xl" />
             )}
           </div>
           <button type="button" onClick={closeCompose} className="grid h-8 w-8 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">

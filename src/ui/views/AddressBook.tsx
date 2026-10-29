@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatDate } from '../../core/locale'
 import { tint } from '../../core/color'
 import { fuzzyScore } from '../../core/fuzzy'
 import { useStore } from '../../state/store'
@@ -22,7 +23,7 @@ export function AddressBook() {
   const rows = useMemo(() => {
     const t = q.trim()
     const inCat = cat ? people.filter((p) => (p.categories ?? []).some((c) => c.toLowerCase() === cat.toLowerCase())) : people
-    const list = t ? inCat.filter((p) => `${p.name} ${p.email} ${p.phone}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : inCat
+    const list = t ? inCat.filter((p) => `${p.name} ${p.email} ${p.phone} ${(p.extras ?? []).map((x) => x.value).join(' ')}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : inCat
     return [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [people, q, cat])
   const groups = useMemo(() => {
@@ -79,7 +80,7 @@ export function AddressBook() {
                         {p.name}
                         {p.isMe && <span className="ml-1.5 rounded-full bg-lilac-100 px-1.5 py-0.5 align-middle text-[0.62rem] font-medium text-lilac-700">Me</span>}
                       </span>
-                      <span className="block truncate text-xs text-ink-soft">{[...(p.categories ?? []), p.phone, p.email].filter(Boolean).join(' · ') || 'No details yet'}</span>
+                      <span className="block truncate text-xs text-ink-soft">{[...(p.categories ?? []), p.phone, p.email, p.birthday ? `Birthday ${formatDate(p.birthday)}` : ''].filter(Boolean).join(' · ') || 'No details yet'}</span>
                     </span>
                   </button>
                   <button onClick={() => setScope({ type: 'person', id: p.id })} className="shrink-0 transition hover:scale-110" title="Show their open tasks" aria-label={`${n} open tasks for ${p.name}`}>

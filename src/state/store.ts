@@ -5,6 +5,7 @@ import { canReparent, descendantIds, nextHue, pathOf, reorder, shapeFor } from '
 import { sameName } from '../core/fuzzy'
 import { fullName, MAX_FAVORITES, splitName } from '../core/people'
 import { detectContactIntent, matchPerson, type ContactVerb } from '../core/people'
+import { patchForStage, stageIndex, stagesForTask, stagesOf, type Stage } from '../core/progress'
 import { dropSampleCopies, seedData } from '../core/seed'
 import { currentOccurrence, repeatOf } from '../core/recurrence'
 import { eventStart } from '../core/reminders'
@@ -83,6 +84,10 @@ interface State {
   deleteTask: (id: string) => void
   toggleDone: (id: string) => void
   setStatus: (id: string, s: TaskStatus) => void
+  /** Move to a stage of the item's group (by stage id). */
+  setStage: (id: string, stageId: string, stages?: Stage[]) => void
+  /** `stages` = the columns the index refers to (default: the item's own group's). */
+  moveToStage: (id: string, index: number, stages?: Stage[]) => void
   addToFolder: (taskId: string, folderId: string) => void
   removeFromFolder: (taskId: string, folderId: string) => void
   addPerson: (taskId: string, personId: string) => void
@@ -274,8 +279,24 @@ export const useStore = create<State>()(
       },
       setStatus: (id, status) => {
         const t = get().tasks.find((x) => x.id === id)
-        if (!t || t.status === status) return
-        if (status === 'done') {
+        if (!t) return
+        const n = stagesForTask(t, get().folders).length
+        get().moveToStage(id, status === 'done' ? n - 1 : status === 'doing' ? Math.min(1, n - 2) : 0)
+      },
+      setStage: (id, stageId, stages) => {
+        const t = get().tasks.find((x) => x.id === id)
+        if (!t) return
+        const list = stages ?? stagesForTask(t, get().folders)
+        const i = list.findIndex((st) => st.id === stageId)
+        if (i >= 0) get().moveToStage(id, i, list)
+      },
+      moveToStage: (id, i, given) => {
+        const t = get().tasks.find((x) => x.id === id)
+        if (!t) return
+        const stages = given ?? stagesForTask(t, get().folders)
+        const to = patchForStage(stages, i)
+        if (stageIndex(t, stages) === Math.max(0, Math.min(stages.length - 1, i)) && t.status === to.status && t.stage === to.stage) return
+        if (to.status === 'done' && t.status !== 'done') {
           sound.bloom()
           // keep it on screen long enough to bloom, then it fades out
           set((s) => ({ lingering: { ...s.lingering, [id]: true } }))
@@ -286,7 +307,7 @@ export const useStore = create<State>()(
             })
           }, 1500)
         }
-        get().updateTask(id, { status, completedAt: status === 'done' ? Date.now() : null })
+        get().updateTask(id, { ...to, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null })
       },
       addToFolder: (taskId, folderId) => {
         const t = get().tasks.find((x) => x.id === taskId)
@@ -506,6 +527,13 @@ export const useStore = create<State>()(
           case 'status':
             s.setStatus(taskId, value as TaskStatus)
             return true
+          case 'stage': {
+            // stage:<group id or ->:<stage id>: the columns of the Progress view it was dropped in
+            const [fid, ...sid] = value.split(':')
+            const folder = fid === '-' ? null : s.folders.find((f) => f.id === fid)
+            s.setStage(taskId, sid.join(':'), stagesOf(folder))
+            return true
+          }
           default:
             return false
         }

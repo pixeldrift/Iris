@@ -65,8 +65,17 @@ function AuthDialog() {
   }
 
   return (
-    <Modal open={open} onClose={closeAuth} label={mode === 'in' ? 'Sign in' : 'Create account'}>
-      <form onSubmit={submit} className="space-y-3">
+    <Modal
+      open={open}
+      onClose={closeAuth}
+      label={mode === 'in' ? 'Sign in' : 'Create account'}
+      footer={
+        <button type="submit" form="auth-form" disabled={busy} className="w-full rounded-full bg-lilac-500 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600 disabled:opacity-50">
+          {busy ? 'One moment…' : mode === 'in' ? 'Sign in' : 'Create account'}
+        </button>
+      }
+    >
+      <form id="auth-form" onSubmit={submit} className="space-y-3">
         <h3 className="font-display text-xl">{mode === 'in' ? 'Welcome back' : 'Create your account'}</h3>
         <p className="-mt-1 text-xs text-ink-soft">
           {mode === 'in' ? 'Sign in to bring your pond to this device.' : 'Your groups, tasks and people on this device are added to it, then kept in sync everywhere you sign in.'}
@@ -88,9 +97,6 @@ function AuthDialog() {
             {error}
           </p>
         )}
-        <button type="submit" disabled={busy} className="w-full rounded-full bg-lilac-500 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600 disabled:opacity-50">
-          {busy ? 'One moment…' : mode === 'in' ? 'Sign in' : 'Create account'}
-        </button>
         <p className="text-center text-sm text-ink-soft">
           {mode === 'in' ? 'New here? ' : 'Already have an account? '}
           <button type="button" onClick={() => openAuth(mode === 'in' ? 'up' : 'in')} className="text-lilac-700 underline-offset-2 hover:underline">
