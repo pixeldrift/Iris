@@ -9,6 +9,7 @@ import { DragLayer } from './ui/dnd'
 import { ContactPromptHost, PersonDialog } from './ui/PeopleDialogs'
 import { AccountHost } from './ui/Account'
 import { SettingsDialog } from './ui/SettingsDialog'
+import { DangerHost } from './ui/DangerZone'
 import { ReminderHost } from './ui/Reminders'
 import { ToastHost } from './ui/Toast'
 import { UpdateBubble } from './ui/UpdateBubble'
@@ -115,6 +116,7 @@ export default function App() {
       <ReminderHost />
       <AccountHost />
       <SettingsDialog />
+      <DangerHost />
       <DialogHost />
       <ToastHost />
       <UpdateBubble />

@@ -30,6 +30,7 @@ process.env.DATABASE_URL ??= `postgres://postgres:postgres@127.0.0.1:${PG_PORT}/
 process.env.NEON_AUTH_BASE_URL ??= `${APP}/api/auth`
 process.env.NEON_AUTH_JWKS_URL ??= `http://localhost:${PORT}/api/auth/.well-known/jwks.json`
 const sync = await import('../api/sync.ts')
+const account = await import('../api/account.ts')
 
 // ---------- mock Neon Auth ----------
 interface User {
@@ -114,6 +115,7 @@ createServer(async (req, res) => {
   try {
     if (url.pathname.startsWith('/api/auth/')) response = await mockAuth(request, url.pathname.slice('/api/auth'.length))
     else if (url.pathname === '/api/sync' && req.method === 'POST') response = await sync.POST(request)
+    else if (url.pathname === '/api/account' && req.method === 'POST') response = await account.POST(request)
     else response = new Response('Not found', { status: 404 })
   } catch (e) {
     console.error(e)

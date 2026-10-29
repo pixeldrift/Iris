@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { drop } from '../audio/engine'
 import { apiToken } from './auth'
 import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normalize'
-import { dropSampleCopies, seedData } from '../core/seed'
+import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
 import { useStore } from '../state/store'
 import { emptyMemory, hashOf, keyOf, localChanges, remoteToApply, type Change, type Entity, type Kind, type SyncMemory } from './diff'
 
@@ -68,12 +68,6 @@ function deviceInfo(): { id: string; label: string } {
 }
 const isVisible = () => typeof document === 'undefined' || document.visibilityState === 'visible'
 const hashes = () => new Map(entities().map((e) => [keyOf(e.kind, e.id), hashOf(e.data)]))
-
-/** The ids of the built-in sample data: not worth uploading over an account that already has real data. */
-function sampleKeys(): Set<string> {
-  const seed = seedData()
-  return new Set([...seed.tasks.map((t) => keyOf('task', t.id)), ...seed.folders.map((f) => keyOf('folder', f.id)), ...seed.people.map((p) => keyOf('person', p.id))])
-}
 
 function normalize(c: Change) {
   if (!c.data) return null
@@ -188,11 +182,10 @@ async function syncOnce(userId: string) {
       const peek = await post({ cursors: {}, changes: [], device, active: isVisible() })
       if (peek.changes.length > 0) {
         // the account already has data: the built-in samples would only be clutter on top of it
-        const samples = sampleKeys()
         suppressHistory(() => useStore.setState((s) => ({
-          tasks: s.tasks.filter((t) => !samples.has(keyOf('task', t.id))),
-          folders: s.folders.filter((f) => !samples.has(keyOf('folder', f.id))),
-          people: s.people.filter((p) => !samples.has(keyOf('person', p.id))),
+          tasks: s.tasks.filter((t) => !isDemoTask(t.id)),
+          folders: s.folders.filter((f) => !isDemoFolder(f.id)),
+          people: s.people.filter((p) => !isDemoPerson(p.id)),
         })))
       }
     }
