@@ -21,6 +21,8 @@ export interface PondApi {
   release: (id: string, committed: boolean) => void
   /** Only in Free mode do drags change a bubble's saved position. */
   isFree: () => boolean
+  /** Pop mode: pressing a bubble deletes it on the spot. */
+  popMode: () => boolean
 }
 
 export interface Rec {

@@ -252,3 +252,12 @@ export const IconZoom = ({ plus, ...p }: P & { plus: boolean }) => (
     <path d={plus ? 'M8 10.5h5M10.5 8v5' : 'M8 10.5h5'} />
   </Svg>
 )
+
+/** A bubble with a shine, and a little burst: pop mode. */
+export const IconPop = (p: P) => (
+  <Svg {...p}>
+    <circle cx="11" cy="13" r="6.2" />
+    <path d="M8.2 11.2a3.4 3.4 0 0 1 2-1.6" />
+    <path d="M18.5 4.5l.9-1.5M20.5 8l1.6-.4M16.6 2.8l.1-1.6" />
+  </Svg>
+)
