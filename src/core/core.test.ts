@@ -79,7 +79,7 @@ describe('tasks', () => {
 
 import { detectContactIntent, matchPerson, contactLink, parseVCards } from './people'
 import { groupTasks, layoutClusters, relations } from './groups'
-import { reorder } from './folders'
+import { reorder, withoutFolder } from './folders'
 import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from './flock'
 
 describe('people', () => {
@@ -549,5 +549,40 @@ describe('fuzzy reminders', () => {
     expect(new Date(c.remindAt!).getHours()).toBe(18)
     // a title that merely contains the words is left alone
     expect(parseQuickAdd('Buy gifts the day before christmas', now, ctx).remindBefore).toBeUndefined()
+  })
+})
+
+describe('withoutFolder', () => {
+  const f = (id: string, parentId: string | null) => ({ id, parentId }) as never
+  it('lifts the groups inside up a level and only untags the items', () => {
+    const folders = [f('top', null), f('mid', 'top'), f('leaf', 'mid')]
+    const tasks = [{ folderIds: ['mid'] }, { folderIds: ['mid', 'other'] }, { folderIds: ['top'] }]
+    const a = withoutFolder(folders, tasks, 'mid')
+    expect(a.folders.map((x: { id: string; parentId: string | null }) => [x.id, x.parentId])).toEqual([['top', null], ['leaf', 'top']])
+    expect(a.tasks.map((t) => t.folderIds)).toEqual([[], ['other'], ['top']])
+    const b = withoutFolder(a.folders, a.tasks, 'top')
+    expect((b.folders[0] as { parentId: string | null }).parentId).toBeNull()
+  })
+  it('can also remove the groups inside, and delete items left in no group', () => {
+    const folders = [f('top', null), f('mid', 'top'), f('leaf', 'mid'), f('other', null)]
+    const tasks = [{ folderIds: ['leaf'] }, { folderIds: ['mid', 'other'] }, { folderIds: ['top'] }]
+    const r = withoutFolder(folders, tasks, 'mid', { groups: 'delete', items: 'delete' })
+    expect(r.folders.map((x: { id: string }) => x.id)).toEqual(['top', 'other'])
+    expect(r.tasks.map((t) => t.folderIds)).toEqual([['other'], ['top']])
+    const k = withoutFolder(folders, tasks, 'mid', { groups: 'delete', items: 'keep' })
+    expect(k.tasks.map((t) => t.folderIds)).toEqual([[], ['other'], ['top']])
+  })
+  it('can move the items to another group instead', () => {
+    const folders = [f('top', null), f('mid', 'top'), f('dest', null)]
+    const tasks = [{ folderIds: ['mid'] }, { folderIds: ['mid', 'dest'] }, { folderIds: ['top'] }]
+    const r = withoutFolder(folders, tasks, 'mid', { groups: 'keep', items: 'move', moveTo: 'dest' })
+    expect(r.tasks.map((t) => t.folderIds)).toEqual([['dest'], ['dest'], ['top']])
+  })
+  it('can move the groups inside to another group, or the top level', () => {
+    const folders = [f('top', null), f('mid', 'top'), f('leaf', 'mid'), f('dest', null)]
+    const a = withoutFolder(folders, [], 'mid', { groups: 'move', items: 'keep', moveGroupsTo: 'dest' })
+    expect(a.folders.find((x: { id: string }) => x.id === 'leaf')).toMatchObject({ parentId: 'dest' })
+    const b = withoutFolder(folders, [], 'mid', { groups: 'move', items: 'keep', moveGroupsTo: null })
+    expect(b.folders.find((x: { id: string }) => x.id === 'leaf')).toMatchObject({ parentId: null })
   })
 })

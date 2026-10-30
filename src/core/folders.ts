@@ -109,3 +109,45 @@ export function placeInTree(folders: Folder[], dragId: string, rows: TreeRow[], 
   const list = sibs(a.parentId)
   return { kind: 'slot', afterId: prev.id, depth, parentId: a.parentId, beforeId: list[list.findIndex((f) => f.id === a.id) + 1]?.id ?? null }
 }
+
+export interface DeleteChoices {
+  /** what happens to the groups inside: lifted up to where this one was, or removed with it */
+  groups: 'keep' | 'delete' | 'move'
+  /** where the groups inside go when `groups` is 'move' (null: the top level) */
+  moveGroupsTo?: string | null
+  /** what happens to items tagged with it: just untagged, or also deleted if that leaves them in no group */
+  items: 'keep' | 'delete' | 'move'
+  /** where the items go when `items` is 'move' */
+  moveTo?: string | null
+}
+
+/**
+ * Take a folder away. By default nothing inside is lost: the groups inside move up to where it was, and its items just
+ * lose the tag (an item with no other group is left unsorted). The choices can instead remove the groups inside too, and
+ * delete the items that would be left in no group.
+ */
+export function withoutFolder<T extends { folderIds: string[] }>(
+  folders: Folder[],
+  tasks: T[],
+  id: string,
+  choices: DeleteChoices = { groups: 'keep', items: 'keep' },
+): { folders: Folder[]; tasks: T[] } {
+  const target = folders.find((f) => f.id === id)
+  if (!target) return { folders, tasks }
+  const gone = choices.groups === 'delete' ? descendantIds(folders, id) : new Set([id])
+  // the groups directly inside go up a level, or to the chosen group (the top level when none)
+  const home = choices.groups === 'move' && choices.moveGroupsTo !== undefined ? choices.moveGroupsTo : target.parentId
+  const next = folders.filter((f) => !gone.has(f.id)).map((f) => (f.parentId !== null && gone.has(f.parentId) ? { ...f, parentId: home } : f))
+  const out: T[] = []
+  for (const t of tasks) {
+    if (!t.folderIds.some((f) => gone.has(f))) {
+      out.push(t)
+      continue
+    }
+    let left = t.folderIds.filter((f) => !gone.has(f))
+    if (choices.items === 'move' && choices.moveTo && !gone.has(choices.moveTo) && !left.includes(choices.moveTo)) left = [...left, choices.moveTo]
+    if (left.length === 0 && choices.items === 'delete') continue
+    out.push({ ...t, folderIds: left })
+  }
+  return { folders: next, tasks: out }
+}

@@ -3,7 +3,7 @@ import { childrenOf } from '../../core/folders'
 import type { Folder } from '../../core/types'
 import { useStore } from '../../state/store'
 import { targetAt, useDnd, useDropTarget, usePointerDrag } from '../dnd'
-import { askConfirm } from '../dialogs'
+import { confirmDeleteFolder } from './confirmDelete'
 import { Flower } from '../Flower'
 import { Popover } from '../Popover'
 import { lifter } from '../lift'
@@ -159,7 +159,10 @@ export function FolderNode(props: NodeProps) {
       label: 'Delete',
       icon: <IconTrash size={14} />,
       run: async () => {
-        if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
+        {
+          const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
+          if (choices) deleteFolder(folder.id, choices)
+        }
       },
     },
   ]

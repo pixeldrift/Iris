@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useExit } from './anim'
+import { IconChevronDown } from './icons'
+import { MenuItem, Popover } from './Popover'
+import { SegmentedToggle } from './SegmentedToggle'
 
 interface ConfirmSpec {
   title: string
@@ -8,10 +11,12 @@ interface ConfirmSpec {
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
+  /** Extra choices tucked behind a twirl-down: each is a pick-one row, answered by option id. */
+  options?: { id: string; label: string; choices: { id: string; label: string }[]; value: string; hint?: string; pick?: { when: string; id: string; label: string; choices: { id: string; label: string }[] } }[]
 }
 
 interface DialogState {
-  spec: (ConfirmSpec & { resolve: (ok: boolean) => void }) | null
+  spec: (ConfirmSpec & { resolve: (ok: Record<string, string> | null) => void }) | null
   open: boolean
 }
 
@@ -19,12 +24,17 @@ const useDialog = create<DialogState>(() => ({ spec: null, open: false }))
 
 /** Styled replacement for window.confirm. Resolves true when confirmed. */
 export function askConfirm(spec: ConfirmSpec): Promise<boolean> {
+  return askChoices(spec).then((r) => r !== null)
+}
+
+/** A confirmation that may carry extra choices: resolves with each option's picked id, or null when cancelled. */
+export function askChoices(spec: ConfirmSpec): Promise<Record<string, string> | null> {
   return new Promise((resolve) => {
     useDialog.setState({ spec: { ...spec, resolve }, open: true })
   })
 }
 
-function close(ok: boolean) {
+function close(ok: Record<string, string> | null) {
   const s = useDialog.getState().spec
   useDialog.setState({ open: false })
   s?.resolve(ok)
@@ -98,24 +108,76 @@ export function Modal({
   )
 }
 
+/** A small drop-down: a field that opens a list under it. */
+function PickBox({ pick, value, onChange }: { pick: { label: string; choices: { id: string; label: string }[] }; value: string | undefined; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const btn = useRef<HTMLButtonElement>(null)
+  const chosen = pick.choices.find((c) => c.id === value)
+  return (
+    <div className="mt-1.5">
+      <button ref={btn} type="button" aria-haspopup="listbox" aria-expanded={open} aria-label={pick.label} onClick={() => setOpen((o) => !o)} className="well flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm text-ink">
+        <span className={chosen ? '' : 'text-ink-faint'}>{chosen?.label ?? pick.label}</span>
+        <span className="text-ink-faint">▾</span>
+      </button>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} matchAnchor className="max-h-56 p-1">
+        {pick.choices.map((c) => (
+          <MenuItem key={c.id} active={c.id === value} onClick={() => (onChange(c.id), setOpen(false))}>
+            {c.label}
+          </MenuItem>
+        ))}
+      </Popover>
+    </div>
+  )
+}
+
 export function DialogHost() {
   const { spec, open } = useDialog()
+  const [more, setMore] = useState(false)
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (open) {
+      setMore(false)
+      setPicked(Object.fromEntries((spec?.options ?? []).flatMap((o) => [[o.id, o.value], ...(o.pick?.choices[0] ? [[o.pick.id, o.pick.choices[0].id]] : [])])))
+    }
+  }, [open, spec])
   const ref = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (open) window.setTimeout(() => ref.current?.focus(), 60)
   }, [open])
   if (!spec) return null
   return (
-    <Modal open={open} onClose={() => close(false)} label={spec.title}>
+    <Modal open={open} onClose={() => close(null)} label={spec.title}>
       <h3 className="font-display text-xl">{spec.title}</h3>
-      {spec.message && <p className="mt-1.5 text-sm text-ink-soft">{spec.message}</p>}
+      {spec.message && !more && <p className="mt-1.5 text-sm text-ink-soft">{spec.message}</p>}
+      {spec.options && (
+        <>
+          <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} className="mt-2 flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink-soft transition hover:bg-white/60 hover:text-ink">
+            <span className={`transition-transform ${more ? 'rotate-180' : ''}`}>
+              <IconChevronDown size={13} />
+            </span>
+            {more ? 'Fewer options' : 'More options'}
+          </button>
+          {more && (
+            <div className="mt-1 space-y-3">
+              {spec.options.map((o) => (
+                <div key={o.id}>
+                  <div className="mb-1 text-xs font-medium text-ink-soft">{o.label}</div>
+                  <SegmentedToggle label={o.label} options={o.choices} value={picked[o.id] ?? o.value} onChange={(v) => setPicked((p) => ({ ...p, [o.id]: v }))} />
+                  {o.pick && picked[o.id] === o.pick.when && <PickBox pick={o.pick} value={picked[o.pick.id]} onChange={(v) => setPicked((p) => ({ ...p, [o.pick!.id]: v }))} />}
+                  {o.hint && <div className="mt-1 text-[0.7rem] text-ink-faint">{o.hint}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
       <div className="mt-5 flex justify-end gap-2">
-        <button onClick={() => close(false)} className="rounded-full px-4 py-2 text-sm text-ink-soft transition hover:bg-white/70">
+        <button onClick={() => close(null)} className="rounded-full px-4 py-2 text-sm text-ink-soft transition hover:bg-white/70">
           {spec.cancelLabel ?? 'Keep it'}
         </button>
         <button
           ref={ref}
-          onClick={() => close(true)}
+          onClick={() => close(picked)}
           className={`rounded-full px-5 py-2 text-sm font-medium text-white shadow-md transition hover:brightness-105 ${
             spec.danger ? 'bg-[#c4577e] shadow-[#c4577e]/30' : 'bg-lilac-500 shadow-lilac-500/30'
           }`}

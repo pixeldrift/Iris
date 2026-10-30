@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { GRAY, tint } from '../../core/color'
 import type { Folder } from '../../core/types'
 import { useStore } from '../../state/store'
-import { askConfirm } from '../dialogs'
+import { confirmDeleteFolder } from './confirmDelete'
 import { FLOWER_SHAPES, Flower } from '../Flower'
 import { Popover } from '../Popover'
 import { IconCheck, IconPlus, IconTrash } from '../icons'
@@ -52,7 +52,10 @@ export function FolderOptions({
           <button
             onClick={async () => {
               onClose()
-              if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
+              {
+          const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
+          if (choices) deleteFolder(folder.id, choices)
+        }
             }}
             className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
           >
