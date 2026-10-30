@@ -4,19 +4,19 @@ import { formatDate } from '../core/locale'
 import { pathOf } from '../core/folders'
 import type { Folder, PondGroup } from '../core/types'
 import { useStore } from '../state/store'
-import { IconClose, IconMenu, IconPlus, IconSearch, IconUndo } from './icons'
+import { IconCalendar, IconClose, IconDrift, IconFolder, IconList, IconMenu, IconPerson, IconPlus, IconSearch, IconUndo } from './icons'
 import { undo, useHistory } from '../state/history'
 import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { VIEWS } from './Sidebar'
 import { SegmentedToggle } from './SegmentedToggle'
 import { Tip } from './Tip'
 
-const GROUPS: { id: PondGroup; label: string }[] = [
-  { id: 'free', label: 'Free' },
-  { id: 'folder', label: 'Group' },
-  { id: 'due', label: 'Date' },
-  { id: 'kind', label: 'Type' },
-  { id: 'person', label: 'Person' },
+const GROUPS: { id: PondGroup; label: string; icon: React.ReactNode }[] = [
+  { id: 'free', label: 'Free', icon: <IconDrift size={12} /> },
+  { id: 'folder', label: 'Group', icon: <IconFolder size={12} /> },
+  { id: 'due', label: 'Date', icon: <IconCalendar size={12} /> },
+  { id: 'kind', label: 'Type', icon: <IconList size={12} /> },
+  { id: 'person', label: 'People', icon: <IconPerson size={12} /> },
 ]
 
 const btn = (on: boolean) =>
@@ -179,9 +179,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       </Tip>
 
       {view === 'pond' && scope.type !== 'contacts' && (
-        <div className="no-scrollbar order-8 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 py-1" role="group" aria-label="Arrange the pond">
+        <div className="no-scrollbar order-8 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 overflow-x-auto py-1" role="group" aria-label="Arrange the pond">
           <span className="hidden shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint sm:inline">Gather by</span>
-          <SegmentedToggle label="Gather by" options={GROUPS} value={pondGroup} onChange={(v) => set('pondGroup', v)} />
+          <SegmentedToggle label="Gather by" options={GROUPS} fill value={pondGroup} onChange={(v) => set('pondGroup', v)} />
         </div>
       )}
     </header>
