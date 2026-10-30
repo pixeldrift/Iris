@@ -8,13 +8,14 @@ import { IconClose, IconMenu, IconPlus, IconSearch, IconUndo } from './icons'
 import { undo, useHistory } from '../state/history'
 import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { VIEWS } from './Sidebar'
+import { SegmentedToggle } from './SegmentedToggle'
 import { Tip } from './Tip'
 
 const GROUPS: { id: PondGroup; label: string }[] = [
   { id: 'free', label: 'Free' },
   { id: 'folder', label: 'Group' },
-  { id: 'due', label: 'Due date' },
-  { id: 'kind', label: 'Item type' },
+  { id: 'due', label: 'Date' },
+  { id: 'kind', label: 'Type' },
   { id: 'person', label: 'Person' },
 ]
 
@@ -179,19 +180,8 @@ export function TopBar({ onNew }: { onNew: () => void }) {
 
       {view === 'pond' && scope.type !== 'contacts' && (
         <div className="no-scrollbar order-8 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 py-1" role="group" aria-label="Arrange the pond">
-          <span className="shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">Gather by</span>
-          {GROUPS.map((g) => (
-            <button
-              key={g.id}
-              onClick={() => set('pondGroup', g.id)}
-              aria-pressed={pondGroup === g.id}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm transition ${
-                pondGroup === g.id ? 'bg-lilac-500 text-white shadow-md shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'
-              }`}
-            >
-              {g.label}
-            </button>
-          ))}
+          <span className="hidden shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint sm:inline">Gather by</span>
+          <SegmentedToggle label="Gather by" options={GROUPS} value={pondGroup} onChange={(v) => set('pondGroup', v)} />
         </div>
       )}
     </header>
