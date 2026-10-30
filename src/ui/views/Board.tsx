@@ -65,7 +65,7 @@ export function Board() {
           </>
         )}
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto md:grid-flow-col md:auto-cols-[minmax(15rem,1fr)] md:content-normal md:overflow-x-auto md:overflow-y-visible">
+      <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto md:grid-cols-none md:grid-flow-col md:auto-cols-[minmax(15rem,1fr)] md:content-normal md:overflow-x-auto md:overflow-y-visible">
         {stages.map((st, i) => (
           <Column
             key={st.id}

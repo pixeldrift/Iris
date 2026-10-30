@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { PGlite } from '@electric-sql/pglite'
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
-import { exportJWK, generateKeyPair, SignJWT } from 'jose'
+import { decodeJwt, exportJWK, generateKeyPair, SignJWT } from 'jose'
 
 const PG_PORT = 54329
 const PORT = Number(process.env.PORT ?? 3000)
@@ -115,7 +115,17 @@ createServer(async (req, res) => {
   try {
     if (url.pathname.startsWith('/api/auth/')) response = await mockAuth(request, url.pathname.slice('/api/auth'.length))
     else if (url.pathname === '/api/sync' && req.method === 'POST') response = await sync.POST(request)
-    else if (url.pathname === '/api/account' && req.method === 'POST') response = await account.POST(request)
+    else if (url.pathname === '/api/account' && req.method === 'POST') {
+      response = await account.POST(request)
+      // the real service removes the login with the data; the mock does too
+      if (response.ok) {
+        const sub = decodeJwt((request.headers.get('authorization') ?? '').replace(/^Bearer /i, '')).sub
+        if (sub) {
+          users.delete(sub)
+          for (const [token, uid] of sessions) if (uid === sub) sessions.delete(token)
+        }
+      }
+    }
     else response = new Response('Not found', { status: 404 })
   } catch (e) {
     console.error(e)

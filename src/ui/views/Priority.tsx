@@ -5,6 +5,7 @@ import { clamp01, weightOf } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useFloatDrag } from '../useFloatDrag'
+import { BubbleChrome } from '../BubbleChrome'
 import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
@@ -59,15 +60,16 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
           tabIndex={0}
           onPointerDown={(e) => onPointerDown(e, true)}
           onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
-          className={`pad grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
-          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency, padding: 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
+          className={`pad relative grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
+          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency, padding: r >= 26 ? 'calc(var(--r) * 0.34 * 1px) calc(var(--r) * 0.14 * 1px) calc(var(--r) * 0.46 * 1px)' : 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
           title={task.title}
         >
           {r >= 14 && (
-            <span className="line-clamp-3 break-words font-display leading-[1.1]" style={{ fontSize: 'calc(var(--r) * 0.26 * 1px)', textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
+            <span className="line-clamp-2 break-words font-display leading-[1.1]" style={{ fontSize: 'calc(var(--r) * 0.26 * 1px)', textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
               {task.title}
             </span>
           )}
+          {r >= 22 && <BubbleChrome task={task} r={r} minIcon={30} minExtras={36} floor={58} />}
         </div>
       </div>
     </div>
