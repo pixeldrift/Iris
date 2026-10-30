@@ -44,8 +44,12 @@ test.describe('accounts', () => {
     // and the login no longer works
     await page.getByRole('button', { name: 'Sign in' }).click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByPlaceholder('Email').fill(email)
-    await dialog.getByPlaceholder('Password').fill(password)
+    await expect(async () => {
+      // (the dialog clears its password field as it opens; fill until it sticks)
+      await dialog.getByPlaceholder('Email').fill(email)
+      await dialog.getByPlaceholder('Password').fill(password)
+      await expect(dialog.getByPlaceholder('Password')).toHaveValue(password)
+    }).toPass()
     await dialog.getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(dialog.getByRole('alert')).toBeVisible()
   })
