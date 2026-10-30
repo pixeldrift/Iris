@@ -1,3 +1,4 @@
+import type { DeleteChoices } from '../core/folders'
 import { type ContactVerb } from '../core/people'
 import { type Stage } from '../core/progress'
 import type { Folder, Person, PondGroup, Scope, SortKey, Task, TaskStatus, ViewId } from '../core/types'
@@ -106,7 +107,7 @@ export interface FoldersSlice {
   addFolder: (name: string, parentId?: string | null) => string
   ensureFolderPath: (path: string, parentId?: string | null) => string
   renameFolder: (id: string, name: string) => void
-  deleteFolder: (id: string) => void
+  deleteFolder: (id: string, choices?: DeleteChoices) => void
   /** Re-parent and/or reorder: `beforeId` = sibling to sit in front of (null = last). */
   moveFolder: (id: string, parentId: string | null, beforeId?: string | null) => void
 }

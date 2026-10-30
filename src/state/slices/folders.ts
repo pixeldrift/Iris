@@ -37,13 +37,14 @@ export const createFoldersSlice = (set: SetState, get: GetState): FoldersSlice =
         if (!name.trim()) return
         set((s) => ({ folders: s.folders.map((f) => (f.id === id ? { ...f, name: name.trim() } : f)) }))
       },
-      deleteFolder: (id) =>
+      deleteFolder: (id, choices) =>
         set((s) => {
           const target = s.folders.find((f) => f.id === id)
           if (!target) return s
+          const next = withoutFolder(s.folders, s.tasks, id, choices)
           return {
-            ...withoutFolder(s.folders, s.tasks, id),
-            scope: s.scope.type === 'folder' && s.scope.id === id ? { type: 'all' } : s.scope,
+            ...next,
+            scope: s.scope.type === 'folder' && !next.folders.some((f) => f.id === (s.scope as { id: string }).id) ? { type: 'all' } : s.scope,
           }
         }),
       moveFolder: (id, parentId, beforeId = null) => {

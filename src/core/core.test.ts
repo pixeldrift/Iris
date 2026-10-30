@@ -563,4 +563,13 @@ describe('withoutFolder', () => {
     const b = withoutFolder(a.folders, a.tasks, 'top')
     expect((b.folders[0] as { parentId: string | null }).parentId).toBeNull()
   })
+  it('can also remove the groups inside, and delete items left in no group', () => {
+    const folders = [f('top', null), f('mid', 'top'), f('leaf', 'mid'), f('other', null)]
+    const tasks = [{ folderIds: ['leaf'] }, { folderIds: ['mid', 'other'] }, { folderIds: ['top'] }]
+    const r = withoutFolder(folders, tasks, 'mid', { groups: 'delete', items: 'delete' })
+    expect(r.folders.map((x: { id: string }) => x.id)).toEqual(['top', 'other'])
+    expect(r.tasks.map((t) => t.folderIds)).toEqual([['other'], ['top']])
+    const k = withoutFolder(folders, tasks, 'mid', { groups: 'delete', items: 'keep' })
+    expect(k.tasks.map((t) => t.folderIds)).toEqual([[], ['other'], ['top']])
+  })
 })
