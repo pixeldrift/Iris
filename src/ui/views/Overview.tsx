@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { tint } from '../../core/color'
 import { fromISO, MONTHS, today, WEEKDAYS } from '../../core/dates'
 import { formatDate } from '../../core/locale'
-import { completionsByDay, completionsByMonth, groupTotals, streakStats, summarize, windowFor } from '../../core/reports'
+import { completionsByDay, completionsByMonth, groupTotals, streakStats, summarize, windowFor } from '../../core/overview'
 import { repeatOf } from '../../core/recurrence'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -97,7 +97,7 @@ function Streak({ task, hue, now }: { task: Task; hue: number | null; now: strin
 }
 
 /** How you're doing over time: what got finished, which habits are on a run, and where the effort went. */
-export function Reports() {
+export function Overview() {
   const tasks = useVisibleTasks(true)
   const folders = useStore((s) => s.folders)
   const [range, setRange] = useState<Range>('month')

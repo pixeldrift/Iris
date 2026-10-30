@@ -8,7 +8,7 @@ const YEAR0 = 1950
 const YEARS = Array.from({ length: 150 }, (_, i) => String(YEAR0 + i))
 const MONTH_ITEMS = MONTHS.map((m, i) => (
   <span key={m}>
-    <span className="text-[0.7rem] opacity-60">{i + 1}</span> • {m}
+    <span className="text-[0.7rem] italic opacity-60">{i + 1} •</span> {m}
   </span>
 ))
 
@@ -74,7 +74,7 @@ export function DatePicker({
         </div>
         {jump ? (
           <div className="grid grid-cols-[3fr_2fr] gap-x-2">
-            <Wheel items={MONTH_ITEMS} label="Month" selected={cursor.getMonth()} onPick={(i) => setCursor(new Date(cursor.getFullYear(), i, 1))} />
+            <Wheel items={MONTH_ITEMS} label="Month" left selected={cursor.getMonth()} onPick={(i) => setCursor(new Date(cursor.getFullYear(), i, 1))} />
             <Wheel items={YEARS} label="Year" selected={cursor.getFullYear() - YEAR0} onPick={(i) => setCursor(new Date(YEAR0 + i, cursor.getMonth(), 1))} />
           </div>
         ) : (

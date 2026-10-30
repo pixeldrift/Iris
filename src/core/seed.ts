@@ -106,7 +106,7 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
     k('picnic', { title: 'Plan weekend picnic', folderIds: ['life', 'garden'], importance: 0.35, urgency: 0.25, due: addDays(t, 4), start: addDays(t, 2), x: 0.7, y: 0.82, kind: 'idea' }),
     k('lilac', { title: 'Repot the lilac', folderIds: ['garden'], importance: 0.3, urgency: 0.2, x: 0.18, y: 0.64 }),
     k('ferns', { title: 'Water the ferns', folderIds: ['garden'], status: 'done', completedAt: nowMs, importance: 0.2, urgency: 0.2, x: 0.1, y: 0.42 }),
-    // a month of finished things (hidden unless you show completed items), so Reports has a history to draw
+    // a month of finished things (hidden unless you show completed items), so Overview has a history to draw
     ...[
       ['Email the landlord', 'home', 1], ['Buy a birthday card', 'life', 1], ['Renew the library card', 'life', 2], ['Submit the lab form', 'bio', 3],
       ['Fix the bike tire', 'home', 3], ['Reply to Sam', 'life', 3], ['Plan the study schedule', 'school', 5], ['Order contact lenses', 'life', 6],

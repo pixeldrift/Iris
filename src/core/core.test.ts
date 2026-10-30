@@ -59,7 +59,7 @@ describe('folders', () => {
 
 describe('tasks', () => {
   const { folders, tasks: all } = seedData()
-  const tasks = all.filter((t) => !t.id.startsWith('demo-past')) // (the month of finished history is for Reports)
+  const tasks = all.filter((t) => !t.id.startsWith('demo-past')) // (the month of finished history is for Overview)
   it('shows a parent folder\'s descendants', () => {
     const got = filterTasks(tasks, { type: 'folder', id: 'school' }, folders, true)
     expect(got.length).toBe(4)

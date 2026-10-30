@@ -164,7 +164,7 @@ export type Scope =
   | { type: 'contacts' }
   | { type: 'day'; date: string }
 
-export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline' | 'reports'
+export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline' | 'overview'
 
 export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency'
 

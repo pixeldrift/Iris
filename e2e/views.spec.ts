@@ -8,7 +8,7 @@ test.describe('views', () => {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
     await open(page)
-    for (const v of ['List', 'Progress', 'Priority', 'Calendar', 'Timeline', 'Reports', 'Pond']) {
+    for (const v of ['List', 'Progress', 'Priority', 'Calendar', 'Timeline', 'Overview', 'Pond']) {
       await goto(page, v)
       await expect(page.locator('header h2')).toHaveText(v)
     }
@@ -92,9 +92,9 @@ test.describe('views', () => {
     await expect.poll(async () => (await saved(page))!.tasks.filter((t) => t.time && t.endTime && t.start).length).toBeGreaterThan(0)
   })
 
-  test('reports: totals, a chart, streaks and groups, for a week, month or year', async ({ page }) => {
+  test('overview: totals, a chart, streaks and groups, for a week, month or year', async ({ page }) => {
     await open(page)
-    await goto(page, 'Reports')
+    await goto(page, 'Overview')
     await expect(page.getByText('finished', { exact: true })).toBeVisible()
     await expect(page.getByRole('img', { name: /Items completed/ })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Streaks' }).getByText('Drink 2 L of water')).toBeVisible()

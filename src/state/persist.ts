@@ -9,7 +9,7 @@ import type { PersistOptions } from 'zustand/middleware'
 /** How the store is saved to the device, and how an older save is brought up to date when the app loads. */
 export const persistOptions: PersistOptions<State, Partial<State>> = {
   name: 'lilac-v1',
-  version: 11,
+  version: 12,
   partialize: (s) => ({
     tasks: s.tasks,
     folders: s.folders,
@@ -21,6 +21,7 @@ export const persistOptions: PersistOptions<State, Partial<State>> = {
   }),
   migrate: (persisted, from) => {
     const p = persisted as Partial<State> & { settings?: Partial<Settings> }
+    if ((p.view as string) === 'reports') p.view = 'overview' // the Reports view became Overview
     if (from < 2) {
       p.people = p.people ?? []
       p.tasks = (p.tasks ?? []).map((t) => ({ ...t, personIds: t.personIds ?? [] }))

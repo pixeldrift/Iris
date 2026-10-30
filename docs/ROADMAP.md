@@ -1,9 +1,9 @@
 # Lilac roadmap
 
 ## Near term
-- **Reports. (First version shipped.)** A Reports view: items finished per day, week or month as a bar chart, summary
+- **Overview. (First version shipped.)** An Overview view: items finished per day, week or month as a bar chart, summary
   tiles, streaks for every repeating item or habit (current run, best run, the last two weeks as dots), and where the
-  effort went by group; it follows the sidebar's group or person filter. Built on `src/core/reports.ts` (pure, tested).
+  effort went by group; it follows the sidebar's group or person filter. Built on `src/core/overview.ts` (pure, tested).
   Still to do: goals ("2 L every day for 7 days") with their own progress, weekly summaries, comparing periods,
   and sharing a streak.
 - **Sync + accounts. (Built; needs your Neon database to go live.)** Neon Auth (managed Better Auth) email + password, a Neon `entities`
