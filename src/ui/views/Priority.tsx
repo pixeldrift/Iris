@@ -69,7 +69,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
               {task.title}
             </span>
           )}
-          {r >= 22 && <BubbleChrome task={task} r={r} minIcon={30} minExtras={36} floor={58} />}
+          {<BubbleChrome task={task} r={r} minExtras={36} floor={58} />}
         </div>
       </div>
     </div>
