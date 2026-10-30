@@ -159,7 +159,7 @@ export function FolderNode(props: NodeProps) {
       label: 'Delete',
       icon: <IconTrash size={14} />,
       run: async () => {
-        if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
+        if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Groups inside move up a level. Items just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
       },
     },
   ]

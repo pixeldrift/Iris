@@ -1,4 +1,4 @@
-import { canReparent, nextHue, reorder, shapeFor } from '../../core/folders'
+import { canReparent, nextHue, reorder, shapeFor, withoutFolder } from '../../core/folders'
 import { sameName } from '../../core/fuzzy'
 import type { Folder } from '../../core/types'
 import * as sound from '../../audio/engine'
@@ -42,10 +42,7 @@ export const createFoldersSlice = (set: SetState, get: GetState): FoldersSlice =
           const target = s.folders.find((f) => f.id === id)
           if (!target) return s
           return {
-            folders: s.folders
-              .filter((f) => f.id !== id)
-              .map((f) => (f.parentId === id ? { ...f, parentId: target.parentId } : f)),
-            tasks: s.tasks.map((t) => ({ ...t, folderIds: t.folderIds.filter((f) => f !== id) })),
+            ...withoutFolder(s.folders, s.tasks, id),
             scope: s.scope.type === 'folder' && s.scope.id === id ? { type: 'all' } : s.scope,
           }
         }),

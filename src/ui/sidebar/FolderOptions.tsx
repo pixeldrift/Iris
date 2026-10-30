@@ -52,7 +52,7 @@ export function FolderOptions({
           <button
             onClick={async () => {
               onClose()
-              if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Tasks stay. They just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
+              if (await askConfirm({ title: `Delete “${folder.name}”?`, message: 'Groups inside move up a level. Items just lose this tag.', confirmLabel: 'Delete', danger: true })) deleteFolder(folder.id)
             }}
             className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
           >

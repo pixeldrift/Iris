@@ -109,3 +109,16 @@ export function placeInTree(folders: Folder[], dragId: string, rows: TreeRow[], 
   const list = sibs(a.parentId)
   return { kind: 'slot', afterId: prev.id, depth, parentId: a.parentId, beforeId: list[list.findIndex((f) => f.id === a.id) + 1]?.id ?? null }
 }
+
+/**
+ * Take a folder away without losing anything in it: the groups inside move up to where it was, and its items just lose
+ * the tag (an item with no other group is left unsorted).
+ */
+export function withoutFolder<T extends { folderIds: string[] }>(folders: Folder[], tasks: T[], id: string): { folders: Folder[]; tasks: T[] } {
+  const target = folders.find((f) => f.id === id)
+  if (!target) return { folders, tasks }
+  return {
+    folders: folders.filter((f) => f.id !== id).map((f) => (f.parentId === id ? { ...f, parentId: target.parentId } : f)),
+    tasks: tasks.map((t) => (t.folderIds.includes(id) ? { ...t, folderIds: t.folderIds.filter((f) => f !== id) } : t)),
+  }
+}
