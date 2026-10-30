@@ -181,7 +181,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       {view === 'pond' && scope.type !== 'contacts' && (
         <div className="no-scrollbar order-8 -mx-1 flex basis-full items-center gap-1.5 overflow-x-auto px-1 py-1" role="group" aria-label="Arrange the pond">
           <span className="hidden shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint sm:inline">Gather by</span>
-          <SegmentedToggle label="Gather by" options={GROUPS} iconsOnly value={pondGroup} onChange={(v) => set('pondGroup', v)} />
+          <SegmentedToggle label="Gather by" options={GROUPS} fill value={pondGroup} onChange={(v) => set('pondGroup', v)} />
         </div>
       )}
     </header>
