@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { completionsByDay, completionsByMonth, groupTotals, streakStats, summarize, windowFor } from './reports'
+import { completionsByDay, completionsByMonth, groupTotals, streakStats, summarize, windowFor } from './overview'
 import { seedData } from './seed'
 import type { Task } from './types'
 
@@ -7,7 +7,7 @@ const base = seedData().tasks[0]
 const habit = (log: string[], from = '2026-10-01'): Task => ({ ...base, id: 'h', kind: 'habit', repeat: { freq: 'daily', interval: 1, from }, log, status: 'todo', folderIds: [] })
 const done = (id: string, at: string, folder?: string): Task => ({ ...base, id, kind: 'task', repeat: null, status: 'done', completedAt: new Date(`${at}T12:00:00`).getTime(), folderIds: folder ? [folder] : [] })
 
-describe('reports', () => {
+describe('overview', () => {
   it('counts completions per day: one-offs on the day they were finished, repeats on each ticked day', () => {
     const tasks = [done('a', '2026-10-02'), done('b', '2026-10-02'), habit(['2026-10-02', '2026-10-03'])]
     const m = completionsByDay(tasks, '2026-10-01', '2026-10-04')

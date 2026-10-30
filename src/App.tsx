@@ -24,9 +24,9 @@ import { AddressBook } from './ui/views/AddressBook'
 import { Pond } from './ui/views/Pond'
 import { Priority } from './ui/views/Priority'
 import { Timeline } from './ui/views/Timeline'
-import { Reports } from './ui/views/Reports'
+import { Overview } from './ui/views/Overview'
 
-const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, calendar: CalendarView, timeline: Timeline, reports: Reports }
+const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, calendar: CalendarView, timeline: Timeline, overview: Overview }
 
 export default function App() {
   const view = useStore((s) => s.view)

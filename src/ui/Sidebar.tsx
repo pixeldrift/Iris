@@ -29,7 +29,7 @@ export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof Icon
   { id: 'priority', label: 'Priority', hint: 'Eisenhower', icon: IconPriority },
   { id: 'calendar', label: 'Calendar', hint: 'Schedule', icon: IconCalendar },
   { id: 'timeline', label: 'Timeline', hint: 'Gantt', icon: IconTimeline },
-  { id: 'reports', label: 'Overview', hint: 'Stats', icon: IconChart },
+  { id: 'overview', label: 'Overview', hint: 'Stats', icon: IconChart },
 ]
 
 
