@@ -9,7 +9,8 @@
     "preview": "vite preview --host",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "dev:api": "tsx scripts/dev-api.ts"
+    "dev:api": "tsx scripts/dev-api.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@neondatabase/auth": "^0.6.0-beta",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.12",
     "@electric-sql/pglite-socket": "^0.2.15",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
