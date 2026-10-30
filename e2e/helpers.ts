@@ -13,6 +13,8 @@ export const taskNamed = async (page: Page, title: string) => (await saved(page)
 export async function open(page: Page) {
   await page.goto('/')
   await page.locator('[data-node]').first().waitFor()
+  // the demo data's "Study group" reminder pops up over the top of the page and would catch clicks meant for buttons below it
+  await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
   await page.waitForTimeout(500)
 }
 
