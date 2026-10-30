@@ -6,6 +6,7 @@ import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useFloatDrag } from '../useFloatDrag'
 import { BubbleChrome } from '../BubbleChrome'
+import { TitleFit } from '../TitleFit'
 import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
@@ -65,9 +66,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
           title={task.title}
         >
           {r >= 14 && (
-            <span className="line-clamp-2 break-words font-display leading-[1.1]" style={{ fontSize: 'calc(var(--r) * 0.26 * 1px)', textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
-              {task.title}
-            </span>
+            <TitleFit text={task.title} font="calc(var(--r) * 0.26 * 1px)" lineHeight={1.1} />
           )}
           {<BubbleChrome task={task} r={r} minExtras={36} floor={58} />}
         </div>
