@@ -8,7 +8,7 @@ test.describe('views', () => {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
     await open(page)
-    for (const v of ['List', 'Progress', 'Priority', 'Calendar', 'Timeline', 'Pond']) {
+    for (const v of ['List', 'Progress', 'Priority', 'Calendar', 'Timeline', 'Reports', 'Pond']) {
       await goto(page, v)
       await expect(page.locator('header h2')).toHaveText(v)
     }
@@ -90,5 +90,21 @@ test.describe('views', () => {
     expect(box).not.toBeNull()
     await drag(page, { x: box!.x + 80, y: box!.y + box!.height / 2 }, { x: box!.x + 210, y: box!.y + box!.height / 2 }, { steps: 6 })
     await expect.poll(async () => (await saved(page))!.tasks.filter((t) => t.time && t.endTime && t.start).length).toBeGreaterThan(0)
+  })
+
+  test('reports: totals, a chart, streaks and groups, for a week, month or year', async ({ page }) => {
+    await open(page)
+    await goto(page, 'Reports')
+    await expect(page.getByText('finished', { exact: true })).toBeVisible()
+    await expect(page.getByRole('img', { name: /Items completed/ })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Streaks' }).getByText('Drink 2 L of water')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Streaks' }).getByText(/in a row/).first()).toBeVisible()
+    await page.getByRole('radio', { name: 'Year' }).click()
+    await expect(page.getByText('Finished each month')).toBeVisible()
+    await page.getByRole('radio', { name: 'Week' }).click()
+    await expect(page.getByText('Finished each day')).toBeVisible()
+    // a window with nothing in it says so
+    await page.getByRole('button', { name: 'Earlier' }).click({ clickCount: 12 })
+    await expect(page.getByText('Nothing finished in this period yet.')).toBeVisible()
   })
 })

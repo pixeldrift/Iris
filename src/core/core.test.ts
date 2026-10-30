@@ -58,7 +58,8 @@ describe('folders', () => {
 })
 
 describe('tasks', () => {
-  const { folders, tasks } = seedData()
+  const { folders, tasks: all } = seedData()
+  const tasks = all.filter((t) => !t.id.startsWith('demo-past')) // (the month of finished history is for Reports)
   it('shows a parent folder\'s descendants', () => {
     const got = filterTasks(tasks, { type: 'folder', id: 'school' }, folders, true)
     expect(got.length).toBe(4)
@@ -107,7 +108,8 @@ describe('people', () => {
 })
 
 describe('grouping & flocking', () => {
-  const { tasks, folders, people } = seedData()
+  const { tasks: all, folders, people } = seedData()
+  const tasks = all.filter((t) => !t.id.startsWith('demo-past'))
   it('groups tasks by top-level folder', () => {
     const g = groupTasks(tasks, 'folder', folders, people, '2026-10-26')
     expect(g.find((x) => x.label === 'School')?.taskIds.length).toBe(4)

@@ -92,7 +92,7 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
     k('packing', { title: 'Packing for the weekend', kind: 'list', listStyle: 'bullet', items: items('pk', ['Charger', 'Rain jacket', 'Book', 'Sunscreen']), importance: 0.4, urgency: 0.55, due: addDays(t, 3), x: 0.74, y: 0.5 }),
     k('steps', { title: 'Sourdough, step by step', kind: 'list', listStyle: 'number', items: items('st', ['Feed the starter', 'Mix and rest', 'Fold three times', 'Shape', 'Bake at 450°']), folderIds: ['home'], importance: 0.3, urgency: 0.1, x: 0.9, y: 0.86 }),
     // habits and repeats (one bubble each; every occurrence ticked off on its own)
-    k('stretch', { title: 'Morning stretch', kind: 'habit', repeat: { freq: 'daily', interval: 1, from: addDays(t, -10) }, log: [addDays(t, -1), addDays(t, -2), addDays(t, -3)], folderIds: ['life'], importance: 0.5, urgency: 0.3, x: 0.12, y: 0.62 }),
+    k('stretch', { title: 'Morning stretch', kind: 'habit', repeat: { freq: 'daily', interval: 1, from: addDays(t, -30) }, log: [1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 19, 20].map((d) => addDays(t, -d)), folderIds: ['life'], importance: 0.5, urgency: 0.3, x: 0.12, y: 0.62 }),
     k('water', { title: 'Drink 2 L of water', kind: 'habit', repeat: { freq: 'daily', interval: 1, from: addDays(t, -9) }, log: [-1, -2, -3, -4, -5, -6, -7].map((d) => addDays(t, d)), importance: 0.55, urgency: 0.45, x: 0.22, y: 0.5 }),
     k('rent', { title: 'Pay rent', kind: 'task', repeat: { freq: 'monthly', interval: 1, from: addDays(t, 5), monthDay: Number(addDays(t, 5).slice(8)) }, importance: 0.9, urgency: 0.7, remindBefore: 1, x: 0.86, y: 0.2 }),
     k('club', { title: 'Book club', kind: 'event', time: '19:00', endTime: '21:00', place: 'Maya’s place', day: addDays(t, 3), repeat: { freq: 'monthly', interval: 1, from: addDays(t, 3), nth: 3, byDay: [2], custom: true }, alerts: [120], folderIds: ['life'], importance: 0.4, urgency: 0.35, x: 0.45, y: 0.66 }),
@@ -106,6 +106,13 @@ export function seedData(): { folders: Folder[]; tasks: Task[]; people: Person[]
     k('picnic', { title: 'Plan weekend picnic', folderIds: ['life', 'garden'], importance: 0.35, urgency: 0.25, due: addDays(t, 4), start: addDays(t, 2), x: 0.7, y: 0.82, kind: 'idea' }),
     k('lilac', { title: 'Repot the lilac', folderIds: ['garden'], importance: 0.3, urgency: 0.2, x: 0.18, y: 0.64 }),
     k('ferns', { title: 'Water the ferns', folderIds: ['garden'], status: 'done', completedAt: nowMs, importance: 0.2, urgency: 0.2, x: 0.1, y: 0.42 }),
+    // a month of finished things (hidden unless you show completed items), so Reports has a history to draw
+    ...[
+      ['Email the landlord', 'home', 1], ['Buy a birthday card', 'life', 1], ['Renew the library card', 'life', 2], ['Submit the lab form', 'bio', 3],
+      ['Fix the bike tire', 'home', 3], ['Reply to Sam', 'life', 3], ['Plan the study schedule', 'school', 5], ['Order contact lenses', 'life', 6],
+      ['Return the drill', 'home', 8], ['Annotate chapter 2', 'eng101', 9], ['Book the train tickets', 'life', 9], ['Weed the front beds', 'garden', 12],
+      ['Back up the laptop', 'life', 15], ['Water-test report', 'bio', 16], ['Call the bank', 'life', 20], ['Prune the roses', 'garden', 23], ['Clean out the fridge', 'home', 27], ['Mail the package', 'life', 30],
+    ].map(([title, folder, ago], i) => k(`past${i}`, { title: title as string, folderIds: [folder as string], status: 'done', completedAt: nowMs - (ago as number) * 86_400_000 - (i % 5) * 3_600_000, importance: 0.4, urgency: 0.3, x: 0.5, y: 0.5 })),
     // a group with its own Progress stages (open Writing, then Progress)
     k('w1', { title: 'Research the lighthouse setting', folderIds: ['demo-writing'], stage: 'demo-research', importance: 0.6, urgency: 0.3, x: 0.34, y: 0.34 }),
     k('w2', { title: 'Write chapter one', folderIds: ['demo-writing'], stage: 'demo-first', status: 'doing', importance: 0.8, urgency: 0.5, due: addDays(t, 9), x: 0.52, y: 0.26 }),
