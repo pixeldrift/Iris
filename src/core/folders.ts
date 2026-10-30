@@ -112,7 +112,9 @@ export function placeInTree(folders: Folder[], dragId: string, rows: TreeRow[], 
 
 export interface DeleteChoices {
   /** what happens to the groups inside: lifted up to where this one was, or removed with it */
-  groups: 'keep' | 'delete'
+  groups: 'keep' | 'delete' | 'move'
+  /** where the groups inside go when `groups` is 'move' (null: the top level) */
+  moveGroupsTo?: string | null
   /** what happens to items tagged with it: just untagged, or also deleted if that leaves them in no group */
   items: 'keep' | 'delete' | 'move'
   /** where the items go when `items` is 'move' */
@@ -133,7 +135,9 @@ export function withoutFolder<T extends { folderIds: string[] }>(
   const target = folders.find((f) => f.id === id)
   if (!target) return { folders, tasks }
   const gone = choices.groups === 'delete' ? descendantIds(folders, id) : new Set([id])
-  const next = folders.filter((f) => !gone.has(f.id)).map((f) => (f.parentId !== null && gone.has(f.parentId) ? { ...f, parentId: target.parentId } : f))
+  // the groups directly inside go up a level, or to the chosen group (the top level when none)
+  const home = choices.groups === 'move' && choices.moveGroupsTo !== undefined ? choices.moveGroupsTo : target.parentId
+  const next = folders.filter((f) => !gone.has(f.id)).map((f) => (f.parentId !== null && gone.has(f.parentId) ? { ...f, parentId: home } : f))
   const out: T[] = []
   for (const t of tasks) {
     if (!t.folderIds.some((f) => gone.has(f))) {

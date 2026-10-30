@@ -578,4 +578,11 @@ describe('withoutFolder', () => {
     const r = withoutFolder(folders, tasks, 'mid', { groups: 'keep', items: 'move', moveTo: 'dest' })
     expect(r.tasks.map((t) => t.folderIds)).toEqual([['dest'], ['dest'], ['top']])
   })
+  it('can move the groups inside to another group, or the top level', () => {
+    const folders = [f('top', null), f('mid', 'top'), f('leaf', 'mid'), f('dest', null)]
+    const a = withoutFolder(folders, [], 'mid', { groups: 'move', items: 'keep', moveGroupsTo: 'dest' })
+    expect(a.folders.find((x: { id: string }) => x.id === 'leaf')).toMatchObject({ parentId: 'dest' })
+    const b = withoutFolder(folders, [], 'mid', { groups: 'move', items: 'keep', moveGroupsTo: null })
+    expect(b.folders.find((x: { id: string }) => x.id === 'leaf')).toMatchObject({ parentId: null })
+  })
 })
