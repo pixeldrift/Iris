@@ -10,12 +10,15 @@ export function SegmentedToggle<T extends string>({
   onChange,
   label,
   className = '',
+  iconsOnly = false,
 }: {
-  options: readonly { id: T; label: string }[]
+  options: readonly { id: T; label: string; icon?: React.ReactNode }[]
   value: T | null
   onChange: (v: T) => void
   label: string
   className?: string
+  /** options with an icon show only the icon on a phone, icon and label from the small breakpoint up */
+  iconsOnly?: boolean
 }) {
   const refs = useRef(new Map<string, HTMLButtonElement>())
   const [box, setBox] = useState<{ left: number; width: number } | null>(null)
@@ -50,10 +53,18 @@ export function SegmentedToggle<T extends string>({
             ref={(el) => {
               if (el) refs.current.set(o.id, el)
             }}
+            title={o.icon ? o.label : undefined}
             onClick={() => onChange(o.id)}
             className={`relative whitespace-nowrap rounded-full px-2.5 py-1 text-xs transition-colors duration-200 ${value === o.id ? 'text-white' : 'text-ink-soft hover:text-ink'}`}
           >
-            {o.label}
+            {o.icon ? (
+              <span className="flex items-center gap-1.5">
+                {o.icon}
+                <span className={iconsOnly ? 'sr-only sm:not-sr-only' : ''}>{o.label}</span>
+              </span>
+            ) : (
+              o.label
+            )}
           </button>
         </span>
       ))}
