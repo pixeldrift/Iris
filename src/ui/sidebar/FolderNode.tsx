@@ -27,24 +27,13 @@ export interface NodeProps {
   onAdd: (parent: string) => void
 }
 
-/** The count bubble doubles as the group's little menu: hover it with a mouse, tap it on a phone. */
+/** The count bubble doubles as the group's little menu: click or tap it. */
 export function GroupMenu({ n, name, actions }: { n: number; name: string; actions: { label: string; icon: React.ReactNode; run: () => void }[] }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
-  const timer = useRef(0)
-  const hover = () => window.matchMedia('(hover: hover)').matches
-  const show = () => {
-    window.clearTimeout(timer.current)
-    setOpen(true)
-  }
-  const hide = () => {
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setOpen(false), 180)
-  }
-  useEffect(() => () => window.clearTimeout(timer.current), [])
   return (
     <>
-      <span ref={ref} className="ml-auto inline-flex" onMouseEnter={() => hover() && show()} onMouseLeave={() => hover() && hide()}>
+      <span ref={ref} className="ml-auto inline-flex">
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -59,7 +48,7 @@ export function GroupMenu({ n, name, actions }: { n: number; name: string; actio
           <CountBubble n={n} />
         </button>
       </span>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="!min-w-0 !p-1" onMouseEnter={() => hover() && show()} onMouseLeave={() => hover() && hide()}>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={ref} align="end" className="!min-w-0 !p-1">
         <div className="flex items-center gap-0.5">
           {/* the everyday action sits under the thumb (right); delete is furthest away */}
           {[...actions].reverse().map((a) => (
@@ -165,7 +154,7 @@ export function FolderNode(props: NodeProps) {
 
   const actions = [
     { label: 'Add', icon: <IconPlus size={14} />, run: () => openCompose(null, { folderIds: [folder.id] }) },
-    { label: 'Rename', icon: <IconPencil size={14} />, run: () => setEditing(folder.id) },
+    { label: 'Rename', icon: <IconPencil size={14} />, run: () => (window.matchMedia('(hover: hover)').matches ? setEditing(folder.id) : setOptions(true)) },
     {
       label: 'Delete',
       icon: <IconTrash size={14} />,
@@ -186,7 +175,7 @@ export function FolderNode(props: NodeProps) {
         {...dropProps}
         onPointerDown={(e) => editing !== folder.id && onPointerDown(e)}
         onClick={() => setScope(active ? { type: 'all' } : { type: 'folder', id: folder.id })}
-        onDoubleClick={() => setEditing(folder.id)}
+        onDoubleClick={() => (window.matchMedia('(hover: hover)').matches ? setEditing(folder.id) : setOptions(true))}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
           (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : parentMe ? 'bg-lilac-100/60 ring-1 ring-lilac-300/70' : ''
         } ${isSelfDrag ? 'opacity-40' : ''} ${dragging && !over ? 'ring-1 ring-lilac-300/40' : ''}`}

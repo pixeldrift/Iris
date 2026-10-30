@@ -12,7 +12,7 @@ const CYCLES = 9
  * A list that loops for ever: it is laid out several times over and quietly re-centred whenever the scroll gets near
  * an end, so it never runs out. The chosen entry sits at the top, and picking one scrolls it up there.
  */
-function Wheel({ items, selected, label, onPick, shown = SHOWN }: { items: string[]; selected: number | null; label: string; onPick: (i: number) => void; shown?: number }) {
+export function Wheel({ items, selected, label, onPick, shown = SHOWN }: { items: React.ReactNode[]; selected: number | null; label: string; onPick: (i: number) => void; shown?: number }) {
   const ref = useRef<HTMLDivElement>(null)
   const [topRow, setTopRow] = useState(0)
   const n = items.length
