@@ -31,6 +31,7 @@ process.env.NEON_AUTH_BASE_URL ??= `${APP}/api/auth`
 process.env.NEON_AUTH_JWKS_URL ??= `http://localhost:${PORT}/api/auth/.well-known/jwks.json`
 const sync = await import('../api/sync.ts')
 const account = await import('../api/account.ts')
+const connect = await import('../api/connect.ts')
 
 // ---------- mock Neon Auth ----------
 interface User {
@@ -60,7 +61,7 @@ const open = (user: User) => {
   return json({ token, user: publicUser(user), redirect: false }, 200, sessionCookie(token))
 }
 
-const mintJwt = (u: User) => new SignJWT({ email: u.email, name: u.name }).setProtectedHeader({ alg: 'EdDSA', kid: 'dev' }).setSubject(u.id).setIssuer(new URL(APP).origin).setAudience(new URL(APP).origin).setIssuedAt().setExpirationTime('15m').sign(privateKey)
+const mintJwt = (u: User) => new SignJWT({ email: u.email, name: u.name, emailVerified: true }).setProtectedHeader({ alg: 'EdDSA', kid: 'dev' }).setSubject(u.id).setIssuer(new URL(APP).origin).setAudience(new URL(APP).origin).setIssuedAt().setExpirationTime('15m').sign(privateKey)
 
 async function mockAuth(req: Request, path: string): Promise<Response> {
   if (path === '/.well-known/jwks.json') return json({ keys: [jwk] })
@@ -115,6 +116,7 @@ createServer(async (req, res) => {
   try {
     if (url.pathname.startsWith('/api/auth/')) response = await mockAuth(request, url.pathname.slice('/api/auth'.length))
     else if (url.pathname === '/api/sync' && req.method === 'POST') response = await sync.POST(request)
+    else if (url.pathname === '/api/connect' && req.method === 'POST') response = await connect.POST(request)
     else if (url.pathname === '/api/account' && req.method === 'POST') {
       response = await account.POST(request)
       // the real service removes the login with the data; the mock does too

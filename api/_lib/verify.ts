@@ -8,17 +8,32 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose'
 export interface Verifier {
   userIdFrom(request: Request): Promise<string | null>
   /** Like userIdFrom, but says why a token was refused (safe to show: no secrets). */
-  check(request: Request): Promise<{ userId: string } | { reason: string }>
+  check(request: Request): Promise<Caller | { reason: string }>
+}
+
+/** A verified caller: the user id, and the email the auth service vouches for (when the token carries it). */
+export interface Caller {
+  userId: string
+  email?: string
+  /** true only when the token says the email was confirmed */
+  emailVerified?: boolean
+  name?: string
 }
 
 export function makeVerifier(keys: JWTVerifyGetKey, issuer: string): Verifier {
-  const check = async (request: Request): Promise<{ userId: string } | { reason: string }> => {
+  const check = async (request: Request): Promise<Caller | { reason: string }> => {
     const header = request.headers.get('authorization') ?? ''
     const token = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
     if (!token) return { reason: 'no token was sent' }
     try {
       const { payload } = await jwtVerify(token, keys, { issuer, algorithms: ['EdDSA'] })
-      return typeof payload.sub === 'string' && payload.sub ? { userId: payload.sub } : { reason: 'token has no user id' }
+      if (typeof payload.sub !== 'string' || !payload.sub) return { reason: 'token has no user id' }
+      return {
+        userId: payload.sub,
+        email: typeof payload.email === 'string' ? payload.email : undefined,
+        emailVerified: payload.emailVerified === true || payload.email_verified === true,
+        name: typeof payload.name === 'string' ? payload.name : undefined,
+      }
     } catch (e) {
       // jose error codes: ERR_JWT_EXPIRED, ERR_JWT_CLAIM_VALIDATION_FAILED (issuer), ERR_JWKS_NO_MATCHING_KEY, ...
       const code = (e as { code?: string }).code ?? (e as Error).name
