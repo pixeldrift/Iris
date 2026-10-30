@@ -2,7 +2,7 @@ import { contactLink, detectContactIntent } from '../core/people'
 import { habitStreak } from '../core/tasks'
 import type { Task } from '../core/types'
 import { useStore } from '../state/store'
-import { IconBell, IconChat, IconList, IconMail, IconPhone, KindIcon } from './icons'
+import { IconBell, IconChat, IconMail, IconPhone, KindIcon } from './icons'
 import { DoneButton } from './shared'
 
 /**
@@ -19,12 +19,14 @@ export function BubbleChrome({ task, r: radius, minIcon = 46, minExtras = 0, flo
   const cb = Math.round(Math.max(r >= 44 ? 22 : 16, Math.min(28, r * 0.4)))
   const verb = detectContactIntent(task.title)?.verb
   const link = person && verb ? contactLink(verb, person) : null
+  // call / email / message: a little smaller than the checkbox
+  const link_d = Math.round(cb * 0.78)
   // the little extras, placed along the bottom arc either side of the checkbox (right first, then left, alternating)
   const extras: { key: string; w: number; node: React.ReactNode }[] = []
   if (link)
     extras.push({
       key: 'link',
-      w: cb,
+      w: link_d,
       node: (
         <a
           href={link.href}
@@ -33,9 +35,9 @@ export function BubbleChrome({ task, r: radius, minIcon = 46, minExtras = 0, flo
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           className="pop-in grid shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/40 transition hover:scale-110 hover:bg-lilac-600"
-          style={{ width: cb, height: cb }}
+          style={{ width: link_d, height: link_d }}
         >
-          {link.label === 'Email' ? <IconMail size={13} /> : link.label === 'Text' ? <IconChat size={13} /> : <IconPhone size={13} />}
+          {link.label === 'Email' ? <IconMail size={10} /> : link.label === 'Text' ? <IconChat size={10} /> : <IconPhone size={10} />}
         </a>
       ),
     })
@@ -49,7 +51,6 @@ export function BubbleChrome({ task, r: radius, minIcon = 46, minExtras = 0, flo
       w: 34,
       node: (
         <span title="List" className="flex items-center gap-0.5 text-[0.7rem] tabular-nums text-lilac-600">
-          <IconList size={14} />
           {task.listStyle === 'check' && task.items.length > 0 ? `${task.items.filter((i) => i.done).length}/${task.items.length}` : task.items.length || ''}
         </span>
       ),
@@ -58,7 +59,8 @@ export function BubbleChrome({ task, r: radius, minIcon = 46, minExtras = 0, flo
   const rho = 0.82 * r - cb / 2
   const reach = { 1: cb / 2 + 6, [-1]: cb / 2 + 6 } as Record<number, number>
   const arc = (radius >= minExtras ? extras : []).map((it, i) => {
-    const side = i % 2 === 0 ? 1 : -1
+    // call / email / message sit on the left; everything else alternates, starting on the right
+    const side = it.key === 'link' ? -1 : (link ? i - 1 : i) % 2 === 0 ? 1 : -1
     const dx = reach[side] + it.w / 2
     reach[side] += it.w + 6
     const d = Math.min(dx, rho * 0.97)
@@ -69,7 +71,7 @@ export function BubbleChrome({ task, r: radius, minIcon = 46, minExtras = 0, flo
   return (
     <span aria-hidden={false} className="pointer-events-none absolute inset-0" style={{ transform: `scale(calc(var(--r, ${radius}) / ${r}))` }}>
       {radius >= minIcon && (
-        <span title={task.kind} className="absolute left-1/2 top-[9%] -translate-x-1/2 text-lilac-600/70" aria-hidden>
+        <span title={task.kind} className="absolute left-1/2 top-[5.5%] -translate-x-1/2 text-lilac-600/70" aria-hidden>
           <KindIcon kind={task.kind} size={Math.round(Math.max(12, Math.min(16, r * 0.19)))} />
         </span>
       )}
