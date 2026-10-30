@@ -278,3 +278,9 @@ export const IconTask = (p: P) => (
 export function KindIcon({ kind, size = 14 }: { kind: string; size?: number }) {
   return kind === 'event' ? <IconCalendar size={size} /> : kind === 'habit' ? <IconRepeat size={size} /> : kind === 'list' ? <IconList size={size} /> : kind === 'idea' ? <IconThought size={size} /> : <IconTask size={size} />
 }
+
+export const IconChart = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 20V12M10 20V6M15 20v-9M20 20V9" />
+  </Svg>
+)

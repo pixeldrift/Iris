@@ -14,7 +14,7 @@ import { useFlip } from './flip'
 import { SPRING } from './lift'
 import { AccountRow } from './Account'
 import { Tip } from './Tip'
-import { IconAll, IconBoard, IconCalendar, IconInbox, IconBook, IconList, IconPlus, IconPond, IconPriority, IconTimeline } from './icons'
+import { IconAll, IconBoard, IconCalendar, IconChart, IconInbox, IconBook, IconList, IconPlus, IconPond, IconPriority, IconTimeline } from './icons'
 
 import { Gap, rowBase } from './sidebar/parts'
 import { ScopeRow, Section, weekMonths } from './sidebar/Section'
@@ -29,6 +29,7 @@ export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof Icon
   { id: 'priority', label: 'Priority', hint: 'Eisenhower', icon: IconPriority },
   { id: 'calendar', label: 'Calendar', hint: 'Schedule', icon: IconCalendar },
   { id: 'timeline', label: 'Timeline', hint: 'Gantt', icon: IconTimeline },
+  { id: 'reports', label: 'Reports', hint: 'Over time', icon: IconChart },
 ]
 
 
