@@ -572,4 +572,10 @@ describe('withoutFolder', () => {
     const k = withoutFolder(folders, tasks, 'mid', { groups: 'delete', items: 'keep' })
     expect(k.tasks.map((t) => t.folderIds)).toEqual([[], ['other'], ['top']])
   })
+  it('can move the items to another group instead', () => {
+    const folders = [f('top', null), f('mid', 'top'), f('dest', null)]
+    const tasks = [{ folderIds: ['mid'] }, { folderIds: ['mid', 'dest'] }, { folderIds: ['top'] }]
+    const r = withoutFolder(folders, tasks, 'mid', { groups: 'keep', items: 'move', moveTo: 'dest' })
+    expect(r.tasks.map((t) => t.folderIds)).toEqual([['dest'], ['dest'], ['top']])
+  })
 })

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useExit } from './anim'
 import { IconChevronDown } from './icons'
+import { MenuItem, Popover } from './Popover'
 import { SegmentedToggle } from './SegmentedToggle'
 
 interface ConfirmSpec {
@@ -11,7 +12,7 @@ interface ConfirmSpec {
   cancelLabel?: string
   danger?: boolean
   /** Extra choices tucked behind a twirl-down: each is a pick-one row, answered by option id. */
-  options?: { id: string; label: string; choices: { id: string; label: string }[]; value: string; hint?: string }[]
+  options?: { id: string; label: string; choices: { id: string; label: string }[]; value: string; hint?: string; pick?: { when: string; id: string; label: string; choices: { id: string; label: string }[] } }[]
 }
 
 interface DialogState {
@@ -107,6 +108,28 @@ export function Modal({
   )
 }
 
+/** A small drop-down: a field that opens a list under it. */
+function PickBox({ pick, value, onChange }: { pick: { label: string; choices: { id: string; label: string }[] }; value: string | undefined; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const btn = useRef<HTMLButtonElement>(null)
+  const chosen = pick.choices.find((c) => c.id === value)
+  return (
+    <div className="mt-1.5">
+      <button ref={btn} type="button" aria-haspopup="listbox" aria-expanded={open} aria-label={pick.label} onClick={() => setOpen((o) => !o)} className="well flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm text-ink">
+        <span className={chosen ? '' : 'text-ink-faint'}>{chosen?.label ?? pick.label}</span>
+        <span className="text-ink-faint">▾</span>
+      </button>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} matchAnchor className="max-h-56 p-1">
+        {pick.choices.map((c) => (
+          <MenuItem key={c.id} active={c.id === value} onClick={() => (onChange(c.id), setOpen(false))}>
+            {c.label}
+          </MenuItem>
+        ))}
+      </Popover>
+    </div>
+  )
+}
+
 export function DialogHost() {
   const { spec, open } = useDialog()
   const [more, setMore] = useState(false)
@@ -114,7 +137,7 @@ export function DialogHost() {
   useEffect(() => {
     if (open) {
       setMore(false)
-      setPicked(Object.fromEntries((spec?.options ?? []).map((o) => [o.id, o.value])))
+      setPicked(Object.fromEntries((spec?.options ?? []).flatMap((o) => [[o.id, o.value], ...(o.pick?.choices[0] ? [[o.pick.id, o.pick.choices[0].id]] : [])])))
     }
   }, [open, spec])
   const ref = useRef<HTMLButtonElement>(null)
@@ -125,7 +148,7 @@ export function DialogHost() {
   return (
     <Modal open={open} onClose={() => close(null)} label={spec.title}>
       <h3 className="font-display text-xl">{spec.title}</h3>
-      {spec.message && <p className="mt-1.5 text-sm text-ink-soft">{spec.message}</p>}
+      {spec.message && !more && <p className="mt-1.5 text-sm text-ink-soft">{spec.message}</p>}
       {spec.options && (
         <>
           <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} className="mt-2 flex items-center gap-1 rounded-full px-2 py-1 text-xs text-ink-soft transition hover:bg-white/60 hover:text-ink">
@@ -140,6 +163,7 @@ export function DialogHost() {
                 <div key={o.id}>
                   <div className="mb-1 text-xs font-medium text-ink-soft">{o.label}</div>
                   <SegmentedToggle label={o.label} options={o.choices} value={picked[o.id] ?? o.value} onChange={(v) => setPicked((p) => ({ ...p, [o.id]: v }))} />
+                  {o.pick && picked[o.id] === o.pick.when && <PickBox pick={o.pick} value={picked[o.pick.id]} onChange={(v) => setPicked((p) => ({ ...p, [o.pick!.id]: v }))} />}
                   {o.hint && <div className="mt-1 text-[0.7rem] text-ink-faint">{o.hint}</div>}
                 </div>
               ))}

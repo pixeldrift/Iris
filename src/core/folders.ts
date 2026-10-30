@@ -114,7 +114,9 @@ export interface DeleteChoices {
   /** what happens to the groups inside: lifted up to where this one was, or removed with it */
   groups: 'keep' | 'delete'
   /** what happens to items tagged with it: just untagged, or also deleted if that leaves them in no group */
-  items: 'keep' | 'delete'
+  items: 'keep' | 'delete' | 'move'
+  /** where the items go when `items` is 'move' */
+  moveTo?: string | null
 }
 
 /**
@@ -138,7 +140,8 @@ export function withoutFolder<T extends { folderIds: string[] }>(
       out.push(t)
       continue
     }
-    const left = t.folderIds.filter((f) => !gone.has(f))
+    let left = t.folderIds.filter((f) => !gone.has(f))
+    if (choices.items === 'move' && choices.moveTo && !gone.has(choices.moveTo) && !left.includes(choices.moveTo)) left = [...left, choices.moveTo]
     if (left.length === 0 && choices.items === 'delete') continue
     out.push({ ...t, folderIds: left })
   }

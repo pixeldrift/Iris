@@ -160,7 +160,7 @@ export function FolderNode(props: NodeProps) {
       icon: <IconTrash size={14} />,
       run: async () => {
         {
-          const choices = await confirmDeleteFolder(folder)
+          const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
           if (choices) deleteFolder(folder.id, choices)
         }
       },
