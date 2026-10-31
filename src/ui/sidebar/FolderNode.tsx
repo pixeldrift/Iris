@@ -197,7 +197,7 @@ export function FolderNode(props: NodeProps) {
               aria-expanded={options}
               className="grid h-6 w-6 place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
             >
-              <Flower hue={folder.hue} shape={folder.shape} size={16} className="[filter:saturate(0.62)_contrast(0.88)]" />
+              <Flower hue={folder.hue} shape={folder.shape} size={16} />
             </button>
           </Tip>
         </span>
