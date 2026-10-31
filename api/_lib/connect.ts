@@ -47,10 +47,30 @@ export function sharedView(details: Details, shares: readonly string[]): Details
 
 const trustEmail = () => process.env.IDENTITY_TRUST_EMAIL === '1'
 
+/**
+ * The caller's email and whether it is confirmed. The token is asked first; if it does not say (a Neon Auth token may
+ * not carry these), the auth service's own user table, which lives in this same database, is the source of truth.
+ */
+async function identityOf(db: Db, who: Caller): Promise<{ email: string; verified: boolean }> {
+  let email = who.email ? normEmail(who.email) : ''
+  let verified = who.emailVerified === true
+  if (!email || !verified) {
+    try {
+      const { rows } = await db.query<{ email: string | null; v: boolean | null }>('select email, "emailVerified" as v from neon_auth."user" where id::text = $1', [who.userId])
+      if (rows[0]) {
+        email = email || normEmail(rows[0].email ?? '')
+        verified = verified || rows[0].v === true
+      }
+    } catch {
+      /* no such table here (local development) */
+    }
+  }
+  return { email, verified: !!email && (verified || trustEmail()) }
+}
+
 /** Create or refresh the caller's profile from their verified token (the email always comes from the token, never the client). */
 export async function putProfile(db: Db, who: Caller, body: { details?: unknown; findable?: unknown } = {}) {
-  const email = who.email ? normEmail(who.email) : ''
-  const verified = !!email && (who.emailVerified === true || trustEmail())
+  const { email, verified } = await identityOf(db, who)
   const details = body.details === undefined ? null : cleanDetails(body.details)
   const findable = typeof body.findable === 'boolean' ? body.findable : null
   await db.query(

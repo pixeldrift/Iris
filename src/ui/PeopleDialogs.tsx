@@ -58,6 +58,7 @@ export function PersonDialog() {
   const connected = useConnect((s) => s.loaded)
   const findable = useConnect((s) => s.me?.findable ?? true)
   const myEmail = useConnect((s) => s.me?.email ?? '')
+  const myVerified = useConnect((s) => s.me?.verified ?? true)
   // what a connection keeps up to date for you can't be typed over
   const locked = (k: string) => !!existing?.link?.got.includes(k)
 
@@ -385,6 +386,11 @@ export function PersonDialog() {
               <span className="block text-xs text-ink-faint">They can send a request to connect. Nobody learns whether you use Lilac unless you accept. Your details are only shared when you say so.</span>
             </span>
           </label>
+        )}
+        {existing?.isMe && connected && !myVerified && (
+          <p role="status" className="rounded-xl bg-white/60 px-3 py-2 text-xs text-ink-soft">
+            Your email isn’t confirmed, so other people can’t find you yet and invitations to you won’t arrive. Once it’s confirmed, requests will start reaching you.
+          </p>
         )}
       </form>
     </Modal>
