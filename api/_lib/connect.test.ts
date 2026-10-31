@@ -26,10 +26,8 @@ describe('connections', () => {
     const unverified = await invite(db, ann, { email: 'cy@example.com', shares: ['name'] })
     expect(known).toEqual(unknown)
     expect(unverified).toEqual(unknown)
-    // …and nothing is shown to the sender beyond "pending"
-    const s = await connectState(db, ann)
-    expect(s.connections).toHaveLength(1)
-    expect(s.connections[0]).toMatchObject({ status: 'pending-out', userId: null, name: null, fields: {} })
+    // …and the sender's own state does not list the request, so even a matched one cannot be told apart
+    expect((await connectState(db, ann)).connections).toHaveLength(0)
   })
 
   it('only a verified address that has not hidden itself can be matched', async () => {
@@ -43,7 +41,7 @@ describe('connections', () => {
     const s = await connectState(db, bob)
     expect(s.unread).toBe(1)
     expect(s.connections[0]).toMatchObject({ status: 'pending-in', name: 'Ann Test', email: 'ann@example.com', fields: {} })
-    await respond(db, bob, { id: s.connections[0].id, action: 'accept', shares: ['name', 'phone'], personId: 'p-ann' })
+    await respond(db, bob, { id: s.connections[0].id, answer: 'accept', shares: ['name', 'phone'], personId: 'p-ann' })
     const a = await connectState(db, ann)
     const c = a.connections[0]
     expect(c).toMatchObject({ status: 'accepted', userId: 'bob', personId: 'p-bob', theirShares: ['name', 'phone'], myShares: ['name', 'email'] })
@@ -62,17 +60,17 @@ describe('connections', () => {
     expect((await connectState(db, ann)).connections[0].fields.birthday).toBe('1991-01-01')
   })
 
-  it('a declined or blocked request looks pending to the sender, and does not come back', async () => {
+  it('a declined or blocked request tells the sender nothing, and does not come back', async () => {
     await putProfile(db, { userId: 'eli', email: 'eli@example.com', emailVerified: true }, { details: details('Eli') })
     await invite(db, ann, { email: 'eli@example.com', shares: ['name'] })
     const eli = { userId: 'eli' }
     const req = (await connectState(db, eli)).connections[0]
-    await respond(db, eli, { id: req.id, action: 'block' })
+    await respond(db, eli, { id: req.id, answer: 'block' })
     expect((await connectState(db, eli)).connections).toHaveLength(0)
-    expect((await connectState(db, ann)).connections.find((c) => c.id === req.id)?.status).toBe('pending-out')
+    expect((await connectState(db, ann)).connections.find((c) => c.id === req.id)).toBeUndefined()
     await invite(db, ann, { email: 'eli@example.com', shares: ['name'] })
     expect((await connectState(db, eli)).notifications.filter((n) => n.kind === 'request')).toHaveLength(1)
-    await expect(respond(db, eli, { id: req.id, action: 'accept' })).rejects.toBeInstanceOf(BadRequest)
+    await expect(respond(db, eli, { id: req.id, answer: 'accept' })).rejects.toBeInstanceOf(BadRequest)
   })
 
   it('disconnecting ends it for both; deleting an account removes the connection', async () => {

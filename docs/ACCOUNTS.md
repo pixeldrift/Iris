@@ -55,6 +55,21 @@ that keeps that data in a Neon Postgres database so every device shows the same 
   removes it (anything of yours that still uses a demo group or person keeps it). The same content is the starting data.
 - Settings (sound, view options, sidebar layout) stay per-device for now.
 
+## Connections between people
+
+Signed-in people can link address-book entries (`api/connect.ts`, `api/_lib/connect.ts`, client in `src/sync/connect.ts`,
+dialogs in `src/ui/ConnectDialogs.tsx`). Adding someone with an email offers an invitation; the other person sees it under
+the bell in the account menu and chooses what to share; on accept each entry is filled from the other's shared details.
+Privacy: an invitation always looks the same to the sender, whether or not the address belongs to anyone; only a *verified*
+email is matched (by a keyed hash), people can switch "findable" off in My Profile, requests are rate-limited, and the
+server filters what each side receives by the fields they chose to share. Deleting an account removes its connections; the
+other side's entry stays as an ordinary contact.
+
+**To switch it on:** re-run `db/schema.sql` (new tables `profiles`, `connections`, `notifications`, `invite_attempts`), and
+set `IDENTITY_SECRET` (any long random string) on the server. The caller's email comes from the Neon Auth JWT; a request is
+only matchable when the token says the email is verified. If your Neon Auth tokens do not carry that claim, matching
+stays off; set `IDENTITY_TRUST_EMAIL=1` to match on unverified emails while testing.
+
 ## One-time setup
 
 1. In the Neon project, turn on **Auth** (done) and copy its **Auth URL**. Add your site's address

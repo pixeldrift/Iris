@@ -91,8 +91,8 @@ interface ConnRow {
 
 export type ConnectionView = {
   id: string
-  /** pending-out: you asked and nothing is known yet (a declined or blocked request looks the same); pending-in: they asked you */
-  status: 'pending-out' | 'pending-in' | 'accepted' | 'ended'
+  /** pending-in: they asked you. (A request you sent is never listed: its existence would reveal that the address matched.) */
+  status: 'pending-in' | 'accepted' | 'ended'
   userId: string | null
   name: string | null
   email: string | null
@@ -120,9 +120,8 @@ export async function connectState(db: Db, who: Caller) {
     if (r.status === 'accepted')
       connections.push({ ...base, status: 'accepted', userId: otherId, name: displayName(other), email: theirs.includes('email') ? other?.email ?? null : null, fields: sharedView(other?.details ?? {}, theirs) })
     else if (r.status === 'ended') connections.push({ ...base, status: 'ended', userId: otherId, name: null, email: null, fields: {} })
-    else if (iAmA) connections.push({ ...base, status: 'pending-out', userId: null, name: null, email: null, fields: {} })
-    else if (r.status === 'pending') connections.push({ ...base, status: 'pending-in', userId: otherId, name: displayName(other), email: other?.email ?? null, fields: {} })
-    // declined or blocked requests are simply not shown to the person who was asked
+    else if (!iAmA && r.status === 'pending') connections.push({ ...base, status: 'pending-in', userId: otherId, name: displayName(other), email: other?.email ?? null, fields: {} })
+    // a request you sent that is not yet accepted, and any declined or blocked request, is not shown at all
   }
   const notes = await db.query<{ id: string; kind: string; connection_id: string | null; from_user: string | null; read: boolean; created_at: string }>(
     'select id, kind, connection_id, from_user, read, created_at from notifications where user_id = $1 order by created_at desc limit 40',
@@ -167,16 +166,16 @@ export async function invite(db: Db, who: Caller, body: { email?: unknown; perso
 }
 
 /** Answer a request someone sent you: accept (choosing what you share back), decline, or block. */
-export async function respond(db: Db, who: Caller, body: { id?: unknown; action?: unknown; shares?: unknown; personId?: unknown }) {
+export async function respond(db: Db, who: Caller, body: { id?: unknown; answer?: unknown; shares?: unknown; personId?: unknown }) {
   const { rows } = await db.query<ConnRow>("select * from connections where id = $1 and b_user = $2 and status = 'pending'", [String(body.id ?? ''), who.userId])
   const r = rows[0]
   if (!r) throw new BadRequest('That request is no longer waiting.')
   await putProfile(db, who)
-  if (body.action === 'accept') {
+  if (body.answer === 'accept') {
     await db.query("update connections set status = 'accepted', b_shares = $2, b_person_id = $3, updated_at = now() where id = $1", [r.id, cleanShares(body.shares), typeof body.personId === 'string' ? body.personId : null])
     await note(db, r.a_user, 'accepted', r.id, who.userId)
-  } else if (body.action === 'block' || body.action === 'decline') {
-    await db.query('update connections set status = $2, updated_at = now() where id = $1', [r.id, body.action === 'block' ? 'blocked' : 'declined'])
+  } else if (body.answer === 'block' || body.answer === 'decline') {
+    await db.query('update connections set status = $2, updated_at = now() where id = $1', [r.id, body.answer === 'block' ? 'blocked' : 'declined'])
   } else throw new BadRequest('Unknown answer.')
   await db.query("update notifications set read = true where user_id = $1 and connection_id = $2 and kind = 'request'", [who.userId, r.id])
   return { ok: true }

@@ -26,6 +26,8 @@ await db.exec(readFileSync(new URL('../db/schema.sql', import.meta.url), 'utf8')
 const { publicKey, privateKey } = await generateKeyPair('EdDSA', { extractable: true })
 const jwk = { ...(await exportJWK(publicKey)), kid: 'dev', alg: 'EdDSA', use: 'sig' }
 
+// the in-memory database serves one connection at a time
+process.env.PG_POOL_MAX ??= '1'
 process.env.DATABASE_URL ??= `postgres://postgres:postgres@127.0.0.1:${PG_PORT}/postgres`
 process.env.NEON_AUTH_BASE_URL ??= `${APP}/api/auth`
 process.env.NEON_AUTH_JWKS_URL ??= `http://localhost:${PORT}/api/auth/.well-known/jwks.json`

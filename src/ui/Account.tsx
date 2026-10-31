@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { accountsConfigured, authClient } from '../sync/auth'
+import { startConnect, useConnect } from '../sync/connect'
 import { forgetAccountData, startSync, syncNow, useSync } from '../sync/engine'
+import { ConnectHost, openNotices } from './ConnectDialogs'
 import { askConfirm, Modal } from './dialogs'
-import { IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
+import { IconBell, IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
 import { openPerson } from './PeopleDialogs'
 import { Popover } from './Popover'
 import { openSettings } from './SettingsDialog'
@@ -27,7 +29,14 @@ function AccountSync() {
     if (data?.user) ensureMe({ id: data.user.id, name: data.user.name, email: data.user.email })
   }, [data?.user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => (userId ? startSync(userId) : undefined), [userId])
-  return <AuthDialog />
+  // connections: requests and acceptances arrive on a regular check, and your own details are offered to your connections
+  useEffect(() => (userId ? startConnect() : undefined), [userId])
+  return (
+    <>
+      <AuthDialog />
+      <ConnectHost />
+    </>
+  )
 }
 
 const field = 'well w-full rounded-xl px-3 py-2 text-sm'
@@ -127,6 +136,7 @@ export function AccountRow() {
 function AccountMenu() {
   const { data } = authClient.useSession()
   const sync = useSync()
+  const unread = useConnect((s) => s.connections.filter((c) => c.status === 'pending-in').length + s.notices.filter((n) => !n.read && n.kind === 'accepted').length)
   const people = useStore((s) => s.people)
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
@@ -155,10 +165,15 @@ function AccountMenu() {
         onClick={() => setMenu((m) => !m)}
         aria-haspopup="menu"
         aria-expanded={menu}
-        aria-label={`Account: ${data.user.name || data.user.email}. ${status}`}
+        aria-label={`Account: ${data.user.name || data.user.email}. ${status}${unread ? `. ${unread} to look at` : ''}`}
         className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
       >
         {initial}
+        {unread > 0 && (
+          <span aria-hidden className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#c4577e] px-1 text-[0.6rem] font-semibold leading-none text-white ring-2 ring-white/80">
+            {unread}
+          </span>
+        )}
         <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white/80 ${dot}`} />
       </button>
       <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-60 p-1.5">
@@ -195,6 +210,16 @@ function AccountMenu() {
           }}
         >
           <IconPerson size={16} /> My Profile
+        </button>
+        <button
+          className={item}
+          onClick={() => {
+            setMenu(false)
+            openNotices()
+          }}
+        >
+          <IconBell size={16} /> Notifications
+          {unread > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#c4577e] px-1.5 text-[0.65rem] font-semibold text-white">{unread}</span>}
         </button>
         <button
           className={item}

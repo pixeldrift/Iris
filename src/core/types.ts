@@ -144,6 +144,13 @@ export interface Person {
   extras?: PersonExtra[]
   /** `YYYY-MM-DD`. */
   birthday?: string | null
+  /**
+   * Set when this entry is connected to someone who uses Lilac: `got` lists the fields they share and keep up to date.
+   * An entry with no `link` is one you keep yourself.
+   */
+  link?: { userId: string; got: string[] }
+  /** The email you last offered an invitation to connect to (so it is not asked again for the same address). */
+  invited?: string
   createdAt: number
 }
 

@@ -18,8 +18,8 @@ export default defineConfig({
   retries: 1,
   reporter: process.env.CI ? 'github' : 'list',
   projects: [
-    { name: 'app', testIgnore: /accounts\.spec\.ts/, use: { ...devices['Desktop Chrome'], ...use, baseURL: 'http://localhost:4173', viewport: { width: 1200, height: 900 } } },
-    { name: 'accounts', testMatch: /accounts\.spec\.ts/, fullyParallel: false, use: { ...devices['Desktop Chrome'], ...use, baseURL: 'http://localhost:5173', viewport: { width: 1200, height: 900 } } },
+    { name: 'app', testIgnore: /(accounts|connections)\.spec\.ts/, use: { ...devices['Desktop Chrome'], ...use, baseURL: 'http://localhost:4173', viewport: { width: 1200, height: 900 } } },
+    { name: 'accounts', testMatch: /(accounts|connections)\.spec\.ts/, fullyParallel: false, use: { ...devices['Desktop Chrome'], ...use, baseURL: 'http://localhost:5173', viewport: { width: 1200, height: 900 } } },
   ],
   webServer: [
     { command: 'npm run build && npx vite preview --port 4173 --strictPort', url: 'http://localhost:4173', reuseExistingServer: true, timeout: 180_000 },
