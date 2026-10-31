@@ -446,7 +446,7 @@ body.scrubbing .glow-breathe {
 :root {
   --safe-l: 0px;
   --safe-r: 0px;
-  --sliver: 1.6rem;
+  --sliver: 1.2rem;
   /* the column of title and buttons down the right-hand side of a phone turned sideways */
   --rail: 3rem;
 }

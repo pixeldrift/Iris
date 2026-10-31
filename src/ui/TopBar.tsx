@@ -180,6 +180,8 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       <UndoRedo />
     </>
   )
+  // the line under the title, as plain text (the title bar's own version has links in it)
+  const railSub = scope.type === 'contacts' ? sub : `${scope.type === 'folder' ? pathOf(folders, scope.id).map((f) => f.name).join(' › ') : title}${sub ? ` · ${sub}` : ''}`
   const heading = scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label
 
   // turned sideways: the title and the buttons run down the right-hand side, and the content takes the full height
@@ -192,10 +194,12 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             {gather('no-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto')}
           </div>
         )}
-        <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center gap-3 py-3" style={{ width: 'var(--rail)' }}>
-          <h2 className="pointer-events-auto min-h-0 max-h-[60%] truncate font-display text-xl leading-none" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-            {heading}
-          </h2>
+        <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" style={{ width: 'var(--rail)', paddingTop: '2.75rem', paddingBottom: '1.5rem' }}>
+          {/* turned clockwise, like the title on a book's spine; started well down so the curve of the screen's corner never clips it */}
+          <div className="pointer-events-auto flex min-h-0 max-h-[62%] gap-1 overflow-hidden" style={{ writingMode: 'vertical-rl' }}>
+            <h2 className="truncate font-display text-xl leading-tight">{heading}</h2>
+            {railSub && <p className="truncate text-[0.7rem] leading-snug text-ink-soft">{railSub}</p>}
+          </div>
           <div className="pointer-events-auto mt-auto flex flex-col items-center gap-2">
             {tools}
             {newBtn}
