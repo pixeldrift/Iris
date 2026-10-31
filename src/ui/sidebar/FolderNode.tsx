@@ -232,6 +232,8 @@ export function FolderNode(props: NodeProps) {
             {folder.name}
           </span>
         )}
+        {/* the name takes what it needs; the disclosure floats right, just before the count, so every level's sit in one column */}
+        {editing !== folder.id && <span aria-hidden className="min-w-0 flex-1" />}
         {kids.length > 0 && editing !== folder.id && (
           <button
             onPointerDown={(e) => e.stopPropagation()}
