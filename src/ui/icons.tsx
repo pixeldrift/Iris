@@ -284,3 +284,11 @@ export const IconChart = (p: P) => (
     <path d="M5 20V12M10 20V6M15 20v-9M20 20V9" />
   </Svg>
 )
+
+/** Two chain links: an address-book entry that is connected to someone's own account. */
+export const IconLink = (p: P) => (
+  <Svg {...p}>
+    <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+    <path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1" />
+  </Svg>
+)

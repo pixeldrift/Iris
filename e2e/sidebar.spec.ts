@@ -8,7 +8,7 @@ test.describe('the sidebar', () => {
 
   test('the count bubble opens add / rename / delete, and rename can be undone', async ({ page }) => {
     const row = page.locator('[data-folder-row]').first()
-    await row.locator('button[aria-haspopup=menu]').hover()
+    await row.locator('button[aria-haspopup=menu]').click()
     await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Rename' }).click()
     await page.keyboard.type('Zed')

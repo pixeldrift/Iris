@@ -8,6 +8,11 @@ import type { Db } from './db.js'
  */
 export async function deleteAccount(db: Db, userId: string): Promise<{ authRemoved: boolean }> {
   await db.query('delete from devices where user_id = $1', [userId])
+  // their connections go with them; the other side's address-book entry stays, as a plain contact
+  await db.query('delete from connections where a_user = $1 or b_user = $1', [userId])
+  await db.query('delete from notifications where user_id = $1 or from_user = $1', [userId])
+  await db.query('delete from invite_attempts where user_id = $1', [userId])
+  await db.query('delete from profiles where user_id = $1', [userId])
   await db.query('delete from workspace_members where user_id = $1', [userId])
   // entities go with their workspace (on delete cascade)
   await db.query('delete from workspaces where id = $1 and personal = true', [userId])

@@ -85,3 +85,64 @@ create table if not exists devices (
 );
 
 -- Later: web push / APNs device tokens for reminders when the app is closed; invitations for workspaces.
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- Connections: people who use Lilac linking their address-book entries, each choosing what to share.
+--
+-- Privacy rules the code relies on:
+--   * Nobody can learn whether an email belongs to a Lilac user. An invitation always looks the same to the sender;
+--     only an accepted one ever shows anything. Declined and blocked requests look like pending ones.
+--   * Only a *verified* email can be matched, and a person can switch "findable" off.
+--   * Emails are matched by a keyed hash (email_hash), not looked up in plain text.
+--   * What the other side sees is filtered on the server by the fields each person chose to share.
+
+create table if not exists profiles (
+  user_id     text primary key,
+  email       text not null default '',
+  email_hash  text not null default '',
+  verified    boolean not null default false,
+  -- "Let people who have my email find me": off means invitations to this address never reach them
+  findable    boolean not null default true,
+  -- the details this person can offer: first, last, phone, email, address (+ street, city, state, zip), birthday
+  details     jsonb not null default '{}'::jsonb,
+  updated_at  timestamptz not null default now()
+);
+create index if not exists profiles_email_hash_idx on profiles (email_hash);
+
+create table if not exists connections (
+  id           text primary key,
+  -- a asked, b was asked
+  a_user       text not null,
+  b_user       text not null,
+  -- pending | accepted | declined | blocked | ended
+  status       text not null default 'pending',
+  ended_by     text,
+  a_shares     text[] not null default '{}',
+  b_shares     text[] not null default '{}',
+  -- the address-book entry on each side that this connection fills in
+  a_person_id  text,
+  b_person_id  text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique (a_user, b_user)
+);
+create index if not exists connections_b_idx on connections (b_user);
+
+create table if not exists notifications (
+  id             text primary key,
+  user_id        text not null,
+  -- request | accepted
+  kind           text not null,
+  connection_id  text,
+  from_user      text,
+  read           boolean not null default false,
+  created_at     timestamptz not null default now()
+);
+create index if not exists notifications_user_idx on notifications (user_id, created_at desc);
+
+-- every invitation attempt, matched or not, so asking about many addresses can be slowed down
+create table if not exists invite_attempts (
+  user_id  text not null,
+  at       timestamptz not null default now()
+);
+create index if not exists invite_attempts_idx on invite_attempts (user_id, at);

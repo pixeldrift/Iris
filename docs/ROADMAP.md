@@ -1,6 +1,22 @@
 # Lilac roadmap
 
 ## Near term
+- **Connections. (First version built.)** People who use Lilac can link their address-book entries so details fill in and
+  stay current without re-typing. Adding someone with an email offers "Send an invitation to connect?"; the other person
+  gets a notification (the bell in the user menu, with a badge), chooses what to share, and when they accept each side's
+  entry is filled from the other's shared details. Design rules (see `api/_lib/connect.ts`):
+  - *Nobody can learn who is on Lilac.* An invitation always looks the same to the sender whether or not the address
+    matches; only an accepted request ever shows anything. Declined and blocked requests look pending to the sender.
+  - Only a *verified* email can be matched (by a keyed hash, `IDENTITY_SECRET`), and "Let people who have my email find me"
+    can be switched off. Invitations are rate-limited (25 a day).
+  - What the other side receives is filtered on the server by the fields each person chose to share (name, phone, email,
+    address, birthday); a change in sharing or in someone's own details flows through on the next check.
+  - A linked entry fills the *same* address-book entry that started the invitation (or an existing one with that email),
+    so no duplicates appear. Unlinking (they disconnect, or you do) removes only what they had shared; if their account is
+    deleted the entry stays as an ordinary contact of yours with what you had.
+  - Still to do: email invitations to people who are not on Lilac yet (needs an email provider), phone matching (needs
+    SMS verification), photos, sharing a group or a task with a connection (the workspace groundwork in `ACCOUNTS.md`), and
+    push for new requests (they arrive on the app's regular check for now).
 - **Overview. (First version shipped.)** An Overview view: items finished per day, week or month as a bar chart, summary
   tiles, streaks for every repeating item or habit (current run, best run, the last two weeks as dots), and where the
   effort went by group; it follows the sidebar's group or person filter. Built on `src/core/overview.ts` (pure, tested).

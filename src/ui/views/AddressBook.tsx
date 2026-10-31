@@ -3,7 +3,7 @@ import { formatDate } from '../../core/locale'
 import { tint } from '../../core/color'
 import { fuzzyScore } from '../../core/fuzzy'
 import { useStore } from '../../state/store'
-import { IconHeart, IconPlus } from '../icons'
+import { IconHeart, IconLink, IconPlus } from '../icons'
 import { openPerson } from '../PeopleDialogs'
 import { allCategories } from '../../core/people'
 import { CountBubble } from '../shared'
@@ -78,6 +78,11 @@ export function AddressBook() {
                     <span className="min-w-0">
                       <span className="block truncate text-[0.95rem]">
                         {p.name}
+                        {p.link && (
+                          <span className="ml-1.5 inline-block align-middle text-lilac-500" title="Connected: kept up to date by them" role="img" aria-label="Connected">
+                            <IconLink size={13} />
+                          </span>
+                        )}
                         {p.isMe && <span className="ml-1.5 rounded-full bg-lilac-100 px-1.5 py-0.5 align-middle text-[0.62rem] font-medium text-lilac-700">Me</span>}
                       </span>
                       <span className="block truncate text-xs text-ink-soft">{[...(p.categories ?? []), p.phone, p.email, p.birthday ? `Birthday ${formatDate(p.birthday)}` : ''].filter(Boolean).join(' · ') || 'No details yet'}</span>

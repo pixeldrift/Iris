@@ -4,6 +4,7 @@ import { plannedDate } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { BubbleChrome } from '../BubbleChrome'
+import { TitleFit } from '../TitleFit'
 import { DueChip } from '../shared'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass } from '../useVisible'
@@ -103,9 +104,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
               } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
               style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
             >
-              <span className={`line-clamp-2 break-words font-display leading-[1.15] ${done ? 'line-through decoration-lilac-300' : ''}`} style={{ fontSize: font, textShadow: '0 0 3px rgba(255,255,255,0.95), 0 0 7px rgba(255,255,255,0.7)' }}>
-                {task.title || 'Untitled'}
-              </span>
+              <TitleFit text={task.title || 'Untitled'} font={`${font}px`} lineHeight={1.15} done={done} watch={r} />
               {r >= 58 && plannedDate(task) && (
                 <span className="mt-1 scale-90">
                   <DueChip task={task} compact />

@@ -6,7 +6,9 @@ import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
 import type { PersonExtra } from '../core/types'
 import { DatePicker } from './DatePicker'
-import { IconChevronDown, IconClose, IconHeart, IconPlus } from './icons'
+import { IconChevronDown, IconClose, IconHeart, IconLink, IconPencil, IconPlus } from './icons'
+import { disconnectFrom, setFindable, useConnect } from '../sync/connect'
+import { openInvite, openShares } from './ConnectDialogs'
 import { allCategories, composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
 import { lookupCity, lookupZip } from './geo'
 import { canPickContacts, pickContact } from './contacts'
@@ -53,6 +55,11 @@ export function PersonDialog() {
   const [zips, setZips] = useState<string[]>([]) // ZIPs for a typed city, when there is more than one
   const [note, setNote] = useState('')
   const favorites = people.filter((p) => p.favorite && !p.isMe).length
+  const connected = useConnect((s) => s.loaded)
+  const findable = useConnect((s) => s.me?.findable ?? true)
+  const myEmail = useConnect((s) => s.me?.email ?? '')
+  // what a connection keeps up to date for you can't be typed over
+  const locked = (k: string) => !!existing?.link?.got.includes(k)
 
   useEffect(() => {
     if (!open) return
@@ -132,8 +139,10 @@ export function PersonDialog() {
       <button
         type="button"
         onClick={async () => {
-          if (await askConfirm({ title: `Remove ${existing.name}?`, message: 'They’ll be untagged from tasks. The tasks stay.', confirmLabel: 'Remove', danger: true })) {
+          if (await askConfirm({ title: `Remove ${existing.name}?`, message: existing.link ? 'They’ll be untagged from tasks, and your connection ends. The tasks stay.' : 'They’ll be untagged from tasks. The tasks stay.', confirmLabel: 'Remove', danger: true })) {
             closePerson()
+            const live = existing.link ? useConnect.getState().connections.find((c) => c.userId === existing.link!.userId && c.status === 'accepted') : undefined
+            if (live) void disconnectFrom(live.id).catch(() => undefined)
             del(existing.id)
           }
         }}
@@ -159,6 +168,10 @@ export function PersonDialog() {
           const pid = save({ ...f, extras: f.extras.filter((x) => x.value.trim()), name, ...parts, address: composeAddress(parts), ...(existing ? { id: existing.id } : {}) })
           closePerson()
           onSaved?.(pid)
+          // a new address that could belong to someone on Lilac: offer to connect (once per address)
+          const saved = useStore.getState().people.find((p) => p.id === pid)
+          const mail = saved?.email.trim().toLowerCase() ?? ''
+          if (connected && saved && !saved.isMe && !saved.link && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail) && saved.invited !== mail && mail !== myEmail.toLowerCase()) openInvite(saved)
         }}
         className="space-y-3"
       >
@@ -184,6 +197,32 @@ export function PersonDialog() {
             </button>
           )}
         </div>
+        {existing && !existing.isMe && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {existing.link ? (
+              <>
+                <span className="flex items-center gap-1.5 rounded-full bg-lilac-100 px-2.5 py-1 text-lilac-700" title="Their details are kept up to date by their own account">
+                  <IconLink size={13} /> Connected
+                </span>
+                <span className="text-ink-faint">{existing.link.got.length ? 'Kept up to date by them' : 'They aren’t sharing any details yet'}</span>
+                <button type="button" onClick={() => openShares(existing)} className="rounded-full px-2.5 py-1 text-lilac-700 transition hover:bg-lilac-100/80">
+                  What I share…
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-1 text-ink-soft" title="You keep this entry yourself">
+                  <IconPencil size={13} /> Added by you
+                </span>
+                {connected && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(existing.email.trim()) && existing.email.trim().toLowerCase() !== myEmail.toLowerCase() && (
+                  <button type="button" onClick={() => openInvite(existing)} className="rounded-full px-2.5 py-1 text-lilac-700 transition hover:bg-lilac-100/80">
+                    Invite to connect
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           {canPickContacts() && (
             <button type="button" onClick={async () => fill(await pickContact())} className="rounded-full bg-lilac-100 px-3.5 py-1.5 text-xs text-lilac-700 transition hover:bg-lilac-200">
@@ -192,12 +231,12 @@ export function PersonDialog() {
           )}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input className={field} placeholder="First name" aria-label="First name" autoComplete="given-name" value={f.first} onChange={set('first')} autoFocus={!existing} />
-          <input className={field} placeholder="Last name" aria-label="Last name" autoComplete="family-name" value={f.last} onChange={set('last')} />
+          <input className={`${field} disabled:opacity-60`} placeholder="First name" aria-label="First name" autoComplete="given-name" value={f.first} onChange={set('first')} autoFocus={!existing} disabled={locked('name')} />
+          <input className={`${field} disabled:opacity-60`} placeholder="Last name" aria-label="Last name" autoComplete="family-name" value={f.last} onChange={set('last')} disabled={locked('name')} />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input className={field} placeholder="Phone" inputMode="tel" value={f.phone} onChange={set('phone')} onBlur={() => setF((p) => ({ ...p, phone: formatPhone(p.phone) }))} />
-          <input className={field} placeholder="Email" inputMode="email" value={f.email} onChange={set('email')} />
+          <input className={`${field} disabled:opacity-60`} disabled={locked('phone')} placeholder="Phone" inputMode="tel" value={f.phone} onChange={set('phone')} onBlur={() => setF((p) => ({ ...p, phone: formatPhone(p.phone) }))} />
+          <input className={`${field} disabled:opacity-60`} disabled={locked('email')} placeholder="Email" inputMode="email" value={f.email} onChange={set('email')} />
         </div>
         {/* any number of further numbers, emails, addresses…, each with a label of its own */}
         {f.extras.map((x) => {
@@ -338,6 +377,15 @@ export function PersonDialog() {
         )}
         <textarea className={`${field} resize-none`} rows={2} placeholder="Notes" value={f.notes} onChange={set('notes')} />
         {existing?.isMe && <p className="text-xs text-ink-faint">Appears in address book</p>}
+        {existing?.isMe && connected && (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl px-1 py-1 text-sm">
+            <input type="checkbox" checked={findable} onChange={(e) => void setFindable(e.target.checked).catch(() => showToast('Couldn’t change that. Try again.'))} className="mt-0.5 h-4 w-4 accent-[var(--color-lilac-500)]" />
+            <span>
+              Let people who have my email find me
+              <span className="block text-xs text-ink-faint">They can send a request to connect. Nobody learns whether you use Lilac unless you accept. Your details are only shared when you say so.</span>
+            </span>
+          </label>
+        )}
       </form>
     </Modal>
   )
