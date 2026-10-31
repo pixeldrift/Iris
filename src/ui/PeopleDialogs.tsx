@@ -7,6 +7,7 @@ import { askConfirm, Modal } from './dialogs'
 import type { PersonExtra } from '../core/types'
 import { DatePicker } from './DatePicker'
 import { IconChevronDown, IconClose, IconHeart, IconLink, IconPencil, IconPlus } from './icons'
+import { authClient } from '../sync/auth'
 import { disconnectFrom, setFindable, useConnect } from '../sync/connect'
 import { openInvite, openShares } from './ConnectDialogs'
 import { allCategories, composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
@@ -390,6 +391,16 @@ export function PersonDialog() {
         {existing?.isMe && connected && !myVerified && (
           <p role="status" className="rounded-xl bg-white/60 px-3 py-2 text-xs text-ink-soft">
             Your email isn’t confirmed, so other people can’t find you yet and invitations to you won’t arrive. Once it’s confirmed, requests will start reaching you.
+            <button
+              type="button"
+              className="ml-1 text-lilac-700 underline-offset-2 hover:underline"
+              onClick={async () => {
+                const r = await authClient.sendVerificationEmail({ email: myEmail, callbackURL: window.location.origin }).catch(() => ({ error: true }))
+                showToast(r && 'error' in r && r.error ? 'Couldn’t send that. Try again in a moment.' : `Confirmation link sent to ${myEmail}`)
+              }}
+            >
+              Send me the confirmation link
+            </button>
           </p>
         )}
       </form>
