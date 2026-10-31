@@ -85,4 +85,24 @@ test.describe('a phone turned sideways', () => {
       expect(Math.abs((await main.boundingBox())!.width - m1!.width)).toBeLessThan(2)
     }).toPass()
   })
+
+  test('a notch on either side keeps the menu, the content and dialogs clear of it', async ({ page }) => {
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 59, right: 0, top: 0, bottom: 21 } })
+    await open(page)
+    expect((await page.locator('aside').boundingBox())!.x).toBeGreaterThanOrEqual(59)
+    await page.getByRole('button', { name: 'Hide the menu' }).click()
+    await expect(async () => expect((await page.getByRole('button', { name: 'Menu', exact: true }).boundingBox())!.x).toBeGreaterThanOrEqual(59)).toPass()
+    // the other way round: the right edge of the content stops short of the notch
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 0, right: 59, top: 0, bottom: 21 } })
+    await expect(async () => {
+      const m = (await page.locator('main').boundingBox())!
+      expect(m.x + m.width).toBeLessThanOrEqual(844 - 59 + 1)
+    }).toPass()
+    // a dialog keeps its distance too
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await page.getByRole('button', { name: 'My settings' }).first().click()
+    const d = (await page.getByRole('dialog').boundingBox())!
+    expect(d.x + d.width).toBeLessThanOrEqual(844 - 59 + 1)
+  })
 })
