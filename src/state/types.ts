@@ -47,6 +47,9 @@ export interface UiSlice {
   settings: Settings
   selectedId: string | null
   sidebarOpen: boolean
+  /** On a phone turned sideways the menu is folded away (it shares the screen with the content rather than sliding over it). */
+  navHidden: boolean
+  setNavHidden: (hidden: boolean) => void
   /** Not persisted: ids mid exit-animation. */
   removing: Record<string, true>
   lingering: Record<string, true>

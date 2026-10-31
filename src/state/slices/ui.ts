@@ -8,6 +8,7 @@ export const createUiSlice = (set: SetState, get: GetState): UiSlice => ({
       settings: DEFAULT_SETTINGS,
       selectedId: null,
       sidebarOpen: false,
+      navHidden: false,
       removing: {},
       lingering: {},
       sidebar: { order: [...SECTION_IDS], collapsed: [] },
@@ -18,6 +19,7 @@ export const createUiSlice = (set: SetState, get: GetState): UiSlice => ({
       setView: (view) => set({ view, sidebarOpen: false }),
       select: (selectedId) => set({ selectedId }),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
+      setNavHidden: (navHidden) => set({ navHidden }),
       search: '',
       setSearch: (search) => set({ search }),
       setSetting: (k, v) => {

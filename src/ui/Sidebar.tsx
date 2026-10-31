@@ -8,7 +8,7 @@ import { useStore } from '../state/store'
 import { useDnd, useDropTarget } from './dnd'
 import { Logo } from './Decor'
 import { openPerson } from './PeopleDialogs'
-import { useIsMobile } from './useMedia'
+import { useIsMobile, useLandscapePhone } from './useMedia'
 import { ScrollFade } from './ScrollFade'
 import { useFlip } from './flip'
 import { SPRING } from './lift'
@@ -68,7 +68,11 @@ export function Sidebar() {
   const topSlot = useFolderSlot((st) => (st.slot?.kind === 'slot' && st.slot.afterId === null ? st.slot : null))
 
   // Dragging a bubble onto the left edge pulls the drawer open under it, so it can be dropped into a folder.
-  const mobile = useIsMobile()
+  // a phone turned sideways keeps the menu beside the content, and lets it be folded away by tapping the title
+  const land = useLandscapePhone()
+  const navHidden = useStore((s) => s.navHidden)
+  const setNavHidden = useStore((s) => s.setNavHidden)
+  const mobile = useIsMobile() && !land
   // The sliver is a drop zone and a grab handle for opening the drawer, in every view.
   const sliver = mobile
   const dragX = useDnd((st) => (st.drag?.payload.type === 'task' ? st.drag.x : null))
@@ -252,18 +256,35 @@ export function Sidebar() {
 
   return (
     <>
-      {open && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
+      {open && !land && <div className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px] md:hidden" onClick={() => setSidebar(false)} />}
       <aside
         ref={asideRef}
-        className={`glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
-          open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
-        } ${swipe !== null ? '!transition-none' : ''}`}
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          transitionTimingFunction: SPRING,
-          ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + 1.15rem + ${swipe}px) 0` } : {}),
-          ...(mobile ? { touchAction: 'pan-y' } : {}),
-        }}
+        className={
+          land
+            ? 'glass relative z-10 my-3 flex shrink-0 flex-col overflow-hidden rounded-3xl'
+            : `glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
+                open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
+              } ${swipe !== null ? '!transition-none' : ''}`
+        }
+        style={
+          land
+            ? {
+                // beside the content: folding it away gives the width back to the content
+                width: navHidden ? 0 : '16rem',
+                marginLeft: navHidden ? 0 : '0.75rem',
+                borderWidth: navHidden ? 0 : undefined,
+                opacity: navHidden ? 0 : 1,
+                boxShadow: navHidden ? 'none' : undefined,
+                visibility: navHidden ? 'hidden' : 'visible',
+                transition: `width 0.3s ${SPRING}, margin 0.3s ${SPRING}, opacity 0.2s, visibility 0s linear ${navHidden ? '0.3s' : '0s'}`,
+              }
+            : {
+                paddingTop: 'env(safe-area-inset-top)',
+                transitionTimingFunction: SPRING,
+                ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + 1.15rem + ${swipe}px) 0` } : {}),
+                ...(mobile ? { touchAction: 'pan-y' } : {}),
+              }
+        }
         {...(open ? swipeProps : {})}
       >
         {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
@@ -280,13 +301,22 @@ export function Sidebar() {
           />
         )}
         <div
-          inert={mobile && !open}
+          inert={(mobile && !open) || (land && navHidden)}
           className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}
           style={progress !== null ? { opacity: Math.min(1, Math.max(0, progress)), transition: 'none' } : undefined}
         >
         <div className="flex items-center gap-2.5 px-[calc(0.8rem+var(--sb)*0.5rem)] pb-[calc(var(--sb)*0.25rem)] pt-[calc(0.6rem+var(--sb)*1rem)]">
-          <Logo />
-          <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
+          {land ? (
+            <button type="button" onClick={() => setNavHidden(true)} aria-label="Hide the menu" title="Hide the menu" className="flex items-center gap-2.5 rounded-xl transition hover:opacity-80">
+              <Logo />
+              <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
+            </button>
+          ) : (
+            <>
+              <Logo />
+              <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
+            </>
+          )}
           <AccountRow />
         </div>
 

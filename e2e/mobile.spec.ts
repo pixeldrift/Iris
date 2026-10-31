@@ -56,3 +56,33 @@ test.describe('on a phone', () => {
       .toBe(true)
   })
 })
+
+test.describe('a phone turned sideways', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })
+
+  test('the menu sits beside the content, folds away by tapping the title, and the content takes the room', async ({ page }) => {
+    await open(page)
+    const aside = page.locator('aside')
+    const main = page.locator('main')
+    // beside the content, not over it
+    const open1 = await aside.boundingBox()
+    const m1 = await main.boundingBox()
+    expect(open1!.width).toBeGreaterThan(200)
+    expect(m1!.x).toBeGreaterThanOrEqual(open1!.x + open1!.width - 1)
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
+
+    // tapping the title folds it away and the content grows to fill the screen
+    await page.getByRole('button', { name: 'Hide the menu' }).click()
+    await expect(async () => {
+      const m2 = await main.boundingBox()
+      expect(m2!.width).toBeGreaterThan(m1!.width + 200)
+      expect((await aside.boundingBox())!.width).toBeLessThan(2)
+    }).toPass()
+
+    // the menu button in the title bar brings it back, again beside the content
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await expect(async () => {
+      expect(Math.abs((await main.boundingBox())!.width - m1!.width)).toBeLessThan(2)
+    }).toPass()
+  })
+})
