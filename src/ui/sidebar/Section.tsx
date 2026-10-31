@@ -100,6 +100,8 @@ export function ScopeRow(props: {
   count: number
   hideZero?: boolean
   sub?: string
+  /** leave room where a group row has its drag handle, so the count bubbles line up with the groups above */
+  handleGap?: boolean
 }) {
   const { over, active: dragging, props: dropProps } = useDropTarget(props.dropId ?? '')
   const isOver = !!props.dropId && over
@@ -117,6 +119,7 @@ export function ScopeRow(props: {
       <span className="truncate">{props.label}</span>
       {props.sub && <span className="text-xs text-ink-faint">{props.sub}</span>}
       <Count n={props.count} hideZero={props.hideZero} />
+      {props.handleGap && <span aria-hidden className="w-7 shrink-0" />}
     </button>
   )
 }
