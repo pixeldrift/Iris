@@ -77,12 +77,17 @@ test.describe('a phone turned sideways', () => {
       const m2 = await main.boundingBox()
       expect(m2!.width).toBeGreaterThan(m1!.width + 180)
       const w = (await aside.boundingBox())!.width
-      expect(w).toBeGreaterThan(20)
-      expect(w).toBeLessThan(40)
+      expect(w).toBeGreaterThan(30)
+      expect(w).toBeLessThan(80)
     }).toPass()
 
-    // tapping the sliver brings it back, again beside the content
-    await page.locator('aside > button[aria-label="Open menu"]').click()
+    // the strip carries shortcuts: Everything and the top-level groups
+    await expect(page.getByRole('button', { name: 'Everything', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'School', exact: true }).click()
+    await expect(page.locator('main header h2')).toBeVisible()
+
+    // tapping the logo brings the menu back, again beside the content
+    await page.getByRole('button', { name: 'Show the menu' }).click()
     await expect(async () => {
       expect(Math.abs((await main.boundingBox())!.width - m1!.width)).toBeLessThan(2)
     }).toPass()
@@ -120,6 +125,10 @@ test.describe('a phone turned sideways', () => {
         expect(m.x + m.width).toBeLessThan(844 - 30)
       }
       expect(aside.x).toBeLessThan(1) // the menu's glass starts at the screen's edge either way
+      await page.getByRole('button', { name: 'Hide the menu' }).click()
+      const logo = (await page.getByRole('button', { name: 'Show the menu' }).boundingBox())!
+      if (notchLeft) expect(logo.x).toBeGreaterThanOrEqual(40) // the shortcuts stay out from under the notch
+      else expect(logo.x).toBeLessThan(20)
       await page.reload()
     }
   })

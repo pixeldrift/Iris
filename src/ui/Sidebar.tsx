@@ -7,6 +7,7 @@ import type { ViewId } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, useDropTarget } from './dnd'
 import { Logo } from './Decor'
+import { Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
 import { useIsMobile, useLandscapePhone } from './useMedia'
 import { ScrollFade } from './ScrollFade'
@@ -216,7 +217,7 @@ export function Sidebar() {
   const asideRef = useRef<HTMLElement>(null)
   const [swipe, setSwipe] = useState<number | null>(null)
   // how open the drawer is while a finger drags it (0 = sliver, 1 = full): the contents fade in with it
-  const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 25.6)
+  const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 19.2)
   const progress = swipe === null ? null : open ? 1 + swipe / range : swipe / range
   const swipeRef = useRef<{ x: number; dx: number; moved: boolean; t: number } | null>(null)
   const swipeProps = {
@@ -232,7 +233,7 @@ export function Sidebar() {
       if (!w.moved) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
       w.moved = true
       // the drawer only ever travels between its two resting places, never past either
-      const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 25.6)
+      const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 19.2)
       w.dx = open ? Math.max(-range, Math.min(0, raw)) : Math.min(range, Math.max(0, raw))
       setSwipe(w.dx)
     },
@@ -272,8 +273,8 @@ export function Sidebar() {
           land
             ? {
                 // beside the content, flush with the screen's edge (its glass may run under the notch; its words are kept clear of it).
-                // Folded away it leaves a sliver, as it does when the phone is upright.
-                width: navHidden ? 'max(var(--sliver), var(--safe-l))' : 'calc(16rem + var(--safe-l))',
+                // Folded away it leaves a slim strip of shortcuts (kept clear of the notch), the sliver of the sideways layout.
+                width: navHidden ? 'calc(var(--safe-l) + 2.4rem)' : 'calc(16rem + var(--safe-l))',
                 paddingLeft: navHidden ? 0 : 'var(--safe-l)',
                 transition: `width 0.3s ${SPRING}`,
               }
@@ -288,16 +289,51 @@ export function Sidebar() {
       >
         {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
             tap it, or drag an item onto it, to open the drawer. */}
-        {(land ? navHidden : sliver && !open) && (
+        {!land && sliver && !open && (
           // the whole visible edge is one real button, so a tap anywhere along it works like the hamburger
           <button
             type="button"
-            onClick={() => !justSwiped.current && (land ? setNavHidden(false) : setSidebar(true))}
+            onClick={() => !justSwiped.current && setSidebar(true)}
             aria-label="Open menu"
             style={{ touchAction: 'pan-y' }}
             className="absolute inset-y-0 right-0 z-10 w-[var(--sliver)] cursor-pointer rounded-r-3xl"
             {...swipeProps}
           />
+        )}
+        {/* sideways and folded away: a strip of shortcuts. Tap the logo, or the blank part of the strip, to bring the menu back. */}
+        {land && navHidden && (
+          <div
+            className="no-scrollbar absolute inset-0 flex cursor-pointer flex-col items-center gap-1.5 overflow-y-auto py-3"
+            style={{ paddingLeft: 'var(--safe-l)' }}
+            onClick={() => setNavHidden(false)}
+          >
+            <button type="button" aria-label="Show the menu" title="Show the menu" className="grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-white/60" onClick={(e) => (e.stopPropagation(), setNavHidden(false))}>
+              <Logo size={24} />
+            </button>
+            <button
+              type="button"
+              aria-label="Everything"
+              title="Everything"
+              aria-pressed={scope.type === 'all'}
+              className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${scope.type === 'all' ? 'bg-white/70' : ''}`}
+              onClick={(e) => (e.stopPropagation(), setScope({ type: 'all' }))}
+            >
+              <IconAll />
+            </button>
+            {childrenOf(folders, null).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                aria-label={f.name}
+                title={f.name}
+                aria-pressed={scope.type === 'folder' && scope.id === f.id}
+                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-white/60 ${scope.type === 'folder' && scope.id === f.id ? 'bg-white/70' : ''}`}
+                onClick={(e) => (e.stopPropagation(), setScope(scope.type === 'folder' && scope.id === f.id ? { type: 'all' } : { type: 'folder', id: f.id }))}
+              >
+                <Flower hue={f.hue} shape={f.shape} size={18} />
+              </button>
+            ))}
+          </div>
         )}
         <div
           inert={folded}
@@ -305,8 +341,8 @@ export function Sidebar() {
           style={progress !== null ? { opacity: Math.min(1, Math.max(0, progress)), transition: 'none' } : undefined}
         >
         <div className="flex items-center gap-2.5 px-[calc(0.8rem+var(--sb)*0.5rem)] pb-[calc(var(--sb)*0.25rem)] pt-[calc(0.6rem+var(--sb)*1rem)]">
-          {land ? (
-            <button type="button" onClick={() => setNavHidden(true)} aria-label="Hide the menu" title="Hide the menu" className="flex items-center gap-2.5 rounded-xl transition hover:opacity-80">
+          {land || mobile ? (
+            <button type="button" onClick={() => (land ? setNavHidden(true) : setSidebar(false))} aria-label="Hide the menu" title="Hide the menu" className="flex items-center gap-2.5 rounded-xl transition hover:opacity-80">
               <Logo />
               <h1 className="font-display text-2xl italic tracking-tight text-lilac-700">Lilac</h1>
             </button>
