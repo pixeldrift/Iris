@@ -72,10 +72,11 @@ const tones = (hue: number, mono: boolean): CSSProperties =>
   mono
     ? ({
         // one hue in four lightnesses: the shape reads, and nothing can clash with the chosen color
-        '--flower-base': `${tint(hue, 50, 58)}`,
-        '--flower-light': `${tint(hue, 50, 72)}`,
-        '--flower-deep': `${tint(hue, 50, 44)}`,
-        '--flower-cream': `${tint(hue, 50, 84)}`,
+        // (lifted toward pastel, with the saturation kept, so they sit softly in the theme without turning muddy)
+        '--flower-base': `${tint(hue, 56, 68)}`,
+        '--flower-light': `${tint(hue, 56, 80)}`,
+        '--flower-deep': `${tint(hue, 52, 56)}`,
+        '--flower-cream': `${tint(hue, 52, 89)}`,
       } as CSSProperties)
     : ({
     '--flower-base': `${tint(hue, 62, 74)}`,

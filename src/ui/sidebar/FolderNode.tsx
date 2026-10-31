@@ -185,18 +185,7 @@ export function FolderNode(props: NodeProps) {
         // a child's box is shorter, not just its text pushed over: it keeps its right edge and starts further in
         style={{ marginLeft: `${depth * 0.95}rem`, width: `calc(100% - ${depth * 0.95}rem)` }}
       >
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            toggle(folder.id)
-          }}
-          className={`grid h-5 w-5 shrink-0 place-items-center rounded-md text-ink-faint transition hover:bg-white/60 ${kids.length ? '' : 'invisible'}`}
-          aria-label={isOpen ? 'Collapse' : 'Expand'}
-        >
-          <Disclosure open={isOpen} size={14} />
-        </button>
-        <span ref={flowerRef} className="inline-flex shrink-0">
+        <span ref={flowerRef} className="-mx-[3px] inline-flex shrink-0">
           <Tip label="Group options">
             <button
               onPointerDown={(e) => e.stopPropagation()}
@@ -208,7 +197,7 @@ export function FolderNode(props: NodeProps) {
               aria-expanded={options}
               className="grid h-6 w-6 place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
             >
-              <Flower hue={folder.hue} shape={folder.shape} size={18} />
+              <Flower hue={folder.hue} shape={folder.shape} size={16} />
             </button>
           </Tip>
         </span>
@@ -242,6 +231,19 @@ export function FolderNode(props: NodeProps) {
           >
             {folder.name}
           </span>
+        )}
+        {kids.length > 0 && editing !== folder.id && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggle(folder.id)
+            }}
+            className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-ink-faint transition hover:bg-white/60"
+            aria-label={isOpen ? 'Collapse' : 'Expand'}
+          >
+            <Disclosure open={isOpen} size={14} />
+          </button>
         )}
         <GroupMenu n={count(folder.id)} name={folder.name} actions={actions} />
         <GripHandle label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />
