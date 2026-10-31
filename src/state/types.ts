@@ -30,6 +30,8 @@ export interface Settings {
   /** How dates are written (see core/locale). */
   dateFormat: 'us' | 'us-numeric' | 'dmy' | 'iso'
   clockFormat: '12' | '24'
+  /** Which side the notch is on when the phone is turned sideways: detected from the rotation, or set by hand. */
+  notch: 'auto' | 'left' | 'right'
 }
 
 export interface ContactPrompt {

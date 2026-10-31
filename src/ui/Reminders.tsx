@@ -83,7 +83,7 @@ export function ReminderHost() {
   })
   if (!shown.length) return null
   return (
-    <div className="pointer-events-none fixed inset-x-3 top-3 z-[135] flex flex-col items-center gap-2 md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
+    <div className="pointer-events-none fixed inset-x-3 top-3 z-[135] flex flex-col items-center gap-2 md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
       {shown.map(({ t, note: text }) => (
         <div key={t.id} role="alert" className="glass glass-strong pop-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-3xl p-3.5 shadow-xl shadow-lilac-500/20">
           <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-100 text-lilac-600">

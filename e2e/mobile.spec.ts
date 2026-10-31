@@ -60,7 +60,7 @@ test.describe('on a phone', () => {
 test.describe('a phone turned sideways', () => {
   test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })
 
-  test('the menu sits beside the content, folds away by tapping the title, and the content takes the room', async ({ page }) => {
+  test('the menu sits beside the content, folds to a sliver from its title, and the content takes the room', async ({ page }) => {
     await open(page)
     const aside = page.locator('aside')
     const main = page.locator('main')
@@ -71,38 +71,66 @@ test.describe('a phone turned sideways', () => {
     expect(m1!.x).toBeGreaterThanOrEqual(open1!.x + open1!.width - 1)
     await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
 
-    // tapping the title folds it away and the content grows to fill the screen
+    // tapping the title folds it to a sliver and the content grows to fill the screen
     await page.getByRole('button', { name: 'Hide the menu' }).click()
     await expect(async () => {
       const m2 = await main.boundingBox()
-      expect(m2!.width).toBeGreaterThan(m1!.width + 200)
-      expect((await aside.boundingBox())!.width).toBeLessThan(2)
+      expect(m2!.width).toBeGreaterThan(m1!.width + 180)
+      const w = (await aside.boundingBox())!.width
+      expect(w).toBeGreaterThan(20)
+      expect(w).toBeLessThan(40)
     }).toPass()
 
-    // the menu button in the title bar brings it back, again beside the content
-    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    // tapping the sliver brings it back, again beside the content
+    await page.locator('aside > button[aria-label="Open menu"]').click()
     await expect(async () => {
       expect(Math.abs((await main.boundingBox())!.width - m1!.width)).toBeLessThan(2)
     }).toPass()
   })
 
-  test('a notch on either side keeps the menu, the content and dialogs clear of it', async ({ page }) => {
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 59, right: 0, top: 0, bottom: 21 } })
+  test('the add button is a plain circle, with the buttons down the right-hand side and the title turned', async ({ page }) => {
     await open(page)
-    expect((await page.locator('aside').boundingBox())!.x).toBeGreaterThanOrEqual(59)
-    await page.getByRole('button', { name: 'Hide the menu' }).click()
-    await expect(async () => expect((await page.getByRole('button', { name: 'Menu', exact: true }).boundingBox())!.x).toBeGreaterThanOrEqual(59)).toPass()
-    // the other way round: the right edge of the content stops short of the notch
-    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 0, right: 59, top: 0, bottom: 21 } })
-    await expect(async () => {
+    const add = page.getByRole('button', { name: 'New task' })
+    const b = (await add.boundingBox())!
+    expect(b.width).toBeLessThan(40)
+    expect(await add.innerText()).not.toContain('New')
+    expect(b.x + b.width).toBeGreaterThan(844 - 60) // down the right-hand side
+    expect(b.y).toBeGreaterThan(390 / 2) // stacked toward the bottom
+    // the instructions that explained gestures are not shown on a phone
+    await expect(page.getByText(/pinch to zoom/)).toHaveCount(0)
+  })
+
+  test('only the notch side is kept clear, whichever way the phone is turned', async ({ page }) => {
+    const cdp = await page.context().newCDPSession(page)
+    // iOS reports the same inset on both sides of a phone turned sideways
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 59, right: 59, top: 0, bottom: 21 } })
+    for (const [orientation, notchLeft] of [[90, true], [-90, false]] as const) {
+      await page.addInitScript((o) => Object.defineProperty(window, 'orientation', { get: () => o, configurable: true }), orientation)
+      await open(page)
+      const aside = (await page.locator('aside').boundingBox())!
       const m = (await page.locator('main').boundingBox())!
-      expect(m.x + m.width).toBeLessThanOrEqual(844 - 59 + 1)
-    }).toPass()
-    // a dialog keeps its distance too
-    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+      const contentLeft = (await page.getByRole('button', { name: 'Hide the menu' }).boundingBox())!.x
+      if (notchLeft) {
+        expect(contentLeft).toBeGreaterThan(40) // the menu's words are clear of the notch
+        expect(contentLeft).toBeLessThan(75) // …but not given the full inset
+        expect(Math.abs(m.x + m.width - 844)).toBeLessThan(2) // nothing is held back on the far side
+      } else {
+        expect(contentLeft).toBeLessThan(30) // no empty space on the side without the notch
+        expect(m.x + m.width).toBeGreaterThan(844 - 60) // the content stops short of the notch on the right
+        expect(m.x + m.width).toBeLessThan(844 - 30)
+      }
+      expect(aside.x).toBeLessThan(1) // the menu's glass starts at the screen's edge either way
+      await page.reload()
+    }
+  })
+
+  test('a dialog keeps clear of the notch', async ({ page }) => {
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 0, right: 59, top: 0, bottom: 21 } })
+    await page.addInitScript(() => Object.defineProperty(window, 'orientation', { get: () => -90, configurable: true }))
+    await open(page)
     await page.getByRole('button', { name: 'My settings' }).first().click()
     const d = (await page.getByRole('dialog').boundingBox())!
-    expect(d.x + d.width).toBeLessThanOrEqual(844 - 59 + 1)
+    expect(d.x + d.width).toBeLessThanOrEqual(844 - 40)
   })
 })

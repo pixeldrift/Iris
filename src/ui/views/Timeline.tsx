@@ -9,6 +9,7 @@ import { IconChevron } from '../icons'
 import { Tip } from '../Tip'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { ZoomControl } from '../ZoomControl'
+import { usePhone } from '../useMedia'
 
 const DAY_W = 38
 const MIN_W = 10
@@ -133,6 +134,7 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
 const clampW = (w: number) => Math.min(MAX_W, Math.max(MIN_W, w))
 
 export function Timeline() {
+  const phone = usePhone()
   const visible = useVisibleTasks()
   const update = useStore((s) => s.updateTask)
   const select = useStore((s) => s.select)
@@ -307,7 +309,7 @@ export function Timeline() {
             <IconChevron />
           </span>
         </button>
-        <span className="ml-2 hidden min-w-0 flex-1 truncate text-[0.65rem] text-ink-faint sm:block">drag bars to shift · drag ends to stretch · pinch to zoom</span>
+        {!phone && <span className="ml-2 hidden min-w-0 flex-1 truncate text-[0.65rem] text-ink-faint sm:block">drag bars to shift · drag ends to stretch · pinch to zoom</span>}
       </div>
 
       <div ref={scroller} className="scroll-soft min-h-0 flex-1 overflow-auto rounded-2xl bg-white/30" style={{ touchAction: 'pan-x pan-y' }}>

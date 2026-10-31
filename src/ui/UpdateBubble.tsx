@@ -55,7 +55,7 @@ export function UpdateBubble() {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-[140] flex justify-center" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[140] flex justify-center" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}>
       <div className={`pointer-events-auto flex items-center gap-1 ${closing ? 'pop-out' : 'pop-in'}`} style={{ ['--oy' as string]: '0%' }}>
         <button
           onClick={refresh}

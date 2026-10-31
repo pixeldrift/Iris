@@ -17,8 +17,10 @@ import { Lily } from '../pond/Lily'
 import { usePondGestures } from '../pond/usePondGestures'
 import { useSize } from '../pond/useSize'
 import { MAX_SCALE, MIN_SCALE, type PondApi, type Rec, type View } from '../pond/types'
+import { usePhone } from '../useMedia'
 
 export function Pond() {
+  const phone = usePhone()
   const visible = useVisibleTasks(false, 'keep') // a search fades the others here instead of removing them
   const matcher = useSearchMatcher()
   const folders = useStore((s) => s.folders)
@@ -602,7 +604,7 @@ export function Pond() {
       {visible.length === 0 && (
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to float an idea…</p>
       )}
-      {visible.length > 0 && (
+      {visible.length > 0 && !phone && (
         <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-32 pr-40 text-left text-xs text-ink-faint/80 sm:block">
           {pop ? 'Pop mode: tap bubbles to pop them · undo brings one back' : 'Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
         </p>
