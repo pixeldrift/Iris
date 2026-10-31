@@ -10,6 +10,7 @@ import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { VIEWS } from './Sidebar'
 import { SegmentedToggle } from './SegmentedToggle'
 import { Tip } from './Tip'
+import { useLandscapePhone } from './useMedia'
 
 const GROUPS: { id: PondGroup; label: string; icon: React.ReactNode }[] = [
   { id: 'free', label: 'Free', icon: <IconDrift size={12} /> },
@@ -69,6 +70,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const pondGroup = useStore((s) => s.settings.pondGroup)
   const set = useStore((s) => s.setSetting)
   const setSidebar = useStore((s) => s.setSidebar)
+  const navHidden = useStore((s) => s.navHidden)
+  const setNavHidden = useStore((s) => s.setNavHidden)
+  const land = useLandscapePhone()
   const setScope = useStore((s) => s.setScope)
   const query = useStore((s) => s.search)
   const setSearch = useStore((s) => s.setSearch)
@@ -104,9 +108,12 @@ export function TopBar({ onNew }: { onNew: () => void }) {
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
-      <button aria-label="Menu" onClick={() => setSidebar(true)} className="glass-soft order-1 grid h-9 w-9 place-items-center rounded-full md:hidden">
-        <IconMenu />
-      </button>
+      {/* a phone turned sideways keeps the menu beside the content: this brings it back once it has been folded away */}
+      {(!land || navHidden) && (
+        <button aria-label="Menu" onClick={() => (land ? setNavHidden(false) : setSidebar(true))} className={`glass-soft order-1 grid h-9 w-9 place-items-center rounded-full ${land ? '' : 'md:hidden'}`}>
+          <IconMenu />
+        </button>
+      )}
       <h2 className="order-2 min-w-0 flex-1 truncate font-display text-2xl leading-9 md:text-3xl md:leading-9">{scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label}</h2>
       {/* its own full-width line under the title row, so a long list of groups has room to wrap */}
       <p className="order-6 -mt-1 basis-full text-xs leading-snug text-ink-soft">

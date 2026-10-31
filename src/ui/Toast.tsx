@@ -10,7 +10,7 @@ export function ToastHost() {
   const { mounted, closing } = useExit(!!toast, 220)
   if (!mounted || !last.current) return null
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[130] flex justify-center px-4" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[130] flex justify-center" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
       <div
         role="status"
         className={`glass glass-strong rounded-full px-5 py-2.5 text-sm text-lilac-700 shadow-xl shadow-lilac-500/20 ${closing ? 'pop-out' : 'pop-in'}`}

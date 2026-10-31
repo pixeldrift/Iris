@@ -14,3 +14,6 @@ export function useMedia(query: string): boolean {
 
 /** Below Tailwind's `md` breakpoint: the sidebar becomes a drawer with a sliver always showing. */
 export const useIsMobile = () => useMedia('(max-width: 767px)')
+
+/** A phone turned sideways: wide, but short. The menu then sits beside the content (and can be folded away) instead of sliding over it. */
+export const useLandscapePhone = () => useMedia('(orientation: landscape) and (max-height: 500px)')

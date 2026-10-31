@@ -1,3 +1,4 @@
+import { safeInsets } from './safeArea'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useExit } from './anim'
@@ -55,12 +56,13 @@ export function Popover({
     // offsets, not screen rects: the pop-in animation is still scaling the box when this runs
     const left = el.offsetLeft
     const right = left + el.offsetWidth
-    if (left < 8) {
+    const edge = safeInsets()
+    if (left < 8 + edge.left) {
       el.style.right = 'auto'
-      el.style.left = '8px'
-    } else if (right > window.innerWidth - 8) {
+      el.style.left = `${8 + edge.left}px`
+    } else if (right > window.innerWidth - 8 - edge.right) {
       el.style.left = 'auto'
-      el.style.right = '8px'
+      el.style.right = `${8 + edge.right}px`
     }
     const vv = window.visualViewport
     const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
@@ -87,6 +89,7 @@ export function Popover({
 
   if (!mounted || !anchor.current) return null
   const r = anchor.current.getBoundingClientRect()
+  const edge = safeInsets()
   // open below the anchor, or above it when there isn't room below
   const spaceBelow = window.innerHeight - r.bottom - 12
   const spaceAbove = r.top - 12
@@ -94,11 +97,11 @@ export function Popover({
   const style: React.CSSProperties = {
     ...(up ? { bottom: window.innerHeight - r.top + 8, maxHeight: Math.max(160, spaceAbove - 8) } : { top: r.bottom + 8, maxHeight: Math.max(160, spaceBelow - 8) }),
     ...(matchAnchor
-      ? { left: Math.max(8, Math.min(r.left, window.innerWidth - Math.max(r.width, 160) - 8)), width: Math.max(r.width, 160), minWidth: 0 }
+      ? { left: Math.max(8 + edge.left, Math.min(r.left, window.innerWidth - Math.max(r.width, 160) - 8 - edge.right)), width: Math.max(r.width, 160), minWidth: 0 }
       : align === 'end'
-        ? { right: Math.max(8, window.innerWidth - r.right) }
-        : { left: Math.max(8, Math.min(r.left, window.innerWidth - 240)) }),
-    maxWidth: 'calc(100vw - 16px)',
+        ? { right: Math.max(8 + edge.right, window.innerWidth - r.right) }
+        : { left: Math.max(8 + edge.left, Math.min(r.left, window.innerWidth - 240 - edge.right)) }),
+    maxWidth: `calc(100vw - ${16 + edge.left + edge.right}px)`,
     ['--ox' as string]: align === 'end' ? '90%' : '10%',
     ['--oy' as string]: up ? '100%' : '0%',
   }
