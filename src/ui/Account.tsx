@@ -47,6 +47,7 @@ function AuthDialog() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     if (open) {
@@ -54,6 +55,9 @@ function AuthDialog() {
       setPassword('')
     }
   }, [open, mode])
+  useEffect(() => {
+    if (!open) setNotice('')
+  }, [open])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -64,8 +68,12 @@ function AuthDialog() {
         mode === 'in'
           ? await authClient.signIn.email({ email: email.trim(), password })
           : await authClient.signUp.email({ name: name.trim() || email.split('@')[0], email: email.trim(), password })
-      if (res.error) setError(res.error.message || 'Something went wrong. Try again.')
-      else closeAuth()
+      if (res.error) setError(/verif|confirm/i.test(res.error.message ?? '') ? 'Please confirm your email first: use the link we sent you, then sign in.' : res.error.message || 'Something went wrong. Try again.')
+      else if (mode === 'up' && !(res.data as { token?: string | null } | null)?.token) {
+        // the account needs its email confirmed before it can sign in: the service has emailed a link
+        setNotice(`We’ve emailed a confirmation link to ${email.trim()}. Open it, then sign in here.`)
+        useAuthDialog.setState({ mode: 'in' })
+      } else closeAuth()
     } catch {
       setError('Couldn’t reach Lilac. Check your connection and try again.')
     } finally {
@@ -101,6 +109,11 @@ function AuthDialog() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {notice && (
+          <p role="status" className="rounded-xl bg-lilac-100/70 px-3 py-2 text-sm text-lilac-700">
+            {notice}
+          </p>
+        )}
         {error && (
           <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-[#9a4566]">
             {error}

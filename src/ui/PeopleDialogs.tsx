@@ -7,6 +7,7 @@ import { askConfirm, Modal } from './dialogs'
 import type { PersonExtra } from '../core/types'
 import { DatePicker } from './DatePicker'
 import { IconChevronDown, IconClose, IconHeart, IconLink, IconPencil, IconPlus } from './icons'
+import { authClient } from '../sync/auth'
 import { disconnectFrom, setFindable, useConnect } from '../sync/connect'
 import { openInvite, openShares } from './ConnectDialogs'
 import { allCategories, composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
@@ -58,6 +59,7 @@ export function PersonDialog() {
   const connected = useConnect((s) => s.loaded)
   const findable = useConnect((s) => s.me?.findable ?? true)
   const myEmail = useConnect((s) => s.me?.email ?? '')
+  const myVerified = useConnect((s) => s.me?.verified ?? true)
   // what a connection keeps up to date for you can't be typed over
   const locked = (k: string) => !!existing?.link?.got.includes(k)
 
@@ -385,6 +387,21 @@ export function PersonDialog() {
               <span className="block text-xs text-ink-faint">They can send a request to connect. Nobody learns whether you use Lilac unless you accept. Your details are only shared when you say so.</span>
             </span>
           </label>
+        )}
+        {existing?.isMe && connected && !myVerified && (
+          <p role="status" className="rounded-xl bg-white/60 px-3 py-2 text-xs text-ink-soft">
+            Your email isn’t confirmed, so other people can’t find you yet and invitations to you won’t arrive. Once it’s confirmed, requests will start reaching you.
+            <button
+              type="button"
+              className="ml-1 text-lilac-700 underline-offset-2 hover:underline"
+              onClick={async () => {
+                const r = await authClient.sendVerificationEmail({ email: myEmail, callbackURL: window.location.origin }).catch(() => ({ error: true }))
+                showToast(r && 'error' in r && r.error ? 'Couldn’t send that. Try again in a moment.' : `Confirmation link sent to ${myEmail}`)
+              }}
+            >
+              Send me the confirmation link
+            </button>
+          </p>
         )}
       </form>
     </Modal>

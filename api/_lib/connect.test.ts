@@ -88,4 +88,16 @@ describe('connections', () => {
     for (let i = 0; i < 25; i++) await invite(db, { userId: 'zed', email: 'zed@example.com' }, { email: `x${i}@example.com`, shares: [] })
     await expect(invite(db, { userId: 'zed' }, { email: 'one-more@example.com', shares: [] })).rejects.toBeInstanceOf(TooMany)
   })
+
+  it('asks the auth service itself when the token does not say whether the email is confirmed', async () => {
+    await db.exec('create schema if not exists neon_auth; create table if not exists neon_auth."user" (id text primary key, email text, "emailVerified" boolean)')
+    await db.exec(`insert into neon_auth."user" values ('fay', 'fay@example.com', true), ('gus', 'gus@example.com', false)`)
+    await putProfile(db, { userId: 'fay' }, { details: details('Fay') }) // a token with no email claims at all
+    await putProfile(db, { userId: 'gus' }, { details: details('Gus') })
+    await invite(db, ann, { email: 'fay@example.com', shares: [] })
+    await invite(db, ann, { email: 'gus@example.com', shares: [] })
+    expect((await connectState(db, { userId: 'fay' })).connections).toHaveLength(1)
+    expect((await connectState(db, { userId: 'gus' })).connections).toHaveLength(0)
+    expect((await connectState(db, { userId: 'gus' })).me.verified).toBe(false)
+  })
 })
