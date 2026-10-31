@@ -4,6 +4,7 @@ import { accountsConfigured, authClient } from '../sync/auth'
 import { startConnect, useConnect } from '../sync/connect'
 import { forgetAccountData, startSync, syncNow, useSync } from '../sync/engine'
 import { ConnectHost, openNotices } from './ConnectDialogs'
+import { openVerify, sendCode, VerifyDialog } from './VerifyDialog'
 import { askConfirm, Modal } from './dialogs'
 import { IconBell, IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
 import { openPerson } from './PeopleDialogs'
@@ -35,6 +36,7 @@ function AccountSync() {
     <>
       <AuthDialog />
       <ConnectHost />
+      <VerifyDialog onSignIn={() => openAuth('in')} />
     </>
   )
 }
@@ -47,17 +49,15 @@ function AuthDialog() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const [canConfirm, setCanConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     if (open) {
       setError('')
+      setCanConfirm(false)
       setPassword('')
     }
   }, [open, mode])
-  useEffect(() => {
-    if (!open) setNotice('')
-  }, [open])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,14 +68,24 @@ function AuthDialog() {
         mode === 'in'
           ? await authClient.signIn.email({ email: email.trim(), password })
           : await authClient.signUp.email({ name: name.trim() || email.split('@')[0], email: email.trim(), password })
-      if (res.error) setError(/verif|confirm/i.test(res.error.message ?? '') ? 'Please confirm your email first: use the link we sent you, then sign in.' : res.error.message || 'Something went wrong. Try again.')
+      if (res.error) {
+        const unconfirmed = /verif|confirm/i.test(res.error.message ?? '')
+        setError(unconfirmed ? 'Please confirm your email first.' : res.error.message || 'Something went wrong. Try again.')
+        setCanConfirm(unconfirmed)
+      }
       else if (mode === 'up' && !(res.data as { token?: string | null } | null)?.token) {
-        // the account needs its email confirmed before it can sign in: the service has emailed a link
-        setNotice(`We’ve emailed a confirmation link to ${email.trim()}. Open it, then sign in here.`)
-        useAuthDialog.setState({ mode: 'in' })
+        // the account needs its email confirmed before it can sign in: the service has emailed a code
+        closeAuth()
+        openVerify(email.trim(), 'signin')
       } else closeAuth()
-    } catch {
-      setError('Couldn’t reach Lilac. Check your connection and try again.')
+    } catch (err) {
+      // the client throws on a refused sign-in too, so only a failed network call is a connection problem
+      const msg = String((err as Error)?.message ?? '')
+      if (/failed to fetch|network|load failed|offline/i.test(msg) || navigator.onLine === false) setError('Couldn’t reach Lilac. Check your connection and try again.')
+      else if (/verif|confirm/i.test(msg)) {
+        setError('Please confirm your email first.')
+        setCanConfirm(true)
+      } else setError(msg || 'Something went wrong. Try again.')
     } finally {
       setBusy(false)
     }
@@ -109,15 +119,23 @@ function AuthDialog() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {notice && (
-          <p role="status" className="rounded-xl bg-lilac-100/70 px-3 py-2 text-sm text-lilac-700">
-            {notice}
-          </p>
-        )}
         {error && (
           <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-[#9a4566]">
             {error}
           </p>
+        )}
+        {canConfirm && (
+          <button
+            type="button"
+            className="w-full rounded-full border border-lilac-300 bg-lilac-100/70 px-4 py-2 text-sm font-medium text-lilac-700 transition hover:bg-lilac-100"
+            onClick={async () => {
+              await sendCode(email.trim()).catch(() => undefined)
+              closeAuth()
+              openVerify(email.trim(), 'signin')
+            }}
+          >
+            Email me a confirmation code
+          </button>
         )}
         <p className="text-center text-sm text-ink-soft">
           {mode === 'in' ? 'New here? ' : 'Already have an account? '}

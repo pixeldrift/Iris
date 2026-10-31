@@ -41,6 +41,8 @@ interface User {
   name: string
   email: string
   password: string
+  /** a sign-up with "+verify" in the email must confirm it (code 123456) before it can sign in, like a project with verification on */
+  unverified?: boolean
 }
 const users = new Map<string, User>()
 const sessions = new Map<string, string>() // session token -> user id
@@ -72,14 +74,19 @@ async function mockAuth(req: Request, path: string): Promise<Response> {
     const email = (b.email ?? '').toLowerCase()
     if (!email || (b.password ?? '').length < 8) return json({ message: 'Password too short', code: 'PASSWORD_TOO_SHORT' }, 400)
     if ([...users.values()].some((u) => u.email === email)) return json({ message: 'User already exists. Use another email.', code: 'USER_ALREADY_EXISTS' }, 422)
-    const user = { id: randomUUID(), name: b.name || email.split('@')[0], email, password: b.password! }
+    const user: User = { id: randomUUID(), name: b.name || email.split('@')[0], email, password: b.password! }
     users.set(user.id, user)
+    if (email.includes('+verify')) {
+      user.unverified = true
+      return json({ token: null, user: publicUser(user) })
+    }
     return open(user)
   }
   if (path === '/sign-in/email' && req.method === 'POST') {
     const b = (await req.json()) as { email?: string; password?: string }
     const user = [...users.values()].find((u) => u.email === (b.email ?? '').toLowerCase())
     if (!user || user.password !== b.password) return json({ message: 'Invalid email or password', code: 'INVALID_EMAIL_OR_PASSWORD' }, 401)
+    if (user.unverified) return json({ message: 'Email not verified', code: 'EMAIL_NOT_VERIFIED' }, 403)
     return open(user)
   }
   if (path === '/get-session') {
@@ -91,6 +98,15 @@ async function mockAuth(req: Request, path: string): Promise<Response> {
     const res = json(body)
     res.headers.set('set-auth-jwt', await mintJwt(s.user))
     return res
+  }
+  // a confirmation code, for trying the code screen locally: the right one is always 123456
+  if (path === '/email-otp/send-verification-otp' && req.method === 'POST') return json({ success: true })
+  if (path === '/email-otp/verify-email' && req.method === 'POST') {
+    const b = (await req.json()) as { otp?: string; email?: string }
+    if (b.otp !== '123456') return json({ message: 'Invalid OTP', code: 'INVALID_OTP' }, 400)
+    const u = [...users.values()].find((x) => x.email === (b.email ?? '').toLowerCase())
+    if (u) u.unverified = false
+    return json({ status: true, user: null })
   }
   if (path === '/sign-out' && req.method === 'POST') {
     const s = sessionOf(req)
