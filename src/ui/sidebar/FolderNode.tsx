@@ -185,7 +185,7 @@ export function FolderNode(props: NodeProps) {
         // a child's box is shorter, not just its text pushed over: it keeps its right edge and starts further in
         style={{ marginLeft: `${depth * 0.95}rem`, width: `calc(100% - ${depth * 0.95}rem)` }}
       >
-        <span ref={flowerRef} className="-ml-[3px] inline-flex shrink-0">
+        <span ref={flowerRef} className="-mx-[3px] inline-flex shrink-0">
           <Tip label="Group options">
             <button
               onPointerDown={(e) => e.stopPropagation()}
@@ -197,7 +197,7 @@ export function FolderNode(props: NodeProps) {
               aria-expanded={options}
               className="grid h-6 w-6 place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
             >
-              <Flower hue={folder.hue} shape={folder.shape} size={18} />
+              <Flower hue={folder.hue} shape={folder.shape} size={16} className="[filter:saturate(0.62)_contrast(0.88)]" />
             </button>
           </Tip>
         </span>
