@@ -115,7 +115,7 @@ export function DatePicker({
               Clear
             </button>
           )}
-          <button type="button" className={`${value ? '' : 'ml-auto '}rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600`} onClick={() => setOpen(false)}>
+          <button type="button" className={`${value ? '' : 'ml-auto '}rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600`} onClick={() => (jump ? setJump(false) : setOpen(false))}>
             Done
           </button>
         </div>
