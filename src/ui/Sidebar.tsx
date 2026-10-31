@@ -216,7 +216,7 @@ export function Sidebar() {
   const asideRef = useRef<HTMLElement>(null)
   const [swipe, setSwipe] = useState<number | null>(null)
   // how open the drawer is while a finger drags it (0 = sliver, 1 = full): the contents fade in with it
-  const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 18.4)
+  const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 25.6)
   const progress = swipe === null ? null : open ? 1 + swipe / range : swipe / range
   const swipeRef = useRef<{ x: number; dx: number; moved: boolean; t: number } | null>(null)
   const swipeProps = {
@@ -232,7 +232,7 @@ export function Sidebar() {
       if (!w.moved) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
       w.moved = true
       // the drawer only ever travels between its two resting places, never past either
-      const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 18.4)
+      const range = Math.max(1, (asideRef.current?.offsetWidth ?? 280) - 25.6)
       w.dx = open ? Math.max(-range, Math.min(0, raw)) : Math.min(range, Math.max(0, raw))
       setSwipe(w.dx)
     },
@@ -253,6 +253,8 @@ export function Sidebar() {
     },
   }
   const justSwiped = useRef(false)
+  // closed to its sliver (upright: not open; sideways: folded away)
+  const folded = land ? navHidden : mobile && !open
 
   return (
     <>
@@ -261,27 +263,24 @@ export function Sidebar() {
         ref={asideRef}
         className={
           land
-            ? 'glass relative z-10 my-3 flex shrink-0 flex-col overflow-hidden rounded-3xl'
+            ? 'glass relative z-10 flex shrink-0 flex-col overflow-hidden rounded-r-3xl border-l-0'
             : `glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
-                open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-1.15rem)]' : '-translate-x-full'
+                open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-var(--sliver))]' : '-translate-x-full'
               } ${swipe !== null ? '!transition-none' : ''}`
         }
         style={
           land
             ? {
-                // beside the content: folding it away gives the width back to the content
-                width: navHidden ? 0 : '16rem',
-                marginLeft: navHidden ? 0 : '0.75rem',
-                borderWidth: navHidden ? 0 : undefined,
-                opacity: navHidden ? 0 : 1,
-                boxShadow: navHidden ? 'none' : undefined,
-                visibility: navHidden ? 'hidden' : 'visible',
-                transition: `width 0.3s ${SPRING}, margin 0.3s ${SPRING}, opacity 0.2s, visibility 0s linear ${navHidden ? '0.3s' : '0s'}`,
+                // beside the content, flush with the screen's edge (its glass may run under the notch; its words are kept clear of it).
+                // Folded away it leaves a sliver, as it does when the phone is upright.
+                width: navHidden ? 'max(var(--sliver), var(--safe-l))' : 'calc(16rem + var(--safe-l))',
+                paddingLeft: navHidden ? 0 : 'var(--safe-l)',
+                transition: `width 0.3s ${SPRING}`,
               }
             : {
                 paddingTop: 'env(safe-area-inset-top)',
                 transitionTimingFunction: SPRING,
-                ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + 1.15rem + ${swipe}px) 0` } : {}),
+                ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + var(--sliver) + ${swipe}px) 0` } : {}),
                 ...(mobile ? { touchAction: 'pan-y' } : {}),
               }
         }
@@ -289,20 +288,20 @@ export function Sidebar() {
       >
         {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
             tap it, or drag an item onto it, to open the drawer. */}
-        {sliver && !open && (
+        {(land ? navHidden : sliver && !open) && (
           // the whole visible edge is one real button, so a tap anywhere along it works like the hamburger
           <button
             type="button"
-            onClick={() => !justSwiped.current && setSidebar(true)}
+            onClick={() => !justSwiped.current && (land ? setNavHidden(false) : setSidebar(true))}
             aria-label="Open menu"
             style={{ touchAction: 'pan-y' }}
-            className="absolute inset-y-0 right-0 z-10 w-[1.15rem] cursor-pointer rounded-r-3xl"
+            className="absolute inset-y-0 right-0 z-10 w-[var(--sliver)] cursor-pointer rounded-r-3xl"
             {...swipeProps}
           />
         )}
         <div
-          inert={(mobile && !open) || (land && navHidden)}
-          className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${mobile && !open ? 'opacity-0' : 'opacity-100'}`}
+          inert={folded}
+          className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ${folded ? 'opacity-0' : 'opacity-100'}`}
           style={progress !== null ? { opacity: Math.min(1, Math.max(0, progress)), transition: 'none' } : undefined}
         >
         <div className="flex items-center gap-2.5 px-[calc(0.8rem+var(--sb)*0.5rem)] pb-[calc(var(--sb)*0.25rem)] pt-[calc(0.6rem+var(--sb)*1rem)]">

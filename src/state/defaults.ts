@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tooltips: true,
   dateFormat: 'us',
   clockFormat: '12',
+  notch: 'auto',
 }
 
 export const applyAudio = (s: Settings) =>

@@ -441,3 +441,12 @@ body.scrubbing .glow-breathe {
 /* pressed: the item lifts away from the page right away, before it has moved at all */
 .lift-on-press { transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.55, 1), box-shadow 0.18s ease; }
 .lift-on-press:active { transform: scale(1.02); box-shadow: 0 14px 28px -10px rgb(var(--lr-700)/0.45), 0 4px 10px -4px rgb(var(--lr-700)/0.3); }
+
+/* clearance around a notch (set from script: only the notch's side gets any), and the width of the menu's sliver on a phone */
+:root {
+  --safe-l: 0px;
+  --safe-r: 0px;
+  --sliver: 1.6rem;
+  /* the column of title and buttons down the right-hand side of a phone turned sideways */
+  --rail: 3rem;
+}

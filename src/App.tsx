@@ -26,6 +26,7 @@ import { Priority } from './ui/views/Priority'
 import { Timeline } from './ui/views/Timeline'
 import { Overview } from './ui/views/Overview'
 import { useLandscapePhone } from './ui/useMedia'
+import { startSafeArea } from './ui/safeArea'
 
 const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, calendar: CalendarView, timeline: Timeline, overview: Overview }
 
@@ -33,6 +34,7 @@ export default function App() {
   const view = useStore((s) => s.view)
   const hasDetail = useStore((s) => s.selectedId !== null)
   const land = useLandscapePhone()
+  useEffect(() => startSafeArea(), [])
   const contacts = useStore((s) => s.scope.type === 'contacts')
   const View = contacts ? AddressBook : VIEW[view]
 
@@ -103,12 +105,12 @@ export default function App() {
 
   return (
     // a different date or clock style re-draws everything that writes one
-    <div key={fmtKey} className="relative flex h-full overflow-hidden" style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
+    <div key={fmtKey} className="relative flex h-full overflow-hidden" style={{ paddingRight: 'var(--safe-r)' }}>
       <Decor />
       <Sidebar />
-      <main className={`relative z-10 flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ${land ? 'pl-0' : 'pl-[1.15rem] md:pl-0'} ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
+      <main className={`relative z-10 flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ${land ? 'pl-0' : 'pl-[var(--sliver)] md:pl-0'} ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
         <TopBar onNew={() => openCompose()} />
-        <div className="relative min-h-0 flex-1 px-3 pb-3 md:px-4 md:pb-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="relative min-h-0 flex-1 px-3 pb-3 md:px-4 md:pb-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', ...(land ? { paddingTop: '0.75rem', paddingRight: 'calc(var(--rail) + 0.25rem)' } : {}) }}>
           <View />
         </div>
       </main>

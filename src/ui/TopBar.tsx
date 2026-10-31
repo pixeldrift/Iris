@@ -70,8 +70,6 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const pondGroup = useStore((s) => s.settings.pondGroup)
   const set = useStore((s) => s.setSetting)
   const setSidebar = useStore((s) => s.setSidebar)
-  const navHidden = useStore((s) => s.navHidden)
-  const setNavHidden = useStore((s) => s.setNavHidden)
   const land = useLandscapePhone()
   const setScope = useStore((s) => s.setScope)
   const query = useStore((s) => s.search)
@@ -106,15 +104,116 @@ export function TopBar({ onNew }: { onNew: () => void }) {
               : (pathOf(folders, scope.id).at(-1)?.name ?? 'Group')
   const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? (dayLabel(scope.date) === weekdayName(scope.date) ? formatDate(scope.date) : dayLabel(scope.date)) : ''
 
+  const searchField = (cls: string) =>
+    searchShown && (
+      <div className={cls}>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
+          <IconSearch size={15} />
+        </span>
+        <input
+          ref={searchRef}
+          value={query}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setSearch('')
+              setSearchOpen(false)
+            }
+            // the keyboard's Search key: results are already live, so keep what was typed and put the keyboard away
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              e.currentTarget.blur()
+            }
+          }}
+          placeholder="Search everything…"
+          aria-label="Search"
+          enterKeyHint="search"
+          className="well h-9 w-full rounded-full pl-9 pr-16 text-sm placeholder:text-ink-faint"
+        />
+        <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+          {query.trim() && <span className="text-xs tabular-nums text-ink-soft">{matchCount}</span>}
+          <button
+            onClick={() => {
+              setSearch('')
+              setSearchOpen(false)
+            }}
+            aria-label="Clear search"
+            className="grid h-6 w-6 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink"
+          >
+            <IconClose size={12} />
+          </button>
+        </span>
+      </div>
+    )
+
+  const gather = (cls: string) =>
+    view === 'pond' &&
+    scope.type !== 'contacts' && (
+      <div className={cls} role="group" aria-label="Arrange the pond">
+        <span className="hidden shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint sm:inline">Gather by</span>
+        <SegmentedToggle label="Gather by" options={GROUPS} fill value={pondGroup} onChange={(v) => set('pondGroup', v)} />
+      </div>
+    )
+
+  // on a phone, in either orientation, the add button is just a plus in a circle
+  const newBtn = (
+    <Tip label="New task">
+      <button
+        onClick={onNew}
+        aria-label="New task"
+        className={`order-5 flex h-9 items-center justify-center rounded-full bg-lilac-500 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600 ${land ? 'w-9' : 'w-9 md:w-auto md:gap-1.5 md:px-4'}`}
+      >
+        <IconPlus size={16} />
+        {!land && <span className="hidden md:inline">New</span>}
+      </button>
+    </Tip>
+  )
+  const tools = (
+    <>
+      {scope.type !== 'contacts' && (
+        <Tip label="Search">
+          <button onClick={() => setSearchOpen((o) => !o)} aria-pressed={searchShown} className={btn(searchShown)}>
+            <IconSearch />
+          </button>
+        </Tip>
+      )}
+      <UndoRedo />
+    </>
+  )
+  const heading = scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label
+
+  // turned sideways: the title and the buttons run down the right-hand side, and the content takes the full height
+  if (land) {
+    return (
+      <>
+        {(searchShown || (view === 'pond' && scope.type !== 'contacts')) && (
+          <div className="flex shrink-0 items-center gap-2 py-2 pl-3" style={{ paddingRight: 'calc(var(--rail) + 0.5rem)' }}>
+            {searchField('relative w-56 shrink-0')}
+            {gather('no-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto')}
+          </div>
+        )}
+        <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center gap-3 py-3" style={{ width: 'var(--rail)' }}>
+          <h2 className="pointer-events-auto min-h-0 max-h-[60%] truncate font-display text-xl leading-none" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+            {heading}
+          </h2>
+          <div className="pointer-events-auto mt-auto flex flex-col items-center gap-2">
+            {tools}
+            {newBtn}
+          </div>
+        </header>
+      </>
+    )
+  }
+
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
       {/* a phone turned sideways keeps the menu beside the content: this brings it back once it has been folded away */}
-      {(!land || navHidden) && (
-        <button aria-label="Menu" onClick={() => (land ? setNavHidden(false) : setSidebar(true))} className={`glass-soft order-1 grid h-9 w-9 place-items-center rounded-full ${land ? '' : 'md:hidden'}`}>
+      {!land && (
+        <button aria-label="Menu" onClick={() => setSidebar(true)} className="glass-soft order-1 grid h-9 w-9 place-items-center rounded-full md:hidden">
           <IconMenu />
         </button>
       )}
-      <h2 className="order-2 min-w-0 flex-1 truncate font-display text-2xl leading-9 md:text-3xl md:leading-9">{scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label}</h2>
+      <h2 className="order-2 min-w-0 flex-1 truncate font-display text-2xl leading-9 md:text-3xl md:leading-9">{heading}</h2>
       {/* its own full-width line under the title row, so a long list of groups has room to wrap */}
       <p className="order-6 -mt-1 basis-full text-xs leading-snug text-ink-soft">
         {scope.type === 'contacts' ? (
@@ -166,31 +265,10 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           </span>
         </div>
       )}
-      <div className="order-4 flex items-center gap-1.5">
-        {scope.type !== 'contacts' && (
-          <Tip label="Search">
-            <button onClick={() => setSearchOpen((o) => !o)} aria-pressed={searchShown} className={btn(searchShown)}>
-              <IconSearch />
-            </button>
-          </Tip>
-        )}
-        <UndoRedo />
-      </div>
-      <Tip label="New task">
-        <button
-          onClick={onNew}
-          className="order-5 flex h-9 items-center gap-1.5 rounded-full bg-lilac-500 px-4 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600"
-        >
-          <IconPlus size={16} /> <span className="hidden sm:inline">New</span>
-        </button>
-      </Tip>
+      <div className="order-4 flex items-center gap-1.5">{tools}</div>
+      {newBtn}
 
-      {view === 'pond' && scope.type !== 'contacts' && (
-        <div className="no-scrollbar order-8 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 overflow-x-auto py-1" role="group" aria-label="Arrange the pond">
-          <span className="hidden shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint sm:inline">Gather by</span>
-          <SegmentedToggle label="Gather by" options={GROUPS} fill value={pondGroup} onChange={(v) => set('pondGroup', v)} />
-        </div>
-      )}
+      {gather('no-scrollbar order-8 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 overflow-x-auto py-1')}
     </header>
   )
 }
