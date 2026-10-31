@@ -54,3 +54,58 @@ test.describe('accounts', () => {
     await expect(dialog.getByRole('alert')).toBeVisible()
   })
 })
+
+test.describe('confirming an email', () => {
+  test('a new account asks for the emailed code, then signs in', async ({ page }) => {
+    const email = `new+verify${Date.now()}@example.com`
+    await page.goto('/')
+    await page.locator('[data-node]').first().waitFor()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await page.getByRole('button', { name: 'Create an account' }).click()
+    await page.getByPlaceholder('Your name').fill('New Person')
+    await page.getByPlaceholder('Email').fill(email)
+    await page.getByPlaceholder(/Password/).fill('hunter2hunter2')
+    await page.getByRole('button', { name: 'Create account' }).click()
+    // no session yet: it asks for the code that was emailed
+    await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeVisible()
+    await page.getByLabel('Confirmation code').fill('000000')
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+    await expect(page.getByRole('alert')).toContainText('isn’t right')
+    await page.getByLabel('Confirmation code').fill('123456')
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+    // confirmed: the sign-in form opens
+    const dialog = page.getByRole('dialog').filter({ hasText: 'Welcome back' })
+    await expect(dialog).toBeVisible()
+    await dialog.getByPlaceholder('Email').fill(email)
+    await dialog.getByPlaceholder('Password').fill('hunter2hunter2')
+    await dialog.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await expect(page.locator('[aria-label^="Account"]')).toBeVisible()
+  })
+
+  test('signing in before confirming offers to email a code', async ({ page }) => {
+    const email = `later+verify${Date.now()}@example.com`
+    await page.goto('/')
+    await page.locator('[data-node]').first().waitFor()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await page.getByRole('button', { name: 'Create an account' }).click()
+    await page.getByPlaceholder('Email').fill(email)
+    await page.getByPlaceholder(/Password/).fill('hunter2hunter2')
+    await page.getByRole('button', { name: 'Create account' }).click()
+    await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeHidden()
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    const dialog = page.getByRole('dialog').filter({ hasText: 'Welcome back' })
+    await expect(async () => {
+      await dialog.getByPlaceholder('Email').fill(email)
+      await dialog.getByPlaceholder('Password').fill('hunter2hunter2')
+      await expect(dialog.getByPlaceholder('Password')).toHaveValue('hunter2hunter2')
+    }).toPass()
+    await dialog.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await expect(dialog.getByRole('alert')).toContainText('confirm your email')
+    await dialog.getByRole('button', { name: 'Email me a confirmation code' }).click()
+    await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeVisible()
+  })
+})

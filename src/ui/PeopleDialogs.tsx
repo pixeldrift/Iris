@@ -7,7 +7,7 @@ import { askConfirm, Modal } from './dialogs'
 import type { PersonExtra } from '../core/types'
 import { DatePicker } from './DatePicker'
 import { IconChevronDown, IconClose, IconHeart, IconLink, IconPencil, IconPlus } from './icons'
-import { authClient } from '../sync/auth'
+import { openVerify, sendCode } from './VerifyDialog'
 import { disconnectFrom, setFindable, useConnect } from '../sync/connect'
 import { openInvite, openShares } from './ConnectDialogs'
 import { allCategories, composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
@@ -274,7 +274,7 @@ export function PersonDialog() {
               key={k.id}
               type="button"
               onClick={() => setF((cur) => ({ ...cur, extras: [...cur.extras, { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), kind: k.id, label: k.labels[0], value: '' }] }))}
-              className="flex items-center gap-1 rounded-full bg-white/50 px-2.5 py-1 text-xs text-lilac-700 transition hover:bg-white/80"
+              className="flex items-center gap-1 rounded-full border border-lilac-300 bg-lilac-100/70 text-lilac-700 shadow-sm transition hover:border-lilac-400 hover:bg-lilac-100 px-3 py-1 text-xs font-medium"
             >
               <IconPlus size={11} /> {k.label}
             </button>
@@ -370,7 +370,7 @@ export function PersonDialog() {
                   className="well w-32 rounded-full px-3 py-1 text-xs"
                 />
               ) : (
-                <button type="button" onClick={() => setAddingCat(true)} className="rounded-full bg-white/50 px-2.5 py-1 text-xs text-lilac-700 transition hover:bg-white/80">
+                <button type="button" onClick={() => setAddingCat(true)} className="rounded-full border border-lilac-300 bg-lilac-100/70 text-lilac-700 shadow-sm transition hover:border-lilac-400 hover:bg-lilac-100 px-3 py-1 text-xs font-medium">
                   + New
                 </button>
               )}
@@ -391,16 +391,21 @@ export function PersonDialog() {
         {existing?.isMe && connected && !myVerified && (
           <p role="status" className="rounded-xl bg-white/60 px-3 py-2 text-xs text-ink-soft">
             Your email isn’t confirmed, so other people can’t find you yet and invitations to you won’t arrive. Once it’s confirmed, requests will start reaching you.
-            <button
-              type="button"
-              className="ml-1 text-lilac-700 underline-offset-2 hover:underline"
-              onClick={async () => {
-                const r = await authClient.sendVerificationEmail({ email: myEmail, callbackURL: window.location.origin }).catch(() => ({ error: true }))
-                showToast(r && 'error' in r && r.error ? 'Couldn’t send that. Try again in a moment.' : `Confirmation link sent to ${myEmail}`)
-              }}
-            >
-              Send me the confirmation link
-            </button>
+            <span className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="rounded-full bg-lilac-500 px-4 py-1.5 text-xs font-medium text-white shadow shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => openVerify(myEmail)}>
+                Enter the code I received
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-lilac-300 bg-lilac-100/70 px-4 py-1.5 text-xs font-medium text-lilac-700 transition hover:bg-lilac-100"
+                onClick={async () => {
+                  await sendCode(myEmail).catch(() => showToast('Couldn’t send that. Try again in a moment.'))
+                  openVerify(myEmail)
+                }}
+              >
+                Send me a new code
+              </button>
+            </span>
           </p>
         )}
       </form>
