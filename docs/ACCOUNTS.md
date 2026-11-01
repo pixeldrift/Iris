@@ -55,6 +55,18 @@ that keeps that data in a Neon Postgres database so every device shows the same 
   removes it (anything of yours that still uses a demo group or person keeps it). The same content is the starting data.
 - Settings (sound, view options, sidebar layout) stay per-device for now.
 
+## Sign-in goes through the app's own domain
+
+The browser does not call the Neon Auth address directly any more. `src/sync/auth.ts` points the client at `/api/auth`
+on the app's own domain whenever `VITE_NEON_AUTH_URL` is on another site, and `api/auth/[...path].ts` (logic in
+`api/_lib/authProxy.ts`, tested) passes each request on to `NEON_AUTH_BASE_URL`. The reason is cookies: called
+directly, the session cookie belongs to the auth service's domain, so it is third-party, and an iPhone home-screen app
+refuses to keep those (sign-in seems to work, then there is no session; ordinary Safari and Chrome tabs are more
+forgiving). Through the proxy the cookie is first-party. Set `VITE_NEON_AUTH_DIRECT=1` to go back to calling the service
+directly. Nothing else changes: the JWT the API checks is still issued by the auth service (`NEON_AUTH_BASE_URL` stays the
+real Auth URL), and the app's address must still be a trusted origin in the Neon Auth settings. Everyone signs in once
+more after this ships, because their old cookie belonged to the other domain.
+
 ## Connections between people
 
 Signed-in people can link address-book entries (`api/connect.ts`, `api/_lib/connect.ts`, client in `src/sync/connect.ts`,
