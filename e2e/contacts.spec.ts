@@ -98,14 +98,43 @@ test.describe('the address book', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 
-  test('the calendar has the view toggle first, no weekends toggle on a single day, and a rolling 30-day option', async ({ page }) => {
+  test('the calendar has the view toggle first, a briefcase for business days (none on a single day), and the rolling options live in settings', async ({ page }) => {
     await page.locator('button', { hasText: /^Calendar/ }).first().click()
     const mode = page.getByRole('button', { name: 'month', exact: true })
-    const weekends = page.getByRole('button', { name: /Weekends/ })
-    expect((await mode.boundingBox())!.x).toBeLessThan((await weekends.boundingBox())!.x)
-    await page.getByRole('radio', { name: 'Next 30 days' }).click()
-    await expect(page.getByRole('heading', { name: 'Next 30 days' })).toBeVisible()
+    const business = page.getByRole('button', { name: 'Business days only' })
+    expect((await mode.boundingBox())!.x).toBeLessThan((await business.boundingBox())!.x)
+    // no rolling toggle in the calendar itself
+    await expect(page.getByRole('radio', { name: 'Next 30 days' })).toHaveCount(0)
+    // business days only: the weekend columns go
+    const cols = () => page.locator('main [data-drop^="day:"]').count()
+    const full = await cols()
+    await business.click()
+    expect(await cols()).toBeLessThan(full)
+    await business.click()
+    // the month has only the weeks it needs
+    expect(full % 7).toBe(0)
+    expect(full).toBeLessThanOrEqual(42)
     await page.getByRole('button', { name: 'day', exact: true }).click()
-    await expect(weekends).toHaveCount(0)
+    await expect(business).toHaveCount(0)
+    // settings: the next 30 days / next 7 days
+    await page.getByRole('button', { name: 'My settings' }).first().click()
+    await page.getByRole('radio', { name: 'Next 30 days' }).click()
+    await page.getByRole('radio', { name: 'Next 7 days' }).click()
+    await page.getByRole('button', { name: 'Close settings' }).click()
+    await page.getByRole('button', { name: 'week', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Next 7 days' })).toBeVisible()
+    await page.getByRole('button', { name: 'month', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Next 30 days' })).toBeVisible()
+  })
+
+  test('closing an item opened from a day popup brings the day back, and today, tomorrow and yesterday are named', async ({ page }) => {
+    await page.locator('button', { hasText: /^Calendar/ }).first().click()
+    await page.locator('[data-drop^="day:"]').nth(8).click()
+    const day = page.getByRole('dialog')
+    await day.getByRole('button', { name: /Mark done|Done this one/ }).first().waitFor()
+    await day.getByText('Lab report: osmosis').first().click().catch(() => day.locator('.tint').first().click())
+    await expect(page.getByRole('dialog', { name: /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/ })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Close' }).first().click()
+    await expect(page.getByRole('dialog', { name: /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/ })).toBeVisible()
   })
 })

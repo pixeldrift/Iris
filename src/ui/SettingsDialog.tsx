@@ -144,6 +144,8 @@ export function SettingsDialog() {
   const hue = useStore((s) => s.settings.themeHue)
   const dateFormat = useStore((s) => s.settings.dateFormat)
   const notch = useStore((s) => s.settings.notch)
+  const monthStyle = useStore((s) => s.settings.monthStyle)
+  const weekStyle = useStore((s) => s.settings.weekStyle)
   const clockFormat = useStore((s) => s.settings.clockFormat)
   const sound = useStore((s) => s.settings.sound)
   const volume = useStore((s) => s.settings.volume)
@@ -211,6 +213,34 @@ export function SettingsDialog() {
             <div className="-mt-2.5 flex justify-between text-[0.68rem] text-ink-faint">
               <span>Compact</span>
               <span>Relaxed</span>
+            </div>
+          </div>
+        </Group>
+        <Group title="Calendar">
+          <div className="space-y-2 px-2 py-1.5">
+            <div>
+              <div className="mb-1 text-sm">Month view</div>
+              <SegmentedToggle
+                label="Month view"
+                value={monthStyle}
+                options={[
+                  { id: 'month', label: 'Calendar month' },
+                  { id: 'rolling', label: 'Next 30 days' },
+                ]}
+                onChange={(v) => setSetting('monthStyle', v)}
+              />
+            </div>
+            <div>
+              <div className="mb-1 text-sm">Week view</div>
+              <SegmentedToggle
+                label="Week view"
+                value={weekStyle}
+                options={[
+                  { id: 'week', label: 'Calendar week' },
+                  { id: 'rolling', label: 'Next 7 days' },
+                ]}
+                onChange={(v) => setSetting('weekStyle', v)}
+              />
             </div>
           </div>
         </Group>

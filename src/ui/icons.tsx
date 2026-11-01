@@ -317,3 +317,11 @@ export const IconGlobe = (p: P) => (
     <path d="M3.5 12h17M12 3.5c2.6 2.4 3.6 5.2 3.6 8.5s-1 6.1-3.6 8.5c-2.6-2.4-3.6-5.2-3.6-8.5s1-6.1 3.6-8.5Z" />
   </Svg>
 )
+
+/** A briefcase: "business days only". */
+export const IconBriefcase = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.5" y="7.5" width="17" height="12" rx="2" />
+    <path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17M10.5 12.5v1.5h3v-1.5" />
+  </Svg>
+)

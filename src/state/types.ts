@@ -32,6 +32,10 @@ export interface Settings {
   clockFormat: '12' | '24'
   /** Which side the notch is on when the phone is turned sideways: detected from the rotation, or set by hand. */
   notch: 'auto' | 'left' | 'right'
+  /** Calendar month view: the real calendar month, or the next 30 days from today. */
+  monthStyle: 'month' | 'rolling'
+  /** Calendar week view: the real calendar week (Sunday to Saturday), or the next 7 days from today. */
+  weekStyle: 'week' | 'rolling'
 }
 
 export interface ContactPrompt {

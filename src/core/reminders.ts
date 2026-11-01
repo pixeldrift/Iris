@@ -74,7 +74,7 @@ export function reminderPresets(t: Task, now: number): ReminderPreset[] {
   return list.filter((p) => p.at > now)
 }
 
-/** "6 pm today", "9 am tomorrow", "Mon 9:30 am", "Mar 3, 9 am". */
+/** "6 pm today", "9 am tomorrow", "9 am yesterday", "Mon 9:30 am", "Mar 3, 9 am". */
 export function formatReminder(at: number, now: number): string {
   const d = new Date(at)
   const h = d.getHours()
@@ -83,6 +83,7 @@ export function formatReminder(at: number, now: number): string {
   const today = toISO(new Date(now))
   if (day === today) return `${time} today`
   if (day === addDays(today, 1)) return `${time} tomorrow`
+  if (day === addDays(today, -1)) return `${time} yesterday`
   if (day < addDays(today, 7) && day > today) return `${WEEKDAYS[d.getDay()].slice(0, 3)} ${time}`
   return `${formatDate(day, { now: new Date(now) })}, ${time}`
 }

@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { tint } from '../../core/color'
-import { addDays, fromISO, monthGrid, MONTHS, startOfWeek, toISO, today, WEEKDAYS } from '../../core/dates'
+import { addDays, dayHint, fromISO, monthGrid, MONTHS, startOfWeek, toISO, today, WEEKDAYS } from '../../core/dates'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
-import { IconChevron, IconClose, IconPlus, KindIcon } from '../icons'
-import { SegmentedToggle } from '../SegmentedToggle'
+import { IconBriefcase, IconChevron, IconClose, IconPlus, KindIcon } from '../icons'
+import { SPRING } from '../lift'
 import { colorVars, useTaskHue } from '../taskColor'
 import { DoneButton, useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate } from '../../core/tasks'
-import { useIsMobile, usePhone } from '../useMedia'
+import { useIsMobile, useLandscapePhone } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; deadline?: boolean; loggedOn?: string; rich?: boolean }) {
@@ -163,7 +163,7 @@ function Cell({
         {named && (
           <span className="ml-2 text-sm text-ink-soft">
             {WEEKDAYS[d.getDay()]}
-            {isToday && <span className="ml-1.5 text-sm font-normal italic text-ink-faint">(today)</span>}
+            {dayHint(date) && <span className="ml-1.5 font-normal italic text-ink-faint">({dayHint(date)})</span>}
           </span>
         )}
         <button
@@ -213,7 +213,7 @@ function Cell({
  * A day, opened from the month view: it grows out of the box that was tapped. Its items are in the list view's style
  * (checkbox on the left, type on the right), the day and date are at the top, and arrows step to the day before or after.
  */
-function DayPopup({ date, from, tasksOn, onNav, onClose }: { date: string; from: DOMRect | null; tasksOn: (d: string) => { task: Task; deadline: boolean }[]; onNav: (dir: number) => void; onClose: () => void }) {
+function DayPopup({ date, from, tasksOn, onNav, onClose, onLeave }: { date: string; from: DOMRect | null; tasksOn: (d: string) => { task: Task; deadline: boolean }[]; onNav: (dir: number) => void; onClose: () => void; onLeave: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   const back = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
@@ -221,20 +221,22 @@ function DayPopup({ date, from, tasksOn, onNav, onClose }: { date: string; from:
   const addTask = useStore((s) => s.addTask)
   const items = tasksOn(date)
   const d = fromISO(date)
-  const isToday = date === today()
 
   // the transform that puts the panel exactly over the box it grew from
   const fromBox = () => {
     const el = panel.current
-    if (!el || !from) return null
+    if (!el) return null
     const to = el.getBoundingClientRect()
+    // grown out of the box that was tapped; with none to grow from (coming back from an item's details) it just springs up
+    if (!from) return 'scale(0.9)'
     return `translate(${from.left + from.width / 2 - (to.left + to.width / 2)}px, ${from.top + from.height / 2 - (to.top + to.height / 2)}px) scale(${Math.max(0.05, from.width / to.width)}, ${Math.max(0.05, from.height / to.height)})`
   }
   useEffect(() => {
     const el = panel.current
     const t = fromBox()
     if (!el || !t) return
-    el.animate([{ transform: t, opacity: 0.35, borderRadius: '1rem' }, { transform: 'none', opacity: 1, borderRadius: '2rem' }], { duration: 440, easing: 'cubic-bezier(0.22, 1.15, 0.4, 1)' })
+    // the springy overshoot used for boxes elsewhere in the app
+    el.animate([{ transform: t, opacity: from ? 0.35 : 0, borderRadius: '1rem' }, { transform: 'none', opacity: 1, borderRadius: '2rem' }], { duration: 560, easing: SPRING })
     back.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'ease-out' })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => {
@@ -257,32 +259,33 @@ function DayPopup({ date, from, tasksOn, onNav, onClose }: { date: string; from:
     return () => window.removeEventListener('keydown', key)
   }) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const arrow = 'grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white/70'
+  const arrow = 'grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white/70'
   return createPortal(
     <div className="fixed inset-0 z-[110] grid place-items-center py-3" style={{ paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}>
       <div ref={back} className="absolute inset-0 bg-ink/15 backdrop-blur-[3px]" onClick={close} />
       <div ref={panel} role="dialog" aria-modal="true" aria-label={`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`} className="glass glass-strong relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[2rem]">
-        <header className="flex items-center gap-1 px-3 pb-2 pt-3">
-          <button onClick={() => onNav(-1)} className={arrow} aria-label="Previous day">
-            <span className="grid rotate-180 place-items-center">
-              <IconChevron />
-            </span>
-          </button>
-          <div className="min-w-0 flex-1 text-center">
-            <h3 className="truncate font-display text-2xl leading-tight">
-              {WEEKDAYS[d.getDay()]}
-              {isToday && <span className="ml-2 text-base font-normal italic text-ink-faint">(today)</span>}
-            </h3>
-            <p className="text-sm text-ink-soft">
-              {MONTHS[d.getMonth()]} {d.getDate()}, {d.getFullYear()}
-            </p>
-          </div>
-          <button onClick={() => onNav(1)} className={arrow} aria-label="Next day">
-            <IconChevron />
-          </button>
-          <button onClick={close} className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink" aria-label="Close">
+        <header className="px-3 pb-2 pt-3.5">
+          <button onClick={close} className="absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink" aria-label="Close">
             <IconClose size={14} />
           </button>
+          <h3 className="truncate px-9 text-center font-display text-2xl leading-tight">
+            {WEEKDAYS[d.getDay()]}
+            {dayHint(date) && <span className="ml-2 text-base font-normal italic text-ink-faint">({dayHint(date)})</span>}
+          </h3>
+          {/* the arrows share the date's line, away from the close button */}
+          <div className="mt-0.5 flex items-center justify-center gap-1">
+            <button onClick={() => onNav(-1)} className={arrow} aria-label="Previous day">
+              <span className="grid rotate-180 place-items-center">
+                <IconChevron size={16} />
+              </span>
+            </button>
+            <p className="min-w-[10.5rem] text-center text-sm text-ink-soft">
+              {MONTHS[d.getMonth()]} {d.getDate()}, {d.getFullYear()}
+            </p>
+            <button onClick={() => onNav(1)} className={arrow} aria-label="Next day">
+              <IconChevron size={16} />
+            </button>
+          </div>
         </header>
         <div className="scroll-soft min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-2 pt-1">
           {items.map((t) => (
@@ -292,8 +295,9 @@ function DayPopup({ date, from, tasksOn, onNav, onClose }: { date: string; from:
               deadline={t.deadline}
               loggedOn={repeatOf(t.task) ? date : undefined}
               onOpen={() => {
+                // the details open over the day; closing them brings the day back
+                onLeave()
                 select(t.task.id)
-                close()
               }}
             />
           ))}
@@ -302,9 +306,8 @@ function DayPopup({ date, from, tasksOn, onNav, onClose }: { date: string; from:
         <footer className="border-t border-white/60 px-3 py-2.5">
           <button
             onClick={() => {
-              const id = addTask({ title: 'New task', due: date })
-              select(id)
-              close()
+              onLeave()
+              select(addTask({ title: 'New task', due: date }))
             }}
             className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
           >
@@ -327,36 +330,28 @@ const readWeekends = () => {
   }
 }
 
-const readRolling = () => {
-  try {
-    return localStorage.getItem('lilac-rolling') === '1'
-  } catch {
-    return false
-  }
-}
-
 /** A calendar control: same height and centring for every one, so rows of them line up. */
 const ctl = 'grid h-8 place-items-center rounded-full transition hover:bg-white/60'
 
 export function CalendarView() {
   const visible = useVisibleTasks()
   const mobile = useIsMobile()
-  const phone = usePhone()
   const [mode, setMode] = useState<Mode>('month')
   const [anchor, setAnchor] = useState(today())
   const [weekends, setWeekends] = useState(readWeekends)
-  // month view: the actual calendar month, or the next 30 days from today ("rolling")
-  const [rolling, setRolling] = useState(readRolling)
+  const monthRolling = useStore((s) => s.settings.monthStyle === 'rolling')
+  const weekRolling = useStore((s) => s.settings.weekStyle === 'rolling')
+  const land = useLandscapePhone()
+  const selectedId = useStore((s) => s.selectedId)
   const [pop, setPop] = useState<{ date: string; from: DOMRect | null } | null>(null)
-  const setRoll = (r: boolean) => {
-    setRolling(r)
-    setAnchor(today())
-    try {
-      localStorage.setItem('lilac-rolling', r ? '1' : '0')
-    } catch {
-      /* just for this visit */
+  // an item opened from the day popup: when its details close, the day comes back
+  const [resume, setResume] = useState<string | null>(null)
+  useEffect(() => {
+    if (resume && selectedId === null) {
+      setPop({ date: resume, from: null })
+      setResume(null)
     }
-  }
+  }, [selectedId, resume])
   const toggleWeekends = () =>
     setWeekends((w) => {
       try {
@@ -395,17 +390,25 @@ export function CalendarView() {
     for (let d = startOfWeek(anchor); d <= addDays(startOfWeek(rollEnd), 6); d = addDays(d, 1)) out.push(d)
     return out
   }
-  const rollingMonth = mode === 'month' && rolling
+  // the real month's grid has only the weeks the month needs, not an extra one beyond it
+  const monthWeeks = () => {
+    const g = monthGrid(a.getFullYear(), a.getMonth())
+    while (g.length > 7 && g.slice(-7).every((d) => fromISO(d).getMonth() !== a.getMonth())) g.length -= 7
+    return g
+  }
+  const rollingMonth = mode === 'month' && monthRolling
+  const rollingWeek = mode === 'week' && weekRolling
   const cells =
     mode === 'month'
-      ? (rollingMonth ? rollGrid() : monthGrid(a.getFullYear(), a.getMonth())).filter(show)
+      ? (rollingMonth ? rollGrid() : monthWeeks()).filter(show)
       : mode === 'week'
-        ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i)).filter(show)
+        ? Array.from({ length: 7 }, (_, i) => addDays(rollingWeek ? anchor : startOfWeek(anchor), i)).filter(show)
         : [dayAnchor]
   const cols = mode === 'day' ? 1 : weekends ? 7 : 5
   const stacked = mode === 'week' && mobile // seven slim columns can't show anything on a phone: stack the days
   const step = (dir: number) => {
     if (rollingMonth) return setAnchor(addDays(anchor, dir * 28))
+    if (rollingWeek) return setAnchor(addDays(anchor, dir * 7))
     if (mode === 'month') return setAnchor(toISO(new Date(a.getFullYear(), a.getMonth() + dir, 1)))
     if (mode === 'week') return setAnchor(addDays(anchor, dir * 7))
     let d = addDays(dayAnchor, dir)
@@ -421,10 +424,14 @@ export function CalendarView() {
         : `${short(anchor)} – ${short(rollEnd)}`
       : mode === 'month'
       ? `${MONTHS[a.getMonth()]} ${a.getFullYear()}`
-      : mode === 'week'
-        ? `Week of ${MONTHS[first.getMonth()].slice(0, 3)} ${first.getDate()}`
+      : rollingWeek
+        ? anchor === today()
+          ? 'Next 7 days'
+          : `${short(anchor)} – ${short(addDays(anchor, 6))}`
+        : mode === 'week'
+          ? `Week of ${MONTHS[first.getMonth()].slice(0, 3)} ${first.getDate()}`
         : `${WEEKDAYS[first.getDay()]}, ${MONTHS[first.getMonth()].slice(0, 3)} ${first.getDate()}`
-  const heads = cells.slice(0, cols).map((d) => ({ name: WEEKDAYS[fromISO(d).getDay()], today: d === today(), key: d }))
+  const heads = cells.slice(0, cols).map((d) => ({ name: WEEKDAYS[fromISO(d).getDay()], hint: dayHint(d), key: d }))
 
   // tapping a day in the month view opens it; its arrows step to the neighbouring days
   const popNav = (dir: number) =>
@@ -440,8 +447,8 @@ export function CalendarView() {
     <div className="glass flex h-full flex-col rounded-[2rem] p-3 md:p-4">
       <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 px-1">
         {/* on a phone the month and year get a line to themselves */}
-        <h3 className="basis-full font-display text-xl md:basis-auto">{title}</h3>
-        <div className="flex items-center md:ml-2">
+        <h3 className="order-1 min-w-0 flex-1 font-display text-xl md:flex-none">{title}</h3>
+        <div className="order-3 flex items-center md:ml-2">
           <button onClick={() => step(-1)} className={`${ctl} w-8`} aria-label="Previous">
             <span className="grid rotate-180 place-items-center">
               <IconChevron />
@@ -455,36 +462,28 @@ export function CalendarView() {
           </button>
         </div>
         {/* how you look at it first (month, week, day); then the details of that view */}
-        <div className="glass-soft ml-auto flex h-8 items-center rounded-full p-0.5 text-xs">
+        <div className="glass-soft order-4 ml-auto flex h-8 items-center rounded-full p-0.5 text-xs">
           {(['month', 'week', 'day'] as const).map((m) => (
-            <button key={m} onClick={() => setMode(m)} className={`h-full rounded-full px-3 capitalize transition ${mode === m ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
+            <button key={m} onClick={() => setMode(m)} className={`h-full rounded-full px-2.5 capitalize transition md:px-3 ${mode === m ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
               {m}
             </button>
           ))}
         </div>
-        {mode === 'month' && (
-          <SegmentedToggle
-            label="Month style"
-            value={rolling ? 'rolling' : 'month'}
-            options={[
-              { id: 'month', label: 'Month' },
-              { id: 'rolling', label: 'Next 30 days' },
-            ]}
-            onChange={(v) => setRoll(v === 'rolling')}
-          />
-        )}
         {mode !== 'day' && (
+          // business days only: weekends are left out while it is on
+          <>
           <button
             onClick={toggleWeekends}
-            aria-pressed={weekends}
-            className="glass-soft flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-ink-soft"
-            title={weekends ? 'Hide weekends' : 'Show weekends'}
+            aria-pressed={!weekends}
+            aria-label="Business days only"
+            title={weekends ? 'Show business days only' : 'Show weekends too'}
+            className={`${ctl} order-2 w-8 md:order-5 ${weekends ? 'text-ink-soft' : 'bg-lilac-500 text-white shadow shadow-lilac-500/30 hover:bg-lilac-600'}`}
           >
-            Weekends
-            <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${weekends ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
-              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${weekends ? 'left-[0.85rem]' : 'left-0.5'}`} />
-            </span>
+            <IconBriefcase size={17} />
           </button>
+          {/* on a phone the controls below start on a new line */}
+          <span aria-hidden className="order-2 basis-full md:hidden" />
+          </>
         )}
       </div>
 
@@ -494,7 +493,7 @@ export function CalendarView() {
             mode === 'week' ? (
               <span key={h.key} className="truncate text-[0.68rem] uppercase tracking-wider text-ink-faint">
                 {h.name.slice(0, 3)}
-                {h.today && <span className="ml-1 text-[0.68rem] normal-case italic tracking-normal">(today)</span>}
+                {h.hint && <span className="ml-1 text-[0.68rem] normal-case italic tracking-normal">({h.hint})</span>}
               </span>
             ) : (
               <span key={h.key} className="text-[0.68rem] uppercase tracking-wider text-ink-faint">
@@ -527,9 +526,21 @@ export function CalendarView() {
           />
         ))}
       </div>
-      {pop && <DayPopup date={pop.date} from={pop.from} tasksOn={tasksOn} onNav={popNav} onClose={() => setPop(null)} />}
+      {pop && (
+        <DayPopup
+          date={pop.date}
+          from={pop.from}
+          tasksOn={tasksOn}
+          onNav={popNav}
+          onClose={() => setPop(null)}
+          onLeave={() => {
+            setResume(pop.date)
+            setPop(null)
+          }}
+        />
+      )}
 
-      {unscheduled.length > 0 && !phone && (
+      {unscheduled.length > 0 && !land && (
         <div className="mt-2.5 flex items-center gap-2 overflow-x-auto px-1 pb-0.5">
           <span className="shrink-0 text-xs text-ink-faint">Unscheduled · drag onto a day</span>
           {unscheduled.map((t) => (
