@@ -26,10 +26,24 @@ export function SegmentedToggle<T extends string>({
   const refs = useRef(new Map<string, HTMLButtonElement>())
   const [box, setBox] = useState<{ left: number; width: number } | null>(null)
   const settled = useRef(false)
+  const root = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    const el = value === null ? undefined : refs.current.get(value)
-    // offsets, not screen rects: the box is still scaling in when this first runs
-    setBox(el ? { left: el.offsetLeft + (el.parentElement?.offsetLeft ?? 0), width: el.offsetWidth } : null)
+    const measure = () => {
+      const el = value === null ? undefined : refs.current.get(value)
+      // offsets, not screen rects: the box is still scaling in when this first runs
+      setBox((b) => {
+        const next = el ? { left: el.offsetLeft + (el.parentElement?.offsetLeft ?? 0), width: el.offsetWidth } : null
+        return b && next && b.left === next.left && b.width === next.width ? b : next
+      })
+    }
+    measure()
+    // the options can change width after they are placed (a stretched toggle, a narrower screen, the room beside it changing)
+    const ro = typeof ResizeObserver !== 'undefined' && root.current ? new ResizeObserver(measure) : null
+    if (ro && root.current) {
+      ro.observe(root.current)
+      for (const el of refs.current.values()) ro.observe(el)
+    }
+    return () => ro?.disconnect()
   }, [value, options])
   useEffect(() => {
     // no slide on the very first placement
@@ -38,7 +52,7 @@ export function SegmentedToggle<T extends string>({
   }, [])
   const spring = 'cubic-bezier(0.34, 1.35, 0.55, 1)'
   return (
-    <div role="radiogroup" aria-label={label} className={`no-scrollbar relative ${fill ? 'flex w-full sm:inline-flex sm:w-auto' : 'inline-flex'} max-w-full min-w-0 items-center overflow-x-auto rounded-full bg-white/50 p-0.5 shadow-[inset_0_1px_2px_rgb(var(--lr-700)/0.12)] ${className}`}>
+    <div ref={root} role="radiogroup" aria-label={label} className={`no-scrollbar relative ${fill ? 'flex w-full sm:inline-flex sm:w-auto' : 'inline-flex'} max-w-full min-w-0 items-center overflow-x-auto rounded-full bg-white/50 p-0.5 shadow-[inset_0_1px_2px_rgb(var(--lr-700)/0.12)] ${className}`}>
       {box && (
         <span
           aria-hidden
@@ -47,7 +61,7 @@ export function SegmentedToggle<T extends string>({
         />
       )}
       {options.map((o, i) => (
-        <span key={o.id} className={`relative flex items-center ${fill ? 'min-w-0 flex-1 sm:flex-none' : 'shrink-0'}`}>
+        <span key={o.id} className={`relative flex items-center ${fill ? 'min-w-fit flex-1 sm:flex-none' : 'shrink-0'}`}>
           {i > 0 && <span aria-hidden className={`h-3.5 w-px bg-ink-faint/25 transition-opacity duration-200 ${value === o.id || value === options[i - 1].id ? 'opacity-0' : ''}`} />}
           <button
             type="button"
