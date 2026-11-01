@@ -10,7 +10,7 @@ import { IconCheck, IconPlus, IconTrash } from '../icons'
 
 export const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255, GRAY]
 
-/** Everything about one folder in one place: rename it, color it, add inside it, delete it. */
+/** Everything about one folder in one place: rename it, color it, delete it, add a subgroup. */
 export function FolderOptions({
   folder,
   open,
@@ -41,25 +41,23 @@ export function FolderOptions({
       footer={
         <div className="mt-3 flex items-center border-t border-white/60 pt-2.5">
           <button
+            onClick={async () => {
+              onClose()
+              const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
+              if (choices) deleteFolder(folder.id, choices)
+            }}
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
+          >
+            <IconTrash size={14} /> Delete
+          </button>
+          <button
             onClick={() => {
               onClose()
               onAdd(folder.id)
             }}
-            className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
+            className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
           >
-            <IconPlus size={14} /> Add inside
-          </button>
-          <button
-            onClick={async () => {
-              onClose()
-              {
-          const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
-          if (choices) deleteFolder(folder.id, choices)
-        }
-            }}
-            className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
-          >
-            <IconTrash size={14} /> Delete
+            <IconPlus size={14} /> Add subgroup
           </button>
         </div>
       }

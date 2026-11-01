@@ -9,6 +9,9 @@ import { SegmentedToggle } from '../SegmentedToggle'
 import { Avatar, CountBubble } from '../shared'
 import { Tip } from '../Tip'
 
+// the toggle names groups of people, so the presets read as plurals (a category itself stays as it was typed)
+const PLURAL: Record<string, string> = { friend: 'Friends', coworker: 'Coworkers', colleague: 'Colleagues', neighbor: 'Neighbors', classmate: 'Classmates', relative: 'Relatives' }
+
 /** Everyone you know. Heart the ones who should be one tap away in the sidebar. */
 export function AddressBook() {
   const people = useStore((s) => s.people)
@@ -52,7 +55,7 @@ export function AddressBook() {
           <SegmentedToggle
             label="Category"
             value={cat ?? '__all'}
-            options={[{ id: '__all', label: 'All' }, ...cats.map((c) => ({ id: c, label: c }))]}
+            options={[{ id: '__all', label: 'All' }, ...cats.map((c) => ({ id: c, label: PLURAL[c.toLowerCase()] ?? c }))]}
             onChange={(v) => setCat(v === '__all' ? null : v)}
           />
         </div>

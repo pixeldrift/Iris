@@ -30,7 +30,7 @@ export function Collapse({ open, children }: { open: boolean; children: React.Re
       className="grid transition-[grid-template-rows,opacity,visibility] duration-300"
       style={{ gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0, visibility: open ? 'visible' : 'hidden', transitionDelay: open ? '0s' : '0s, 0s, 0.3s' }}
     >
-      <div inert={!open} className="-mx-1 min-h-0 overflow-hidden px-1">
+      <div inert={!open} className="-mx-1 -my-0.5 min-h-0 overflow-hidden px-1 py-0.5">
         {children}
       </div>
     </div>

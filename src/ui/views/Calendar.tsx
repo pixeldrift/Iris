@@ -1,17 +1,20 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { tint } from '../../core/color'
 import { addDays, fromISO, monthGrid, MONTHS, startOfWeek, toISO, today, WEEKDAYS } from '../../core/dates'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
-import { IconChevron, IconPlus } from '../icons'
-import { useTaskDrag } from '../shared'
+import { IconChevron, IconClose, IconPlus, KindIcon } from '../icons'
+import { SegmentedToggle } from '../SegmentedToggle'
+import { colorVars, useTaskHue } from '../taskColor'
+import { DoneButton, useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate } from '../../core/tasks'
 import { useIsMobile, usePhone } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
-function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boolean; loggedOn?: string }) {
+function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; deadline?: boolean; loggedOn?: string; rich?: boolean }) {
   // an occurrence of a repeating item that came and went without being ticked: still on the calendar (for the record), just quieter
   const missed = !!loggedOn && loggedOn < today() && !task.log.includes(loggedOn)
   const el = useRef<HTMLDivElement>(null)
@@ -19,6 +22,7 @@ function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boo
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
   const leave = useLeaveClass(task)
+  const isDone = loggedOn ? task.log.includes(loggedOn) : task.status === 'done'
   return (
     <div
       ref={el}
@@ -27,13 +31,62 @@ function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boo
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className={`pop-in cursor-pointer touch-none truncate rounded-lg px-1.5 py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${(loggedOn ? task.log.includes(loggedOn) : task.status === 'done') ? 'line-through opacity-60' : ''} ${missed ? 'opacity-55 outline-dashed outline-1 -outline-offset-1 outline-ink-faint/50' : ''} ${leave}`}
+      className={`pop-in flex cursor-pointer touch-none items-center gap-1.5 rounded-lg py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${rich ? 'px-1' : 'truncate px-1.5'} ${isDone ? 'opacity-60' : ''} ${missed ? 'opacity-55 outline-dashed outline-1 -outline-offset-1 outline-ink-faint/50' : ''} ${leave}`}
       style={deadline ? { background: 'transparent', boxShadow: `inset 0 0 0 1px ${tint(hue, 45, 60, .55)}`, color: `${tint(hue, 35, 35)}` } : { background: `${tint(hue, 70, 87, .9)}`, color: `${tint(hue, 35, 28)}` }}
       title={deadline ? `${task.title} (due)` : task.title}
     >
-      {deadline ? '⚑ ' : ''}
-      {task.kind === 'event' && task.time ? `${formatTime(task.time)} ` : ''}
-      {task.title}
+      {rich && <DoneButton task={task} size={16} />}
+      <span className={`min-w-0 flex-1 truncate ${isDone ? 'line-through' : ''}`}>
+        {deadline ? '⚑ ' : ''}
+        {task.kind === 'event' && task.time ? `${formatTime(task.time)} ` : ''}
+        {task.title}
+      </span>
+      {rich && (
+        <span className="shrink-0 opacity-60" aria-hidden>
+          <KindIcon kind={task.kind} size={12} />
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** An item in the style of the list view: its group's tint, a checkbox on the left and its type on the right. */
+function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { task: Task; deadline?: boolean; loggedOn?: string; onOpen?: () => void; drag?: boolean }) {
+  const el = useRef<HTMLDivElement>(null)
+  const select = useStore((s) => s.select)
+  const hue = useTaskHue(task)
+  const pointer = useTaskDrag(task, el, () => (onOpen ? onOpen() : select(task.id)))
+  const isDone = loggedOn ? task.log.includes(loggedOn) : task.status === 'done'
+  const missed = !!loggedOn && loggedOn < today() && !task.log.includes(loggedOn)
+  return (
+    <div
+      ref={el}
+      data-lift-id={deadline || !drag ? undefined : `task:${task.id}`}
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        if (drag) pointer(e, true)
+      }}
+      onClick={() => {
+        if (!drag) {
+          if (onOpen) onOpen()
+          else select(task.id)
+        }
+      }}
+      style={{ touchAction: 'pan-y', ...colorVars(hue, task.urgency) }}
+      className={`tint lift-on-press relative flex cursor-pointer select-none items-center gap-2.5 rounded-2xl px-3 py-2.5 ${missed ? 'opacity-60' : ''}`}
+      title={deadline ? `${task.title} (due)` : task.title}
+    >
+      <DoneButton task={task} />
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate ${isDone ? 'text-ink-faint line-through' : ''}`}>
+          {deadline ? '⚑ ' : ''}
+          {task.title || 'Untitled'}
+        </span>
+        {task.kind === 'event' && task.time && <span className="block text-xs text-ink-faint">{formatTime(task.time)}</span>}
+      </span>
+      <span className="shrink-0 text-lilac-600/70" aria-hidden title={task.kind}>
+        <KindIcon kind={task.kind} size={16} />
+      </span>
     </div>
   )
 }
@@ -52,32 +105,72 @@ function Dot({ task, deadline, loggedOn }: { task: Task; deadline: boolean; logg
   )
 }
 
-function Cell({ date, tasks, month, tall, named = false, roomy = false, dots = false }: { date: string; tasks: { task: Task; deadline: boolean }[]; month: number | null; tall: boolean; named?: boolean; roomy?: boolean; dots?: boolean }) {
+function Cell({
+  date,
+  tasks,
+  month,
+  tall,
+  named = false,
+  roomy = false,
+  dots = false,
+  rich = false,
+  dimmed,
+  onOpen,
+}: {
+  date: string
+  tasks: { task: Task; deadline: boolean }[]
+  month: number | null
+  tall: boolean
+  named?: boolean
+  roomy?: boolean
+  dots?: boolean
+  /** checkbox on the left and the item's type on the right (the week and day views) */
+  rich?: boolean
+  dimmed?: boolean
+  /** the month view: tapping the day opens it */
+  onOpen?: (date: string, from: DOMRect) => void
+}) {
   const { over, active, props } = useDropTarget(`day:${date}`)
   const addTask = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
   const setScope = useStore((s) => s.setScope)
   const isToday = date === today()
   const d = fromISO(date)
-  const dim = month !== null && d.getMonth() !== month
+  const dim = dimmed ?? (month !== null && d.getMonth() !== month)
   const max = roomy ? 99 : tall ? 12 : 3
+  const box = useRef<HTMLDivElement>(null)
+  const open = () => box.current && onOpen?.(date, box.current.getBoundingClientRect())
   return (
     <div
       {...props}
-      className={`group relative flex flex-col gap-1 overflow-hidden rounded-2xl border p-1.5 transition ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
+      ref={box}
+      onClick={onOpen ? open : undefined}
+      className={`group relative flex flex-col gap-1 overflow-hidden rounded-2xl border p-1.5 transition ${onOpen ? 'cursor-pointer hover:bg-white/60' : ''} ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
         over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? 'border-lilac-300 bg-white/70' : 'border-ink-faint/30 bg-white/40 shadow-[0_1px_4px_rgba(90,70,120,0.12)]'
       } ${dim ? 'opacity-50' : ''} ${active && !over ? 'border-dotted border-lilac-300' : ''}`}
     >
       <div className="flex items-center">
         <button
-          onClick={() => setScope({ type: 'day', date })}
+          onClick={(e) => {
+            if (onOpen) return // the whole day opens
+            e.stopPropagation()
+            setScope({ type: 'day', date })
+          }}
           className={`grid h-6 min-w-6 place-items-center rounded-full px-1 text-xs tabular-nums ${isToday ? 'bg-lilac-500 text-white' : 'text-ink-soft hover:bg-white/70'}`}
         >
           {d.getDate()}
         </button>
-        {named && <span className="ml-2 text-sm text-ink-soft">{WEEKDAYS[d.getDay()]}</span>}
+        {named && (
+          <span className="ml-2 font-display text-base font-semibold text-ink">
+            {WEEKDAYS[d.getDay()]}
+            {isToday && <span className="ml-1.5 text-sm font-normal italic text-ink-faint">(today)</span>}
+          </span>
+        )}
         <button
-          onClick={() => select(addTask({ title: 'New task', due: date }))}
+          onClick={(e) => {
+            e.stopPropagation()
+            select(addTask({ title: 'New task', due: date }))
+          }}
           className="ml-auto rounded-full p-0.5 text-ink-faint opacity-0 transition hover:bg-white/70 hover:text-lilac-600 group-hover:opacity-100"
           aria-label={`Add task on ${date}`}
         >
@@ -86,26 +179,141 @@ function Cell({ date, tasks, month, tall, named = false, roomy = false, dots = f
       </div>
       {dots ? (
         // the month view: at this size words can't be read, so each item is a dot and the day is judged at a glance
-        <button
-          type="button"
-          onClick={() => setScope({ type: 'day', date })}
+        <div
           aria-label={tasks.length ? `${tasks.length} ${tasks.length === 1 ? 'item' : 'items'} on ${date}` : `Nothing on ${date}`}
+          role="img"
           className="flex min-h-0 flex-1 flex-wrap content-start items-start gap-1 overflow-hidden px-0.5 text-left"
         >
           {tasks.slice(0, 15).map((t) => (
             <Dot key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
           ))}
           {tasks.length > 15 && <span className="text-[0.62rem] leading-2 text-ink-faint">+{tasks.length - 15}</span>}
-        </button>
+        </div>
+      ) : roomy ? (
+        // the day view: rows like the list view's (room around them, so their rounded corners and lift are never clipped)
+        <div className="scroll-soft -mx-0.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1.5">
+          {tasks.map((t) => (
+            <ItemRow key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} drag />
+          ))}
+          {tasks.length === 0 && <p className="px-2 py-3 text-sm text-ink-faint">Nothing planned for this day.</p>}
+        </div>
       ) : (
         <div className="scroll-soft flex min-h-0 flex-col gap-1 overflow-y-auto">
           {tasks.slice(0, max).map((t) => (
-            <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
+            <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} rich={rich} />
           ))}
           {tasks.length > max && <span className="px-1 text-[0.68rem] text-ink-faint">+{tasks.length - max} more</span>}
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * A day, opened from the month view: it grows out of the box that was tapped. Its items are in the list view's style
+ * (checkbox on the left, type on the right), the day and date are at the top, and arrows step to the day before or after.
+ */
+function DayPopup({ date, from, tasksOn, onNav, onClose }: { date: string; from: DOMRect | null; tasksOn: (d: string) => { task: Task; deadline: boolean }[]; onNav: (dir: number) => void; onClose: () => void }) {
+  const panel = useRef<HTMLDivElement>(null)
+  const back = useRef<HTMLDivElement>(null)
+  const closing = useRef(false)
+  const select = useStore((s) => s.select)
+  const addTask = useStore((s) => s.addTask)
+  const items = tasksOn(date)
+  const d = fromISO(date)
+  const isToday = date === today()
+
+  // the transform that puts the panel exactly over the box it grew from
+  const fromBox = () => {
+    const el = panel.current
+    if (!el || !from) return null
+    const to = el.getBoundingClientRect()
+    return `translate(${from.left + from.width / 2 - (to.left + to.width / 2)}px, ${from.top + from.height / 2 - (to.top + to.height / 2)}px) scale(${Math.max(0.05, from.width / to.width)}, ${Math.max(0.05, from.height / to.height)})`
+  }
+  useEffect(() => {
+    const el = panel.current
+    const t = fromBox()
+    if (!el || !t) return
+    el.animate([{ transform: t, opacity: 0.35, borderRadius: '1rem' }, { transform: 'none', opacity: 1, borderRadius: '2rem' }], { duration: 440, easing: 'cubic-bezier(0.22, 1.15, 0.4, 1)' })
+    back.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'ease-out' })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const close = () => {
+    if (closing.current) return
+    closing.current = true
+    const el = panel.current
+    const t = fromBox()
+    back.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, fill: 'forwards' })
+    if (!el || !t) return onClose()
+    const anim = el.animate([{ transform: 'none', opacity: 1, borderRadius: '2rem' }, { transform: t, opacity: 0, borderRadius: '1rem' }], { duration: 300, easing: 'cubic-bezier(0.5, 0, 0.8, 0.4)', fill: 'forwards' })
+    anim.onfinish = onClose
+  }
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+      if (e.key === 'ArrowLeft') onNav(-1)
+      if (e.key === 'ArrowRight') onNav(1)
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const arrow = 'grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white/70'
+  return createPortal(
+    <div className="fixed inset-0 z-[110] grid place-items-center py-3" style={{ paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}>
+      <div ref={back} className="absolute inset-0 bg-ink/15 backdrop-blur-[3px]" onClick={close} />
+      <div ref={panel} role="dialog" aria-modal="true" aria-label={`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`} className="glass glass-strong relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[2rem]">
+        <header className="flex items-center gap-1 px-3 pb-2 pt-3">
+          <button onClick={() => onNav(-1)} className={arrow} aria-label="Previous day">
+            <span className="grid rotate-180 place-items-center">
+              <IconChevron />
+            </span>
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <h3 className="truncate font-display text-2xl leading-tight">
+              {WEEKDAYS[d.getDay()]}
+              {isToday && <span className="ml-2 text-base font-normal italic text-ink-faint">(today)</span>}
+            </h3>
+            <p className="text-sm text-ink-soft">
+              {MONTHS[d.getMonth()]} {d.getDate()}, {d.getFullYear()}
+            </p>
+          </div>
+          <button onClick={() => onNav(1)} className={arrow} aria-label="Next day">
+            <IconChevron />
+          </button>
+          <button onClick={close} className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink" aria-label="Close">
+            <IconClose size={14} />
+          </button>
+        </header>
+        <div className="scroll-soft min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-2 pt-1">
+          {items.map((t) => (
+            <ItemRow
+              key={t.task.id + (t.deadline ? 'd' : '')}
+              task={t.task}
+              deadline={t.deadline}
+              loggedOn={repeatOf(t.task) ? date : undefined}
+              onOpen={() => {
+                select(t.task.id)
+                close()
+              }}
+            />
+          ))}
+          {items.length === 0 && <p className="py-6 text-center text-sm text-ink-faint">Nothing planned for this day.</p>}
+        </div>
+        <footer className="border-t border-white/60 px-3 py-2.5">
+          <button
+            onClick={() => {
+              const id = addTask({ title: 'New task', due: date })
+              select(id)
+              close()
+            }}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
+          >
+            <IconPlus size={14} /> Add an item
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -119,6 +327,14 @@ const readWeekends = () => {
   }
 }
 
+const readRolling = () => {
+  try {
+    return localStorage.getItem('lilac-rolling') === '1'
+  } catch {
+    return false
+  }
+}
+
 /** A calendar control: same height and centring for every one, so rows of them line up. */
 const ctl = 'grid h-8 place-items-center rounded-full transition hover:bg-white/60'
 
@@ -129,6 +345,18 @@ export function CalendarView() {
   const [mode, setMode] = useState<Mode>('month')
   const [anchor, setAnchor] = useState(today())
   const [weekends, setWeekends] = useState(readWeekends)
+  // month view: the actual calendar month, or the next 30 days from today ("rolling")
+  const [rolling, setRolling] = useState(readRolling)
+  const [pop, setPop] = useState<{ date: string; from: DOMRect | null } | null>(null)
+  const setRoll = (r: boolean) => {
+    setRolling(r)
+    setAnchor(today())
+    try {
+      localStorage.setItem('lilac-rolling', r ? '1' : '0')
+    } catch {
+      /* just for this visit */
+    }
+  }
   const toggleWeekends = () =>
     setWeekends((w) => {
       try {
@@ -160,15 +388,24 @@ export function CalendarView() {
   // keep the anchor on a visible day when weekends are hidden
   const dayAnchor = show(anchor) ? anchor : addDays(anchor, fromISO(anchor).getDay() === 6 ? -1 : 1)
   const a = fromISO(anchor)
+  const rollEnd = addDays(anchor, 29)
+  const rollGrid = () => {
+    // whole weeks from the one the window starts in to the one it ends in
+    const out: string[] = []
+    for (let d = startOfWeek(anchor); d <= addDays(startOfWeek(rollEnd), 6); d = addDays(d, 1)) out.push(d)
+    return out
+  }
+  const rollingMonth = mode === 'month' && rolling
   const cells =
     mode === 'month'
-      ? monthGrid(a.getFullYear(), a.getMonth()).filter(show)
+      ? (rollingMonth ? rollGrid() : monthGrid(a.getFullYear(), a.getMonth())).filter(show)
       : mode === 'week'
         ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i)).filter(show)
         : [dayAnchor]
   const cols = mode === 'day' ? 1 : weekends ? 7 : 5
   const stacked = mode === 'week' && mobile // seven slim columns can't show anything on a phone: stack the days
   const step = (dir: number) => {
+    if (rollingMonth) return setAnchor(addDays(anchor, dir * 28))
     if (mode === 'month') return setAnchor(toISO(new Date(a.getFullYear(), a.getMonth() + dir, 1)))
     if (mode === 'week') return setAnchor(addDays(anchor, dir * 7))
     let d = addDays(dayAnchor, dir)
@@ -176,13 +413,28 @@ export function CalendarView() {
     setAnchor(d)
   }
   const first = fromISO(cells[0])
+  const short = (iso: string) => `${MONTHS[fromISO(iso).getMonth()].slice(0, 3)} ${fromISO(iso).getDate()}`
   const title =
-    mode === 'month'
+    rollingMonth
+      ? anchor === today()
+        ? 'Next 30 days'
+        : `${short(anchor)} – ${short(rollEnd)}`
+      : mode === 'month'
       ? `${MONTHS[a.getMonth()]} ${a.getFullYear()}`
       : mode === 'week'
         ? `Week of ${MONTHS[first.getMonth()].slice(0, 3)} ${first.getDate()}`
         : `${WEEKDAYS[first.getDay()]}, ${MONTHS[first.getMonth()].slice(0, 3)} ${first.getDate()}`
-  const heads = (weekends ? WEEKDAYS : WEEKDAYS.slice(1, 6)).map((w) => w.slice(0, 3))
+  const heads = cells.slice(0, cols).map((d) => ({ name: WEEKDAYS[fromISO(d).getDay()], today: d === today(), key: d }))
+
+  // tapping a day in the month view opens it; its arrows step to the neighbouring days
+  const popNav = (dir: number) =>
+    setPop((p) => {
+      if (!p) return p
+      let d = addDays(p.date, dir)
+      while (!show(d)) d = addDays(d, dir)
+      return { date: d, from: null }
+    })
+  const dimmedFor = (d: string) => (rollingMonth ? d < anchor || d > rollEnd : undefined)
 
   return (
     <div className="glass flex h-full flex-col rounded-[2rem] p-3 md:p-4">
@@ -202,31 +454,54 @@ export function CalendarView() {
             <IconChevron />
           </button>
         </div>
-        <button
-          onClick={toggleWeekends}
-          aria-pressed={weekends}
-          className="glass-soft ml-auto flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-ink-soft"
-          title={weekends ? 'Hide weekends' : 'Show weekends'}
-        >
-          Weekends
-          <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${weekends ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
-            <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${weekends ? 'left-[0.85rem]' : 'left-0.5'}`} />
-          </span>
-        </button>
-        <div className="glass-soft flex h-8 items-center rounded-full p-0.5 text-xs">
+        {/* how you look at it first (month, week, day); then the details of that view */}
+        <div className="glass-soft ml-auto flex h-8 items-center rounded-full p-0.5 text-xs">
           {(['month', 'week', 'day'] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)} className={`h-full rounded-full px-3 capitalize transition ${mode === m ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
               {m}
             </button>
           ))}
         </div>
+        {mode === 'month' && (
+          <SegmentedToggle
+            label="Month style"
+            value={rolling ? 'rolling' : 'month'}
+            options={[
+              { id: 'month', label: 'Month' },
+              { id: 'rolling', label: 'Next 30 days' },
+            ]}
+            onChange={(v) => setRoll(v === 'rolling')}
+          />
+        )}
+        {mode !== 'day' && (
+          <button
+            onClick={toggleWeekends}
+            aria-pressed={weekends}
+            className="glass-soft flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-ink-soft"
+            title={weekends ? 'Hide weekends' : 'Show weekends'}
+          >
+            Weekends
+            <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${weekends ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
+              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${weekends ? 'left-[0.85rem]' : 'left-0.5'}`} />
+            </span>
+          </button>
+        )}
       </div>
 
       {mode !== 'day' && !stacked && (
-        <div className="mb-1 grid gap-1.5 px-0.5 text-center text-[0.68rem] uppercase tracking-wider text-ink-faint" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-          {heads.map((w) => (
-            <span key={w}>{w}</span>
-          ))}
+        <div className="mb-1 grid gap-1.5 px-0.5 text-center" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {heads.map((h) =>
+            mode === 'week' ? (
+              <span key={h.key} className="truncate font-display text-sm font-semibold text-ink">
+                {h.name.slice(0, 3)}
+                {h.today && <span className="ml-1 text-xs font-normal italic text-ink-faint">(today)</span>}
+              </span>
+            ) : (
+              <span key={h.key} className="text-[0.68rem] uppercase tracking-wider text-ink-faint">
+                {h.name.slice(0, 3)}
+              </span>
+            ),
+          )}
         </div>
       )}
       <div
@@ -237,9 +512,22 @@ export function CalendarView() {
         }}
       >
         {cells.map((d) => (
-          <Cell key={d} date={d} tasks={tasksOn(d)} month={mode === 'month' ? a.getMonth() : null} tall={mode !== 'month'} named={stacked || mode === 'day'} roomy={mode === 'day'} dots={mode === 'month'} />
+          <Cell
+            key={d}
+            date={d}
+            tasks={tasksOn(d)}
+            month={mode === 'month' && !rollingMonth ? a.getMonth() : null}
+            dimmed={dimmedFor(d)}
+            tall={mode !== 'month'}
+            named={stacked || mode === 'day'}
+            roomy={mode === 'day'}
+            dots={mode === 'month'}
+            rich={mode === 'week'}
+            onOpen={mode === 'month' ? (date, from) => setPop({ date, from }) : undefined}
+          />
         ))}
       </div>
+      {pop && <DayPopup date={pop.date} from={pop.from} tasksOn={tasksOn} onNav={popNav} onClose={() => setPop(null)} />}
 
       {unscheduled.length > 0 && !phone && (
         <div className="mt-2.5 flex items-center gap-2 overflow-x-auto px-1 pb-0.5">

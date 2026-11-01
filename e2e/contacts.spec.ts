@@ -30,9 +30,9 @@ test.describe('the address book', () => {
 
   test('the calendar month shows dots, not words', async ({ page }) => {
     await page.locator('button', { hasText: /^Calendar/ }).first().click()
-    await expect(page.getByRole('button', { name: /items? on / }).first()).toBeVisible()
+    await expect(page.getByRole('img', { name: /items? on / }).first()).toBeVisible()
     // a day's box holds its number and its dots, no titles
-    const day = page.getByRole('button', { name: /items? on / }).first().locator('..')
+    const day = page.getByRole('img', { name: /items? on / }).first().locator('..')
     expect((await day.innerText()).trim()).toMatch(/^\d+$/)
   })
 
@@ -82,5 +82,30 @@ test.describe('the address book', () => {
     await card.getByRole('button', { name: 'Edit', exact: true }).click()
     await card.getByRole('button', { name: 'Cancel' }).click()
     await expect(card.getByRole('link', { name: 'cleo@example.com' })).toBeVisible()
+  })
+
+  test('tapping a day in the month view opens it, with list-style items and arrows to the next day', async ({ page }) => {
+    await page.locator('button', { hasText: /^Calendar/ }).first().click()
+    await page.locator('[data-drop^="day:"]').nth(8).click()
+    const day = page.getByRole('dialog')
+    await expect(day.getByRole('heading')).toContainText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/)
+    const before = await day.getByRole('heading').innerText()
+    // items carry a checkbox (left) and their type (right), like the list view
+    await expect(day.getByRole('button', { name: /Mark done|Done this one/ }).first()).toBeVisible()
+    await day.getByRole('button', { name: 'Next day' }).click()
+    await expect(day.getByRole('heading')).not.toHaveText(before)
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+
+  test('the calendar has the view toggle first, no weekends toggle on a single day, and a rolling 30-day option', async ({ page }) => {
+    await page.locator('button', { hasText: /^Calendar/ }).first().click()
+    const mode = page.getByRole('button', { name: 'month', exact: true })
+    const weekends = page.getByRole('button', { name: /Weekends/ })
+    expect((await mode.boundingBox())!.x).toBeLessThan((await weekends.boundingBox())!.x)
+    await page.getByRole('radio', { name: 'Next 30 days' }).click()
+    await expect(page.getByRole('heading', { name: 'Next 30 days' })).toBeVisible()
+    await page.getByRole('button', { name: 'day', exact: true }).click()
+    await expect(weekends).toHaveCount(0)
   })
 })
