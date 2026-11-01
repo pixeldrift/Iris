@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
-import { DEFAULT_SHARES, detailsOf, SHARE_FIELDS } from '../core/linking'
+import { DEFAULT_SHARES, detailsOf, matchesFor, SHARE_FIELDS } from '../core/linking'
 import type { Person } from '../core/types'
 import { acceptRequest, declineRequest, disconnectFrom, markNoticesRead, sendInvite, setMyShares, useConnect, type Connection } from '../sync/connect'
 import { useStore } from '../state/store'
@@ -110,8 +110,16 @@ function AcceptDialog() {
   const [shares, setShares] = useState<string[]>(DEFAULT_SHARES)
   const [busy, setBusy] = useState(false)
   const showToast = useStore((s) => s.showToast)
+  const people = useStore((s) => s.people)
+  // which of your entries their details fill in: a new one, or one you already have (their own verified email is the only thing preselected)
+  const found = c ? matchesFor(people, { name: c.name, email: c.email }) : { sure: [], maybe: [] }
+  const choices = [...found.sure, ...found.maybe].slice(0, 4)
+  const [into, setInto] = useState<string>('')
   useEffect(() => {
-    if (c) setShares(DEFAULT_SHARES)
+    if (c) {
+      setShares(DEFAULT_SHARES)
+      setInto(found.sure.length === 1 ? found.sure[0].id : '')
+    }
   }, [c?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => useOpen.setState({ accept: null })
   const run = async (fn: () => Promise<void>, done: string) => {
@@ -138,7 +146,7 @@ function AcceptDialog() {
           <button type="button" disabled={busy} className={`${btnGhost} ml-auto`} onClick={() => c && run(() => declineRequest(c), 'Declined. They won’t be told.')}>
             Decline
           </button>
-          <button type="button" disabled={busy} className={btnMain} onClick={() => c && run(() => acceptRequest(c, shares), `Connected with ${c.name}`)}>
+          <button type="button" disabled={busy} className={btnMain} onClick={() => c && run(() => acceptRequest(c, shares, into || null), `Connected with ${c.name}`)}>
             Accept
           </button>
         </div>
@@ -148,6 +156,16 @@ function AcceptDialog() {
       <p className="mt-1.5 text-sm text-ink-soft">
         {c?.email && <span className="text-ink">{c.email}</span>} If you accept, the details they share appear in your address book and stay up to date.
       </p>
+      {/* their details fill in one entry of yours: never one picked for you on a guess about the name */}
+      <p className="mb-1 mt-3 text-xs font-medium text-ink-soft">Where should they go in your address book?</p>
+      <div role="radiogroup" aria-label="Address book entry" className="mb-1 space-y-0.5">
+        {[{ id: '', label: 'A new entry' }, ...choices.map((p) => ({ id: p.id, label: `My entry “${p.name}”${found.sure.includes(p) ? ' (same email)' : ''}` }))].map((o) => (
+          <label key={o.id || 'new'} className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1 text-sm transition hover:bg-white/60">
+            <input type="radio" name="into" checked={into === o.id} onChange={() => setInto(o.id)} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+            <span className="min-w-0 flex-1 truncate">{o.label}</span>
+          </label>
+        ))}
+      </div>
       <p className="mb-2 mt-3 text-xs font-medium text-ink-soft">What would you share with them?</p>
       <ShareChoices value={shares} onChange={setShares} />
     </Modal>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyShared, detailsOf, findExisting, mergeLinkedDuplicates, unlink } from './linking'
+import { applyShared, detailsOf, matchesFor, mergeLinkedDuplicates, unlink } from './linking'
 import type { Person } from './types'
 
 const base = (over: Partial<Person> = {}): Person => ({ id: 'p', name: 'Bobby', first: 'Bobby', last: '', phone: '', email: 'bob@x.com', address: '', notes: 'my note', hue: 1, favorite: false, createdAt: 1, link: { userId: 'u', got: [] }, ...over })
@@ -36,15 +36,16 @@ describe('linked entries', () => {
     expect(detailsOf(base({ link: undefined, first: 'Ann', last: 'T', phone: '1' }))).toEqual({ first: 'Ann', last: 'T', phone: '1', email: 'bob@x.com' })
   })
 
-  it('finds the entry that is already yours by email, then phone, then name, but only when it is unambiguous', () => {
-    const a = base({ id: 'a', link: undefined, name: 'Eric F', email: 'eric@x.com' })
-    const b = base({ id: 'b', link: undefined, name: 'Someone', email: '', phone: '(808) 555-0100' })
-    const c = base({ id: 'c', link: undefined, name: 'Pat Q', email: '', phone: '' })
-    expect(findExisting([a, b, c], { email: 'ERIC@x.com' })?.id).toBe('a')
-    expect(findExisting([a, b, c], { fields: { phone: '808-555-0100' } })?.id).toBe('b')
-    expect(findExisting([a, b, c], { name: 'pat q' })?.id).toBe('c')
-    expect(findExisting([a, { ...a, id: 'a2' }], { email: 'eric@x.com' })).toBeUndefined() // two candidates: not guessed
-    expect(findExisting([base({ id: 'm', isMe: true, link: undefined, email: 'eric@x.com' })], { email: 'eric@x.com' })).toBeUndefined() // never yourself
+  it('offers look-alikes as choices, and only an entry with their own verified email as the sure one', () => {
+    const a = base({ id: 'a', link: undefined, name: 'Eric F', first: 'Eric', email: 'eric@x.com' })
+    const b = base({ id: 'b', link: undefined, name: 'Someone', first: 'Someone', email: '', phone: '(808) 555-0100' })
+    const c = base({ id: 'c', link: undefined, name: 'Pat Q', first: 'Pat', email: '', phone: '' })
+    const d = base({ id: 'd', link: undefined, name: 'Eric', first: 'Eric', email: '' })
+    const r = matchesFor([a, b, c, d], { name: 'Eric Farrugia', email: 'ERIC@x.com', phone: '808-555-0100' })
+    expect(r.sure.map((p) => p.id)).toEqual(['a'])
+    expect(r.maybe.map((p) => p.id).sort()).toEqual(['b', 'd']) // the phone, and the first name: choices, never automatic
+    expect(matchesFor([d], { name: 'Eric', email: 'new@x.com' })).toEqual({ sure: [], maybe: [d] }) // a name alone is never "sure"
+    expect(matchesFor([base({ id: 'm', isMe: true, link: undefined, email: 'eric@x.com' }), base({ id: 'l', link: { userId: 'u', got: [] }, email: 'eric@x.com' })], { email: 'eric@x.com' })).toEqual({ sure: [], maybe: [] }) // never yourself, or someone already connected
   })
 
   it('two entries for the same connected person become one, keeping the one made by hand and re-pointing tasks', () => {
