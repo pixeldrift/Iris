@@ -70,7 +70,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
 
   // #folder and @person (by name; "#school/bio" walks a path)
   for (;;) {
-    r = take(t, /\s#([\w][\w/ -]*?)(?=\s(?:#|@)|\s*$|\s(?:on|at|by|due|every|tomorrow|today|next|in)\b)/i)
+    r = take(t, /\s#([\w][\w/ -]*?)(?=\s(?:#|@)|\s*$|\s(?:on|at|by|due|every|tomorrow|today|yesterday|next|in)\b)/i)
     if (!r.m) break
     t = r.rest
     const q = r.m[1].trim().toLowerCase()
@@ -81,7 +81,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     } else if (!hit) t += ` ${r.m[0].trim()}` // unknown: leave it in the title
   }
   for (;;) {
-    r = take(t, /\s@([\w][\w' .-]*?)(?=\s(?:#|@)|\s*$|\s(?:on|at|by|due|every|tomorrow|today|next|in)\b)/i)
+    r = take(t, /\s@([\w][\w' .-]*?)(?=\s(?:#|@)|\s*$|\s(?:on|at|by|due|every|tomorrow|today|yesterday|next|in)\b)/i)
     if (!r.m) break
     t = r.rest
     const q = r.m[1].trim().toLowerCase()
@@ -222,11 +222,11 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     while (fromISO(mon).getDay() !== 1) mon = addDays(mon, 1)
     return addDays(mon, (wd + 6) % 7)
   }
-  r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(today|tonight|tomorrow|tmrw|tmr)\b/i)
+  r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(today|tonight|tomorrow|tmrw|tmr|yesterday)\b/i)
   if (r.m) {
     dueMode = !!r.m[1]
     const w = r.m[2].toLowerCase()
-    date = w === 'tomorrow' || w.startsWith('tm') ? addDays(todayISO, 1) : todayISO
+    date = w === 'yesterday' ? addDays(todayISO, -1) : w === 'tomorrow' || w.startsWith('tm') ? addDays(todayISO, 1) : todayISO
     t = r.rest
   }
   if (!date) {

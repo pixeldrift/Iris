@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { addDays, diffDays, ordinalSuffix, today, weekdayName } from '../core/dates'
+import { addDays, dayHint, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds } from '../core/folders'
 import { MAX_FAVORITES } from '../core/people'
 import { taskOnDate } from '../core/recurrence'
@@ -149,7 +149,7 @@ export function Sidebar() {
             label={
               <>
                 {weekdayName(d)}
-                {diffDays(t0, d) <= 1 && <i className="ml-1.5 text-[0.82em] font-normal italic text-ink-faint">({diffDays(t0, d) === 0 ? 'today' : 'tomorrow'})</i>}
+                {dayHint(d, t0) && <i className="ml-1.5 text-[0.82em] font-normal italic text-ink-faint">({dayHint(d, t0)})</i>}
               </>
             }
             count={dueCount(d)}

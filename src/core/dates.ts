@@ -42,12 +42,19 @@ export function weekdayName(s: string): string {
   return WEEKDAYS[fromISO(s).getDay()]
 }
 
-/** "Today", "Tomorrow", then weekday names, for the next 7 days. */
+/** "Yesterday", "Today", "Tomorrow", then weekday names. */
 export function dayLabel(date: string, now = today()): string {
   const diff = diffDays(now, date)
+  if (diff === -1) return 'Yesterday'
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   return weekdayName(date)
+}
+
+/** The small hint that goes beside a day's name: "yesterday", "today", "tomorrow", or nothing for any other day. */
+export function dayHint(date: string, now = today()): 'yesterday' | 'today' | 'tomorrow' | null {
+  const diff = diffDays(now, date)
+  return diff === -1 ? 'yesterday' : diff === 0 ? 'today' : diff === 1 ? 'tomorrow' : null
 }
 
 export function shortDate(s: string): string {

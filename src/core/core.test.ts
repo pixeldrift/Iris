@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
+import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
@@ -624,5 +624,18 @@ describe('parseBirthday', () => {
     expect(p('13/13')).toBeUndefined()
     expect(p('soon')).toBeUndefined()
     expect(p('   ')).toBeNull()
+  })
+})
+
+describe('yesterday, today and tomorrow', () => {
+  it('are named wherever a day is named', () => {
+    expect(dayLabel('2026-11-01', '2026-11-02')).toBe('Yesterday')
+    expect(dayLabel('2026-11-02', '2026-11-02')).toBe('Today')
+    expect(dayLabel('2026-11-03', '2026-11-02')).toBe('Tomorrow')
+    expect(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'].map((d) => dayHint(d, '2026-11-02'))).toEqual(['yesterday', 'today', 'tomorrow', null])
+  })
+  it('can be typed as a date', () => {
+    const q = parseQuickAdd('Return the book yesterday', new Date(2026, 10, 2), { folders: [], people: [] })
+    expect(q.day).toBe('2026-11-01')
   })
 })

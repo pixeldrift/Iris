@@ -27,6 +27,8 @@ export const DEFAULT_SETTINGS: Settings = {
   dateFormat: 'us',
   clockFormat: '12',
   notch: 'auto',
+  monthStyle: 'month',
+  weekStyle: 'week',
 }
 
 export const applyAudio = (s: Settings) =>
