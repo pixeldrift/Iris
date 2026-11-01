@@ -144,4 +144,26 @@ test.describe('a phone turned sideways', () => {
     const d = (await page.getByRole('dialog').boundingBox())!
     expect(d.x + d.width).toBeLessThanOrEqual(844 - 40)
   })
+
+  test('the quick add box is one row: the text, a type dropdown, Add at the far right and the close button in the corner', async ({ page }) => {
+    await open(page)
+    await page.evaluate(() => document.documentElement.style.setProperty('--kb', '200px')) // the keyboard's room
+    await page.getByRole('button', { name: 'New task' }).click()
+    const box = page.locator('#new-form')
+    await expect(box).toBeVisible()
+    const input = (await page.getByLabel('New item').boundingBox())!
+    const type = (await page.getByRole('button', { name: /^Type:/ }).boundingBox())!
+    const add = (await page.getByRole('button', { name: '+ Add' }).boundingBox())!
+    const close = (await page.getByRole('button', { name: 'Close', exact: true }).boundingBox())!
+    // all on one line, left to right: text, type, Add, then the close button
+    for (const b of [type, add]) expect(Math.abs(b.y + b.height / 2 - (input.y + input.height / 2))).toBeLessThan(14)
+    expect(type.x).toBeGreaterThan(input.x + input.width - 2)
+    expect(add.x).toBeGreaterThan(type.x + type.width)
+    expect(close.x).toBeGreaterThan(add.x + add.width - 2)
+    expect(close.y).toBeLessThan(input.y + 4) // up in the top corner
+    // the dropdown changes the type
+    await page.getByRole('button', { name: /^Type:/ }).click()
+    await page.getByRole('option', { name: 'Event' }).or(page.getByRole('button', { name: 'Event', exact: true })).first().click()
+    await expect(page.getByRole('button', { name: 'Type: Event' })).toBeVisible()
+  })
 })

@@ -5,7 +5,8 @@ import { create } from 'zustand'
 import { useStore } from '../state/store'
 import { drop } from '../audio/engine'
 import { useExit } from './anim'
-import { IconChevronDown, IconClose } from './icons'
+import { IconChevronDown, IconClose, KindIcon } from './icons'
+import { MenuItem, Popover } from './Popover'
 import { TagInput } from './TagInput'
 import { TaskFields } from './TaskDetail'
 import { KindHint, KINDS } from './shared'
@@ -34,6 +35,49 @@ const closeCompose = () => useCompose.setState({ open: false })
 /** One exclusive pill: the highlight slides to whichever type is chosen, with a single soft overshoot. */
 function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKind) => void }) {
   return <SegmentedToggle label="Type" value={value} options={KINDS} onChange={onChange} />
+}
+
+/** The type as a dropdown, for the sideways layout where a row of toggles would not fit beside the text. */
+function KindMenu({ value, onChange }: { value: TaskKind; onChange: (k: TaskKind) => void }) {
+  const [open, setOpen] = useState(false)
+  const btn = useRef<HTMLButtonElement>(null)
+  const current = KINDS.find((k) => k.id === value)
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Type: ${current?.label}`}
+        className="glass-soft flex h-9 shrink-0 items-center gap-1.5 rounded-full pl-3 pr-2.5 text-sm text-ink-soft transition hover:bg-white/70"
+      >
+        <KindIcon kind={value} size={15} />
+        {current?.label}
+        <span className="text-ink-faint">
+          <IconChevronDown size={13} />
+        </span>
+      </button>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} className="!min-w-[9rem] p-1">
+        {KINDS.map((k) => (
+          <MenuItem
+            key={k.id}
+            active={k.id === value}
+            onClick={() => {
+              onChange(k.id)
+              setOpen(false)
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <KindIcon kind={k.id} size={15} />
+              {k.label}
+            </span>
+          </MenuItem>
+        ))}
+      </Popover>
+    </>
+  )
 }
 
 /** Centred quick-add: the one way to start a new item, from the New button, the N key, the water or a group's +. */
@@ -133,6 +177,12 @@ export function NewTask() {
     finish(id)
   }
 
+  const changeKind = (k: TaskKind) => {
+    setKind(k)
+    if (draftId) update(draftId, { kind: k })
+    ref.current?.focus() // keep typing
+  }
+
   if (!mounted) return null
   return (
     <div
@@ -144,8 +194,50 @@ export function NewTask() {
       <div
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.key === 'Escape' && closeCompose()}
-        className={`glass glass-strong flex max-h-full w-full max-w-md flex-col rounded-[2rem] p-4 ${closing ? 'pop-out' : 'box-spring'}`}
+        className={`glass glass-strong relative flex max-h-full w-full flex-col ${land ? 'max-w-3xl rounded-[1.5rem] p-3' : 'max-w-md rounded-[2rem] p-4'} ${closing ? 'pop-out' : 'box-spring'}`}
       >
+        {land ? (
+          // turned sideways, with the keyboard up, a second row would fall below the box: one row, the type a dropdown, Add at the far right
+          <>
+            <form id="new-form" onSubmit={submit} className="flex items-center gap-2 pr-9">
+              <div className="relative min-w-0 flex-1">
+                <input
+                  ref={ref}
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value)
+                    if (draftId) update(draftId, { title: e.target.value })
+                  }}
+                  aria-label="New item"
+                  className="well w-full rounded-2xl px-3.5 py-1.5 font-display text-lg"
+                />
+                {!title && <ExampleHint index={hint} className="left-3.5 right-3 font-display text-lg" />}
+              </div>
+              <KindMenu value={shownKind} onChange={changeKind} />
+              <button
+                type="button"
+                onClick={expand}
+                aria-expanded={more}
+                aria-label={more ? 'Fewer details' : 'More details'}
+                title={more ? 'Fewer details' : 'More details'}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60 hover:text-ink"
+              >
+                <span className={`transition-transform ${more ? 'rotate-180' : ''}`}>
+                  <IconChevronDown size={15} />
+                </span>
+              </button>
+              {!(more && draft) && (
+                <button type="submit" className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm text-white shadow shadow-lilac-500/30">
+                  + Add
+                </button>
+              )}
+            </form>
+            <button type="button" onClick={closeCompose} className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">
+              <IconClose size={15} />
+            </button>
+          </>
+        ) : (
+          <>
         {/* only the quick line is a form (Enter places it); the editor below has its own buttons */}
         <form id="new-form" onSubmit={submit}>
         <div className="flex items-center">
@@ -181,14 +273,7 @@ export function NewTask() {
           </div>
         )}
         <div className="mt-2.5 flex items-center gap-2">
-          <KindToggle
-            value={shownKind}
-            onChange={(k) => {
-              setKind(k)
-              if (draftId) update(draftId, { kind: k })
-              ref.current?.focus() // keep typing
-            }}
-          />
+          <KindToggle value={shownKind} onChange={changeKind} />
           {/* expanded: Cancel and Add live in a bar pinned to the bottom instead */}
           {!(more && draft) && (
             <button type="submit" className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm text-white shadow shadow-lilac-500/30">
@@ -214,6 +299,8 @@ export function NewTask() {
             </span>
           </button>
         </div>
+          </>
+        )}
         {more && draft && (
           <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2" style={{ paddingBottom: "calc(0.25rem + var(--kb, 0px) * 0.5)" }}>
             <TaskFields task={draft} withKind={false} />
