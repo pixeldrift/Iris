@@ -5,7 +5,7 @@ import type { ParsedContact } from '../core/people'
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
 import type { PersonExtra } from '../core/types'
-import { DatePicker } from './DatePicker'
+import { BirthdayField } from './BirthdayField'
 import { IconChevronDown, IconClose, IconHeart, IconLink, IconPencil, IconPlus } from './icons'
 import { openVerify, sendCode } from './VerifyDialog'
 import { disconnectFrom, setFindable, useConnect } from '../sync/connect'
@@ -31,7 +31,7 @@ const closePerson = () => usePersonDialog.setState({ open: false })
 
 const field = 'well w-full rounded-xl px-3 py-2 text-sm'
 
-const blank = { photo: '', first: '', last: '', phone: '', email: '', notes: '', favorite: false, categories: [] as string[], extras: [] as PersonExtra[], birthday: null as string | null }
+const blank = { company: '', photo: '', first: '', last: '', phone: '', email: '', notes: '', favorite: false, categories: [] as string[], extras: [] as PersonExtra[], birthday: null as string | null }
 
 const EXTRA_KINDS: { id: PersonExtra['kind']; label: string; placeholder: string; labels: string[] }[] = [
   { id: 'phone', label: 'Phone', placeholder: 'Phone number', labels: ['Mobile', 'Home', 'Work'] },
@@ -71,7 +71,7 @@ export function PersonDialog() {
     const base = { ...(defaults as Record<string, string>), ...(existing ?? {}) } as Record<string, string>
     const names = base.first || base.last ? { first: base.first ?? '', last: base.last ?? '' } : splitName(base.name ?? '')
     // new people start hearted while there is room in the sidebar for them
-    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite && !existing.isMe : favorites < MAX_FAVORITES, categories: existing?.categories ?? [], extras: existing?.extras ?? [], birthday: existing?.birthday ?? null, photo: existing?.photo ?? '' })
+    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite && !existing.isMe : favorites < MAX_FAVORITES, categories: existing?.categories ?? [], extras: existing?.extras ?? [], birthday: existing?.birthday ?? null, photo: existing?.photo ?? '', company: existing?.company ?? '' })
     const known = base.street || base.city || base.state || base.zip ? { street: base.street ?? '', city: base.city ?? '', state: base.state ?? '', zip: base.zip ?? '' } : parseAddress(base.address ?? '')
     setParts(known)
     setLine(base.address || composeAddress(known))
@@ -320,7 +320,11 @@ export function PersonDialog() {
             </button>
           ))}
         </div>
-        <DatePicker label="Birthday" value={f.birthday} onChange={(v) => setF((cur) => ({ ...cur, birthday: v }))} />
+        {/* a birthday (typed or picked, year optional) beside where they work */}
+        <div className="grid grid-cols-2 gap-2">
+          <BirthdayField value={f.birthday} onChange={(v) => setF((cur) => ({ ...cur, birthday: v }))} />
+          <input className={field} placeholder="Company" aria-label="Company" autoComplete="organization" value={f.company} onChange={set('company')} />
+        </div>
         <div>
           <div className="flex items-center gap-1.5">
             {/* open: this box is just the street (the rest has its own boxes below); closed: the whole address on one line */}

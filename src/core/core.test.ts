@@ -8,6 +8,7 @@ import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, format
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
 import { matchesQuery } from './search'
+import { parseBirthday } from './birthday'
 import { composeAddress, parseAddress, splitName, wantsLetters } from './people'
 
 describe('dates', () => {
@@ -593,5 +594,35 @@ describe('wantsLetters', () => {
     expect(wantsLetters(book(['Ann', 'Bob', 'Cy']))).toBe(false) // a handful: just clutter
     expect(wantsLetters(book(Array.from({ length: 13 }, (_, i) => `${String.fromCharCode(65 + i)} person`)))).toBe(false) // long, but every letter has one
     expect(wantsLetters(book(['Adam', 'Alice', 'Amy', ...Array.from({ length: 10 }, (_, i) => `${String.fromCharCode(66 + i)} person`)]))).toBe(true)
+  })
+})
+
+describe('parseBirthday', () => {
+  const now = new Date(2026, 10, 3)
+  const p = (t: string, dayFirst = false) => parseBirthday(t, dayFirst, now)
+  it('reads the usual ways of typing a date, with the year optional', () => {
+    expect(p('Mar 4')).toBe('--03-04')
+    expect(p('march 4th, 1990')).toBe('1990-03-04')
+    expect(p('4 March 90')).toBe('1990-03-04')
+    expect(p('3/4')).toBe('--03-04')
+    expect(p('3/4/1990')).toBe('1990-03-04')
+    expect(p('3-4-05')).toBe('2005-03-04')
+    expect(p('1990-03-04')).toBe('1990-03-04')
+    expect(p('--03-04')).toBe('--03-04')
+    expect(p('Sept 9')).toBe('--09-09')
+  })
+  it('follows the day-first setting for numbers, and a first number over 12 is always a day', () => {
+    expect(p('3/4', true)).toBe('--04-03')
+    expect(p('25/12')).toBe('--12-25')
+    expect(p('12/25')).toBe('--12-25')
+  })
+  it('allows 29 February without a year, but not on a year that has none, and rejects nonsense', () => {
+    expect(p('Feb 29')).toBe('--02-29')
+    expect(p('2/29/2001')).toBeUndefined()
+    expect(p('2/29/2000')).toBe('2000-02-29')
+    expect(p('Mar 32')).toBeUndefined()
+    expect(p('13/13')).toBeUndefined()
+    expect(p('soon')).toBeUndefined()
+    expect(p('   ')).toBeNull()
   })
 })
