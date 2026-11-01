@@ -196,10 +196,11 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         )}
         <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" style={{ width: 'var(--rail)', paddingTop: '2.75rem', paddingBottom: '1.5rem' }}>
           {/* turned clockwise, like the title on a book's spine; started well down so the curve of the screen's corner never clips it */}
-          <div className="pointer-events-auto flex min-h-0 max-h-[62%] gap-1 overflow-hidden" style={{ writingMode: 'vertical-rl' }}>
-            <h2 className="truncate font-display text-xl leading-tight">{heading}</h2>
-            {railSub && <p className="truncate text-[0.7rem] leading-snug text-ink-soft">{railSub}</p>}
-          </div>
+          <h2 className="pointer-events-auto min-h-0 max-h-[62%] truncate font-display text-xl leading-tight" style={{ writingMode: 'vertical-rl' }}>
+            {heading}
+            {/* one line with the title, so they share a baseline */}
+            {railSub && <span className="font-sans text-[0.7rem] font-normal text-ink-soft" style={{ marginInlineStart: '0.6rem' }}>{railSub}</span>}
+          </h2>
           <div className="pointer-events-auto mt-auto flex flex-col items-center gap-2">
             {tools}
             {newBtn}
