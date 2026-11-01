@@ -225,6 +225,13 @@ export async function markRead(db: Db, who: Caller, body: { ids?: unknown }) {
   return { ok: true }
 }
 
+/** Delete some notifications (by id), or all of the caller's. Requests still waiting for an answer are listed from the connection itself, so they stay until answered. */
+export async function deleteNotices(db: Db, who: Caller, body: { ids?: unknown }) {
+  if (Array.isArray(body.ids) && body.ids.length) await db.query('delete from notifications where user_id = $1 and id = any($2)', [who.userId, body.ids.map(String)])
+  else await db.query('delete from notifications where user_id = $1', [who.userId])
+  return { ok: true }
+}
+
 /** One entry point for the API route. */
 export async function handleConnect(db: Db, who: Caller, body: Record<string, unknown>) {
   switch (body.action) {
@@ -243,6 +250,8 @@ export async function handleConnect(db: Db, who: Caller, body: Record<string, un
       return disconnect(db, who, body)
     case 'read':
       return markRead(db, who, body)
+    case 'delete':
+      return deleteNotices(db, who, body)
     default:
       throw new BadRequest('Unknown action.')
   }

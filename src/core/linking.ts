@@ -105,6 +105,7 @@ export function mergeLinkedDuplicates<T extends { personIds: string[] }>(people:
         email: keep.email || d.email,
         address: keep.address || d.address,
         birthday: keep.birthday || d.birthday,
+        photo: keep.photo || d.photo,
         notes: keep.notes === d.notes || !d.notes ? keep.notes : keep.notes ? `${keep.notes}\n${d.notes}` : d.notes,
         categories: [...new Set([...(keep.categories ?? []), ...(d.categories ?? [])])],
         extras,

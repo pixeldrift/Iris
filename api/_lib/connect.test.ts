@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { deleteAccount } from './account'
-import { BadRequest, connectState, disconnect, invite, putProfile, respond, setShares, TooMany } from './connect'
+import { BadRequest, connectState, deleteNotices, disconnect, invite, putProfile, respond, setShares, TooMany } from './connect'
 import type { Caller } from './verify'
 
 let db: PGlite
@@ -99,5 +99,20 @@ describe('connections', () => {
     expect((await connectState(db, { userId: 'fay' })).connections).toHaveLength(1)
     expect((await connectState(db, { userId: 'gus' })).connections).toHaveLength(0)
     expect((await connectState(db, { userId: 'gus' })).me.verified).toBe(false)
+  })
+
+  it('notifications can be deleted one at a time or all together, and a waiting request stays until it is answered', async () => {
+    await putProfile(db, { userId: 'hal', email: 'hal@example.com', emailVerified: true }, { details: details('Hal') })
+    await invite(db, { userId: 'ivy', email: 'ivy@example.com', emailVerified: true }, { email: 'hal@example.com', shares: [] })
+    await invite(db, { userId: 'jon', email: 'jon@example.com', emailVerified: true }, { email: 'hal@example.com', shares: [] })
+    const hal = { userId: 'hal' }
+    const first = (await connectState(db, hal)).notifications
+    expect(first.length).toBe(2)
+    await deleteNotices(db, hal, { ids: [first[0].id] })
+    expect((await connectState(db, hal)).notifications).toHaveLength(1)
+    await deleteNotices(db, hal, {})
+    const after = await connectState(db, hal)
+    expect(after.notifications).toHaveLength(0)
+    expect(after.connections.filter((c) => c.status === 'pending-in')).toHaveLength(2) // the requests themselves are still there to answer
   })
 })

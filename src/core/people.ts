@@ -176,3 +176,18 @@ export function allCategories(people: Pick<Person, 'categories'>[]): string[] {
   for (const p of people) for (const c of p.categories ?? []) if (!PRESET_CATEGORIES.some((x) => x.toLowerCase() === c.toLowerCase())) custom.add(c)
   return [...PRESET_CATEGORIES, ...[...custom].sort((a, b) => a.localeCompare(b))]
 }
+
+/**
+ * Whether an address book is long enough for its A–Z headings to help. With a handful of people the letters are just
+ * clutter; they start to earn their place once the list runs past a screen (more than 12 entries) and at least one
+ * letter has three or more people under it, so there is something to find by letter.
+ */
+export function wantsLetters(people: { name: string }[]): boolean {
+  if (people.length <= 12) return false
+  const counts = new Map<string, number>()
+  for (const p of people) {
+    const k = (p.name[0] ?? '#').toUpperCase()
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  return [...counts.values()].some((n) => n >= 3)
+}

@@ -204,6 +204,12 @@ export async function disconnectFrom(id: string) {
   await refreshConnect()
 }
 
+/** Delete some notifications, or all of them. */
+export async function deleteNotices(ids?: string[]) {
+  await call({ action: 'delete', ...(ids ? { ids } : {}) })
+  await refreshConnect()
+}
+
 export async function markNoticesRead(ids?: string[]) {
   await call({ action: 'read', ...(ids ? { ids } : {}) })
   await refreshConnect()

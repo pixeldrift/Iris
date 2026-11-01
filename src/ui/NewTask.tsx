@@ -12,6 +12,7 @@ import { KindHint, KINDS } from './shared'
 import type { TaskKind } from '../core/types'
 import { parseQuickAdd } from '../core/quickadd'
 import { askNotify } from './notify'
+import { useLandscapePhone } from './useMedia'
 
 /** Where a new item should land in the pond (fractions of the canvas); none = somewhere near the middle. */
 interface ComposeState {
@@ -38,6 +39,7 @@ function KindToggle({ value, onChange }: { value: TaskKind; onChange: (k: TaskKi
 /** Centred quick-add: the one way to start a new item, from the New button, the N key, the water or a group's +. */
 export function NewTask() {
   const { open, at, preset } = useCompose()
+  const land = useLandscapePhone()
   const startIn = preset?.folderIds
   const { mounted, closing } = useExit(open)
   const add = useStore((s) => s.addTask)
@@ -135,7 +137,8 @@ export function NewTask() {
   return (
     <div
       className={`fixed inset-0 z-[80] flex items-start justify-center bg-ink/10 backdrop-blur-[3px] transition-[opacity,padding] duration-200 ${closing ? 'opacity-0' : 'opacity-100'}`}
-      style={{ paddingTop: more ? '0.75rem' : '18vh', paddingBottom: 'calc(var(--kb, 0px) + 0.75rem)', paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}
+      // a phone turned sideways has little height and the keyboard takes most of it: the box starts near the top there
+      style={{ paddingTop: more || land ? '0.5rem' : '18vh', paddingBottom: 'calc(var(--kb, 0px) + 0.75rem)', paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}
       onClick={closeCompose}
     >
       <div
@@ -194,18 +197,23 @@ export function NewTask() {
           )}
         </div>
         </form>
-        <KindHint kind={shownKind} className="mt-1.5 px-1" />
-        <button
-          type="button"
-          onClick={expand}
-          aria-expanded={more}
-          className="mt-2 flex items-center gap-1 self-start rounded-full px-2 py-1 text-xs text-ink-soft transition hover:bg-white/60 hover:text-ink"
-        >
-          <span className={`transition-transform ${more ? 'rotate-180' : ''}`}>
-            <IconChevronDown size={13} />
-          </span>
-          {more ? 'Fewer details' : 'More details'}
-        </button>
+        {/* what this kind of item is on the left; the full editor's toggle on the right, under the Add button */}
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="min-w-0 flex-1 px-1">
+            <KindHint kind={shownKind} />
+          </div>
+          <button
+            type="button"
+            onClick={expand}
+            aria-expanded={more}
+            className="ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs text-ink-soft transition hover:bg-white/60 hover:text-ink"
+          >
+            <span className={`transition-transform ${more ? 'rotate-180' : ''}`}>
+              <IconChevronDown size={13} />
+            </span>
+            {more ? 'Fewer details' : 'More details'}
+          </button>
+        </div>
         {more && draft && (
           <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2" style={{ paddingBottom: "calc(0.25rem + var(--kb, 0px) * 0.5)" }}>
             <TaskFields task={draft} withKind={false} />
