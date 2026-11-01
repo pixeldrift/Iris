@@ -9,11 +9,19 @@ const PREFIX = '/api/auth'
 const SKIP_REQUEST = new Set(['host', 'connection', 'content-length', 'accept-encoding', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-vercel-id', 'x-real-ip', 'forwarded'])
 const SKIP_RESPONSE = new Set(['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'set-cookie'])
 
+/**
+ * `rest` is the part of the path after /api/auth. When the request arrives through the rewrite in vercel.json it is carried
+ * in the `p` query parameter (the rewrite sends /api/auth/x/y to /api/authproxy?p=x/y); otherwise it is read from the path.
+ */
 export async function proxyAuth(request: Request, base: string, send: typeof fetch = fetch): Promise<Response> {
   const incoming = new URL(request.url)
   const upstreamBase = new URL(base.replace(/\/$/, ''))
-  const rest = incoming.pathname.startsWith(PREFIX) ? incoming.pathname.slice(PREFIX.length) : incoming.pathname
-  const target = `${upstreamBase.origin}${upstreamBase.pathname.replace(/\/$/, '')}${rest}${incoming.search}`
+  const viaRewrite = incoming.searchParams.has('p') && incoming.pathname.endsWith('/authproxy')
+  const query = new URLSearchParams(incoming.search)
+  query.delete('p')
+  const rest = viaRewrite ? `/${incoming.searchParams.get('p') ?? ''}` : incoming.pathname.startsWith(PREFIX) ? incoming.pathname.slice(PREFIX.length) : incoming.pathname
+  const search = viaRewrite ? (query.size ? `?${query}` : '') : incoming.search
+  const target = `${upstreamBase.origin}${upstreamBase.pathname.replace(/\/$/, '')}${rest}${search}`
 
   const headers = new Headers()
   request.headers.forEach((v, k) => {
@@ -33,5 +41,7 @@ export async function proxyAuth(request: Request, base: string, send: typeof fet
   const loc = out.get('location')
   if (loc && loc.startsWith(upstreamBase.origin)) out.set('location', `${incoming.origin}${PREFIX}${loc.slice(upstreamBase.origin.length + upstreamBase.pathname.replace(/\/$/, '').length)}`)
   out.set('cache-control', out.get('cache-control') ?? 'no-store')
+  // for working out where a failure is: it was this proxy, and this is what the service answered
+  out.set('x-lilac-proxy', `${upstream.status} ${rest}`)
   return new Response(upstream.status === 204 || upstream.status === 304 ? null : upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: out })
 }

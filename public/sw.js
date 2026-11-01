@@ -1,5 +1,5 @@
 // Minimal offline shell: network-first for pages, cache-first for hashed assets.
-const CACHE = 'lilac-v3'
+const CACHE = 'lilac-v4'
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg']
 
 self.addEventListener('install', (e) => {
@@ -15,7 +15,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return
-  if (new URL(req.url).pathname === '/version.json') return // always network
+  const path = new URL(req.url).pathname
+  // the API (sign-in, sync...) is never cached: an old answer would be a stale session
+  if (path === '/version.json' || path.startsWith('/api/')) return // always network
   if (req.mode === 'navigate') {
     e.respondWith(fetch(req).catch(() => caches.match('/index.html')))
     return

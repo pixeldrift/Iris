@@ -41,4 +41,13 @@ describe('the same-origin sign-in proxy', () => {
     expect(out.headers.get('location')).toBe('https://app.example.com/api/auth/verify?token=z')
     expect(seen.init?.body).toBeUndefined()
   })
+
+  it('reads the path from the rewrite’s parameter, and keeps the caller’s own query', async () => {
+    const req = new Request('https://app.example.com/api/authproxy?p=sign-in/email&redirect=1', { method: 'POST', body: '{}' })
+    const out = await proxyAuth(req, BASE, upstream(new Response('{}', { status: 200 })))
+    expect(seen.url).toBe('https://auth.example.neon.tech/neondb/auth/sign-in/email?redirect=1')
+    expect(out.headers.get('x-lilac-proxy')).toBe('200 /sign-in/email')
+    await proxyAuth(new Request('https://app.example.com/api/authproxy?p=get-session'), BASE, upstream(new Response('null', { status: 200 })))
+    expect(seen.url).toBe('https://auth.example.neon.tech/neondb/auth/get-session')
+  })
 })
