@@ -326,6 +326,10 @@ export function Priority() {
               <span className="mt-0.5 text-[0.65rem] leading-none text-ink-faint">{q.sub}</span>
             </div>
           ))}
+          {/* the bubble zoom sits in the frame's bottom edge, between the two lower corner names */}
+          <div data-ui className="absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2">
+            <ZoomControl onZoom={zoomBubbles} />
+          </div>
           <div ref={field} className="absolute inset-x-2.5 bottom-[42px] top-[42px] md:inset-x-3.5">
             <div className="pointer-events-none absolute inset-0 rounded-3xl bg-white/20 shadow-[inset_0_0_30px_rgb(var(--lr-300)/0.35)]" />
             {/* the axis names sit just inside the grid, so the card needs no side margin for them */}
@@ -378,9 +382,6 @@ export function Priority() {
             )}
           </div>
         </div>
-      </div>
-      <div data-ui className="flex justify-end px-2 pt-2">
-        <ZoomControl onZoom={zoomBubbles} />
       </div>
     </div>
   )

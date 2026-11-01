@@ -7,7 +7,6 @@ import type { ViewId } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, useDropTarget } from './dnd'
 import { Logo } from './Decor'
-import { Flower } from './Flower'
 import { openPerson } from './PeopleDialogs'
 import { useIsMobile, useLandscapePhone } from './useMedia'
 import { ScrollFade } from './ScrollFade'
@@ -310,6 +309,20 @@ export function Sidebar() {
             <button type="button" aria-label="Show the menu" title="Show the menu" className="grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-white/60" onClick={(e) => (e.stopPropagation(), setNavHidden(false))}>
               <Logo size={24} />
             </button>
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                aria-label={v.label}
+                title={v.label}
+                aria-pressed={view === v.id}
+                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${view === v.id ? 'bg-lilac-500 !text-white shadow shadow-lilac-500/30' : ''}`}
+                onClick={(e) => (e.stopPropagation(), setView(v.id))}
+              >
+                <v.icon />
+              </button>
+            ))}
+            <span aria-hidden className="my-0.5 h-px w-5 shrink-0 bg-ink-faint/30" />
             <button
               type="button"
               aria-label="Everything"
@@ -320,19 +333,6 @@ export function Sidebar() {
             >
               <IconAll />
             </button>
-            {childrenOf(folders, null).map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                aria-label={f.name}
-                title={f.name}
-                aria-pressed={scope.type === 'folder' && scope.id === f.id}
-                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-white/60 ${scope.type === 'folder' && scope.id === f.id ? 'bg-white/70' : ''}`}
-                onClick={(e) => (e.stopPropagation(), setScope(scope.type === 'folder' && scope.id === f.id ? { type: 'all' } : { type: 'folder', id: f.id }))}
-              >
-                <Flower hue={f.hue} shape={f.shape} size={18} />
-              </button>
-            ))}
           </div>
         )}
         <div

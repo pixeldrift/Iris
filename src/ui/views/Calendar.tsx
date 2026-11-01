@@ -51,7 +51,7 @@ function Cell({ date, tasks, month, tall, named = false, roomy = false }: { date
     <div
       {...props}
       className={`group relative flex flex-col gap-1 overflow-hidden rounded-2xl border p-1.5 transition ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
-        over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? 'border-lilac-300 bg-white/70' : 'border-white/60 bg-white/35'
+        over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? 'border-lilac-300 bg-white/70' : 'border-ink-faint/30 bg-white/40 shadow-[0_1px_4px_rgba(90,70,120,0.12)]'
       } ${dim ? 'opacity-50' : ''} ${active && !over ? 'border-dotted border-lilac-300' : ''}`}
     >
       <div className="flex items-center">

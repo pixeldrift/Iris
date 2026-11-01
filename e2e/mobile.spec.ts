@@ -81,10 +81,10 @@ test.describe('a phone turned sideways', () => {
       expect(w).toBeLessThan(80)
     }).toPass()
 
-    // the strip carries shortcuts: Everything and the top-level groups
+    // the strip carries shortcuts: the views, and Everything
     await expect(page.getByRole('button', { name: 'Everything', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'School', exact: true }).click()
-    await expect(page.locator('main header h2')).toBeVisible()
+    await page.getByRole('button', { name: 'Calendar', exact: true }).click()
+    await expect(page.locator('main header h2')).toContainText('Calendar')
 
     // tapping the logo brings the menu back, again beside the content
     await page.getByRole('button', { name: 'Show the menu' }).click()
