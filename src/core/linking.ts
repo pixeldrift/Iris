@@ -56,3 +56,66 @@ export function unlink(p: Person, keep: boolean): Person {
   const { link: _gone, ...rest } = out
   return rest as Person
 }
+
+const digits = (s: string) => s.replace(/\D/g, '')
+
+/**
+ * Find the entry that is already yours for someone who just connected, by what is shared: the same email, phone or full
+ * name. Only a single clear match counts, so two different people are never folded together.
+ */
+export function findExisting(people: Person[], who: { name?: string | null; email?: string | null; fields?: Record<string, string> }): Person | undefined {
+  const free = people.filter((p) => !p.isMe && !p.link)
+  const emails = [who.email, who.fields?.email].filter(Boolean).map((e) => e!.trim().toLowerCase())
+  const phone = who.fields?.phone ? digits(who.fields.phone) : ''
+  const name = (who.name ?? '').trim().toLowerCase()
+  const byEmail = emails.length ? free.filter((p) => [p.email, ...(p.extras ?? []).filter((x) => x.kind === 'email').map((x) => x.value)].some((e) => emails.includes(e.trim().toLowerCase()))) : []
+  if (byEmail.length === 1) return byEmail[0]
+  if (byEmail.length > 1) return undefined
+  const byPhone = phone.length >= 7 ? free.filter((p) => [p.phone, ...(p.extras ?? []).filter((x) => x.kind === 'phone').map((x) => x.value)].some((v) => v && digits(v) === phone)) : []
+  if (byPhone.length === 1) return byPhone[0]
+  if (byPhone.length > 1) return undefined
+  const byName = name ? free.filter((p) => p.name.trim().toLowerCase() === name) : []
+  return byName.length === 1 ? byName[0] : undefined
+}
+
+/**
+ * Two entries connected to the same person (two devices each made one, or one was made by hand and one by the
+ * connection) become one: the one that was yours first keeps its place, takes in what the other had, and every task that
+ * pointed at the other points at it.
+ */
+export function mergeLinkedDuplicates<T extends { personIds: string[] }>(people: Person[], tasks: T[]): { people: Person[]; tasks: T[]; changed: boolean } {
+  const groups = new Map<string, Person[]>()
+  for (const p of people) if (p.link) groups.set(p.link.userId, [...(groups.get(p.link.userId) ?? []), p])
+  const dups = [...groups.values()].filter((g) => g.length > 1)
+  if (!dups.length) return { people, tasks, changed: false }
+  const gone = new Map<string, string>() // removed id -> the id that took its place
+  const merged = new Map<string, Person>()
+  for (const g of dups) {
+    // one made by the connection (a "link-" id) gives way to one that was made by hand; otherwise the older one stays
+    const sorted = [...g].sort((a, b) => Number(a.id.startsWith('link-')) - Number(b.id.startsWith('link-')) || a.createdAt - b.createdAt)
+    let keep = sorted[0]
+    for (const d of sorted.slice(1)) {
+      gone.set(d.id, keep.id)
+      const extras = [...(keep.extras ?? [])]
+      for (const x of d.extras ?? []) if (!extras.some((y) => y.kind === x.kind && y.value === x.value)) extras.push(x)
+      keep = {
+        ...keep,
+        phone: keep.phone || d.phone,
+        email: keep.email || d.email,
+        address: keep.address || d.address,
+        birthday: keep.birthday || d.birthday,
+        notes: keep.notes === d.notes || !d.notes ? keep.notes : keep.notes ? `${keep.notes}\n${d.notes}` : d.notes,
+        categories: [...new Set([...(keep.categories ?? []), ...(d.categories ?? [])])],
+        extras,
+        favorite: keep.favorite || d.favorite,
+        link: { userId: keep.link!.userId, got: [...new Set([...keep.link!.got, ...d.link!.got])] },
+      }
+    }
+    merged.set(keep.id, keep)
+  }
+  return {
+    people: people.filter((p) => !gone.has(p.id)).map((p) => merged.get(p.id) ?? p),
+    tasks: tasks.map((t) => (t.personIds.some((id) => gone.has(id)) ? { ...t, personIds: [...new Set(t.personIds.map((id) => gone.get(id) ?? id))] } : t)),
+    changed: true,
+  }
+}
