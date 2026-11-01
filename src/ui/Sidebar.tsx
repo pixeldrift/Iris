@@ -359,7 +359,7 @@ export function Sidebar() {
           <AccountRow />
         </div>
 
-        <ScrollFade>
+        <ScrollFade className="rounded-b-3xl">
           <nav ref={navRef} className="px-[calc(0.35rem+var(--sb)*0.6rem)] pb-[calc(0.6rem+var(--sb)*1.2rem)]">
             {sections.views}
             {/* views are how you look; everything below is what you look at */}

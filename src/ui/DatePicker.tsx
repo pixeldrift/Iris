@@ -12,7 +12,7 @@ const MONTH_ITEMS = MONTHS.map((m, i) => (
   </span>
 ))
 
-/** The calendar itself, in a popover hanging off `anchor`: month grid, a month and year list, Yesterday / Today / Tomorrow, Clear and Done. */
+/** The calendar itself, in a popover hanging off `anchor`: month grid, a month and year list, Today / Tomorrow, Clear and Done. */
 export function CalendarPopover({
   open,
   onClose,
@@ -96,9 +96,6 @@ export function CalendarPopover({
       </div>
       )}
       <div className="mt-3 flex items-center gap-0.5 text-xs">
-        <button type="button" className="rounded-full px-2 py-1.5 text-lilac-700 hover:bg-lilac-100/80" onClick={() => (onChange(addDays(t0, -1)), onClose())}>
-          Yesterday
-        </button>
         <button type="button" className="rounded-full px-2 py-1.5 text-lilac-700 hover:bg-lilac-100/80" onClick={() => (onChange(t0), onClose())}>
           Today
         </button>
