@@ -320,10 +320,10 @@ export function PersonDialog() {
             </button>
           ))}
         </div>
-        {/* a birthday (typed or picked, year optional) beside where they work */}
+        {/* where they work, beside a birthday (typed or picked, year optional) */}
         <div className="grid grid-cols-2 gap-2">
-          <BirthdayField value={f.birthday} onChange={(v) => setF((cur) => ({ ...cur, birthday: v }))} />
           <input className={field} placeholder="Company" aria-label="Company" autoComplete="organization" value={f.company} onChange={set('company')} />
+          <BirthdayField value={f.birthday} onChange={(v) => setF((cur) => ({ ...cur, birthday: v }))} />
         </div>
         <div>
           <div className="flex items-center gap-1.5">
