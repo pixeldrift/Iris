@@ -155,7 +155,7 @@ export function GripHandle({ onPointerDown, label }: { onPointerDown: (e: React.
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className="grid h-8 w-7 shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 md:opacity-0 md:transition md:group-hover:opacity-100"
+      className="grid h-8 w-7 shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition [@media(hover:hover)]:group-hover:opacity-100"
       title={label}
       aria-hidden
     >

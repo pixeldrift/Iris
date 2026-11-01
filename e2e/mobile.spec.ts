@@ -70,6 +70,8 @@ test.describe('a phone turned sideways', () => {
     expect(open1!.width).toBeGreaterThan(200)
     expect(m1!.x).toBeGreaterThanOrEqual(open1!.x + open1!.width - 1)
     await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
+    // there is no hover on a touch screen, so the groups' drag handles are always showing
+    await expect(page.locator('[data-folder-row] span[title="Drag to move or nest"]').first()).toHaveCSS('opacity', '1')
 
     // tapping the title folds it to a sliver and the content grows to fill the screen
     await page.getByRole('button', { name: 'Hide the menu' }).click()

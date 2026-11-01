@@ -73,7 +73,7 @@ export function ListEditor({ task }: { task: Task }) {
             <button
               onClick={() => set(items.filter((x) => x.id !== it.id))}
               aria-label={`Remove ${it.text}`}
-              className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint opacity-60 transition hover:bg-white/70 hover:text-ink md:opacity-0 md:group-hover:opacity-100"
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint opacity-60 transition hover:bg-white/70 hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
             >
               <IconClose size={12} />
             </button>
