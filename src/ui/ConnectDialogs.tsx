@@ -5,18 +5,17 @@ import type { Person } from '../core/types'
 import { acceptRequest, declineRequest, deleteNotices, disconnectFrom, markNoticesRead, sendInvite, setMyShares, useConnect, type Connection } from '../sync/connect'
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
-import { IconClose, IconLink } from './icons'
+import { IconBell, IconClose, IconLink } from './icons'
+import { closeNotices, dismissAlert, dismissAllAlerts, useAlerts, useNoticesOpen } from './notices'
 
 interface Open {
   invite: Person | null
   accept: Connection | null
   shares: Person | null
-  notices: boolean
 }
-const useOpen = create<Open>(() => ({ invite: null, accept: null, shares: null, notices: false }))
+const useOpen = create<Open>(() => ({ invite: null, accept: null, shares: null }))
 export const openInvite = (person: Person) => useOpen.setState({ invite: person })
 export const openShares = (person: Person) => useOpen.setState({ shares: person })
-export const openNotices = () => useOpen.setState({ notices: true })
 
 /** The last non-empty value, so a dialog keeps its words while it fades out. */
 function useLast<T>(v: T | null): T | null {
@@ -247,32 +246,79 @@ const when = (iso: string) => {
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`
 }
 
-/** Requests waiting for an answer, then the news (people who accepted), newest first. News can be deleted one by one or all at once. */
-function NoticesDialog() {
-  const open = useOpen((s) => s.notices)
+/**
+ * Everything waiting for you, in one list: reminders that have gone off (each can be opened, snoozed, finished or dismissed),
+ * then connection requests to answer, then the news (people who accepted). Reminders and news can be cleared one by one or all at once.
+ */
+export function NoticesHost() {
+  const open = useNoticesOpen((s) => s.open)
   const { notices, connections } = useConnect()
+  const alerts = useAlerts((s) => s.items)
+  const tasks = useStore((s) => s.tasks)
+  const select = useStore((s) => s.select)
+  const setReminder = useStore((s) => s.setReminder)
+  const toggleDone = useStore((s) => s.toggleDone)
   const showToast = useStore((s) => s.showToast)
-  const close = () => useOpen.setState({ notices: false })
+  const close = closeNotices
   useEffect(() => {
     // looking at the news reads the ones that are only news; requests stay until you answer them
     if (!open) return
     const ids = notices.filter((n) => !n.read && n.kind === 'accepted').map((n) => n.id)
     if (ids.length) void markNoticesRead(ids).catch(() => undefined)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  const reminders = alerts.flatMap((a) => {
+    const t = tasks.find((x) => x.id === a.id)
+    return t ? [{ t, note: a.note }] : []
+  })
   const waiting = connections.filter((c) => c.status === 'pending-in')
   const news = notices.filter((n) => n.kind === 'accepted')
   const remove = (ids?: string[]) => deleteNotices(ids).catch((e) => showToast((e as Error).message))
+  const pill = 'rounded-full bg-white/70 px-3 py-1 text-xs text-ink-soft transition hover:bg-white'
   return (
     <Modal open={open} onClose={close} label="Notifications">
       <div className="flex items-center">
         <h3 className="font-display text-xl">Notifications</h3>
-        {news.length > 0 && (
-          <button type="button" onClick={() => void remove()} className="ml-auto rounded-full px-3 py-1 text-xs text-ink-soft transition hover:bg-white/70 hover:text-ink">
+        {(news.length > 0 || reminders.length > 0) && (
+          <button
+            type="button"
+            onClick={() => {
+              dismissAllAlerts()
+              if (news.length) void remove()
+            }}
+            className="ml-auto rounded-full px-3 py-1 text-xs text-ink-soft transition hover:bg-white/70 hover:text-ink"
+          >
             Clear all
           </button>
         )}
       </div>
       <ul className="mt-3 space-y-1.5" aria-label="Notifications">
+        {reminders.map(({ t, note }) => (
+          <li key={t.id} className="rounded-2xl bg-white/55 py-2.5 pl-3 pr-2">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-lilac-100 text-lilac-600">
+                <IconBell size={14} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{t.title || 'Untitled'}</div>
+                <div className="text-xs text-ink-soft">{note}</div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <button type="button" className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30" onClick={() => (select(t.id), dismissAlert(t.id), close())}>
+                    Open
+                  </button>
+                  <button type="button" className={pill} onClick={() => (setReminder(t.id, Date.now() + 10 * 60_000), dismissAlert(t.id))}>
+                    Snooze 10 min
+                  </button>
+                  <button type="button" className={pill} onClick={() => (toggleDone(t.id), dismissAlert(t.id))}>
+                    {t.kind === 'habit' ? 'Done today' : 'Done'}
+                  </button>
+                </div>
+              </div>
+              <button type="button" onClick={() => dismissAlert(t.id)} aria-label={`Dismiss ${t.title || 'reminder'}`} title="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
+                <IconClose size={12} />
+              </button>
+            </div>
+          </li>
+        ))}
         {waiting.map((c) => (
           <li key={c.id} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
             <div className="min-w-0 flex-1">
@@ -305,7 +351,7 @@ function NoticesDialog() {
           </li>
         ))}
       </ul>
-      {waiting.length === 0 && news.length === 0 && <p className="py-5 text-center text-sm text-ink-faint">Nothing new.</p>}
+      {reminders.length === 0 && waiting.length === 0 && news.length === 0 && <p className="py-5 text-center text-sm text-ink-faint">Nothing new.</p>}
       <div className="mt-4 flex justify-end">
         <button type="button" className={btnGhost} onClick={close}>
           Close
@@ -315,14 +361,13 @@ function NoticesDialog() {
   )
 }
 
-/** The connection dialogs: invite, review a request, what you share, and the notifications list. */
+/** The connection dialogs: invite, review a request, and what you share. */
 export function ConnectHost() {
   return (
     <>
       <InviteDialog />
       <AcceptDialog />
       <SharesDialog />
-      <NoticesDialog />
     </>
   )
 }

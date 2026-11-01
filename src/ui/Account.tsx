@@ -3,7 +3,8 @@ import { create } from 'zustand'
 import { accountsConfigured, authClient } from '../sync/auth'
 import { startConnect, useConnect } from '../sync/connect'
 import { forgetAccountData, startSync, syncNow, useSync } from '../sync/engine'
-import { ConnectHost, openNotices } from './ConnectDialogs'
+import { ConnectHost } from './ConnectDialogs'
+import { openNotices, useAlerts } from './notices'
 import { openVerify, sendCode, VerifyDialog } from './VerifyDialog'
 import { askConfirm, Modal } from './dialogs'
 import { IconBell, IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
@@ -167,7 +168,8 @@ export function AccountRow() {
 function AccountMenu() {
   const { data } = authClient.useSession()
   const sync = useSync()
-  const unread = useConnect((s) => s.connections.filter((c) => c.status === 'pending-in').length + s.notices.filter((n) => !n.read && n.kind === 'accepted').length)
+  const waiting = useAlerts((s) => s.items.length) // reminders that have gone off and are still waiting
+  const unread = useConnect((s) => s.connections.filter((c) => c.status === 'pending-in').length + s.notices.filter((n) => !n.read && n.kind === 'accepted').length) + waiting
   const people = useStore((s) => s.people)
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
