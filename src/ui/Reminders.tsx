@@ -1,17 +1,14 @@
 import { suppressHistory } from '../state/history'
-import { useEffect } from 'react'
-import { create } from 'zustand'
+import { useEffect, useRef } from 'react'
 import { alertChime } from '../audio/engine'
 import { addDays, toISO } from '../core/dates'
 import { anchorOf, nextOccurrence, repeatOf } from '../core/recurrence'
 import { alertLabel, dueAlerts, dueReminders, eventStartsFor, formatReminder } from '../core/reminders'
 import { useStore } from '../state/store'
-import { IconBell, IconClose } from './icons'
+import { IconBell, IconChevron, IconClose } from './icons'
+import { dismissAlert as dismiss, openNotices, useAlerts } from './notices'
 import { showSystem } from './notify'
 
-/** Cards on screen: which task, and what to say about it ("Starts in 1 hour"). */
-const useAlerts = create<{ items: { id: string; note: string }[] }>(() => ({ items: [] }))
-const dismiss = (id: string) => useAlerts.setState((s) => ({ items: s.items.filter((x) => x.id !== id) }))
 const note = (minutes: number) => (minutes <= 0 ? 'Starting now' : `Starts in ${alertLabel(minutes).replace(' before', '')}`)
 
 /** Watches the clock: when a reminder comes due it chimes, shows a card, and posts a system notification. */
@@ -19,8 +16,6 @@ export function ReminderHost() {
   const tasks = useStore((s) => s.tasks)
   const items = useAlerts((s) => s.items)
   const select = useStore((s) => s.select)
-  const setReminder = useStore((s) => s.setReminder)
-  const toggleDone = useStore((s) => s.toggleDone)
 
   useEffect(() => {
     const check = () => {
@@ -82,33 +77,111 @@ export function ReminderHost() {
     return t ? [{ t, note: i.note }] : []
   })
   if (!shown.length) return null
+  // one card at a time, however many went off while you were away; a badge says how many more wait in the notifications list
+  const { t, note: text } = shown[0]
+  const more = shown.length - 1
   return (
-    <div className="pointer-events-none fixed inset-x-3 top-3 z-[135] flex flex-col items-center gap-2 md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
-      {shown.map(({ t, note: text }) => (
-        <div key={t.id} role="alert" className="glass glass-strong pop-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-3xl p-3.5 shadow-xl shadow-lilac-500/20">
-          <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-100 text-lilac-600">
-            <IconBell size={16} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-base leading-tight">{t.title || 'Untitled'}</p>
-            <p className="text-xs text-ink-soft">{text}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <button onClick={() => (select(t.id), dismiss(t.id))} className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30">
-                Open
-              </button>
-              <button onClick={() => (setReminder(t.id, Date.now() + 10 * 60_000), dismiss(t.id))} className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft hover:bg-white">
-                Snooze 10 min
-              </button>
-              <button onClick={() => (toggleDone(t.id), dismiss(t.id))} className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft hover:bg-white">
-                {t.kind === 'habit' ? 'Done today' : 'Done'}
-              </button>
-            </div>
-          </div>
-          <button onClick={() => dismiss(t.id)} aria-label="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink">
-            <IconClose size={13} />
+    <div className="pointer-events-none fixed inset-x-3 top-3 z-[135] flex flex-col items-center md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
+      <div className="relative w-full max-w-sm">
+        <ReminderCard key={t.id} id={t.id} title={t.title} text={text} habit={t.kind === 'habit'} />
+        {more > 0 && (
+          <button
+            onClick={openNotices}
+            aria-label={`${more} more ${more === 1 ? 'notification' : 'notifications'}`}
+            className="pointer-events-auto absolute -bottom-2.5 right-4 z-10 flex items-center gap-0.5 rounded-full bg-lilac-500 py-0.5 pl-2.5 pr-1.5 text-xs font-medium text-white shadow-md shadow-lilac-500/40 transition hover:bg-lilac-600"
+          >
+            +{more} more
+            <IconChevron size={13} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** One reminder card. Drag it left to send it away (or use the close button). */
+function ReminderCard({ id, title, text, habit }: { id: string; title: string; text: string; habit: boolean }) {
+  const select = useStore((s) => s.select)
+  const setReminder = useStore((s) => s.setReminder)
+  const toggleDone = useStore((s) => s.toggleDone)
+  const card = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ x: number; y: number; t: number; id: number; dx: number; on: boolean } | null>(null)
+  const away = () => {
+    const el = card.current
+    if (!el) return dismiss(id)
+    el.style.transition = 'transform 0.2s ease-in, opacity 0.2s'
+    el.style.transform = 'translateX(-120%)'
+    el.style.opacity = '0'
+    window.setTimeout(() => dismiss(id), 190)
+  }
+  return (
+    <div
+      ref={card}
+      role="alert"
+      style={{ touchAction: 'pan-y' }}
+      onPointerDown={(e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return
+        drag.current = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, dx: 0, on: false }
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current
+        const el = card.current
+        if (!d || !el) return
+        const dx = e.clientX - d.x
+        // a sideways pull only: a mostly-vertical movement is a scroll
+        if (!d.on && (Math.abs(dx) < 8 || Math.abs(e.clientY - d.y) > Math.abs(dx))) return
+        if (!d.on) {
+          d.on = true
+          el.setPointerCapture?.(e.pointerId)
+        }
+        d.dx = Math.min(0, dx) // left only
+        el.style.transition = 'none'
+        el.style.transform = `translateX(${d.dx}px)`
+        el.style.opacity = String(Math.max(0.3, 1 + d.dx / 260))
+      }}
+      onPointerUp={(e) => {
+        const d = drag.current
+        const el = card.current
+        drag.current = null
+        if (!d?.on || !el) return
+        const fast = Math.abs(d.dx) / Math.max(1, e.timeStamp - d.t) > 0.5
+        if (d.dx < -80 || (fast && d.dx < -30)) return away()
+        // not far enough: springs back
+        el.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.35, 0.55, 1), opacity 0.2s'
+        el.style.transform = ''
+        el.style.opacity = ''
+      }}
+      onPointerCancel={() => {
+        drag.current = null
+        const el = card.current
+        if (el) {
+          el.style.transform = ''
+          el.style.opacity = ''
+        }
+      }}
+      className="glass glass-strong pop-in pointer-events-auto flex w-full items-start gap-3 rounded-3xl p-3.5 shadow-xl shadow-lilac-500/20"
+    >
+      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-100 text-lilac-600">
+        <IconBell size={16} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-display text-base leading-tight">{title || 'Untitled'}</p>
+        <p className="text-xs text-ink-soft">{text}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button onClick={() => (select(id), dismiss(id))} className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30">
+            Open
+          </button>
+          <button onClick={() => (setReminder(id, Date.now() + 10 * 60_000), dismiss(id))} className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft hover:bg-white">
+            Snooze 10 min
+          </button>
+          <button onClick={() => (toggleDone(id), dismiss(id))} className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft hover:bg-white">
+            {habit ? 'Done today' : 'Done'}
           </button>
         </div>
-      ))}
+      </div>
+      <button onClick={() => dismiss(id)} aria-label="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink">
+        <IconClose size={13} />
+      </button>
     </div>
   )
 }

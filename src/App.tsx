@@ -11,6 +11,7 @@ import { AccountHost } from './ui/Account'
 import { SettingsDialog } from './ui/SettingsDialog'
 import { DangerHost } from './ui/DangerZone'
 import { ReminderHost } from './ui/Reminders'
+import { NoticesHost } from './ui/ConnectDialogs'
 import { ToastHost } from './ui/Toast'
 import { UpdateBubble } from './ui/UpdateBubble'
 import { NewTask, openCompose } from './ui/NewTask'
@@ -119,6 +120,7 @@ export default function App() {
       <PersonDialog />
       <ContactPromptHost />
       <ReminderHost />
+      <NoticesHost />
       <AccountHost />
       <SettingsDialog />
       <DangerHost />

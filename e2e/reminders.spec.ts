@@ -33,7 +33,7 @@ test.describe('quick add and fuzzy reminders', () => {
     await page.keyboard.press('n')
     await page.keyboard.type(`Submit form ${SOON}`)
     await page.keyboard.press('Enter')
-    await expect(page.getByText('Remind me')).toBeVisible()
+    await expect(page.getByText('Remind me', { exact: true })).toBeVisible()
     await expect(page.getByRole('radio', { name: 'Day before' })).toBeVisible()
     await page.getByRole('radio', { name: 'Day before' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Submit form'))?.remindBefore).toBe(1)
