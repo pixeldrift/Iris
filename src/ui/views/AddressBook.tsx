@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { formatDate } from '../../core/locale'
+import { formatBirthday } from '../../core/locale'
 import { fuzzyScore } from '../../core/fuzzy'
 import { useStore } from '../../state/store'
 import { IconHeart, IconLink, IconPlus } from '../icons'
@@ -25,7 +25,7 @@ export function AddressBook() {
   const rows = useMemo(() => {
     const t = q.trim()
     const inCat = cat ? people.filter((p) => (p.categories ?? []).some((c) => c.toLowerCase() === cat.toLowerCase())) : people
-    const list = t ? inCat.filter((p) => `${p.name} ${p.email} ${p.phone} ${(p.extras ?? []).map((x) => x.value).join(' ')}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : inCat
+    const list = t ? inCat.filter((p) => `${p.name} ${p.company ?? ''} ${p.email} ${p.phone} ${(p.extras ?? []).map((x) => x.value).join(' ')}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : inCat
     return [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [people, q, cat])
   const groups = useMemo(() => {
@@ -39,27 +39,28 @@ export function AddressBook() {
 
   return (
     <div className="glass flex h-full min-h-0 flex-col rounded-[2rem] p-4 md:p-5">
-      <div className="flex items-center gap-2">
+      {/* desktop: search, categories and add on one line; a phone puts the categories on a line of their own */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2.5">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search people…"
           aria-label="Search people"
-          className="well min-w-0 flex-1 rounded-xl px-3.5 py-2 text-sm placeholder:text-ink-faint"
+          className="well order-1 min-w-0 flex-1 rounded-xl px-3.5 py-2 text-sm placeholder:text-ink-faint md:max-w-64 md:flex-none md:basis-64"
         />
+        <div className="order-3 min-w-0 basis-full md:order-2 md:basis-auto">
+          <SegmentedToggle
+            label="Category"
+            value={cat ?? '__all'}
+            options={[{ id: '__all', label: 'All' }, ...cats.map((c) => ({ id: c, label: c }))]}
+            onChange={(v) => setCat(v === '__all' ? null : v)}
+          />
+        </div>
         <Tip label="Add a person">
-          <button onClick={() => openPerson()} aria-label="Add a person" className="grid h-9 w-9 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
+          <button onClick={() => openPerson()} aria-label="Add a person" className="order-2 grid h-9 w-9 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600 md:order-3 md:ml-auto">
             <IconPlus size={16} />
           </button>
         </Tip>
-      </div>
-      <div className="mt-2.5">
-        <SegmentedToggle
-          label="Category"
-          value={cat ?? '__all'}
-          options={[{ id: '__all', label: 'All' }, ...cats.map((c) => ({ id: c, label: c }))]}
-          onChange={(v) => setCat(v === '__all' ? null : v)}
-        />
       </div>
       <div className="scroll-soft mt-2 min-h-0 flex-1 overflow-y-auto">
         {groups.map(([letter, list]) => (
@@ -81,7 +82,7 @@ export function AddressBook() {
                         )}
                         {p.isMe && <span className="ml-1.5 rounded-full bg-lilac-100 px-1.5 py-0.5 align-middle text-[0.62rem] font-medium text-lilac-700">Me</span>}
                       </span>
-                      <span className="block truncate text-xs text-ink-soft">{[...(p.categories ?? []), p.phone, p.email, p.birthday ? `Birthday ${formatDate(p.birthday)}` : ''].filter(Boolean).join(' · ') || 'No details yet'}</span>
+                      <span className="block truncate text-xs text-ink-soft">{[...(p.categories ?? []), p.company, p.phone, p.email, p.birthday ? `Birthday ${formatBirthday(p.birthday)}` : ''].filter(Boolean).join(' · ') || 'No details yet'}</span>
                     </span>
                   </button>
                   <button onClick={() => setScope({ type: 'person', id: p.id })} className="shrink-0 transition hover:scale-110" title="Show their open tasks" aria-label={`${n} open tasks for ${p.name}`}>

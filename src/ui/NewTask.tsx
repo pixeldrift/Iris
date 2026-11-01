@@ -208,10 +208,10 @@ export function NewTask() {
             aria-expanded={more}
             className="ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs text-ink-soft transition hover:bg-white/60 hover:text-ink"
           >
+            {more ? 'Fewer details' : 'More details'}
             <span className={`transition-transform ${more ? 'rotate-180' : ''}`}>
               <IconChevronDown size={13} />
             </span>
-            {more ? 'Fewer details' : 'More details'}
           </button>
         </div>
         {more && draft && (

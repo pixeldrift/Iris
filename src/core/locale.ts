@@ -39,6 +39,21 @@ export function formatDate(iso: string, opts: { weekday?: boolean; now?: Date } 
   }
 }
 
+/** A birthday as written in the chosen date style; the year is shown whenever there is one, and left off when there isn't. */
+export function formatBirthday(b: string): string {
+  const [y, m, d] = b.startsWith('--') ? [null, ...b.slice(2).split('-').map(Number)] : b.split('-').map(Number)
+  switch (prefs.date) {
+    case 'us-numeric':
+      return y === null ? `${m}/${d}` : `${m}/${d}/${y}`
+    case 'dmy':
+      return y === null ? `${d}/${m}` : `${d}/${m}/${y}`
+    case 'iso':
+      return y === null ? `--${p2(m!)}-${p2(d!)}` : `${y}-${p2(m!)}-${p2(d!)}`
+    default:
+      return `${MONTHS[m! - 1].slice(0, 3)} ${d}${y === null ? '' : `, ${y}`}`
+  }
+}
+
 /** Day before month? Used when reading "3/4" typed into the quick-add line. */
 export const dayFirst = () => prefs.date === 'dmy'
 

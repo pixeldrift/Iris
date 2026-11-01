@@ -142,8 +142,10 @@ export interface Person {
   favorite: boolean
   /** Any number of further phone numbers, emails, addresses, links or notes (Home, Work, Mobile…). */
   extras?: PersonExtra[]
-  /** `YYYY-MM-DD`. */
+  /** `YYYY-MM-DD`, or `--MM-DD` when the year isn't known. */
   birthday?: string | null
+  /** Where they work or study. */
+  company?: string
   /**
    * Set when this entry is connected to someone who uses Lilac: `got` lists the fields they share and keep up to date.
    * An entry with no `link` is one you keep yourself.

@@ -32,4 +32,31 @@ test.describe('the address book', () => {
     const day = page.getByRole('button', { name: /items? on / }).first().locator('..')
     expect((await day.innerText()).trim()).toMatch(/^\d+$/)
   })
+
+  test('a birthday can be typed, with the year optional, and sits beside the company', async ({ page }) => {
+    await page.getByRole('button', { name: /Address book/ }).first().click()
+    await page.getByRole('button', { name: 'Add a person' }).last().click()
+    await page.getByPlaceholder('First name').fill('Bea')
+    const b = page.getByLabel('Birthday', { exact: true })
+    await b.fill('march 4th')
+    await page.getByLabel('Company').fill('Acme')
+    await expect(b).toHaveValue('Mar 4') // read and written back in the chosen style, no year
+    await b.fill('4/5/1990')
+    await page.getByLabel('Company').click()
+    await expect(b).toHaveValue('Apr 5, 1990') // month first, with its year
+    await b.fill('someday')
+    await page.getByLabel('Company').click()
+    await expect(page.getByRole('alert')).toContainText('Try')
+    await b.fill('Mar 4')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page.getByText(/Acme · .*Birthday Mar 4/)).toBeVisible()
+  })
+
+  test('on a desktop the search and the categories share a line', async ({ page }) => {
+    await page.getByRole('button', { name: /Address book/ }).first().click()
+    const s = (await page.getByLabel('Search people').boundingBox())!
+    const c = (await page.getByRole('radiogroup', { name: 'Category' }).boundingBox())!
+    expect(Math.abs(s.y - c.y)).toBeLessThan(12)
+    expect(s.width).toBeLessThan(300)
+  })
 })
