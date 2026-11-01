@@ -199,8 +199,8 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       <>
         {(searchShown || (view === 'pond' && scope.type !== 'contacts')) && (
           <div className="flex shrink-0 items-center gap-2 py-2 pl-3" style={{ paddingRight: 'calc(var(--rail) + 0.5rem)' }}>
-            {searchField('relative w-56 shrink-0')}
             {gather('no-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto')}
+            {searchField('relative ml-auto w-56 shrink-0')}
           </div>
         )}
         <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" // the bottom button lines up with the zoom buttons in the pond (the content's bottom margin, plus the pond's own 0.75rem)
