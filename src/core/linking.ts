@@ -60,22 +60,23 @@ export function unlink(p: Person, keep: boolean): Person {
 const digits = (s: string) => s.replace(/\D/g, '')
 
 /**
- * Find the entry that is already yours for someone who just connected, by what is shared: the same email, phone or full
- * name. Only a single clear match counts, so two different people are never folded together.
+ * Entries of yours that might be the person who just asked to connect, to offer when you accept. Nothing is ever linked
+ * on a guess: `sure` is an entry carrying the very email their account is verified with (the one thing they can't just
+ * claim); `maybe` is anything that merely looks alike (the same phone number, or a name that matches in full or by first
+ * name), offered for you to choose. Someone could set their name to a contact's, so a look-alike is only ever a choice.
  */
-export function findExisting(people: Person[], who: { name?: string | null; email?: string | null; fields?: Record<string, string> }): Person | undefined {
+export function matchesFor(people: Person[], who: { name?: string | null; email?: string | null; phone?: string | null }): { sure: Person[]; maybe: Person[] } {
   const free = people.filter((p) => !p.isMe && !p.link)
-  const emails = [who.email, who.fields?.email].filter(Boolean).map((e) => e!.trim().toLowerCase())
-  const phone = who.fields?.phone ? digits(who.fields.phone) : ''
+  const email = (who.email ?? '').trim().toLowerCase()
+  const sure = email ? free.filter((p) => [p.email, ...(p.extras ?? []).filter((x) => x.kind === 'email').map((x) => x.value)].some((e) => e.trim().toLowerCase() === email)) : []
+  const phone = who.phone ? digits(who.phone) : ''
   const name = (who.name ?? '').trim().toLowerCase()
-  const byEmail = emails.length ? free.filter((p) => [p.email, ...(p.extras ?? []).filter((x) => x.kind === 'email').map((x) => x.value)].some((e) => emails.includes(e.trim().toLowerCase()))) : []
-  if (byEmail.length === 1) return byEmail[0]
-  if (byEmail.length > 1) return undefined
-  const byPhone = phone.length >= 7 ? free.filter((p) => [p.phone, ...(p.extras ?? []).filter((x) => x.kind === 'phone').map((x) => x.value)].some((v) => v && digits(v) === phone)) : []
-  if (byPhone.length === 1) return byPhone[0]
-  if (byPhone.length > 1) return undefined
-  const byName = name ? free.filter((p) => p.name.trim().toLowerCase() === name) : []
-  return byName.length === 1 ? byName[0] : undefined
+  const first = name.split(/\s+/)[0] ?? ''
+  const looks = (p: Person) =>
+    (phone.length >= 7 && [p.phone, ...(p.extras ?? []).filter((x) => x.kind === 'phone').map((x) => x.value)].some((v) => v && digits(v) === phone)) ||
+    (!!name && (p.name.trim().toLowerCase() === name || (first.length > 1 && (p.first ?? p.name.split(/\s+/)[0] ?? '').trim().toLowerCase() === first)))
+  const maybe = free.filter((p) => !sure.includes(p) && looks(p))
+  return { sure, maybe }
 }
 
 /**

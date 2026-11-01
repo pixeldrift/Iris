@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { applyShared, detailsOf, findExisting, mergeLinkedDuplicates, unlink } from '../core/linking'
+import { applyShared, detailsOf, mergeLinkedDuplicates, unlink } from '../core/linking'
 import { fullName } from '../core/people'
 import type { Person } from '../core/types'
 import { suppressHistory } from '../state/history'
@@ -96,8 +96,8 @@ function applyConnections(conns: Connection[]) {
           continue
         }
         // the entry that started the invitation, or one you already have for them
-        // the entry that started the invitation, one you already have for them (same email, phone or name), or — failing both — a new one
-        const mine = (c.personId ? people.find((p) => p.id === c.personId && !p.link) : undefined) ?? findExisting(people, { name: c.name, email: c.email, fields: c.fields })
+        // only the entry that was named when the invitation was sent or accepted: nothing is linked on a guess
+        const mine = c.personId ? people.find((p) => p.id === c.personId && !p.link) : undefined
         if (mine) {
           people = people.map((x) => (x.id === mine.id ? applyShared({ ...x, link: { userId: c.userId!, got: [] } }, c.fields, c.theirShares) : x))
           done.add(c.id)
@@ -178,11 +178,11 @@ export async function sendInvite(person: Person, shares: string[]) {
   useStore.getState().savePerson({ id: person.id, name: person.name, invited: person.email.trim().toLowerCase() })
 }
 
-/** Accept a request: it fills in the entry you already have for them (matched by email) or makes one. */
-export async function acceptRequest(c: Connection, shares: string[]) {
-  const email = (c.email ?? '').toLowerCase()
-  const mine = email ? useStore.getState().people.find((p) => !p.isMe && !p.link && p.email.trim().toLowerCase() === email) : undefined
-  await call({ action: 'respond', id: c.id, answer: 'accept', shares, personId: mine?.id ?? null })
+/**
+ * Accept a request. `personId` is the entry of yours it should fill in (chosen in the dialog); null makes a new one.
+ */
+export async function acceptRequest(c: Connection, shares: string[], personId: string | null) {
+  await call({ action: 'respond', id: c.id, answer: 'accept', shares, personId })
   await refreshConnect()
 }
 
