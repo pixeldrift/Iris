@@ -6,6 +6,7 @@ import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
 import type { PersonExtra } from '../core/types'
 import { BirthdayField } from './BirthdayField'
+import { ContactCard } from './ContactCard'
 import { IconChevronDown, IconClose, IconHeart, IconLink, IconPencil, IconPlus } from './icons'
 import { openVerify, sendCode } from './VerifyDialog'
 import { disconnectFrom, setFindable, useConnect } from '../sync/connect'
@@ -21,11 +22,14 @@ interface PersonDialogState {
   id: string | null
   defaults: Partial<ParsedContact>
   onSaved?: (id: string) => void
+  /** the form is showing (a new contact starts there; an existing one opens as a card and Edit turns it into the form) */
+  editing: boolean
 }
-const usePersonDialog = create<PersonDialogState>(() => ({ open: false, id: null, defaults: {} }))
+const usePersonDialog = create<PersonDialogState>(() => ({ open: false, id: null, defaults: {}, editing: true }))
+const setEditing = (editing: boolean) => usePersonDialog.setState({ editing })
 
-export function openPerson(opts: { id?: string; defaults?: Partial<ParsedContact>; onSaved?: (id: string) => void } = {}) {
-  usePersonDialog.setState({ open: true, id: opts.id ?? null, defaults: opts.defaults ?? {}, onSaved: opts.onSaved })
+export function openPerson(opts: { id?: string; defaults?: Partial<ParsedContact>; onSaved?: (id: string) => void; edit?: boolean } = {}) {
+  usePersonDialog.setState({ open: true, id: opts.id ?? null, defaults: opts.defaults ?? {}, onSaved: opts.onSaved, editing: !!opts.edit || !opts.id })
 }
 const closePerson = () => usePersonDialog.setState({ open: false })
 
@@ -42,7 +46,7 @@ const EXTRA_KINDS: { id: PersonExtra['kind']; label: string; placeholder: string
 ]
 
 export function PersonDialog() {
-  const { open, id, defaults, onSaved } = usePersonDialog()
+  const { open, id, defaults, onSaved, editing } = usePersonDialog()
   const people = useStore((s) => s.people)
   const save = useStore((s) => s.savePerson)
   const del = useStore((s) => s.deletePerson)
@@ -78,7 +82,7 @@ export function PersonDialog() {
     setSplit(false)
     setZips([])
     setNote('')
-  }, [open, id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, id, editing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fill = (c: ParsedContact | null) => {
     if (!c) return
@@ -133,14 +137,7 @@ export function PersonDialog() {
   }, [parts.zip, parts.city, parts.state, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = fullName(f.first, f.last)
-
-  return (
-    <Modal
-      open={open}
-      onClose={closePerson}
-      footer={
-        <div className="flex items-center gap-2">
-    {existing && !existing.isMe && (
+  const removeBtn = existing && !existing.isMe && (
       <button
         type="button"
         onClick={async () => {
@@ -155,23 +152,112 @@ export function PersonDialog() {
       >
         Remove
       </button>
-    )}
-    <button type="button" onClick={closePerson} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
-      Cancel
-    </button>
-    <button type="submit" form="person-form" disabled={!name} className="rounded-full bg-lilac-500 px-5 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition disabled:opacity-40">
-      Save
-    </button>
-  </div>
+  )
+  const viewing = !!existing && !editing
+  const connLine = existing && !existing.isMe && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {existing.link ? (
+            <>
+              <span className="flex items-center gap-1.5 rounded-full bg-lilac-100 px-2.5 py-1 text-lilac-700" title="Their details are kept up to date by their own account">
+                <IconLink size={13} /> Connected
+              </span>
+              <span className="text-ink-faint">{existing.link.got.length ? 'Kept up to date by them' : 'They aren’t sharing any details yet'}</span>
+              <button type="button" onClick={() => openShares(existing)} className="rounded-full px-2.5 py-1 text-lilac-700 transition hover:bg-lilac-100/80">
+                What I share…
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-1 text-ink-soft" title="You keep this entry yourself">
+                <IconPencil size={13} /> Added by you
+              </span>
+              {connected && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(existing.email.trim()) && existing.email.trim().toLowerCase() !== myEmail.toLowerCase() && (
+                <button type="button" onClick={() => openInvite(existing)} className="rounded-full px-2.5 py-1 text-lilac-700 transition hover:bg-lilac-100/80">
+                  Invite to connect
+                </button>
+              )}
+            </>
+          )}
+        </div>
+  )
+  const selfBlocks = (
+    <>
+        {existing?.isMe && connected && (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl px-1 py-1 text-sm">
+            <input type="checkbox" checked={findable} onChange={(e) => void setFindable(e.target.checked).catch(() => showToast('Couldn’t change that. Try again.'))} className="mt-0.5 h-4 w-4 accent-[var(--color-lilac-500)]" />
+            <span>
+              Let people who have my email find me
+              <span className="block text-xs text-ink-faint">They can send a request to connect. Nobody learns whether you use Lilac unless you accept. Your details are only shared when you say so.</span>
+            </span>
+          </label>
+        )}
+        {existing?.isMe && connected && !myVerified && (
+          <p role="status" className="rounded-xl bg-white/60 px-3 py-2 text-xs text-ink-soft">
+            Your email isn’t confirmed, so other people can’t find you yet and invitations to you won’t arrive. Once it’s confirmed, requests will start reaching you.
+            <span className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="rounded-full bg-lilac-500 px-4 py-1.5 text-xs font-medium text-white shadow shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => openVerify(myEmail)}>
+                Enter the code I received
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-lilac-300 bg-lilac-100/70 px-4 py-1.5 text-xs font-medium text-lilac-700 transition hover:bg-lilac-100"
+                onClick={async () => {
+                  await sendCode(myEmail).catch(() => showToast('Couldn’t send that. Try again in a moment.'))
+                  openVerify(myEmail)
+                }}
+              >
+                Send me a new code
+              </button>
+            </span>
+          </p>
+        )}
+    </>
+  )
+
+  return (
+    <Modal
+      open={open}
+      onClose={closePerson}
+      footer={
+        viewing ? (
+          // (keyed apart from the editor's footer: otherwise React turns the very button that was just clicked into the form's Save, and that click would submit it)
+          <div key="card-footer" className="flex items-center gap-2">
+            {removeBtn}
+            <button type="button" onClick={closePerson} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
+              Close
+            </button>
+            <button type="button" onClick={() => setEditing(true)} className="rounded-full bg-lilac-500 px-5 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
+              Edit
+            </button>
+          </div>
+        ) : (
+          <div key="form-footer" className="flex items-center gap-2">
+            {removeBtn}
+            <button type="button" onClick={() => (existing ? setEditing(false) : closePerson())} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
+              Cancel
+            </button>
+            <button type="submit" form="person-form" disabled={!name} className="rounded-full bg-lilac-500 px-5 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition disabled:opacity-40">
+              Save
+            </button>
+          </div>
+        )
       }
-      label={existing ? 'Edit contact' : 'Add person'} wide>
+      label={viewing ? (existing?.name ?? 'Contact') : existing ? 'Edit contact' : 'Add person'} wide>
+      {viewing && existing ? (
+        <div className="space-y-3">
+          <ContactCard person={existing} status={<>{connLine}</>} />
+          {existing.isMe && selfBlocks}
+        </div>
+      ) : (
       <form
         id="person-form"
         onSubmit={(e) => {
           e.preventDefault()
           if (!name) return
           const pid = save({ ...f, extras: f.extras.filter((x) => x.value.trim()), name, ...parts, address: composeAddress(parts), ...(existing ? { id: existing.id } : {}) })
-          closePerson()
+          // a new contact closes the box; an edited one goes back to its card
+          if (existing) setEditing(false)
+          else closePerson()
           onSaved?.(pid)
           // a new address that could belong to someone on Lilac: offer to connect (once per address)
           const saved = useStore.getState().people.find((p) => p.id === pid)
@@ -202,32 +288,7 @@ export function PersonDialog() {
             </button>
           )}
         </div>
-        {existing && !existing.isMe && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            {existing.link ? (
-              <>
-                <span className="flex items-center gap-1.5 rounded-full bg-lilac-100 px-2.5 py-1 text-lilac-700" title="Their details are kept up to date by their own account">
-                  <IconLink size={13} /> Connected
-                </span>
-                <span className="text-ink-faint">{existing.link.got.length ? 'Kept up to date by them' : 'They aren’t sharing any details yet'}</span>
-                <button type="button" onClick={() => openShares(existing)} className="rounded-full px-2.5 py-1 text-lilac-700 transition hover:bg-lilac-100/80">
-                  What I share…
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-1 text-ink-soft" title="You keep this entry yourself">
-                  <IconPencil size={13} /> Added by you
-                </span>
-                {connected && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(existing.email.trim()) && existing.email.trim().toLowerCase() !== myEmail.toLowerCase() && (
-                  <button type="button" onClick={() => openInvite(existing)} className="rounded-full px-2.5 py-1 text-lilac-700 transition hover:bg-lilac-100/80">
-                    Invite to connect
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        {connLine}
         <div className="flex flex-wrap gap-2">
           {canPickContacts() && (
             <button type="button" onClick={async () => fill(await pickContact())} className="rounded-full bg-lilac-100 px-3.5 py-1.5 text-xs text-lilac-700 transition hover:bg-lilac-200">
@@ -423,36 +484,9 @@ export function PersonDialog() {
         )}
         <textarea className={`${field} resize-none`} rows={2} placeholder="Notes" value={f.notes} onChange={set('notes')} />
         {existing?.isMe && <p className="text-xs text-ink-faint">Appears in address book</p>}
-        {existing?.isMe && connected && (
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl px-1 py-1 text-sm">
-            <input type="checkbox" checked={findable} onChange={(e) => void setFindable(e.target.checked).catch(() => showToast('Couldn’t change that. Try again.'))} className="mt-0.5 h-4 w-4 accent-[var(--color-lilac-500)]" />
-            <span>
-              Let people who have my email find me
-              <span className="block text-xs text-ink-faint">They can send a request to connect. Nobody learns whether you use Lilac unless you accept. Your details are only shared when you say so.</span>
-            </span>
-          </label>
-        )}
-        {existing?.isMe && connected && !myVerified && (
-          <p role="status" className="rounded-xl bg-white/60 px-3 py-2 text-xs text-ink-soft">
-            Your email isn’t confirmed, so other people can’t find you yet and invitations to you won’t arrive. Once it’s confirmed, requests will start reaching you.
-            <span className="mt-2 flex flex-wrap gap-2">
-              <button type="button" className="rounded-full bg-lilac-500 px-4 py-1.5 text-xs font-medium text-white shadow shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => openVerify(myEmail)}>
-                Enter the code I received
-              </button>
-              <button
-                type="button"
-                className="rounded-full border border-lilac-300 bg-lilac-100/70 px-4 py-1.5 text-xs font-medium text-lilac-700 transition hover:bg-lilac-100"
-                onClick={async () => {
-                  await sendCode(myEmail).catch(() => showToast('Couldn’t send that. Try again in a moment.'))
-                  openVerify(myEmail)
-                }}
-              >
-                Send me a new code
-              </button>
-            </span>
-          </p>
-        )}
+        {selfBlocks}
       </form>
+      )}
     </Modal>
   )
 }

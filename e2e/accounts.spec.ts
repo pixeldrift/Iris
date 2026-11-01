@@ -8,6 +8,7 @@ test.describe('accounts', () => {
   test('sign up, clear everything and delete the account, each behind the email and password again', async ({ page }) => {
     await page.goto('/')
     await page.locator('[data-node]').first().waitFor()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {}) // the demo reminder banner
     await page.getByRole('button', { name: 'Sign in' }).click()
     await page.getByRole('button', { name: 'Create an account' }).click()
     await page.getByPlaceholder('Your name').fill('Test Person')
@@ -28,7 +29,7 @@ test.describe('accounts', () => {
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password').fill('not-the-password')
     await confirm.click()
-    await expect(page.getByRole('alert')).toContainText('don’t match')
+    await expect(page.getByRole('dialog').getByRole('alert')).toContainText('don’t match')
     expect((await state())[0]).toBeGreaterThan(20)
     await page.getByLabel('Password').fill(password)
     await confirm.click()

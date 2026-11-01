@@ -63,6 +63,8 @@ test('inviting someone fills in their details once they accept, and nothing leak
   await expect(ann.getByRole('img', { name: 'Connected' })).toHaveCount(1)
   await ann.getByRole('button', { name: /^Bob Builder/ }).click()
   await expect(ann.getByText('Connected', { exact: true })).toBeVisible()
+  // the card is plain text; in the editor, what the connection keeps up to date can't be typed over
+  await ann.getByRole('dialog').getByRole('button', { name: 'Edit', exact: true }).click()
   await expect(ann.getByPlaceholder('Email')).toBeDisabled()
 
   // Ann has the news in a list she can delete from

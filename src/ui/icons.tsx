@@ -292,3 +292,28 @@ export const IconLink = (p: P) => (
     <path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1" />
   </Svg>
 )
+
+export const IconBuilding = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 20.5V5.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v15M15 10h3a1 1 0 0 1 1 1v9.5M3.5 20.5h17" />
+    <path d="M8.5 8h3M8.5 11.5h3M8.5 15h3" />
+  </Svg>
+)
+export const IconPin = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
+    <circle cx="12" cy="10" r="2.3" />
+  </Svg>
+)
+export const IconCake = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 20.5v-6.5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6.5M3.5 20.5h17M4 16.5c2.7 1.6 5.3 1.6 8 0s5.3-1.6 8 0" />
+    <path d="M12 13V9.5M12 6.2c-.9-.9-.9-1.8 0-2.7.9.9.9 1.8 0 2.7Z" />
+  </Svg>
+)
+export const IconGlobe = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M3.5 12h17M12 3.5c2.6 2.4 3.6 5.2 3.6 8.5s-1 6.1-3.6 8.5c-2.6-2.4-3.6-5.2-3.6-8.5s1-6.1 3.6-8.5Z" />
+  </Svg>
+)
