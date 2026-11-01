@@ -8,7 +8,7 @@ import { IconChevron, IconPlus } from '../icons'
 import { useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate } from '../../core/tasks'
-import { useIsMobile } from '../useMedia'
+import { useIsMobile, usePhone } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boolean; loggedOn?: string }) {
@@ -96,6 +96,7 @@ const ctl = 'grid h-8 place-items-center rounded-full transition hover:bg-white/
 export function CalendarView() {
   const visible = useVisibleTasks()
   const mobile = useIsMobile()
+  const phone = usePhone()
   const [mode, setMode] = useState<Mode>('month')
   const [anchor, setAnchor] = useState(today())
   const [weekends, setWeekends] = useState(readWeekends)
@@ -211,7 +212,7 @@ export function CalendarView() {
         ))}
       </div>
 
-      {unscheduled.length > 0 && (
+      {unscheduled.length > 0 && !phone && (
         <div className="mt-2.5 flex items-center gap-2 overflow-x-auto px-1 pb-0.5">
           <span className="shrink-0 text-xs text-ink-faint">Unscheduled · drag onto a day</span>
           {unscheduled.map((t) => (
