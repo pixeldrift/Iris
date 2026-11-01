@@ -302,12 +302,12 @@ export function Sidebar() {
         {/* sideways and folded away: a strip of shortcuts. Tap the logo, or the blank part of the strip, to bring the menu back. */}
         {land && navHidden && (
           <div
-            className="no-scrollbar absolute inset-0 flex cursor-pointer flex-col items-center gap-1.5 overflow-y-auto py-3"
+            className="no-scrollbar absolute inset-0 flex cursor-pointer flex-col items-center gap-0.5 overflow-y-auto py-3"
             style={{ paddingLeft: 'var(--safe-l)' }}
             onClick={() => setNavHidden(false)}
           >
-            <button type="button" aria-label="Show the menu" title="Show the menu" className="grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-white/60" onClick={(e) => (e.stopPropagation(), setNavHidden(false))}>
-              <Logo size={24} />
+            <button type="button" aria-label="Show the menu" title="Show the menu" className="grid h-8 w-8 shrink-0 place-items-center rounded-full transition hover:bg-white/60" onClick={(e) => (e.stopPropagation(), setNavHidden(false))}>
+              <Logo size={22} />
             </button>
             {VIEWS.map((v) => (
               <button
@@ -316,19 +316,19 @@ export function Sidebar() {
                 aria-label={v.label}
                 title={v.label}
                 aria-pressed={view === v.id}
-                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${view === v.id ? 'bg-lilac-500 !text-white shadow shadow-lilac-500/30' : ''}`}
+                className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${view === v.id ? 'bg-lilac-500 !text-white shadow shadow-lilac-500/30' : ''}`}
                 onClick={(e) => (e.stopPropagation(), setView(v.id))}
               >
                 <v.icon />
               </button>
             ))}
-            <span aria-hidden className="my-0.5 h-px w-5 shrink-0 bg-ink-faint/30" />
+            <span aria-hidden className="my-px h-px w-5 shrink-0 bg-ink-faint/30" />
             <button
               type="button"
               aria-label="Everything"
               title="Everything"
               aria-pressed={scope.type === 'all'}
-              className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${scope.type === 'all' ? 'bg-white/70' : ''}`}
+              className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${scope.type === 'all' ? 'bg-white/70' : ''}`}
               onClick={(e) => (e.stopPropagation(), setScope({ type: 'all' }))}
             >
               <IconAll />

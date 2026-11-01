@@ -125,11 +125,20 @@ export function TopBar({ onNew }: { onNew: () => void }) {
               e.currentTarget.blur()
             }
           }}
-          placeholder="Search everything…"
           aria-label="Search"
           enterKeyHint="search"
-          className="well h-9 w-full rounded-full pl-9 pr-16 text-sm placeholder:text-ink-faint"
+          className={`well h-9 w-full rounded-full pl-9 text-sm ${query.trim() ? 'pr-16' : 'pr-9'}`}
         />
+        {/* the hint is drawn here rather than as a placeholder, so one too long for the box can fade out toward the clear button */}
+        {!query && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-9 right-9 flex items-center overflow-hidden whitespace-nowrap text-sm text-ink-faint"
+            style={{ maskImage: 'linear-gradient(to right, #000 calc(100% - 1.8rem), transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 1.8rem), transparent)' }}
+          >
+            Search everything…
+          </span>
+        )}
         <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           {query.trim() && <span className="text-xs tabular-nums text-ink-soft">{matchCount}</span>}
           <button
@@ -150,7 +159,6 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     view === 'pond' &&
     scope.type !== 'contacts' && (
       <div className={cls} role="group" aria-label="Arrange the pond">
-        <span className="hidden shrink-0 pr-1 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint sm:inline">Gather by</span>
         <SegmentedToggle label="Gather by" options={GROUPS} fill value={pondGroup} onChange={(v) => set('pondGroup', v)} />
       </div>
     )
@@ -190,11 +198,12 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       <>
         {(searchShown || (view === 'pond' && scope.type !== 'contacts')) && (
           <div className="flex shrink-0 items-center gap-2 py-2 pl-3" style={{ paddingRight: 'calc(var(--rail) + 0.5rem)' }}>
-            {searchField('relative w-56 shrink-0')}
             {gather('no-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto')}
+            {searchField('relative ml-auto w-56 shrink-0')}
           </div>
         )}
-        <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" style={{ width: 'var(--rail)', paddingTop: '2.75rem', paddingBottom: '1.5rem' }}>
+        <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" // the bottom button lines up with the zoom buttons in the pond (the content's bottom margin, plus the pond's own 0.75rem)
+          style={{ width: 'var(--rail)', paddingTop: '2.75rem', paddingBottom: 'calc(max(0.75rem, env(safe-area-inset-bottom)) + 0.75rem)' }}>
           {/* turned clockwise, like the title on a book's spine; started well down so the curve of the screen's corner never clips it */}
           <h2 className="pointer-events-auto min-h-0 max-h-[62%] truncate font-display text-xl leading-tight" style={{ writingMode: 'vertical-rl' }}>
             {heading}
@@ -230,46 +239,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           </>
         )}
       </p>
-      {searchShown && (
-        <div className="relative order-7 basis-full md:order-3 md:basis-64">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
-            <IconSearch size={15} />
-          </span>
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setSearch('')
-                setSearchOpen(false)
-              }
-              // the keyboard's Search key: results are already live, so keep what was typed and put the keyboard away
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                e.currentTarget.blur()
-              }
-            }}
-            placeholder="Search everything…"
-            aria-label="Search"
-            enterKeyHint="search"
-            className="well h-9 w-full rounded-full pl-9 pr-16 text-sm placeholder:text-ink-faint"
-          />
-          <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-            {query.trim() && <span className="text-xs tabular-nums text-ink-soft">{matchCount}</span>}
-            <button
-              onClick={() => {
-                setSearch('')
-                setSearchOpen(false)
-              }}
-              aria-label="Clear search"
-              className="grid h-6 w-6 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink"
-            >
-              <IconClose size={12} />
-            </button>
-          </span>
-        </div>
-      )}
+      {searchField('relative order-7 basis-full md:order-3 md:basis-64')}
       <div className="order-4 flex items-center gap-1.5">{tools}</div>
       {newBtn}
 
