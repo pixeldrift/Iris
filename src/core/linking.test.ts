@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyShared, detailsOf, unlink } from './linking'
+import { applyShared, detailsOf, findExisting, mergeLinkedDuplicates, unlink } from './linking'
 import type { Person } from './types'
 
 const base = (over: Partial<Person> = {}): Person => ({ id: 'p', name: 'Bobby', first: 'Bobby', last: '', phone: '', email: 'bob@x.com', address: '', notes: 'my note', hue: 1, favorite: false, createdAt: 1, link: { userId: 'u', got: [] }, ...over })
@@ -34,5 +34,29 @@ describe('linked entries', () => {
 
   it('offers your own entry as details, leaving out what is empty', () => {
     expect(detailsOf(base({ link: undefined, first: 'Ann', last: 'T', phone: '1' }))).toEqual({ first: 'Ann', last: 'T', phone: '1', email: 'bob@x.com' })
+  })
+
+  it('finds the entry that is already yours by email, then phone, then name, but only when it is unambiguous', () => {
+    const a = base({ id: 'a', link: undefined, name: 'Eric F', email: 'eric@x.com' })
+    const b = base({ id: 'b', link: undefined, name: 'Someone', email: '', phone: '(808) 555-0100' })
+    const c = base({ id: 'c', link: undefined, name: 'Pat Q', email: '', phone: '' })
+    expect(findExisting([a, b, c], { email: 'ERIC@x.com' })?.id).toBe('a')
+    expect(findExisting([a, b, c], { fields: { phone: '808-555-0100' } })?.id).toBe('b')
+    expect(findExisting([a, b, c], { name: 'pat q' })?.id).toBe('c')
+    expect(findExisting([a, { ...a, id: 'a2' }], { email: 'eric@x.com' })).toBeUndefined() // two candidates: not guessed
+    expect(findExisting([base({ id: 'm', isMe: true, link: undefined, email: 'eric@x.com' })], { email: 'eric@x.com' })).toBeUndefined() // never yourself
+  })
+
+  it('two entries for the same connected person become one, keeping the one made by hand and re-pointing tasks', () => {
+    const hand = base({ id: 'orig', name: 'Eric', notes: 'met at the lab', createdAt: 5, link: { userId: 'u', got: ['name'] } })
+    const made = base({ id: 'link-u', name: 'Eric Farrugia', phone: '555', notes: '', createdAt: 9, link: { userId: 'u', got: ['name', 'phone'] } })
+    const tasks = [{ personIds: ['link-u'] }, { personIds: ['orig', 'link-u'] }, { personIds: [] }]
+    const r = mergeLinkedDuplicates([made, hand], tasks)
+    expect(r.changed).toBe(true)
+    expect(r.people).toHaveLength(1)
+    expect(r.people[0]).toMatchObject({ id: 'orig', notes: 'met at the lab', phone: '555' })
+    expect(r.people[0].link?.got).toEqual(['name', 'phone'])
+    expect(r.tasks.map((t) => t.personIds)).toEqual([['orig'], ['orig'], []])
+    expect(mergeLinkedDuplicates(r.people, r.tasks).changed).toBe(false)
   })
 })

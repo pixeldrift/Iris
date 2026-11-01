@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { applyShared, detailsOf, unlink } from '../core/linking'
+import { applyShared, detailsOf, findExisting, mergeLinkedDuplicates, unlink } from '../core/linking'
 import { fullName } from '../core/people'
 import type { Person } from '../core/types'
 import { suppressHistory } from '../state/history'
@@ -96,7 +96,8 @@ function applyConnections(conns: Connection[]) {
           continue
         }
         // the entry that started the invitation, or one you already have for them
-        const mine = c.personId ? people.find((p) => p.id === c.personId && !p.link) : undefined
+        // the entry that started the invitation, one you already have for them (same email, phone or name), or — failing both — a new one
+        const mine = (c.personId ? people.find((p) => p.id === c.personId && !p.link) : undefined) ?? findExisting(people, { name: c.name, email: c.email, fields: c.fields })
         if (mine) {
           people = people.map((x) => (x.id === mine.id ? applyShared({ ...x, link: { userId: c.userId!, got: [] } }, c.fields, c.theirShares) : x))
           done.add(c.id)
@@ -111,6 +112,9 @@ function applyConnections(conns: Connection[]) {
           done.add(c.id)
         }
       }
+      // two entries for the same connected person (say, two devices each made one) become one
+      const tidy = mergeLinkedDuplicates(people, s.tasks)
+      if (tidy.changed) return { people: tidy.people, tasks: tidy.tasks }
       return people === s.people ? s : { people }
     }),
   )
