@@ -161,7 +161,7 @@ function Cell({
           {d.getDate()}
         </button>
         {named && (
-          <span className="ml-2 font-display text-base font-semibold text-ink">
+          <span className="ml-2 text-sm text-ink-soft">
             {WEEKDAYS[d.getDay()]}
             {isToday && <span className="ml-1.5 text-sm font-normal italic text-ink-faint">(today)</span>}
           </span>
@@ -492,9 +492,9 @@ export function CalendarView() {
         <div className="mb-1 grid gap-1.5 px-0.5 text-center" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {heads.map((h) =>
             mode === 'week' ? (
-              <span key={h.key} className="truncate font-display text-sm font-semibold text-ink">
+              <span key={h.key} className="truncate text-[0.68rem] uppercase tracking-wider text-ink-faint">
                 {h.name.slice(0, 3)}
-                {h.today && <span className="ml-1 text-xs font-normal italic text-ink-faint">(today)</span>}
+                {h.today && <span className="ml-1 text-[0.68rem] normal-case italic tracking-normal">(today)</span>}
               </span>
             ) : (
               <span key={h.key} className="text-[0.68rem] uppercase tracking-wider text-ink-faint">
