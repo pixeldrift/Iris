@@ -212,7 +212,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           </h2>
           <div className="pointer-events-auto mt-auto flex flex-col items-center gap-2">
             {tools}
-            {newBtn}
+            {scope.type !== 'contacts' && newBtn}
           </div>
         </header>
       </>
@@ -241,7 +241,8 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       </p>
       {searchField('relative order-7 basis-full md:order-3 md:basis-64')}
       <div className="order-4 flex items-center gap-1.5">{tools}</div>
-      {newBtn}
+      {/* the address book has its own add button for people, so a second "add" here would only confuse */}
+      {scope.type !== 'contacts' && newBtn}
 
       {gather('no-scrollbar order-8 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 overflow-x-auto py-1')}
     </header>

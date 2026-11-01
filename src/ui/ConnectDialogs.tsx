@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { DEFAULT_SHARES, detailsOf, matchesFor, SHARE_FIELDS } from '../core/linking'
 import type { Person } from '../core/types'
-import { acceptRequest, declineRequest, disconnectFrom, markNoticesRead, sendInvite, setMyShares, useConnect, type Connection } from '../sync/connect'
+import { acceptRequest, declineRequest, deleteNotices, disconnectFrom, markNoticesRead, sendInvite, setMyShares, useConnect, type Connection } from '../sync/connect'
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
-import { IconLink } from './icons'
+import { IconClose, IconLink } from './icons'
 
 interface Open {
   invite: Person | null
@@ -242,9 +242,16 @@ function SharesDialog() {
   )
 }
 
+const when = (iso: string) => {
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`
+}
+
+/** Requests waiting for an answer, then the news (people who accepted), newest first. News can be deleted one by one or all at once. */
 function NoticesDialog() {
   const open = useOpen((s) => s.notices)
   const { notices, connections } = useConnect()
+  const showToast = useStore((s) => s.showToast)
   const close = () => useOpen.setState({ notices: false })
   useEffect(() => {
     // looking at the news reads the ones that are only news; requests stay until you answer them
@@ -253,13 +260,21 @@ function NoticesDialog() {
     if (ids.length) void markNoticesRead(ids).catch(() => undefined)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const waiting = connections.filter((c) => c.status === 'pending-in')
-  const news = notices.filter((n) => n.kind === 'accepted').slice(0, 10)
+  const news = notices.filter((n) => n.kind === 'accepted')
+  const remove = (ids?: string[]) => deleteNotices(ids).catch((e) => showToast((e as Error).message))
   return (
     <Modal open={open} onClose={close} label="Notifications">
-      <h3 className="font-display text-xl">Notifications</h3>
-      <div className="mt-3 space-y-2">
+      <div className="flex items-center">
+        <h3 className="font-display text-xl">Notifications</h3>
+        {news.length > 0 && (
+          <button type="button" onClick={() => void remove()} className="ml-auto rounded-full px-3 py-1 text-xs text-ink-soft transition hover:bg-white/70 hover:text-ink">
+            Clear all
+          </button>
+        )}
+      </div>
+      <ul className="mt-3 space-y-1.5" aria-label="Notifications">
         {waiting.map((c) => (
-          <div key={c.id} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
+          <li key={c.id} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{c.name} wants to connect</div>
               <div className="truncate text-xs text-ink-faint">{c.email}</div>
@@ -274,15 +289,23 @@ function NoticesDialog() {
             >
               Review
             </button>
-          </div>
+          </li>
         ))}
         {news.map((n) => (
-          <div key={n.id} className="rounded-2xl px-3 py-2 text-sm text-ink-soft">
-            <span className="text-ink">{n.from}</span> accepted your invitation to connect.
-          </div>
+          <li key={n.id} className="flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-1.5">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-ink">
+                <span className="font-medium">{n.from}</span> accepted your invitation
+              </div>
+              <div className="text-xs text-ink-faint">{when(n.at)}</div>
+            </div>
+            <button type="button" onClick={() => void remove([n.id])} aria-label={`Delete notification from ${n.from}`} title="Delete" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
+              <IconClose size={12} />
+            </button>
+          </li>
         ))}
-        {waiting.length === 0 && news.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">Nothing new.</p>}
-      </div>
+      </ul>
+      {waiting.length === 0 && news.length === 0 && <p className="py-5 text-center text-sm text-ink-faint">Nothing new.</p>}
       <div className="mt-4 flex justify-end">
         <button type="button" className={btnGhost} onClick={close}>
           Close

@@ -149,6 +149,8 @@ export interface Person {
    * An entry with no `link` is one you keep yourself.
    */
   link?: { userId: string; got: string[] }
+  /** A small portrait (a 256px JPEG as a data address), kept on this contact only. */
+  photo?: string
   /** The email you last offered an invitation to connect to (so it is not asked again for the same address). */
   invited?: string
   createdAt: number

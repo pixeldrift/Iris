@@ -217,3 +217,13 @@ export function QuickAdd({
     </form>
   )
 }
+
+/** A contact's round picture: their portrait when they have one, otherwise their initial on their colour. */
+export function Avatar({ person, size = 36, className = '' }: { person: Pick<import('../core/types').Person, 'name' | 'hue' | 'photo'>; size?: number; className?: string }) {
+  if (person.photo) return <img src={person.photo} alt="" width={size} height={size} draggable={false} className={`shrink-0 rounded-full object-cover ${className}`} style={{ width: size, height: size }} />
+  return (
+    <span className={`grid shrink-0 place-items-center rounded-full font-semibold ${className}`} style={{ width: size, height: size, fontSize: size * 0.4, background: tint(person.hue, 65, 86), color: tint(person.hue, 38, 32) }} aria-hidden>
+      {person.name[0]?.toUpperCase()}
+    </span>
+  )
+}

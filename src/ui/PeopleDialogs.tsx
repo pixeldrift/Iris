@@ -10,6 +10,8 @@ import { IconChevronDown, IconClose, IconHeart, IconLink, IconPencil, IconPlus }
 import { openVerify, sendCode } from './VerifyDialog'
 import { disconnectFrom, setFindable, useConnect } from '../sync/connect'
 import { openInvite, openShares } from './ConnectDialogs'
+import { portraitFrom } from './photo'
+import { Avatar } from './shared'
 import { allCategories, composeAddress, emptyAddress, fullName, MAX_FAVORITES, parseAddress, splitName, type AddressParts } from '../core/people'
 import { lookupCity, lookupZip } from './geo'
 import { canPickContacts, pickContact } from './contacts'
@@ -29,7 +31,7 @@ const closePerson = () => usePersonDialog.setState({ open: false })
 
 const field = 'well w-full rounded-xl px-3 py-2 text-sm'
 
-const blank = { first: '', last: '', phone: '', email: '', notes: '', favorite: false, categories: [] as string[], extras: [] as PersonExtra[], birthday: null as string | null }
+const blank = { photo: '', first: '', last: '', phone: '', email: '', notes: '', favorite: false, categories: [] as string[], extras: [] as PersonExtra[], birthday: null as string | null }
 
 const EXTRA_KINDS: { id: PersonExtra['kind']; label: string; placeholder: string; labels: string[] }[] = [
   { id: 'phone', label: 'Phone', placeholder: 'Phone number', labels: ['Mobile', 'Home', 'Work'] },
@@ -45,6 +47,7 @@ export function PersonDialog() {
   const save = useStore((s) => s.savePerson)
   const del = useStore((s) => s.deletePerson)
   const showToast = useStore((s) => s.showToast)
+  const photoInput = useRef<HTMLInputElement>(null)
   const [newCat, setNewCat] = useState('')
   const [addingCat, setAddingCat] = useState(false)
   const existing = id ? people.find((p) => p.id === id) : undefined
@@ -68,7 +71,7 @@ export function PersonDialog() {
     const base = { ...(defaults as Record<string, string>), ...(existing ?? {}) } as Record<string, string>
     const names = base.first || base.last ? { first: base.first ?? '', last: base.last ?? '' } : splitName(base.name ?? '')
     // new people start hearted while there is room in the sidebar for them
-    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite && !existing.isMe : favorites < MAX_FAVORITES, categories: existing?.categories ?? [], extras: existing?.extras ?? [], birthday: existing?.birthday ?? null })
+    setF({ ...blank, phone: base.phone ?? '', email: base.email ?? '', notes: base.notes ?? '', ...names, favorite: existing ? existing.favorite && !existing.isMe : favorites < MAX_FAVORITES, categories: existing?.categories ?? [], extras: existing?.extras ?? [], birthday: existing?.birthday ?? null, photo: existing?.photo ?? '' })
     const known = base.street || base.city || base.state || base.zip ? { street: base.street ?? '', city: base.city ?? '', state: base.state ?? '', zip: base.zip ?? '' } : parseAddress(base.address ?? '')
     setParts(known)
     setLine(base.address || composeAddress(known))
@@ -161,7 +164,7 @@ export function PersonDialog() {
     </button>
   </div>
       }
-      label={existing ? 'Edit person' : 'Add person'} wide>
+      label={existing ? 'Edit contact' : 'Add person'} wide>
       <form
         id="person-form"
         onSubmit={(e) => {
@@ -178,7 +181,7 @@ export function PersonDialog() {
         className="space-y-3"
       >
         <div className="flex items-center">
-          <h3 className="font-display text-xl">{existing?.isMe ? 'My Profile' : existing ? 'Edit person' : 'Add a person'}</h3>
+          <h3 className="font-display text-xl">{existing?.isMe ? 'My Profile' : existing ? 'Edit contact' : 'Add a person'}</h3>
           {/* you are linked to everything you make already, so there is nothing to keep in the sidebar */}
           {!existing?.isMe && (
             <button
@@ -231,6 +234,43 @@ export function PersonDialog() {
               Choose from contacts
             </button>
           )}
+        </div>
+        {/* a portrait: choose a picture, or on a phone take one; it is cropped square and kept small */}
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => photoInput.current?.click()} aria-label={f.photo ? 'Change photo' : 'Add a photo'} className="group relative shrink-0 rounded-full transition hover:scale-105">
+            <Avatar person={{ name: name || '?', hue: existing?.hue ?? 285, photo: f.photo }} size={56} />
+            <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-lilac-500 text-white shadow ring-2 ring-white/80">
+              <IconPlus size={11} />
+            </span>
+          </button>
+          <div className="flex flex-col items-start gap-0.5 text-xs">
+            <button type="button" onClick={() => photoInput.current?.click()} className="rounded-full px-2 py-0.5 text-lilac-700 transition hover:bg-lilac-100/80">
+              {f.photo ? 'Change photo' : 'Add a photo'}
+            </button>
+            {f.photo && (
+              <button type="button" onClick={() => setF((p) => ({ ...p, photo: '' }))} className="rounded-full px-2 py-0.5 text-ink-faint transition hover:text-[#b04a6e]">
+                Remove photo
+              </button>
+            )}
+          </div>
+          <input
+            ref={photoInput}
+            type="file"
+            accept="image/*"
+            hidden
+            aria-label="Choose a photo"
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (!file) return
+              try {
+                const photo = await portraitFrom(file)
+                setF((p) => ({ ...p, photo }))
+              } catch {
+                showToast('Couldn’t use that picture. Try another.')
+              }
+            }}
+          />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <input className={`${field} disabled:opacity-60`} placeholder="First name" aria-label="First name" autoComplete="given-name" value={f.first} onChange={set('first')} autoFocus={!existing} disabled={locked('name')} />

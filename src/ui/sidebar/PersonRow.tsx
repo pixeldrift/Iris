@@ -1,4 +1,3 @@
-import { tint } from '../../core/color'
 import type { Person } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
@@ -6,6 +5,7 @@ import { openPerson } from '../PeopleDialogs'
 import { Tip } from '../Tip'
 import { IconHeart, IconPencil } from '../icons'
 
+import { Avatar } from '../shared'
 import { Count, rowBase } from './parts'
 
 export function PersonRow({ person, count }: { person: Person; count: number }) {
@@ -22,12 +22,7 @@ export function PersonRow({ person, count }: { person: Person; count: number }) 
         over ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : active ? 'ring-1 ring-lilac-300/50' : ''
       }`}
     >
-      <span
-        className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full text-[0.62rem] font-semibold"
-        style={{ background: `${tint(person.hue, 65, 86)}`, color: `${tint(person.hue, 38, 32)}` }}
-      >
-        {person.name[0]?.toUpperCase()}
-      </span>
+      <Avatar person={person} size={18} />
       <span className="truncate">{person.name}</span>
       <Count n={count} />
       <span className="absolute right-1.5 flex rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">

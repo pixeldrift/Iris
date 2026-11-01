@@ -38,7 +38,21 @@ function Chip({ task, deadline = false, loggedOn }: { task: Task; deadline?: boo
   )
 }
 
-function Cell({ date, tasks, month, tall, named = false, roomy = false }: { date: string; tasks: { task: Task; deadline: boolean }[]; month: number | null; tall: boolean; named?: boolean; roomy?: boolean }) {
+/** One item as a coloured dot (its group's colour): in the month view that is all there is room for. */
+function Dot({ task, deadline, loggedOn }: { task: Task; deadline: boolean; loggedOn?: string }) {
+  const folders = useStore((s) => s.folders)
+  const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
+  const done = loggedOn ? task.log.includes(loggedOn) : task.status === 'done'
+  return (
+    <span
+      title={`${task.title}${deadline ? ' (due)' : ''}`}
+      className={`h-2 w-2 shrink-0 rounded-full ${done ? 'opacity-40' : ''}`}
+      style={deadline ? { boxShadow: `inset 0 0 0 1.5px ${tint(hue, 55, 55)}` } : { background: tint(hue, 62, 62) }}
+    />
+  )
+}
+
+function Cell({ date, tasks, month, tall, named = false, roomy = false, dots = false }: { date: string; tasks: { task: Task; deadline: boolean }[]; month: number | null; tall: boolean; named?: boolean; roomy?: boolean; dots?: boolean }) {
   const { over, active, props } = useDropTarget(`day:${date}`)
   const addTask = useStore((s) => s.addTask)
   const select = useStore((s) => s.select)
@@ -70,12 +84,27 @@ function Cell({ date, tasks, month, tall, named = false, roomy = false }: { date
           <IconPlus size={14} />
         </button>
       </div>
-      <div className="scroll-soft flex min-h-0 flex-col gap-1 overflow-y-auto">
-        {tasks.slice(0, max).map((t) => (
-          <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
-        ))}
-        {tasks.length > max && <span className="px-1 text-[0.68rem] text-ink-faint">+{tasks.length - max} more</span>}
-      </div>
+      {dots ? (
+        // the month view: at this size words can't be read, so each item is a dot and the day is judged at a glance
+        <button
+          type="button"
+          onClick={() => setScope({ type: 'day', date })}
+          aria-label={tasks.length ? `${tasks.length} ${tasks.length === 1 ? 'item' : 'items'} on ${date}` : `Nothing on ${date}`}
+          className="flex min-h-0 flex-1 flex-wrap content-start items-start gap-1 overflow-hidden px-0.5 text-left"
+        >
+          {tasks.slice(0, 15).map((t) => (
+            <Dot key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
+          ))}
+          {tasks.length > 15 && <span className="text-[0.62rem] leading-2 text-ink-faint">+{tasks.length - 15}</span>}
+        </button>
+      ) : (
+        <div className="scroll-soft flex min-h-0 flex-col gap-1 overflow-y-auto">
+          {tasks.slice(0, max).map((t) => (
+            <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
+          ))}
+          {tasks.length > max && <span className="px-1 text-[0.68rem] text-ink-faint">+{tasks.length - max} more</span>}
+        </div>
+      )}
     </div>
   )
 }
@@ -208,7 +237,7 @@ export function CalendarView() {
         }}
       >
         {cells.map((d) => (
-          <Cell key={d} date={d} tasks={tasksOn(d)} month={mode === 'month' ? a.getMonth() : null} tall={mode !== 'month'} named={stacked || mode === 'day'} roomy={mode === 'day'} />
+          <Cell key={d} date={d} tasks={tasksOn(d)} month={mode === 'month' ? a.getMonth() : null} tall={mode !== 'month'} named={stacked || mode === 'day'} roomy={mode === 'day'} dots={mode === 'month'} />
         ))}
       </div>
 

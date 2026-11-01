@@ -8,7 +8,7 @@ import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, format
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
 import { matchesQuery } from './search'
-import { composeAddress, parseAddress, splitName } from './people'
+import { composeAddress, parseAddress, splitName, wantsLetters } from './people'
 
 describe('dates', () => {
   it('adds and diffs days across month boundaries', () => {
@@ -584,5 +584,14 @@ describe('withoutFolder', () => {
     expect(a.folders.find((x: { id: string }) => x.id === 'leaf')).toMatchObject({ parentId: 'dest' })
     const b = withoutFolder(folders, [], 'mid', { groups: 'move', items: 'keep', moveGroupsTo: null })
     expect(b.folders.find((x: { id: string }) => x.id === 'leaf')).toMatchObject({ parentId: null })
+  })
+})
+
+describe('wantsLetters', () => {
+  const book = (names: string[]) => names.map((name) => ({ name }))
+  it('keeps the A–Z headings for a book that is long enough and has some letter with a few people', () => {
+    expect(wantsLetters(book(['Ann', 'Bob', 'Cy']))).toBe(false) // a handful: just clutter
+    expect(wantsLetters(book(Array.from({ length: 13 }, (_, i) => `${String.fromCharCode(65 + i)} person`)))).toBe(false) // long, but every letter has one
+    expect(wantsLetters(book(['Adam', 'Alice', 'Amy', ...Array.from({ length: 10 }, (_, i) => `${String.fromCharCode(66 + i)} person`)]))).toBe(true)
   })
 })

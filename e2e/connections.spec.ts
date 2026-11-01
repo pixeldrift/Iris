@@ -52,18 +52,28 @@ test('inviting someone fills in their details once they accept, and nothing leak
 
   // Bob's address book has Ann, marked as connected
   await bob.getByRole('button', { name: /Address book/ }).first().click()
-  await expect(bob.getByRole('button', { name: /^A Ann Archer/ })).toBeVisible()
+  await expect(bob.getByRole('button', { name: /^Ann Archer/ })).toBeVisible()
   await expect(bob.getByRole('img', { name: 'Connected' })).toBeVisible()
 
   // Ann's own entry for Bob is the one that is filled in (no second Bob), under his real name
   await ann.reload()
   await ann.getByRole('button', { name: /Address book/ }).first().click()
-  await expect(ann.getByRole('button', { name: /^B Bob Builder/ })).toBeVisible()
-  await expect(ann.getByRole('button', { name: /^B Bobby/ })).toHaveCount(0)
+  await expect(ann.getByRole('button', { name: /^Bob Builder/ })).toBeVisible()
+  await expect(ann.getByRole('button', { name: /^Bobby/ })).toHaveCount(0)
   await expect(ann.getByRole('img', { name: 'Connected' })).toHaveCount(1)
-  await ann.getByRole('button', { name: /^B Bob Builder/ }).click()
+  await ann.getByRole('button', { name: /^Bob Builder/ }).click()
   await expect(ann.getByText('Connected', { exact: true })).toBeVisible()
   await expect(ann.getByPlaceholder('Email')).toBeDisabled()
+
+  // Ann has the news in a list she can delete from
+  await ann.reload()
+  await expect(ann.locator('[aria-label^="Account"]')).toHaveAttribute('aria-label', /1 to look at/)
+  await ann.locator('[aria-label^="Account"]').click()
+  await ann.getByRole('button', { name: /Notifications/ }).click()
+  await expect(ann.getByRole('listitem').filter({ hasText: 'accepted your invitation' })).toHaveCount(1)
+  await ann.getByRole('button', { name: /Delete notification/ }).click()
+  await expect(ann.getByText('Nothing new.')).toBeVisible()
+  await ann.getByRole('button', { name: 'Close', exact: true }).click()
 
   // when Bob deletes his account, Ann keeps the entry as an ordinary contact of hers
   await bob.locator('[aria-label^="Account"]').click()
@@ -75,6 +85,6 @@ test('inviting someone fills in their details once they accept, and nothing leak
   await expect(bob.getByRole('button', { name: 'Close settings' })).toBeVisible()
   await ann.reload()
   await ann.getByRole('button', { name: /Address book/ }).first().click()
-  await expect(ann.getByRole('button', { name: /^B Bob Builder/ })).toBeVisible()
+  await expect(ann.getByRole('button', { name: /^Bob Builder/ })).toBeVisible()
   await expect(ann.getByRole('img', { name: 'Connected' })).toHaveCount(0)
 })
