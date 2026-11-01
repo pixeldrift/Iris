@@ -302,13 +302,16 @@ export function Sidebar() {
         {/* sideways and folded away: a strip of shortcuts. Tap the logo, or the blank part of the strip, to bring the menu back. */}
         {land && navHidden && (
           <div
-            className="no-scrollbar absolute inset-0 flex cursor-pointer flex-col items-center gap-0.5 overflow-y-auto py-3"
+            className="no-scrollbar absolute inset-0 flex cursor-pointer flex-col items-center overflow-y-auto py-3"
             style={{ paddingLeft: 'var(--safe-l)' }}
             onClick={() => setNavHidden(false)}
           >
+            {/* everything sits in the middle of the strip's height (and the strip scrolls if the screen is too short) */}
+            <div className="m-auto flex flex-col items-center gap-0.5">
             <button type="button" aria-label="Show the menu" title="Show the menu" className="grid h-8 w-8 shrink-0 place-items-center rounded-full transition hover:bg-white/60" onClick={(e) => (e.stopPropagation(), setNavHidden(false))}>
               <Logo size={22} />
             </button>
+            <span aria-hidden className="my-px h-px w-5 shrink-0 bg-ink-faint/30" />
             {VIEWS.map((v) => (
               <button
                 key={v.id}
@@ -333,6 +336,7 @@ export function Sidebar() {
             >
               <IconAll />
             </button>
+            </div>
           </div>
         )}
         <div

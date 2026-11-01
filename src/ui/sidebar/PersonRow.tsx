@@ -42,7 +42,7 @@ export function PersonRow({ person, count }: { person: Person; count: number }) 
           <button
             onClick={(e) => {
               e.stopPropagation()
-              openPerson({ id: person.id })
+              openPerson({ id: person.id, edit: true })
             }}
             className="rounded-md p-1 text-ink-faint hover:bg-lilac-100 hover:text-lilac-600"
           >
