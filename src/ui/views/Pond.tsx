@@ -226,10 +226,10 @@ export function Pond() {
     (fromHomes = false) => {
       const list = [...nodes.current.values()].map((n) => ({ x: fromHomes ? n.sim.hx : n.sim.x, y: fromHomes ? n.sim.hy : n.sim.y, r: n.sim.r }))
       // group titles count too, so none is framed out of view
-      for (const l of labelsRef.current) list.push({ x: l.x, y: l.y, r: 40 })
+      for (const l of labelsRef.current) list.push({ x: l.x, y: l.y, r: 30 })
       const b = boundsOf(list)
       const { w: W, h: H } = dims.current
-      view.current = b ? fitView(b, W, H, 56) : { scale: 1, tx: 0, ty: 0 }
+      view.current = b ? fitView(b, W, H, 18) : { scale: 1, tx: 0, ty: 0 }
       applyView(true)
     },
     [applyView],

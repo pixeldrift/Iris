@@ -74,4 +74,21 @@ test.describe('the pond', () => {
     )
     expect(ok).toBe(true)
   })
+
+  test('Frame all zooms until the bubbles fill the width or the height, with just a little margin', async ({ page }) => {
+    await page.getByRole('button', { name: 'Frame all' }).click()
+    await page.waitForTimeout(1200)
+    const m = await page.evaluate(() => {
+      const pond = document.querySelector('[aria-label^="Pond canvas"]')!.getBoundingClientRect()
+      const r = [...document.querySelectorAll('[data-node] .pad')].map((e) => e.getBoundingClientRect())
+      const left = Math.min(...r.map((x) => x.left)) - pond.left
+      const right = pond.right - Math.max(...r.map((x) => x.right))
+      const top = Math.min(...r.map((x) => x.top)) - pond.top
+      const bottom = pond.bottom - Math.max(...r.map((x) => x.bottom))
+      return { side: Math.min(left, right), vert: Math.min(top, bottom) }
+    })
+    // the tighter pair of sides is close to the edge (a small margin), and nothing is cut off
+    expect(Math.min(m.side, m.vert)).toBeGreaterThan(0)
+    expect(Math.min(m.side, m.vert)).toBeLessThan(40)
+  })
 })

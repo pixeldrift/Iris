@@ -150,9 +150,10 @@ export function boundsOf(nodes: { x: number; y: number; r: number }[]) {
 
 /** View transform that fits `b` inside a w×h viewport with padding. */
 export function fitView(b: { minX: number; minY: number; maxX: number; maxY: number }, w: number, h: number, pad = 48) {
+  // the zoom at which the bubbles just fill the width or the height (whichever is tighter), leaving `pad` all round
   const bw = Math.max(1, b.maxX - b.minX)
   const bh = Math.max(1, b.maxY - b.minY)
-  const scale = Math.min(2, Math.max(0.25, Math.min((w - pad * 2) / bw, (h - pad * 2) / bh)))
+  const scale = Math.min(3, Math.max(0.2, Math.min((w - pad * 2) / bw, (h - pad * 2) / bh)))
   return {
     scale,
     tx: w / 2 - ((b.minX + b.maxX) / 2) * scale,

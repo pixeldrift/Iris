@@ -154,6 +154,18 @@ describe('grouping & flocking', () => {
     expect(v.scale).toBeLessThan(1)
     expect(-500 * v.scale + v.tx).toBeGreaterThan(0)
   })
+  it('frames so the bubbles fill the width or the height, with just a small margin', () => {
+    const b = boundsOf([{ x: 100, y: 100, r: 50 }, { x: 400, y: 250, r: 50 }])! // 400 x 250
+    const v = fitView(b, 1000, 600, 18)
+    const left = b.minX * v.scale + v.tx
+    const right = 1000 - (b.maxX * v.scale + v.tx)
+    const top = b.minY * v.scale + v.ty
+    const bottom = 600 - (b.maxY * v.scale + v.ty)
+    // one pair of sides sits at the margin; the other has more room
+    expect(Math.min(left, right, top, bottom)).toBeCloseTo(18, 5)
+    expect(Math.min(left, right)).toBeGreaterThanOrEqual(18 - 1e-6)
+    expect(Math.min(top, bottom)).toBeGreaterThanOrEqual(18 - 1e-6)
+  })
 })
 
 describe('water feel', () => {

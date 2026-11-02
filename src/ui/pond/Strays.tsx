@@ -98,14 +98,16 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
     if (!p.timer) p.timer = window.setTimeout(go, gap())
   }
 
-  /** A whole new field of random bubbles, appearing one after another. */
-  const fill = () => {
+  /** A whole new field of random bubbles, appearing one after another: enough to cover about `cover` of the water. */
+  const fill = (cover = 0.2) => {
     const { w: W, h: H } = live.current
-    const count = Math.max(8, Math.min(22, Math.round((W * H) / 90_000)))
     const out: Stray[] = []
-    for (let i = 0; i < count; i++) {
+    let area = 0
+    for (let i = 0; i < 90 && area < cover * W * H; i++) {
       const one = make(out)
-      if (one) out.push({ ...one, enter: i * 70 })
+      if (!one) break
+      area += Math.PI * one.r * one.r
+      out.push({ ...one, enter: i * 60 })
     }
     return out
   }
@@ -149,7 +151,7 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
     clearing.current = window.setTimeout(() => {
       clearing.current = 0
       live.current.onCleared?.(false)
-      if (!leavingRef.current) setList(fill())
+      if (!leavingRef.current) setList(fill(0.4)) // about twice what the field began with, so the cleared water fills up
     }, CLEARED_MS)
   }, [list, popped, active, leaving, hues, seeded]) // eslint-disable-line react-hooks/exhaustive-deps
 
