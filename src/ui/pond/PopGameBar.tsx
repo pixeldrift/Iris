@@ -34,7 +34,7 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
   )
   return (
     <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
-      <div className="glass pointer-events-auto flex max-w-full flex-col bg-white/85 items-center gap-1.5 rounded-2xl px-4 py-2 text-center" role="status" aria-live="polite">
+      <div className="glass pointer-events-auto flex w-fit max-w-[min(100%,24rem)] flex-col !bg-white/95 items-center gap-1.5 rounded-2xl px-4 py-2 text-center" role="status" aria-live="polite">
         {g.phase === 'idle' || g.phase === 'over' ? (
           <>
             <div className="font-display text-lg leading-tight">{g.phase === 'over' ? 'Game over' : 'Pop game'}</div>
@@ -43,7 +43,7 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
                 ? <Line items={[['score', g.score], ['round', g.round], ['best', Math.max(best, g.score)]]} />
                 : tooFew
                   ? 'Needs bubbles in at least three colours (groups). Add a few and come back.'
-                  : 'Watch the colours light up, then pop them in the same order. Each round adds one, and it speeds up.'}
+                  : 'Watch the colours light up, then pop them in the same order.'}
             </p>
             {!tooFew && (
               <div className="flex items-center gap-3">

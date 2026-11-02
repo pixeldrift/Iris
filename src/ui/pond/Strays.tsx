@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { satOf } from '../../core/color'
 import * as sound from '../../audio/engine'
 
-type Stray = { id: number; fade?: boolean; hue: number; x: number; y: number; r: number; dur: number; delay: number }
+type Stray = { id: number; fade?: boolean; hue: number; u: number; x: number; y: number; r: number; dur: number; delay: number }
+
+/** How vivid a plain bubble is: some variety, but never so pale that two colours look alike (25% at the least). */
+const vivid = () => 0.25 + Math.random() * 0.6
 
 /**
  * Pop mode's spare bubbles: not items at all, just bubbles with nothing written on them, at random sizes, colours and
@@ -60,7 +63,7 @@ export function Strays({
       if (avoid.some((a) => Math.hypot(a.x - x, a.y - y) < a.r + r + 6)) continue
       if (others.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 6)) continue
       const hue = pool && pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * 360)
-      return { id: next.current++, hue, x, y, r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 }
+      return { id: next.current++, hue, u: vivid(), x, y, r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 }
     }
     return null
   }
@@ -101,7 +104,7 @@ export function Strays({
         // the real bubbles' places, sizes and colours (in the game, the nearest of the game's colours), as plain ones
         const pool = live.current.hues
         const near = (hue: number) => (pool && pool.length ? pool.reduce((best, c) => (Math.abs(((c - hue + 540) % 360) - 180) < Math.abs(((best - hue + 540) % 360) - 180) ? c : best), pool[0]) : hue)
-        for (const b of seed) out.push({ id: next.current++, fade: true, hue: near(b.hue), x: b.x, y: b.y, r: b.r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 })
+        for (const b of seed) out.push({ id: next.current++, fade: true, hue: near(b.hue), u: vivid(), x: b.x, y: b.y, r: b.r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 })
       } else {
         const count = Math.max(8, Math.min(22, Math.round((w * h) / 90_000)))
         for (let i = 0; i < count; i++) {
@@ -143,7 +146,7 @@ export function Strays({
                   }}
                   className={`pad block h-full w-full cursor-pointer touch-none select-none rounded-full ${litHue !== null && litHue === s.hue ? 'game-lit' : ''}`}
                   data-hue={s.hue}
-                  style={{ width: s.r * 2, height: s.r * 2, '--h': Math.max(0, s.hue), '--s': satOf(s.hue), '--u': 1 } as React.CSSProperties}
+                  style={{ width: s.r * 2, height: s.r * 2, '--h': Math.max(0, s.hue), '--s': satOf(s.hue), '--u': s.u } as React.CSSProperties}
                 />
               </div>
             </div>
