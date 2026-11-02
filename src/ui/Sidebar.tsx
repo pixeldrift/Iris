@@ -342,19 +342,22 @@ export function Sidebar() {
               <Logo size={22} />
             </button>
             <span aria-hidden className="my-px h-px w-5 shrink-0 bg-ink-faint/30" />
-            {VIEWS.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                aria-label={v.label}
-                title={v.label}
-                aria-pressed={view === v.id}
-                className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${view === v.id ? 'bg-lilac-500 !text-white shadow shadow-lilac-500/30' : ''}`}
-                onClick={(e) => (e.stopPropagation(), setView(v.id))}
-              >
-                <v.icon />
-              </button>
-            ))}
+            {/* the views are purple here too, as in the open menu: white icons, the current one a white disc */}
+            <div className="flex shrink-0 flex-col items-center gap-0.5 rounded-full bg-gradient-to-b from-lilac-400 to-lilac-600 p-0.5 shadow-md shadow-lilac-500/30">
+              {VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  aria-label={v.label}
+                  title={v.label}
+                  aria-pressed={view === v.id}
+                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition ${view === v.id ? 'bg-white text-lilac-600 shadow' : 'text-white hover:bg-white/20'}`}
+                  onClick={(e) => (e.stopPropagation(), setView(v.id))}
+                >
+                  <v.icon />
+                </button>
+              ))}
+            </div>
             <span aria-hidden className="my-px h-px w-5 shrink-0 bg-ink-faint/30" />
             <button
               type="button"

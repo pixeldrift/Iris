@@ -13,6 +13,7 @@ import { Tip } from '../Tip'
 import { useSearchMatcher, useVisibleTasks } from '../useVisible'
 import { WATER } from '../water'
 import { WaterRipples, type WaterHandle } from '../WaterRipples'
+import { Strays } from '../pond/Strays'
 import { Lily } from '../pond/Lily'
 import { usePondGestures } from '../pond/usePondGestures'
 import { useSize } from '../pond/useSize'
@@ -597,6 +598,7 @@ export function Pond() {
 
         {w > 0 &&
           visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} />)}
+        {w > 0 && <Strays active={pop} w={w} h={h} getAvoid={() => [...nodes.current.values()].map((n) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r }))} />}
       </div>
 
       <WaterRipples ref={water} className="z-10" />
