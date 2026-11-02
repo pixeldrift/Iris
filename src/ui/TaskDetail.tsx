@@ -65,6 +65,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
         value={task.notes}
         onChange={(e) => update(task.id, { notes: e.target.value })}
         placeholder="Notes, thoughts, anything…"
+        aria-label="Notes"
         rows={3}
         className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
       />
@@ -199,6 +200,7 @@ export function TaskDetail() {
                 }
               }}
               placeholder="What’s floating in your mind?"
+              aria-label="Title"
               className="well min-w-0 flex-1 rounded-xl px-3 py-1.5 font-display text-xl placeholder:text-ink-faint"
             />
           ) : (

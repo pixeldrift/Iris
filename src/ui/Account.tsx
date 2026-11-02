@@ -108,13 +108,14 @@ function AuthDialog() {
         <p className="-mt-1 text-xs text-ink-soft">
           {mode === 'in' ? 'Sign in to bring your pond to this device.' : 'Your groups, tasks and people on this device are added to it, then kept in sync everywhere you sign in.'}
         </p>
-        {mode === 'up' && <input className={field} placeholder="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />}
-        <input className={field} type="email" required placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+        {mode === 'up' && <input className={field} placeholder="Your name" aria-label="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />}
+        <input className={field} type="email" required placeholder="Email" aria-label="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         <input
           className={field}
           type="password"
           required
           minLength={8}
+          aria-label="Password"
           placeholder={mode === 'in' ? 'Password' : 'Password (8 or more characters)'}
           autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
           value={password}

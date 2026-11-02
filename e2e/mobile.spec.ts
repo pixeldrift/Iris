@@ -242,7 +242,12 @@ test.describe('a phone turned sideways', () => {
     await expect(typing).toBeFocused()
     expect((await typing.boundingBox())!.y).toBeLessThan(60)
     await typing.fill('met at the lab')
+    // the bar names the box, once: its label is shown, and the box inside has no placeholder repeating it
+    await expect(bar.locator('textarea')).toHaveAttribute('placeholder', '')
     await bar.getByRole('button', { name: 'Done' }).click()
+    // what was typed flies down to the box it belongs in
+    await expect(page.locator('body > div.well')).toHaveCount(1)
+    await expect(page.locator('body > div.well')).toHaveCount(0, { timeout: 3000 })
     await expect(notes).toHaveValue('met at the lab')
     await expect(bar).toHaveAttribute('aria-hidden', 'true') // and the bar goes away
     // cancelling throws the text away

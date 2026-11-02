@@ -338,8 +338,8 @@ export function PersonDialog() {
           <input className={`${field} disabled:opacity-60`} placeholder="Last name" aria-label="Last name" autoComplete="family-name" value={f.last} onChange={set('last')} disabled={locked('name')} />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input className={`${field} disabled:opacity-60`} disabled={locked('phone')} placeholder="Phone" inputMode="tel" value={f.phone} onChange={set('phone')} onBlur={() => setF((p) => ({ ...p, phone: formatPhone(p.phone) }))} />
-          <input className={`${field} disabled:opacity-60`} disabled={locked('email')} placeholder="Email" inputMode="email" value={f.email} onChange={set('email')} />
+          <input className={`${field} disabled:opacity-60`} disabled={locked('phone')} placeholder="Phone" aria-label="Phone" inputMode="tel" value={f.phone} onChange={set('phone')} onBlur={() => setF((p) => ({ ...p, phone: formatPhone(p.phone) }))} />
+          <input className={`${field} disabled:opacity-60`} disabled={locked('email')} placeholder="Email" aria-label="Email" inputMode="email" value={f.email} onChange={set('email')} />
         </div>
         {/* any number of further numbers, emails, addresses…, each with a label of its own */}
         {f.extras.map((x) => {
@@ -482,7 +482,7 @@ export function PersonDialog() {
             </div>
           </div>
         )}
-        <textarea className={`${field} resize-none`} rows={2} placeholder="Notes" value={f.notes} onChange={set('notes')} />
+        <textarea className={`${field} resize-none`} rows={2} placeholder="Notes" aria-label="Notes" value={f.notes} onChange={set('notes')} />
         {existing?.isMe && <p className="text-xs text-ink-faint">Appears in address book</p>}
         {selfBlocks}
       </form>

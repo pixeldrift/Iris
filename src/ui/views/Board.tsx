@@ -104,7 +104,7 @@ function Column({ target, name, tasks, onAdd }: { target: string; name: string; 
       </header>
       {open && (
         <>
-          <QuickAdd placeholder="＋ add" onAdd={onAdd} />
+          <QuickAdd placeholder="Add a task…" label={`Add a task to ${name}`} onAdd={onAdd} />
           <div className="-mr-1.5 mt-2.5 flex min-h-0 flex-1 flex-col">
             <ScrollFade className="pr-1.5">
               <div className="space-y-2 py-1">

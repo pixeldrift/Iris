@@ -207,6 +207,7 @@ export function FolderNode(props: NodeProps) {
             ref={inputRef}
             autoFocus
             data-no-proxy
+            aria-label="Group name"
             defaultValue={folder.name}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
