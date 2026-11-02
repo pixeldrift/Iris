@@ -15,11 +15,7 @@ test.describe('closing the quick add box', () => {
     await expect.poll(async () => !!(await taskNamed(page, 'Pick up the parcel'))).toBe(false)
   })
 
-  test('Escape does the same, and so does closing after opening more details', async ({ page }) => {
-    await page.keyboard.press('n')
-    await page.keyboard.type('Water the ferns')
-    await page.keyboard.press('Escape')
-    await expect.poll(async () => !!(await taskNamed(page, 'Water the ferns'))).toBe(true)
+  test('clicking away also keeps an item opened with more details', async ({ page }) => {
     await page.keyboard.press('n')
     await page.keyboard.type('Book the vet')
     await page.getByRole('button', { name: 'More details' }).click()
@@ -27,11 +23,16 @@ test.describe('closing the quick add box', () => {
     await expect.poll(async () => !!(await taskNamed(page, 'Book the vet'))).toBe(true)
   })
 
-  test('with no name it just closes, and the close button and Cancel throw an item away', async ({ page }) => {
+  test('with no name it just closes, and Escape, the close button and Cancel throw an item away', async ({ page }) => {
     await page.keyboard.press('n')
     await page.mouse.click(1100, 700)
     await expect(page.getByLabel('New item')).toHaveCount(0)
     await expect(page.getByRole('status')).toHaveCount(0)
+    await page.keyboard.press('n')
+    await page.keyboard.type('Escaped away')
+    await page.keyboard.press('Escape')
+    await expect(page.getByLabel('New item')).toHaveCount(0)
+    expect(await taskNamed(page, 'Escaped away')).toBeFalsy()
     await page.keyboard.press('n')
     await page.keyboard.type('Never mind this')
     await page.getByRole('button', { name: 'Close', exact: true }).click()

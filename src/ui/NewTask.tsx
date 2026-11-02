@@ -190,8 +190,8 @@ export function NewTask() {
   }
 
   /**
-   * Clicking away or pressing Escape: whatever has a name is kept (a bubble is easy to delete; re-entering everything is not),
-   * and one with no name simply closes. The × and Cancel buttons are the way to throw an item away.
+   * Clicking away by accident: whatever has a name is kept (a bubble is easy to delete; re-entering everything is not), and one
+   * with no name simply closes. Escape, the × and Cancel are deliberate, and throw the item away.
    */
   const dismiss = () => place(true)
 
@@ -211,7 +211,7 @@ export function NewTask() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.key === 'Escape' && dismiss()}
+        onKeyDown={(e) => e.key === 'Escape' && closeCompose()}
         className={`glass glass-strong relative flex max-h-full w-full flex-col ${land ? 'max-w-3xl rounded-[1.5rem] p-3' : 'max-w-md rounded-[2rem] p-4'} ${closing ? 'pop-out' : 'box-spring'}`}
       >
         {land ? (
