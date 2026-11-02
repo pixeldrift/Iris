@@ -15,7 +15,8 @@ import { useSearchMatcher, useVisibleTasks } from '../useVisible'
 import { WATER } from '../water'
 import { WaterRipples, type WaterHandle } from '../WaterRipples'
 import { Strays, type StrayField } from '../pond/Strays'
-import { PopGameBar } from '../pond/PopGameBar'
+import { PlayTimer, PopGameBar } from '../pond/PopGameBar'
+import { usePlayLimit } from '../pond/usePlayLimit'
 import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
@@ -143,6 +144,8 @@ export function Pond() {
     counts: () => field.current?.counts(gamePalette) ?? gamePalette.map(() => 0),
     add: (cs) => field.current?.add(cs.map((c) => gamePalette[c])),
   })
+  // play is kept to three minutes at a time (deleting never is): a countdown in fun mode, a game played out, then a kind word and a break
+  const limit = usePlayLimit({ mode: popMode, gamePhase: game.g.phase, onStop: () => setPopMode('off') })
   // for fun: the whole field popped
   const [cleared, setCleared] = useState(false)
   // the edges of the pond that buttons and panels sit over: bubbles are framed and spawned inside what is left
@@ -789,7 +792,10 @@ export function Pond() {
             label="What popping does"
             iconsOnly
             value={popMode as 'fun' | 'game' | 'delete'}
-            onChange={setPopMode}
+            onChange={(v) => {
+              if (v !== 'delete' && limit.blocked()) return // (a break: say so, and stay where we are)
+              setPopMode(v)
+            }}
             options={[
               { id: 'fun', label: 'Fun', icon: <IconPop size={14} /> },
               { id: 'game', label: 'Game', icon: <IconGame size={14} /> },
@@ -799,7 +805,13 @@ export function Pond() {
         )}
         <Tip label={pop ? 'Stop popping' : 'Pop mode: pop bubbles for fun'}>
           <button
-            onClick={() => setPopMode((m) => (m === 'off' ? 'fun' : 'off'))}
+            onClick={() =>
+              setPopMode((m) => {
+                if (m !== 'off') return 'off'
+                // during a break, popping is only for deleting
+                return limit.blocked() ? 'delete' : 'fun'
+              })
+            }
             aria-pressed={pop}
             aria-label="Pop mode"
             className={`grid h-9 w-9 place-items-center rounded-full transition ${pop ? (popMode === 'delete' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/40' : 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40') : 'glass-soft text-ink-soft hover:bg-white/80'}`}
@@ -808,7 +820,15 @@ export function Pond() {
           </button>
         </Tip>
       </div>
-      {popMode === 'game' && <PopGameBar game={game} palette={gamePalette} />}
+      {popMode === 'game' && <PopGameBar game={game} palette={gamePalette} breakText={limit.breakText} />}
+      {limit.warn !== null && popMode !== 'delete' && <PlayTimer seconds={limit.warn} />}
+      {limit.lastGame && popMode === 'game' && limit.warn === null && <PlayTimer lastGame />}
+      {limit.note && (
+        // a kind word in the middle of the water when it is time for a break (or play is tried too soon)
+        <p key={limit.note.key} role="status" className="break-note pointer-events-none absolute inset-0 z-20 grid place-items-center px-6">
+          <span className="glass max-w-sm rounded-2xl !bg-white/95 px-6 py-4 text-center font-display text-xl italic leading-snug text-lilac-700">{limit.note.text}</span>
+        </p>
+      )}
       {popMode === 'delete' && (
         <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
           <div role="alert" className="flex items-center gap-2 rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/40">

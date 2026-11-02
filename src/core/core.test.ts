@@ -775,3 +775,25 @@ describe('placing an item in a Progress column', () => {
     expect(p.rank).toBe(2048)
   })
 })
+
+import { breakMessage, cooldownMs, EMPTY_GATE, isLocked, lock as lockGate } from './playlimit'
+describe('play limit', () => {
+  it('breaks get longer, to a ceiling, and start over after a quiet spell', () => {
+    expect([0, 1, 2, 3, 4, 5, 9].map((l) => cooldownMs(l) / 60_000)).toEqual([3, 5, 10, 15, 30, 30, 30])
+    let g = EMPTY_GATE
+    const lens: number[] = []
+    for (let i = 0; i < 4; i++) {
+      g = lockGate(g, 1000 + i * 10_000)
+      lens.push((g.lockUntil - (1000 + i * 10_000)) / 60_000)
+    }
+    expect(lens).toEqual([3, 5, 10, 15])
+    expect(isLocked(g, g.lockUntil - 1)).toBe(true)
+    expect(isLocked(g, g.lockUntil)).toBe(false)
+    const later = lockGate(g, g.lastLockAt + 4 * 3_600_000)
+    expect((later.lockUntil - (g.lastLockAt + 4 * 3_600_000)) / 60_000).toBe(3)
+  })
+  it('says something kind about the break', () => {
+    expect(breakMessage(5 * 60_000)).toBe('That was a fun little break! Let’s give it another five minutes until the next one.')
+    expect(breakMessage(20_000)).toContain('one minute ')
+  })
+})

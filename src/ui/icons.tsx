@@ -283,6 +283,14 @@ export const IconPop = (p: P) => (
   </Svg>
 )
 
+/** A stopwatch: the countdown before a break. */
+export const IconStopwatch = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="13.5" r="7" />
+    <path d="M12 13.5V9.8M9.5 3h5M12 3v3.3M18.2 6.6l1.1-1.1" />
+  </Svg>
+)
+
 /** A little controller: the pop game. */
 export const IconGame = (p: P) => (
   <Svg {...p}>
