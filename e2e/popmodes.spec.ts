@@ -91,6 +91,25 @@ test.describe('pop modes', () => {
     await expect(status).not.toContainText('Game over')
   })
 
+  test('starting the game frames the bubbles clear of the score box, the pattern and the buttons', async ({ page }) => {
+    test.setTimeout(60_000)
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await page.getByRole('radio', { name: 'Game' }).click()
+    await page.getByRole('button', { name: 'Play', exact: true }).click()
+    await expect(page.getByRole('status')).toContainText('Your turn', { timeout: 15000 })
+    await page.waitForTimeout(1600) // (the framing glides in slowly)
+    const m = await page.evaluate(() => {
+      const pond = document.querySelector('[aria-label^="Pond canvas"]')!.getBoundingClientRect()
+      const bar = document.querySelector('[data-game-bar]')!.getBoundingClientRect()
+      const r = [...document.querySelectorAll('[data-stray] .pad')].map((e) => e.getBoundingClientRect())
+      return { fromBar: Math.min(...r.map((x) => x.top)) - bar.bottom, fromBottom: pond.bottom - Math.max(...r.map((x) => x.bottom)), fromSides: Math.min(Math.min(...r.map((x) => x.left)) - pond.left, pond.right - Math.max(...r.map((x) => x.right))) }
+    })
+    expect(m.fromBar).toBeGreaterThanOrEqual(-2)
+    expect(m.fromBottom).toBeGreaterThanOrEqual(40)
+    expect(m.fromSides).toBeGreaterThanOrEqual(0)
+    await page.screenshot({ path: 'test-results/gameplay.png' })
+  })
+
   test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept', async ({ page }) => {
     test.setTimeout(60_000)
     await page.getByRole('button', { name: 'Pop mode' }).click()
@@ -112,6 +131,7 @@ test.describe('pop modes', () => {
     const first = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')
     await pop(bubble(first!, false))
     await expect(status).toContainText('Game over')
+    await page.screenshot({ path: 'test-results/gameover.png' })
     const st = (await saved(page))!.settings.popStats
     expect(st.games).toBe(1)
     expect(st.points).toBeGreaterThan(0)
