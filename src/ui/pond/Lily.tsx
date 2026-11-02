@@ -18,7 +18,7 @@ export function motion(id: string) {
   return { cls: (['drift-a', 'drift-b', 'drift-c'] as const)[h % 3], dur: 9 + (h % 8), delay: -(h % 13) }
 }
 
-export const Lily = memo(function Lily({ task, r, api, start, match, fun, lit = false, dim = false }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null; fun?: 'gone' | 'back'; lit?: boolean; dim?: boolean }) {
+export const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null }) {
   const update = useStore((s) => s.updateTask)
   const drift = useStore((s) => s.settings.drift)
   const folders = useStore((s) => s.folders)
@@ -79,7 +79,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match, fun, lit = 
       style={{ width: r * 2, height: r * 2, transform: `translate(${start.x - r}px, ${start.y - r}px)` }}
     >
       <div ref={jig} className="h-full w-full">
-        <div className={`h-full w-full ${fun === 'gone' ? 'burst pointer-events-none' : fun === 'back' ? 'bloom-in' : fresh ? 'bloom-in' : ''} ${leave}`}>
+        <div className={`h-full w-full ${fresh ? 'bloom-in' : ''} ${leave}`}>
           <div
             className={`h-full w-full ${drift ? m.cls : ''}`}
             style={{ '--dur': `${m.dur}s`, '--delay': `${m.delay}s` } as React.CSSProperties}
@@ -96,7 +96,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match, fun, lit = 
                 if (mode === 'delete') {
                   api.ripple(task.id)
                   useStore.getState().deleteTask(task.id)
-                } else api.funPop(task.id) // for fun: it pops and floats back
+                }
               }}
               onClickCapture={(e) => api.popMode() !== 'off' && e.stopPropagation()}
               onKeyDownCapture={(e) => api.popMode() !== 'off' && e.stopPropagation()}
@@ -104,7 +104,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match, fun, lit = 
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
-              } ${dim ? 'opacity-30 saturate-50' : ''} ${lit ? 'game-lit' : ''} ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
+              } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
               style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
             >
               <TitleFit text={task.title || 'Untitled'} font={`${font}px`} lineHeight={1.15} done={done} watch={r} />

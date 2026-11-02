@@ -23,10 +23,8 @@ export interface PondApi {
   release: (id: string, committed: boolean) => void
   /** Only in Free mode do drags change a bubble's saved position. */
   isFree: () => boolean
-  /** Pop mode: in `delete` pressing a bubble deletes it on the spot; in `fun` and `game` it only pops (and comes back). */
+  /** Pop mode: in `delete` pressing a bubble deletes it on the spot; in `fun` and `game` the real bubbles are put away and plain ones take their place. */
   popMode: () => PopMode
-  /** A bubble popped for fun or in the game: nothing is deleted. */
-  funPop: (id: string) => void
   /** A ripple from a bubble, and the others bob as the wave passes (popping, checking off). */
   ripple: (id: string) => void
 }

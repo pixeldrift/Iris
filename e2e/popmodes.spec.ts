@@ -11,18 +11,21 @@ test.describe('pop modes', () => {
     const before = (await saved(page))!.tasks.length
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await expect(page.getByRole('alert')).toHaveCount(0) // no warning: nothing here deletes
-    const first = page.locator('[data-node] [role=button]').first()
-    // the words and marks fade away: only size and colour are left
-    await expect.poll(() => first.evaluate((e) => getComputedStyle(e.firstElementChild!).opacity)).toBe('0')
+    const real = page.locator('[data-node]').first()
+    // the real bubbles are put away and plain ones (same places, sizes and colours, no words) take over
+    await expect.poll(() => real.evaluate((e) => getComputedStyle(e).opacity)).toBe('0')
+    expect(await real.evaluate((e) => getComputedStyle(e).pointerEvents)).toBe('none')
     const n = await page.locator('[data-node]').count()
-    const box = (await first.boundingBox())!
+    await expect.poll(() => page.locator('[data-stray] .pad').count()).toBeGreaterThanOrEqual(n - 1)
+    expect(await page.locator('[data-stray] .pad').first().innerText()).toBe('')
+    const box = (await page.locator('[data-stray] .pad').first().boundingBox())!
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
     await page.waitForTimeout(700)
     expect(await page.locator('[data-node]').count()).toBe(n)
     expect((await saved(page))!.tasks.length).toBe(before)
-    // the words come back when pop mode ends
+    // the real ones come back when pop mode ends
     await page.getByRole('button', { name: 'Pop mode' }).click()
-    await expect.poll(() => first.evaluate((e) => getComputedStyle(e.firstElementChild!).opacity), { timeout: 4000 }).toBe('1')
+    await expect.poll(() => real.evaluate((e) => getComputedStyle(e).opacity), { timeout: 4000 }).toBe('1')
     await page.screenshot({ path: 'test-results/popfun.png' })
   })
 
@@ -57,18 +60,18 @@ test.describe('pop modes', () => {
   test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept', async ({ page }) => {
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
-    await page.getByRole('button', { name: 'Start' }).click()
+    await page.getByRole('button', { name: 'Play', exact: true }).click()
     const status = page.getByRole('status')
     await expect(status).toContainText('Your turn', { timeout: 6000 })
     const want = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')
-    const bubble = (hue: string, same: boolean) => (same ? page.locator(`.pad[data-hue="${hue}"]:not([disabled])`) : page.locator(`[data-stray] .pad:not([data-hue="${hue}"]):not([disabled])`))
+    const bubble = (hue: string, same: boolean) => (same ? page.locator(`[data-stray] .pad[data-hue="${hue}"]:not([disabled])`) : page.locator(`[data-stray] .pad:not([data-hue="${hue}"]):not([disabled])`))
     const pop = async (loc: ReturnType<typeof bubble>) => {
       const box = (await loc.first().boundingBox())!
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
     }
     await page.screenshot({ path: 'test-results/popgame.png' })
     await pop(bubble(want!, true))
-    await expect(status).toContainText('Round 2', { timeout: 4000 })
+    await expect(status).toContainText(/round: 2/, { timeout: 4000 })
     await expect(status).toContainText('Your turn', { timeout: 8000 })
     // a colour that is not in the pattern's first place: game over (the pattern's first is `want` again or not; pick a colour in play that differs from the first of the sequence)
     const first = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')

@@ -23,6 +23,11 @@ iPhone to install it as an app. Data lives in `localStorage` for now.
 Timeline (gantt). Every view respects the selected filter (a group, person or
 day). Fold the card with its arrow and the views become a row of icons.
 
+## House rules
+
+- **Buttons are one line.** A button's text never wraps onto a second line: keep labels short
+  ("Play", not "Play again") and give the button `whitespace-nowrap`.
+
 ## The mental model (keep this in mind)
 
 **Views and filters are two separate things.** The purple *View* card in the

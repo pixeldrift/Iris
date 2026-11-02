@@ -246,6 +246,26 @@ export function blip(i: number) {
   o.stop(c.currentTime + 0.4)
 }
 
+/** A new spare bubble floating up: a soft, short rising bloop, much quieter than a pop (and not any of the recordings). */
+export function spawn() {
+  if (!can('pops')) return
+  const c = ensure()
+  if (!c) return
+  const o = c.createOscillator()
+  const g = c.createGain()
+  o.type = 'sine'
+  const f = 330 + Math.random() * 120
+  o.frequency.setValueAtTime(f, c.currentTime)
+  o.frequency.exponentialRampToValueAtTime(f * 1.7, c.currentTime + 0.11)
+  g.gain.setValueAtTime(0.0001, c.currentTime)
+  g.gain.exponentialRampToValueAtTime(0.05, c.currentTime + 0.025)
+  g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.2)
+  o.connect(g).connect(master)
+  g.connect(reverbIn)
+  o.start()
+  o.stop(c.currentTime + 0.25)
+}
+
 /** A wrong answer in the pop game: low and short. */
 export function buzz() {
   if (!can('pops')) return

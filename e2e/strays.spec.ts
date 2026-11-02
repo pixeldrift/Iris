@@ -16,7 +16,7 @@ test('pop mode scatters spare bubbles that pop without deleting anything', async
   await page.screenshot({ path: 'test-results/strays.png' })
   await strays.first().dispatchEvent('pointerdown', { button: 0 })
   // it bursts, and a new one floats up somewhere else so there is always something to pop
-  await expect(page.locator('[data-stray] button[disabled]')).toHaveCount(1)
+  await expect.poll(async () => (await page.locator('[data-stray] button[disabled]').count()) + (n - (await strays.count()))).toBeGreaterThan(0)
   await expect(page.locator('[data-stray] button[disabled]')).toHaveCount(0, { timeout: 3000 })
   await expect.poll(() => strays.count()).toBeGreaterThanOrEqual(n - 1) // (a new one floats up if there is room for it)
   expect((await saved(page))!.tasks.length).toBe(before)

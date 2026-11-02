@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { satOf } from '../../core/color'
 import * as sound from '../../audio/engine'
 
-type Stray = { id: number; hue: number; x: number; y: number; r: number; dur: number; delay: number }
+type Stray = { id: number; fade?: boolean; hue: number; u: number; x: number; y: number; r: number; dur: number; delay: number }
+
+/** How vivid a plain bubble is: some variety, but never so pale that two colours look alike (25% at the least). */
+const vivid = () => 0.25 + Math.random() * 0.6
 
 /**
  * Pop mode's spare bubbles: not items at all, just bubbles with nothing written on them, at random sizes, colours and
@@ -15,6 +18,8 @@ export function Strays({
   w,
   h,
   getAvoid,
+  seeded = false,
+  getSeed,
   hues,
   litHue = null,
   canPop,
@@ -24,6 +29,9 @@ export function Strays({
   w: number
   h: number
   getAvoid: () => { x: number; y: number; r: number }[]
+  /** every bubble is one of these (the real ones are put away): they begin where the real ones were, with their sizes and colours */
+  seeded?: boolean
+  getSeed?: () => { x: number; y: number; r: number; hue: number }[]
   /** the colours to draw from; none means any colour at all */
   hues?: number[]
   /** the colour currently lit up in the game */
@@ -37,14 +45,15 @@ export function Strays({
   const next = useRef(0)
   const leavingRef = useRef(false)
   leavingRef.current = !active || leaving
-  const live = useRef({ hues, getAvoid, canPop, onPop, w, h })
-  live.current = { hues, getAvoid, canPop, onPop, w, h }
-  const mode = hues ? 'colours' : 'any'
+  const live = useRef({ hues, getAvoid, getSeed, seeded, canPop, onPop, w, h })
+  live.current = { hues, getAvoid, getSeed, seeded, canPop, onPop, w, h }
+  const mode = `${seeded ? 'seeded' : 'free'}-${hues ? 'colours' : 'any'}`
 
   /** A new stray at a random size, colour and place, clear of the real bubbles and the others (null if there is no room). */
   const make = (others: Stray[]): Stray | null => {
     const { hues: pool, getAvoid: avoidNow, w: W, h: H } = live.current
-    const avoid = avoidNow()
+    // (when the real bubbles are put away there is nothing to keep clear of but the other plain ones)
+    const avoid = live.current.seeded ? [] : avoidNow()
     const biggest = Math.max(30, Math.min(80, Math.min(W, H) / 6))
     for (let tries = 0; tries < 40; tries++) {
       // mostly small, now and then a big one
@@ -54,12 +63,12 @@ export function Strays({
       if (avoid.some((a) => Math.hypot(a.x - x, a.y - y) < a.r + r + 6)) continue
       if (others.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 6)) continue
       const hue = pool && pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * 360)
-      return { id: next.current++, hue, x, y, r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 }
+      return { id: next.current++, hue, u: vivid(), x, y, r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 }
     }
     return null
   }
 
-  // New ones come at a pace set by how fast you are popping (a bit slower), between 0.4 and 1.5 seconds apart
+  // New ones come a little slower than they are being popped, but never closer together than 1.5 seconds
   const pace = useRef({ last: 0, avg: 1000, waiting: 0, timer: 0 })
   const queueNew = () => {
     const p = pace.current
@@ -67,13 +76,15 @@ export function Strays({
     if (p.last) p.avg = 0.6 * p.avg + 0.4 * Math.min(3000, now - p.last)
     p.last = now
     p.waiting += 1
-    const gap = () => Math.min(1500, Math.max(400, p.avg * 1.3))
+    // never faster than one every 1.5 seconds, however quickly they are popped, so the board can always be cleared
+    const gap = () => Math.min(3000, Math.max(1500, p.avg * 1.5))
     const go = () => {
       p.timer = 0
       if (leavingRef.current || p.waiting <= 0) return void (p.waiting = 0)
       p.waiting -= 1
       setList((l) => {
         const one = make(l)
+        if (one) sound.spawn()
         return one ? [...l, one] : l
       })
       if (p.waiting > 0) p.timer = window.setTimeout(go, gap())
@@ -87,11 +98,19 @@ export function Strays({
       pace.current = { last: 0, avg: 1000, waiting: 0, timer: 0 }
       setLeaving(false)
       setPopped(new Set())
-      const count = Math.max(8, Math.min(22, Math.round((w * h) / 90_000)))
+      const seed = live.current.getSeed?.()
       const out: Stray[] = []
-      for (let i = 0; i < count; i++) {
-        const one = make(out)
-        if (one) out.push(one)
+      if (seeded && seed && seed.length) {
+        // the real bubbles' places, sizes and colours (in the game, the nearest of the game's colours), as plain ones
+        const pool = live.current.hues
+        const near = (hue: number) => (pool && pool.length ? pool.reduce((best, c) => (Math.abs(((c - hue + 540) % 360) - 180) < Math.abs(((best - hue + 540) % 360) - 180) ? c : best), pool[0]) : hue)
+        for (const b of seed) out.push({ id: next.current++, fade: true, hue: near(b.hue), u: vivid(), x: b.x, y: b.y, r: b.r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 })
+      } else {
+        const count = Math.max(8, Math.min(22, Math.round((w * h) / 90_000)))
+        for (let i = 0; i < count; i++) {
+          const one = make(out)
+          if (one) out.push(one)
+        }
       }
       setList(out)
       return
@@ -108,7 +127,7 @@ export function Strays({
         const gone = popped.has(s.id)
         return (
           <div key={s.id} data-ui data-stray className="absolute left-0 top-0" style={{ width: s.r * 2, height: s.r * 2, transform: `translate(${s.x - s.r}px, ${s.y - s.r}px)` }}>
-            <div className={leaving ? 'stray-out' : 'stray-in'} style={{ animationDelay: leaving ? '0s' : `${(s.id % 7) * 40}ms` }}>
+            <div className={leaving ? 'stray-out' : s.fade ? 'stray-fade' : 'stray-in'} style={{ animationDelay: leaving || s.fade ? '0s' : `${(s.id % 7) * 40}ms` }}>
               <div className={gone ? 'burst' : 'stray-bob'} style={{ '--dur': `${s.dur}s`, '--delay': `${s.delay}s` } as React.CSSProperties}>
                 <button
                   type="button"
@@ -127,7 +146,7 @@ export function Strays({
                   }}
                   className={`pad block h-full w-full cursor-pointer touch-none select-none rounded-full ${litHue !== null && litHue === s.hue ? 'game-lit' : ''}`}
                   data-hue={s.hue}
-                  style={{ width: s.r * 2, height: s.r * 2, '--h': Math.max(0, s.hue), '--s': satOf(s.hue), '--u': 0.3 } as React.CSSProperties}
+                  style={{ width: s.r * 2, height: s.r * 2, '--h': Math.max(0, s.hue), '--s': satOf(s.hue), '--u': s.u } as React.CSSProperties}
                 />
               </div>
             </div>

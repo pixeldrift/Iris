@@ -179,7 +179,7 @@ body.dragging {
   background:
     radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
     radial-gradient(circle at 70% 80%, hsla(var(--h, 285), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
-    rgba(255, 255, 255, 0.5);
+    rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
@@ -399,9 +399,10 @@ input[type='range'].hue::-moz-range-track {
 }
 .glow-breathe { animation: glow-breathe 2.6s ease-in-out infinite; }
 /* pop for fun: the bubbles keep their size and colour, and lose their words and marks */
-.fun-mode [data-node] .pad > * { opacity: 0 !important; transition: opacity 0.8s ease !important; pointer-events: none; }
+.fun-mode [data-node] { opacity: 0; pointer-events: none !important; transition: opacity 0.8s ease; }
+.fun-mode [data-node] * { pointer-events: none !important; }
 @keyframes fun-return { from { opacity: 0; } to { opacity: 1; } }
-.fun-return [data-node] .pad > * { animation: fun-return 0.8s ease both; }
+.fun-return [data-node] { animation: fun-return 0.8s ease both; }
 /* the pop game: the colour being shown lights up */
 .game-lit { transform: scale(1.14) !important; filter: brightness(1.18) saturate(1.7) !important; box-shadow: 0 0 0 5px rgba(255,255,255,0.95), 0 0 34px 12px hsl(var(--h) 90% 68% / 0.85) !important; }
 
@@ -409,6 +410,7 @@ input[type='range'].hue::-moz-range-track {
 @keyframes stray-in { 0% { transform: scale(0); opacity: 0; } 65% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes stray-out { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }
 @keyframes stray-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.stray-fade { animation: fun-return 0.8s ease both; }
 .stray-in { animation: stray-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
 .stray-out { animation: stray-out 0.35s ease-in both; }
 .stray-bob { animation: stray-bob var(--dur, 6s) ease-in-out var(--delay, 0s) infinite; }
