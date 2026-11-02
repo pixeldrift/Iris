@@ -29,6 +29,22 @@ test.describe('pop modes', () => {
     await page.screenshot({ path: 'test-results/popfun.png' })
   })
 
+  test('the plain bubbles take over exactly where the real ones are, at their size and colour', async ({ page }) => {
+    await page.waitForTimeout(1500)
+    const read = (sel: string) => page.evaluate((q) => [...document.querySelectorAll(q)].map((e) => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, hue: e.getAttribute('data-hue') } }), sel)
+    const before = await read('[data-node] .pad')
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await page.waitForTimeout(60)
+    const after = await read('[data-stray] .pad')
+    expect(after.length).toBe(before.length)
+    for (const b of before) {
+      const near = after.reduce((best, a) => (Math.hypot(a.x - b.x, a.y - b.y) < Math.hypot(best.x - b.x, best.y - b.y) ? a : best))
+      expect(Math.hypot(near.x - b.x, near.y - b.y)).toBeLessThan(4)
+      expect(Math.abs(near.w - b.w)).toBeLessThan(4)
+      expect(near.hue).toBe(b.hue)
+    }
+  })
+
   test('in pop mode the checkbox cannot be used, fun pops are not undoable, and a tap on the water adds nothing', async ({ page }) => {
     const before = await saved(page)
     await page.getByRole('button', { name: 'Pop mode' }).click()

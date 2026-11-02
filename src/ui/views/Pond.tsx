@@ -752,8 +752,18 @@ export function Pond() {
             // for fun and in the game every bubble is a plain one (the real ones are put away), starting where the real ones were
             seeded={playful}
             getSeed={() => {
+              // each real bubble as it looks right now (where it has drifted to, and its size), so the plain one takes over exactly in its place
               const byId = new Map(visible.map((t) => [t.id, t]))
-              return [...nodes.current].map(([id, n]) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r, hue: byId.get(id) ? bubbleHue(byId.get(id)!, folders) : 285 }))
+              const v = view.current
+              const box = ref.current?.getBoundingClientRect()
+              return [...nodes.current].map(([id, n]) => {
+                const t = byId.get(id)
+                const pad = els.current.get(id)?.outer.querySelector('.pad')?.getBoundingClientRect()
+                const hue = t ? bubbleHue(t, folders) : 285
+                const u = Math.max(0.5, t?.urgency ?? 0.5)
+                if (!pad || !box || pad.width === 0) return { x: n.sim.x, y: n.sim.y, r: n.sim.r, hue, u }
+                return { x: (pad.left + pad.width / 2 - box.left - v.tx) / v.scale, y: (pad.top + pad.height / 2 - box.top - v.ty) / v.scale, r: pad.width / 2 / v.scale, hue, u }
+              })
             }}
             hues={popMode === 'game' ? gamePalette : undefined}
             litHue={popMode === 'game' && game.g.lit !== null ? gamePalette[game.g.lit] : null}
@@ -791,6 +801,7 @@ export function Pond() {
           <SegmentedToggle
             label="What popping does"
             iconsOnly
+            tones={{ delete: 'bg-rose-500 shadow-rose-500/40' }}
             value={popMode as 'fun' | 'game' | 'delete'}
             onChange={(v) => {
               if (v !== 'delete' && limit.blocked()) return // (a break: say so, and stay where we are)
@@ -830,10 +841,10 @@ export function Pond() {
         </p>
       )}
       {popMode === 'delete' && (
-        <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
-          <div role="alert" className="flex items-center gap-2 rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/40">
-            <IconTrash size={18} />
-            Popping deletes tasks. Be careful!
+        // short, top left where the game's score sits, so it covers next to nothing
+        <div data-ui className="pointer-events-none absolute left-3 top-3 z-10">
+          <div role="alert" className="rounded-full bg-rose-500 px-3.5 py-1.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/40">
+            Pop to delete!
           </div>
         </div>
       )}

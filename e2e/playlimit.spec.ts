@@ -37,7 +37,7 @@ test.describe('limiting play', () => {
     // coming back too soon: the same message, and popping is only for deleting (with its warning)
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await expect(page.locator('.break-note')).toContainText('fun little break')
-    await expect(page.getByRole('alert')).toContainText('deletes tasks')
+    await expect(page.getByRole('alert')).toContainText('Pop to delete!')
     await page.getByRole('radio', { name: 'Fun' }).click()
     await expect(page.getByRole('radio', { name: 'Delete' })).toHaveAttribute('aria-checked', 'true')
     await page.getByRole('radio', { name: 'Game' }).click()
