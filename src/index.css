@@ -413,6 +413,21 @@ input[type='range'].hue::-moz-range-track {
 @keyframes break-note { 0% { opacity: 0; transform: scale(0.97); } 6% { opacity: 1; transform: scale(1); } 88% { opacity: 1; } 100% { opacity: 0; } }
 .your-turn { animation: all-cleared 1.7s ease both; }
 
+/* grab dots pressed into the surface: a soft shadow inside along the top, a light edge along the bottom. Subtle, just enough to say "hold here". */
+.emboss-dot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(120, 100, 150, 0.26);
+  box-shadow: inset 0 1px 1.5px rgba(60, 40, 90, 0.38), 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+/* in a bubble's own colour (inside a .tint element) */
+.emboss-dot-tint {
+  background: hsla(var(--h, 285), calc(40% * var(--s, 1)), 52%, 0.3);
+  box-shadow: inset 0 1px 1.5px hsla(var(--h, 285), calc(45% * var(--s, 1)), 24%, 0.45), 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
 /* pop mode's spare bubbles */
 @keyframes stray-in { 0% { transform: scale(0); opacity: 0; } 65% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes stray-out { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }

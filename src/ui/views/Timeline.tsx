@@ -48,7 +48,7 @@ type Preview = { id: string; s: number; e: number }
 
 /** An end grip: just a dot, since it stretches the bar rather than moving it. */
 function Dot() {
-  return <span className="block h-1 w-1 rounded-full bg-current" />
+  return <span className="emboss-dot emboss-dot-tint" />
 }
 
 function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task; winStart: string; dayW: number; legend: boolean; onPreview: (p: Preview | null) => void; preview: Preview | null }) {
@@ -108,7 +108,7 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
       // the grips and the arrow take the bubble's own colour (a deeper shade of it)
       style={{ left, width, color: `hsl(${hueRaw ?? 285}, ${55 * satOf(hueRaw ?? 285)}%, 38%)`, ...colorVars(hueRaw, effectiveUrgency(task)) }}
     >
-      <span onPointerDown={begin('left')} className="absolute inset-y-0 left-0 flex w-4 cursor-ew-resize items-center justify-start pl-1.5 opacity-75" aria-hidden>
+      <span onPointerDown={begin('left')} className="absolute inset-y-0 left-0 flex w-4 cursor-ew-resize items-center justify-start pl-1.5" aria-hidden>
         <Dot />
       </span>
       {legend ? (
@@ -121,7 +121,7 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
       ) : (
         <span className="truncate px-1 text-ink">{task.title}</span>
       )}
-      <span onPointerDown={begin('right')} className="absolute inset-y-0 right-0 flex w-4 cursor-ew-resize items-center justify-end pr-1.5 opacity-75" aria-hidden>
+      <span onPointerDown={begin('right')} className="absolute inset-y-0 right-0 flex w-4 cursor-ew-resize items-center justify-end pr-1.5" aria-hidden>
         <Dot />
       </span>
     </div>
