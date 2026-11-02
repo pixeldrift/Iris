@@ -7,17 +7,24 @@ import { IconHeart, IconPencil } from '../icons'
 
 import { Avatar } from '../shared'
 import { Count, rowBase } from './parts'
+import { hasPart, pickOnly } from '../../core/scope'
+import { useFilterPress } from './filterPress'
 
 export function PersonRow({ person, count }: { person: Person; count: number }) {
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
   const toggleFavorite = useStore((s) => s.togglePersonFavorite)
   const { over, active, props } = useDropTarget(`person:${person.id}`)
-  const on = scope.type === 'person' && scope.id === person.id
+  const part = { type: 'person' as const, id: person.id }
+  const on = hasPart(scope, part)
+  const press = useFilterPress(part)
   return (
     <div
       {...props}
-      onClick={() => setScope(on ? { type: 'all' } : { type: 'person', id: person.id })}
+      onPointerDown={press.down}
+      onPointerUp={press.cancel}
+      onPointerCancel={press.cancel}
+      onClick={(e) => !press.click(e) && setScope(pickOnly(scope, part))}
       className={`${rowBase} cursor-pointer ${on ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
         over ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : active ? 'ring-1 ring-lilac-300/50' : ''
       }`}

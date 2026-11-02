@@ -460,7 +460,7 @@ body.scrubbing .glow-breathe {
   --safe-r: 0px;
   --sliver: 1.2rem;
   /* the column of title and buttons down the right-hand side of a phone turned sideways */
-  --rail: 3rem;
+  --rail: 3.6rem;
 }
 
 /* an item picked up by press-and-hold: raised off the page with a shadow, so it is plain that it is now being carried, not scrolled */

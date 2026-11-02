@@ -673,3 +673,31 @@ describe('fit to the gap', () => {
     expect(gapAround([], 420, 1200)).toEqual({ from: 420, to: 1200 })
   })
 })
+
+import type { Scope } from './types'
+import { hasPart, partsOf, pickOnly, toggleScope } from './scope'
+describe('several filters at once', () => {
+  const folders = [
+    { id: 'a', name: 'A', parentId: null, hue: 1, sort: 0 },
+    { id: 'b', name: 'B', parentId: null, hue: 2, sort: 1 },
+  ] as never[]
+  const mk = (folderIds: string[], personIds: string[]) => ({ folderIds, personIds, day: null, due: null }) as never
+  it('adds, removes and collapses', () => {
+    let s = toggleScope({ type: 'all' }, { type: 'folder', id: 'a' })
+    expect(s).toEqual({ type: 'folder', id: 'a' })
+    s = toggleScope(s, { type: 'person', id: 'p' })
+    expect(partsOf(s)).toHaveLength(2)
+    expect(hasPart(s, { type: 'person', id: 'p' })).toBe(true)
+    s = toggleScope(s, { type: 'folder', id: 'a' })
+    expect(s).toEqual({ type: 'person', id: 'p' })
+    expect(toggleScope(s, { type: 'person', id: 'p' })).toEqual({ type: 'all' })
+    expect(pickOnly({ type: 'folder', id: 'a' }, { type: 'folder', id: 'a' })).toEqual({ type: 'all' })
+  })
+  it('different kinds must all hold; several of a kind are alternatives', () => {
+    const both: Scope = { type: 'multi', parts: [{ type: 'folder', id: 'a' }, { type: 'folder', id: 'b' }, { type: 'person', id: 'p' }] }
+    expect(matchesScope(mk(['a'], ['p']), both, folders)).toBe(true)
+    expect(matchesScope(mk(['b'], ['p']), both, folders)).toBe(true)
+    expect(matchesScope(mk(['a'], []), both, folders)).toBe(false)
+    expect(matchesScope(mk(['c'], ['p']), both, folders)).toBe(false)
+  })
+})

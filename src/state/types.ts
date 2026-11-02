@@ -66,6 +66,8 @@ export interface UiSlice {
   contactPrompt: ContactPrompt | null
   toast: { id: number; text: string; action?: { label: string; run: () => void } } | null
   setScope: (s: Scope) => void
+  /** Add a filter to the ones on, or take it off (shift/⌘-click, or a long press, in the sidebar). */
+  toggleFilter: (part: Scope) => void
   setView: (v: ViewId) => void
   select: (id: string | null) => void
   setSidebar: (open: boolean) => void

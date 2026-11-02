@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { addDays, dayHint, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds } from '../core/folders'
 import { MAX_FAVORITES } from '../core/people'
+import { hasPart, pickOnly } from '../core/scope'
 import { taskOnDate } from '../core/recurrence'
 import type { ViewId } from '../core/types'
 import { useStore } from '../state/store'
@@ -167,8 +168,9 @@ export function Sidebar() {
         {days.map((d) => (
           <ScopeRow
             key={d}
-            active={scope.type === 'day' && scope.date === d}
-            onClick={() => setScope(scope.type === 'day' && scope.date === d ? { type: 'all' } : { type: 'day', date: d })}
+            active={hasPart(scope, { type: 'day', date: d })}
+            part={{ type: 'day', date: d }}
+            onClick={() => setScope(pickOnly(scope, { type: 'day', date: d }))}
             dropId={`day:${d}`}
             icon={
               <span className="inline-block w-[26px] text-center text-[0.7rem] font-semibold tabular-nums">
@@ -230,8 +232,9 @@ export function Sidebar() {
         {folders.length === 0 && <p className="px-3 py-2 text-sm text-ink-faint">Groups are tags. Add one with + or by typing in any task.</p>}
         {/* what belongs to no group yet (and has no date): the catch-all at the end of the list */}
         <ScopeRow
-          active={scope.type === 'inbox'}
-          onClick={() => setScope(scope.type === 'inbox' ? { type: 'all' } : { type: 'inbox' })}
+          active={hasPart(scope, { type: 'inbox' })}
+          part={{ type: 'inbox' }}
+          onClick={() => setScope(pickOnly(scope, { type: 'inbox' }))}
           dropId="inbox"
           icon={<IconInbox />}
           label="Unsorted"

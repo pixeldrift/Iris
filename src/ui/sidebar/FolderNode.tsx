@@ -1,3 +1,5 @@
+import { hasPart, pickOnly } from '../../core/scope'
+import { useFilterPress } from './filterPress'
 import { useEffect, useRef, useState } from 'react'
 import { childrenOf } from '../../core/folders'
 import type { Folder } from '../../core/types'
@@ -81,7 +83,9 @@ export function FolderNode(props: NodeProps) {
   const moveFolder = useStore((s) => s.moveFolder)
   const kids = childrenOf(folders, folder.id)
   const isOpen = !collapsed.has(folder.id)
-  const active = scope.type === 'folder' && scope.id === folder.id
+  const part = { type: 'folder' as const, id: folder.id }
+  const active = hasPart(scope, part)
+  const press = useFilterPress(part)
   const rowRef = useRef<HTMLDivElement>(null)
   const flowerRef = useRef<HTMLSpanElement>(null)
   const [options, setOptions] = useState(false)
@@ -176,8 +180,13 @@ export function FolderNode(props: NodeProps) {
         data-lift-id={`folder:${folder.id}`}
         data-flip={folder.id}
         {...dropProps}
-        onPointerDown={(e) => editing !== folder.id && onPointerDown(e)}
-        onClick={() => setScope(active ? { type: 'all' } : { type: 'folder', id: folder.id })}
+        onPointerDown={(e) => {
+          press.down(e)
+          if (editing !== folder.id) onPointerDown(e)
+        }}
+        onPointerUp={press.cancel}
+        onPointerCancel={press.cancel}
+        onClick={(e) => !press.click(e) && setScope(pickOnly(scope, part))}
         onDoubleClick={() => (window.matchMedia('(hover: hover)').matches ? setEditing(folder.id) : setOptions(true))}
         className={`${rowBase} cursor-pointer ${active ? 'bg-white/70 font-medium text-lilac-700' : 'hover:bg-white/45'} ${
           (over && dragIsTask && !isSelfDrag) || intoMe ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : parentMe ? 'bg-lilac-100/60 ring-1 ring-lilac-300/70' : ''

@@ -174,6 +174,8 @@ export type Scope =
   /** The address book: everyone, hearted or not. Not a filter, a page of its own. */
   | { type: 'contacts' }
   | { type: 'day'; date: string }
+  /** Several filters at once: different kinds must all hold (a group AND a person), several of one kind are alternatives (this group OR that). */
+  | { type: 'multi'; parts: Scope[] }
 
 export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline' | 'overview'
 
