@@ -557,22 +557,32 @@ export function Pond() {
   const wave = useCallback((sx: number, sy: number, edge: number, strength: number) => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const v = view.current
+    /** One bubble floating over the ripple: it rises on the crest as the wave reaches it, then settles back (gentler the farther it is). */
+    const lift = (el: Element, d: number, composite: CompositeOperation = 'add') => {
+      const amp = (strength * Math.exp(-d / 340)) / (1 + d / 170)
+      if (amp < 0.05) return
+      el.animate(
+        [
+          { transform: 'translateY(0px) scale(1)' },
+          { transform: `translateY(${-9 * amp}px) scale(${1 + 0.045 * amp})` },
+          { transform: `translateY(${3 * amp}px) scale(${1 - 0.01 * amp})` },
+          { transform: 'translateY(0px) scale(1)' },
+        ],
+        { duration: 2400, delay: (d / WATER.speed) * 1000, easing: 'ease-in-out', composite },
+      )
+    }
     for (const [id, n] of nodes.current) {
       const e = els.current.get(id)
       if (!e) continue
-      const d = Math.max(0, Math.hypot(n.sim.x * v.scale + v.tx - sx, n.sim.y * v.scale + v.ty - sy) - edge)
-      const amp = (strength * Math.exp(-d / 260)) / (1 + d / 140)
-      if (amp < 0.05) continue
-      e.jig.animate(
-        [
-          { transform: 'translateY(0px) scale(1)' },
-          { transform: `translateY(${-4.5 * amp}px) scale(${1 + 0.022 * amp})` },
-          { transform: `translateY(${1.5 * amp}px) scale(${1 - 0.005 * amp})` },
-          { transform: 'translateY(0px) scale(1)' },
-        ],
-        { duration: 2400, delay: (d / WATER.speed) * 1000, easing: 'ease-in-out', composite: 'add' },
-      )
+      lift(e.jig, Math.max(0, Math.hypot(n.sim.x * v.scale + v.tx - sx, n.sim.y * v.scale + v.ty - sy) - edge))
     }
+    // the plain bubbles of fun mode and the game float over the water the same way
+    const box = ref.current?.getBoundingClientRect()
+    if (box)
+      for (const el of ref.current!.querySelectorAll('[data-stray]')) {
+        const r = el.getBoundingClientRect()
+        lift(el, Math.max(0, Math.hypot(r.left + r.width / 2 - box.left - sx, r.top + r.height / 2 - box.top - sy) - edge))
+      }
   }, [])
 
   const spawnRipple = useCallback(

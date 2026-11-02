@@ -62,6 +62,16 @@ test.describe('pop modes', () => {
     await expect.poll(() => pads.count(), { timeout: 6000 }).toBeGreaterThan(3)
   })
 
+  test('the plain bubbles float over a ripple too, rising on the crest', async ({ page }) => {
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await expect.poll(() => page.locator('[data-stray] button').count()).toBeGreaterThan(3)
+    expect(await page.evaluate(() => [...document.querySelectorAll('[data-stray]')].filter((el) => el.getAnimations().some((a) => (a.effect as KeyframeEffect).getTiming().duration === 2400)).length)).toBe(0)
+    await page.locator('[data-stray] button').first().dispatchEvent('pointerdown', { button: 0 })
+    await expect
+      .poll(() => page.evaluate(() => [...document.querySelectorAll('[data-stray]')].filter((el) => el.getAnimations().some((a) => (a.effect as KeyframeEffect).getTiming().duration === 2400)).length))
+      .toBeGreaterThan(2)
+  })
+
   test('checking an item off sends a ripple out, and the other bubbles bob', async ({ page }) => {
     const waves = () => page.evaluate(() => document.getAnimations().filter((a) => (a.effect as KeyframeEffect | null)?.getTiming().duration === 2400).length)
     expect(await waves()).toBe(0)
@@ -78,7 +88,7 @@ test.describe('pop modes', () => {
     const status = page.getByRole('status')
     for (let round = 1; round <= 4; round++) {
       await expect(status).toContainText('Your turn', { timeout: 15000 })
-      await expect(status).toContainText(`round: ${round}`)
+      await expect(status).toContainText(`round ${round}`)
       const hues = await page.locator('[aria-label="The pattern"] [data-hue]').evaluateAll((els) => els.map((e) => e.getAttribute('data-hue')!))
       expect(hues).toHaveLength(round)
       for (const h of hues) {
@@ -126,7 +136,7 @@ test.describe('pop modes', () => {
     }
     await page.screenshot({ path: 'test-results/popgame.png' })
     await pop(bubble(want!, true))
-    await expect(status).toContainText(/round: 2/, { timeout: 4000 })
+    await expect(status).toContainText(/round 2/, { timeout: 4000 })
     await expect(status).toContainText('Your turn', { timeout: 8000 })
     // a colour that is not in the pattern's first place: game over (the pattern's first is `want` again or not; pick a colour in play that differs from the first of the sequence)
     const first = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')
