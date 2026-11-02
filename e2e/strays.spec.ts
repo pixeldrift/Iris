@@ -9,9 +9,9 @@ test('pop mode scatters spare bubbles that pop without deleting anything', async
   const before = (await saved(page))!.tasks.length
   await page.getByRole('button', { name: 'Pop mode' }).click()
   await expect.poll(() => strays.count()).toBeGreaterThanOrEqual(4)
-  await expect(strays.first()).toHaveText('Pop me!')
-  // plain: sans-serif, and none of a real bubble's furniture
-  expect(await strays.first().evaluate((e) => getComputedStyle(e).fontFamily)).not.toMatch(/display|serif.*italic/i)
+  // bubbles like the others, just with nothing written on them
+  await expect(strays.first()).toHaveText('')
+  await expect(strays.first()).toHaveClass(/pad/)
   const n = await strays.count()
   await page.screenshot({ path: 'test-results/strays.png' })
   await strays.first().dispatchEvent('pointerdown', { button: 0 })

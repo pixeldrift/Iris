@@ -666,7 +666,7 @@ export function Pond() {
             const c = popMode === 'game' ? palette.indexOf(bubbleHue(t, folders)) : -1
             return <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} fun={fun[t.id]} lit={popMode === 'game' && game.g.lit !== null && c === game.g.lit} dim={popMode === 'game' && c < 0} />
           })}
-        {w > 0 && <Strays active={pop && popMode !== 'game'} onPop={() => addPopStats({ popped: 1 })} w={w} h={h} getAvoid={() => [...nodes.current.values()].map((n) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r }))} />}
+        {w > 0 && <Strays active={pop && popMode !== 'game'} onPop={() => addPopStats({ popped: 1 })} hues={palette} w={w} h={h} getAvoid={() => [...nodes.current.values()].map((n) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r }))} />}
       </div>
 
       <WaterRipples ref={water} className="z-10" />
