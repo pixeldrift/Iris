@@ -32,6 +32,7 @@ export function usePlayLimit({ mode, gamePhase, onStop }: { mode: PopMode; gameP
 
   const lockNow = useCallback(() => {
     const now = Date.now()
+    if (isLocked(current(), now)) return // (once is enough: never a second message)
     const g = lock(current(), now)
     setGate(g)
     used.current = 0

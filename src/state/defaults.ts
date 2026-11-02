@@ -30,9 +30,6 @@ export const DEFAULT_SETTINGS: Settings = {
   playGate: { usedMs: 0, lockUntil: 0, level: 0, lastLockAt: 0 },
   dateFormat: 'us',
   clockFormat: '12',
-  notch: 'auto',
-  monthStyle: 'month',
-  weekStyle: 'week',
 }
 
 export const applyAudio = (s: Settings) =>

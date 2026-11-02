@@ -1,15 +1,11 @@
-import { useStore } from '../state/store'
-
 /**
  * Clearance around a notch / Dynamic Island. iOS reports the same inset on both sides of a phone turned sideways, so the
  * side without the notch would get empty space for nothing. The device's rotation says which side the notch is on:
  * only that side is kept clear (and a little less than iOS reports), and the other side gets none.
  *
  * The result is published as CSS variables (--safe-l, --safe-r) so layouts can use them, and returned by `safeInsets()`
- * for the places that position things in script. A setting can override the detection ("Notch: Auto, Left, Right").
+ * for the places that position things in script.
  */
-export type NotchSide = 'auto' | 'left' | 'right'
-
 /** iOS keeps a little more room around the notch than it needs; this much is given back. */
 const TRIM = 12
 
@@ -34,11 +30,11 @@ export function notchSideFromRotation(): 'left' | 'right' | null {
   return a === 90 ? 'left' : a === 270 ? 'right' : null
 }
 
-export function safeInsets(pref: NotchSide = useStore.getState().settings.notch ?? 'auto'): { left: number; right: number } {
+export function safeInsets(): { left: number; right: number } {
   if (typeof document === 'undefined') return { left: 0, right: 0 }
   const r = raw()
   if (r.left === 0 && r.right === 0) return { left: 0, right: 0 }
-  const side = pref === 'auto' ? notchSideFromRotation() : pref
+  const side = notchSideFromRotation()
   const trim = (v: number) => Math.max(0, v - TRIM)
   // upright, or rotation unknown: whatever the system reports on each side stays (usually nothing)
   if (!side) return { left: trim(r.left), right: trim(r.right) }
@@ -59,11 +55,9 @@ export function startSafeArea(): () => void {
   window.addEventListener('resize', on)
   window.addEventListener('orientationchange', on)
   screen.orientation?.addEventListener?.('change', on)
-  const unsub = useStore.subscribe((s, p) => s.settings.notch !== p.settings.notch && publish())
   return () => {
     window.removeEventListener('resize', on)
     window.removeEventListener('orientationchange', on)
     screen.orientation?.removeEventListener?.('change', on)
-    unsub()
   }
 }

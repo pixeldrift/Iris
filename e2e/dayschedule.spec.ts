@@ -14,8 +14,9 @@ test.describe('the day as a schedule', () => {
   test('planning into an empty spot makes an event; duration and end stay linked; dragging its edge changes how long it takes', async ({ page }) => {
     const grid = page.locator('[data-day-schedule]')
     await expect(grid).toBeVisible()
-    const box = (await grid.boundingBox())!
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.3)
+    // click inside the part of the (scrolling) day that is on screen
+    const view = (await grid.locator('xpath=..').boundingBox())!
+    await page.mouse.click(view.x + view.width / 2, view.y + 130)
     // the new event opens in its details
     const dlg = page
     await expect(dlg.getByText('Duration')).toBeVisible()
@@ -53,10 +54,10 @@ test.describe('the day as a schedule', () => {
     // click inside the part of the (scrolling) day that is on screen
     const view = (await grid.locator('xpath=..').boundingBox())!
     const x = view.x + view.width / 2
-    await page.mouse.click(x, view.y + 150)
+    await page.mouse.click(x, view.y + 70)
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: /^Duration/ })).toBeHidden()
-    await page.mouse.click(x, view.y + 400) // a few hours later
+    await page.mouse.click(x, view.y + 230) // a couple of hours later
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: /^Duration/ })).toBeHidden()
     const events = page.locator('[data-event]')

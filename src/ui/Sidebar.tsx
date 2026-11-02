@@ -330,7 +330,14 @@ export function Sidebar() {
             style={{ touchAction: 'pan-y' }}
             className="absolute inset-y-0 right-0 z-10 w-[var(--sliver)] cursor-pointer rounded-r-3xl"
             {...swipeProps}
-          />
+          >
+            {/* a tiny grab handle in the middle: the dots of the usual handle, all six in one column */}
+            <svg aria-hidden width="4" height="30" viewBox="0 0 4 30" fill="currentColor" className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-ink-faint/70">
+              {[2, 7, 12, 17, 22, 27].map((y) => (
+                <circle key={y} cx="2" cy={y} r="1.1" />
+              ))}
+            </svg>
+          </button>
         )}
         {/* sideways and folded away: a strip of shortcuts. Tap the logo, or the blank part of the strip, to bring the menu back. */}
         {land && navHidden && (
