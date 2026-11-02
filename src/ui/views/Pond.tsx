@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ZoomControl'
+import { SegmentedToggle } from '../SegmentedToggle'
 import { IconGame, IconPop, IconTrash } from '../icons'
 import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
@@ -682,17 +683,19 @@ export function Pond() {
 
       {/* top right: pop mode (fun by default; deleting has to be chosen) and the pop game. bottom right: zoom. bottom left: frame all */}
       <div data-ui className="absolute right-3 top-3 z-10 flex items-center gap-2">
-        {/* one button, two modes that trade places: the pop game, and popping that really deletes (the trash can) */}
-        <Tip label={popMode === 'game' ? 'Switch to delete popping' : popMode === 'delete' ? 'Switch to the pop game' : 'Pop game: pop the colours in order'}>
-          <button
-            onClick={() => setPopMode((m) => (m === 'game' ? 'delete' : 'game'))}
-            aria-pressed={popMode === 'game' || popMode === 'delete'}
-            aria-label={popMode === 'game' ? 'Switch to delete popping' : popMode === 'delete' ? 'Switch to the pop game' : 'Pop game'}
-            className={`grid h-9 w-9 place-items-center rounded-full transition ${popMode === 'delete' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/40' : popMode === 'game' ? 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40' : 'glass-soft text-ink-soft hover:bg-white/80'}`}
-          >
-            {popMode === 'delete' ? <IconTrash size={19} /> : <IconGame size={19} />}
-          </button>
-        </Tip>
+        {pop && (
+          <SegmentedToggle
+            label="What popping does"
+            iconsOnly
+            value={popMode as 'fun' | 'game' | 'delete'}
+            onChange={setPopMode}
+            options={[
+              { id: 'fun', label: 'Fun', icon: <IconPop size={14} /> },
+              { id: 'game', label: 'Game', icon: <IconGame size={14} /> },
+              { id: 'delete', label: 'Delete', icon: <IconTrash size={14} /> },
+            ]}
+          />
+        )}
         <Tip label={pop ? 'Stop popping' : 'Pop mode: pop bubbles for fun'}>
           <button
             onClick={() => setPopMode((m) => (m === 'off' ? 'fun' : 'off'))}
@@ -706,7 +709,7 @@ export function Pond() {
       </div>
       {popMode === 'game' && <PopGameBar game={game} palette={palette} />}
       {popMode === 'delete' && (
-        <div data-ui className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center pl-14 pr-28">
+        <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
           <div role="alert" className="flex items-center gap-2 rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/40">
             <IconTrash size={18} />
             Popping deletes tasks. Be careful!

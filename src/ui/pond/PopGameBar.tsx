@@ -19,7 +19,7 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
     />
   )
   return (
-    <div data-ui className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-14">
+    <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
       <div className="glass pointer-events-auto flex max-w-full flex-col items-center gap-1.5 rounded-2xl px-4 py-2 text-center" role="status" aria-live="polite">
         {g.phase === 'idle' || g.phase === 'over' ? (
           <>

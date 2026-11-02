@@ -27,7 +27,8 @@ test.describe('pop modes', () => {
   })
 
   test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept', async ({ page }) => {
-    await page.getByRole('button', { name: 'Pop game' }).click()
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await page.getByRole('radio', { name: 'Game' }).click()
     await page.getByRole('button', { name: 'Start' }).click()
     const status = page.getByRole('status')
     await expect(status).toContainText('Your turn', { timeout: 6000 })
