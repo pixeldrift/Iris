@@ -179,11 +179,14 @@ export function Dim({ id, children }: { id: string; children: React.ReactNode })
 /** Inline “add a task…” input used by list and board columns. */
 export function QuickAdd({
   placeholder = 'Add a task…',
+  label = 'Add a task',
   onAdd,
   autoFocus,
   examples = false,
 }: {
   placeholder?: string
+  /** What this box is for, for people using a screen reader and for the typing bar on a sideways phone (the placeholder is only a hint). */
+  label?: string
   onAdd: (title: string) => void
   autoFocus?: boolean
   /** Show the same cross-fading examples as the Add dialog instead of a plain placeholder. */
@@ -210,6 +213,7 @@ export function QuickAdd({
           value={v}
           onChange={(e) => setV(e.target.value)}
           placeholder={examples ? '' : placeholder}
+          aria-label={label}
           className="well w-full rounded-2xl px-4 py-2.5 text-sm"
         />
         {examples && !v && <ExampleHint index={hint} className="left-4 right-3 text-sm" />}

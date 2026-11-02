@@ -17,7 +17,68 @@ const TEXTY = new Set(['text', 'search', 'email', 'tel', 'url', 'password', 'num
 // the box not in use is collapsed rather than display:none, so it can still be focused in the very tap that opens the bar
 const QUIET = 'pointer-events-none absolute h-px w-px opacity-0'
 
-const labelOf = (el: Field) => (el.getAttribute('aria-label') || el.labels?.[0]?.textContent || el.placeholder || el.name || 'Text').trim().replace(/…$/, '')
+/** What the box is called: its own label, never its placeholder (which is only a hint). Every text field in the app is given one. */
+const labelOf = (el: Field) => (el.getAttribute('data-field-label') || el.getAttribute('aria-label') || el.labels?.[0]?.textContent || '').trim()
+
+const EASE_OUT = (t: number) => 1 - Math.pow(1 - t, 3)
+
+/**
+ * What was just typed flies down from the bar to the box it belongs in, with a little hop as it lands, growing or
+ * shrinking to the box's width on the way: so you can see where it went. The box is followed as it moves (the keyboard
+ * leaving shifts the page), and its own text stays hidden until the flying copy arrives.
+ */
+function fly(el: Field, from: DOMRect, text: string) {
+  if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const first = el.getBoundingClientRect()
+  if (first.width === 0 || first.bottom < 0 || first.top > window.innerHeight) return
+  const cs = getComputedStyle(el)
+  const ghost = document.createElement('div')
+  ghost.className = 'well'
+  Object.assign(ghost.style, {
+    position: 'fixed',
+    left: '0',
+    top: '0',
+    zIndex: '450',
+    pointerEvents: 'none',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
+    whiteSpace: el instanceof HTMLTextAreaElement ? 'pre-wrap' : 'nowrap',
+    textOverflow: 'ellipsis',
+    borderRadius: cs.borderRadius,
+    padding: cs.padding,
+    font: cs.font,
+    color: 'var(--color-ink)',
+    willChange: 'transform, width, height',
+  })
+  ghost.textContent = text
+  document.body.appendChild(ghost)
+  const hide = el.style.color
+  el.style.color = 'transparent'
+  const t0 = performance.now()
+  const DURATION = 620
+  const FLIGHT = 0.68
+  const step = (now: number) => {
+    const t = Math.min(1, (now - t0) / DURATION)
+    // where the box is right now (the page may still be moving)
+    const to = el.isConnected ? el.getBoundingClientRect() : first
+    const p = EASE_OUT(Math.min(1, t / FLIGHT))
+    const hop = t > FLIGHT ? -14 * Math.sin((Math.PI * (t - FLIGHT)) / (1 - FLIGHT)) : 0
+    const x = from.left + (to.left - from.left) * p
+    const y = from.top + (to.top - from.top) * p + hop
+    ghost.style.transform = `translate(${x}px, ${y}px)`
+    ghost.style.width = `${from.width + (to.width - from.width) * p}px`
+    ghost.style.height = `${from.height + (to.height - from.height) * p}px`
+    // lifted while it travels, set down as it lands
+    ghost.style.boxShadow = `0 ${14 * (1 - p)}px ${28 * (1 - p)}px -10px rgb(var(--lr-700) / ${0.45 * (1 - p)})`
+    if (t >= 0.9) el.style.color = hide
+    if (t < 1) requestAnimationFrame(step)
+    else {
+      el.style.color = hide
+      ghost.remove()
+    }
+  }
+  requestAnimationFrame(step)
+}
 
 export function LandscapeInput() {
   const land = useLandscapePhone()
@@ -36,14 +97,17 @@ export function LandscapeInput() {
     const src = el instanceof HTMLTextAreaElement ? area.current : line.current
     if (!el || !src) return close()
     if (el !== target.current) return // a different box has been opened since: nothing to hand back here
+    const from = src.getBoundingClientRect()
+    const text = src.value
     const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
     // React watches the value through its own setter: write it the way a keystroke would, then say it changed
-    Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(el, src.value)
+    Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(el, text)
     el.dispatchEvent(new Event('input', { bubbles: true }))
     el.dispatchEvent(new Event('change', { bubbles: true }))
     if (el.hasAttribute('data-proxy-enter')) el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
     // boxes that settle their value when they lose focus (a birthday, say) are told they have
     el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    if (text) fly(el, from, text)
     close()
   }
 
@@ -78,7 +142,7 @@ export function LandscapeInput() {
         proxy.inputMode = el.inputMode || (el.type === 'number' ? 'decimal' : '')
       }
       proxy.setAttribute('autocomplete', el.getAttribute('autocomplete') ?? 'off')
-      proxy.placeholder = el.placeholder
+      proxy.placeholder = ''
       setShown({ label: labelOf(el), multi })
       // inside the same tap, so the keyboard stays up and is simply now typing into the bar
       proxy.focus()
@@ -107,13 +171,13 @@ export function LandscapeInput() {
       className={`fixed inset-x-0 top-0 z-[400] flex justify-center transition-[opacity,transform] duration-150 ${open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`}
       style={{ paddingTop: '0.4rem', paddingLeft: 'max(0.5rem, var(--safe-l))', paddingRight: 'max(0.5rem, var(--safe-r))' }}
     >
-      <div className="glass glass-strong flex w-full max-w-3xl items-center gap-2 rounded-2xl px-3 py-1.5">
-        <span className="max-w-[8rem] shrink-0 truncate text-xs font-medium text-ink-soft">{shown?.label}</span>
+      <div className={`glass glass-strong flex w-full max-w-3xl gap-2 rounded-2xl px-3 py-1.5 ${shown?.multi ? 'items-start' : 'items-center'}`}>
+        {shown?.label && <span className={`max-w-[8rem] shrink-0 truncate text-xs font-medium text-ink-soft ${shown.multi ? 'pt-2.5' : ''}`}>{shown.label}</span>}
         <input
           ref={line}
           tabIndex={open && !shown?.multi ? 0 : -1}
           aria-hidden={!open || shown?.multi}
-          aria-label={shown && !shown.multi ? `${shown.label}: type here` : undefined}
+          aria-label={shown && !shown.multi ? (shown.label ? `${shown.label}: type here` : 'Type here') : undefined}
           className={`well h-9 min-w-0 flex-1 rounded-xl px-3 text-sm ${shown?.multi ? QUIET : ''}`}
           onBlur={tidy}
           onKeyDown={(e) => {
@@ -133,7 +197,7 @@ export function LandscapeInput() {
           rows={2}
           tabIndex={open && shown?.multi ? 0 : -1}
           aria-hidden={!open || !shown?.multi}
-          aria-label={shown?.multi ? `${shown.label}: type here` : undefined}
+          aria-label={shown?.multi ? (shown.label ? `${shown.label}: type here` : 'Type here') : undefined}
           className={`well min-w-0 flex-1 resize-none rounded-xl px-3 py-1.5 text-sm ${shown?.multi ? '' : QUIET}`}
           onBlur={tidy}
           onKeyDown={(e) => {

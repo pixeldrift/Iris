@@ -639,3 +639,37 @@ describe('yesterday, today and tomorrow', () => {
     expect(q.day).toBe('2026-11-01')
   })
 })
+
+import { columnsFor, durationOf, formatDuration, freeGaps, patchDuration, patchStart, spanOnDay } from './schedule'
+describe('day schedule maths', () => {
+  it('derives duration from start and end, and keeps them linked', () => {
+    expect(durationOf({ time: '09:00', endTime: '10:30' })).toBe(90)
+    expect(durationOf({ time: '09:00', endTime: null })).toBeNull()
+    expect(patchDuration({ time: '09:00', endTime: '10:00' }, 45)).toEqual({ endTime: '09:45' })
+    expect(patchDuration({ time: null, endTime: null }, 45)).toEqual({ endTime: null })
+    expect(patchStart({ time: '09:00', endTime: '10:30' }, '13:00')).toEqual({ time: '13:00', endTime: '14:30' })
+    expect(patchStart({ time: '09:00', endTime: null }, '13:00')).toEqual({ time: '13:00', endTime: null })
+    expect(patchDuration({ time: '23:00', endTime: null }, 180)).toEqual({ endTime: '23:59' })
+  })
+  it('formats and places events', () => {
+    expect(formatDuration(90)).toBe('1 hr 30 min')
+    expect(formatDuration(45)).toBe('45 min')
+    expect(formatDuration(120)).toBe('2 hr')
+    expect(spanOnDay({ kind: 'event', time: '09:00', endTime: null })).toEqual({ s: 540, e: 600 })
+    expect(spanOnDay({ kind: 'task', time: '09:00', endTime: null })).toBeNull()
+  })
+  it('puts overlapping events side by side and finds the free gaps', () => {
+    const spans = [{ s: 540, e: 600 }, { s: 570, e: 630 }, { s: 720, e: 780 }]
+    expect(columnsFor(spans)).toEqual([{ col: 0, cols: 2 }, { col: 1, cols: 2 }, { col: 0, cols: 1 }])
+    expect(freeGaps(spans)).toEqual([{ s: 630, e: 720 }])
+  })
+})
+
+import { gapAround } from './schedule'
+describe('fit to the gap', () => {
+  it('reaches the neighbours, or the day edges when there are none', () => {
+    expect(gapAround([{ s: 540, e: 600 }, { s: 780, e: 840 }], 660, 720)).toEqual({ from: 600, to: 780 })
+    expect(gapAround([], 660, 720)).toEqual({ from: 480, to: 1080 })
+    expect(gapAround([], 420, 1200)).toEqual({ from: 420, to: 1200 })
+  })
+})

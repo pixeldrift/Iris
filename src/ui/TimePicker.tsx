@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { formatDuration } from '../core/schedule'
 import { formatTime } from '../core/tasks'
 import { Popover } from './Popover'
 
@@ -113,6 +114,61 @@ export function TimePicker({ label, value, onChange, placeholder = '–None–' 
         </div>
         <div className="mt-2 flex items-center">
           {value && (
+            <button type="button" className="rounded-full px-3 py-1.5 text-sm text-ink-faint hover:bg-white/70 hover:text-ink" onClick={() => (onChange(null), setOpen(false))}>
+              Clear
+            </button>
+          )}
+          <button type="button" className="ml-auto rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => setOpen(false)}>
+            Done
+          </button>
+        </div>
+      </Popover>
+    </div>
+  )
+}
+
+const DUR_HOURS = Array.from({ length: 12 }, (_, i) => String(i))
+const DUR_PRESETS = [15, 30, 45, 60, 90, 120, 180]
+
+/** How long an event runs. It is the end time seen another way: change either and the other follows. */
+export function DurationPicker({ label, value, onChange, disabled = false }: { label: string; value: number | null; onChange: (minutes: number | null) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const btn = useRef<HTMLButtonElement>(null)
+  const h = Math.floor((value ?? 0) / 60)
+  const m = Math.round(((value ?? 0) % 60) / 5) * 5
+  return (
+    <div className="block text-xs font-medium text-ink-soft">
+      {label}
+      <button
+        ref={btn}
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`${label}: ${value ? formatDuration(value) : 'none'}`}
+        title={disabled ? 'Give the event a start time first' : undefined}
+        className="well mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink disabled:opacity-50"
+      >
+        <span className={value ? '' : 'text-ink-faint'}>{value ? formatDuration(value) : '–None–'}</span>
+        <span className="text-ink-faint">▾</span>
+      </button>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} matchAnchor className="p-2.5">
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {DUR_PRESETS.map((p) => (
+            <button key={p} type="button" onClick={() => onChange(p)} className={`rounded-full px-2.5 py-1 text-xs transition ${value === p ? 'bg-lilac-500 text-white shadow' : 'bg-white/60 text-ink-soft hover:bg-lilac-100/80'}`}>
+              {formatDuration(p)}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] items-start gap-x-1">
+          <Wheel items={DUR_HOURS} label="Hours" selected={h} onPick={(i) => onChange(i * 60 + m || 5)} />
+          <span aria-hidden className="grid place-items-center text-xs text-ink-faint" style={{ height: ROW }}>hr</span>
+          <Wheel items={MINUTES} label="Minutes" selected={MINUTES.indexOf(String(m).padStart(2, '0'))} onPick={(i) => onChange(h * 60 + i * 5 || 5)} />
+          <span aria-hidden className="grid place-items-center pl-1 text-xs text-ink-faint" style={{ height: ROW }}>min</span>
+        </div>
+        <div className="mt-2 flex items-center">
+          {value !== null && (
             <button type="button" className="rounded-full px-3 py-1.5 text-sm text-ink-faint hover:bg-white/70 hover:text-ink" onClick={() => (onChange(null), setOpen(false))}>
               Clear
             </button>

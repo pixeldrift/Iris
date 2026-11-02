@@ -327,7 +327,7 @@ export function Priority() {
             </div>
           ))}
           {/* the bubble zoom sits in the frame's bottom edge, between the two lower corner names */}
-          <div data-ui className="absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2">
+          <div data-ui className="absolute bottom-[5px] left-1/2 z-10 -translate-x-1/2 [&_button]:!h-8 [&_button]:!w-8">
             <ZoomControl onZoom={zoomBubbles} />
           </div>
           <div ref={field} className="absolute inset-x-2.5 bottom-[42px] top-[42px] md:inset-x-3.5">
