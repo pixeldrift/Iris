@@ -176,7 +176,7 @@ export function SettingsDialog() {
             />
           </div>
           <Row k="sfxDrops" label="Water drops" hint="when you add" indent faded={!sound} />
-          <Row k="sfxChimes" label="Chimes and blooms" hint="finish, tag, move" indent faded={!sound} />
+          <Row k="sfxChimes" label="Task sounds" hint="finish, tag, move" indent faded={!sound} />
           <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
         </Group>

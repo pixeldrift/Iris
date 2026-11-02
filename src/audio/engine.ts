@@ -1,5 +1,6 @@
-// Procedural audio: no samples to ship. Water drops, completion chimes and a
-// slow generative wind-chime bed, all through one shared reverb.
+// Audio. The interface sounds (adding, finishing, tagging, deleting, a reminder) are short recorded samples from
+// public/sounds, deliberately nothing bell-like so they never blend into the ambient bed. The ambient bed itself
+// (wind and wind chimes) is generated, through a shared reverb.
 
 let ctx: AudioContext | null = null
 let master: GainNode
@@ -16,6 +17,54 @@ export interface AudioConfig {
 }
 let cfg: AudioConfig = { master: true, drops: true, chimes: true, pops: true, ambient: false, volume: 0.7 }
 let ambientOn = false
+
+/**
+ * The interface sounds: which recording, and how much to lift or lower it (the files were recorded at very different levels).
+ * Change a sound here to swap it.
+ */
+const SOUNDS = {
+  add: { url: '/sounds/bubble.wav', gain: 3.8 }, // a new item floats up
+  pop: { url: '/sounds/pop-high.wav', gain: 2.2 }, // a bubble deleted
+  done: { url: '/sounds/drip-double.wav', gain: 0.5 }, // finished
+  tick: { url: '/sounds/pop-low.wav', gain: 0.9 }, // tagged, moved, dropped into a group
+  alert: { url: '/sounds/drip-double.wav', gain: 0.8 }, // a reminder going off
+} as const
+type SoundKey = keyof typeof SOUNDS
+const buffers = new Map<string, AudioBuffer>()
+let loading = false
+
+/** Fetch and decode every recording once (called when the audio context first exists). Until a sound has loaded it is silent. */
+function loadSounds(c: AudioContext) {
+  if (loading) return
+  loading = true
+  for (const url of new Set(Object.values(SOUNDS).map((v) => v.url))) {
+    void fetch(url)
+      .then((r) => r.arrayBuffer())
+      // (the callback form: older Safari has no promise version)
+      .then((data) => new Promise<AudioBuffer>((ok, bad) => c.decodeAudioData(data, ok, bad)))
+      .then((b) => void buffers.set(url, b))
+      .catch(() => {
+        loading = false // try again next time
+      })
+  }
+}
+
+/** Play one of the recordings, dry (no reverb). A little variation in speed keeps repeats from sounding mechanical. */
+function play(key: SoundKey, { rate = 1, variation = 0.06, pan = 0, level = 1 }: { rate?: number; variation?: number; pan?: number; level?: number } = {}) {
+  const c = ensure()
+  if (!c) return
+  const buf = buffers.get(SOUNDS[key].url)
+  if (!buf) return
+  const src = c.createBufferSource()
+  src.buffer = buf
+  src.playbackRate.value = rate * (1 + (Math.random() - 0.5) * variation)
+  const g = c.createGain()
+  g.gain.value = SOUNDS[key].gain * level
+  const p = c.createStereoPanner()
+  p.pan.value = pan
+  src.connect(g).connect(p).connect(master)
+  src.start()
+}
 
 // D major pentatonic over three octaves: anything sounds consonant.
 const SCALE = [293.66, 329.63, 369.99, 440, 493.88, 587.33, 659.25, 739.99, 880, 987.77, 1174.66, 1318.5]
@@ -46,7 +95,7 @@ function ensure(awake = false): AudioContext | null {
     reverbIn = ctx.createGain()
     reverbIn.gain.value = 0.55
     reverbIn.connect(conv).connect(master)
-
+    loadSounds(ctx)
   }
   // iOS also leaves a context 'interrupted' after a call, the lock screen or a trip to another app
   if ((awake || !hidden()) && (ctx.state as string) !== 'running') void ctx.resume().catch(() => {})
@@ -57,15 +106,13 @@ function ensure(awake = false): AudioContext | null {
  * A reminder going off. Unlike the other sounds this plays even when the app is out of sight (a different tab or app),
  * for as long as the browser lets the page run; then the engine goes back to sleep. It still follows the master sound switch.
  */
-export function alertChime() {
+export function alertSound() {
   if (!cfg.master) return
   const c = ensure(true)
   if (!c) return
-  const i = 5 + Math.floor(Math.random() * 2)
-  const at = c.currentTime + 0.05
-  bell(SCALE[i], at, 0.12, -0.15, 3)
-  bell(SCALE[i + 2], at + 0.16, 0.11, 0.15, 3.5)
-  bell(SCALE[i + 4 > 11 ? 11 : i + 4], at + 0.34, 0.1, 0, 4)
+  // two drips, the second a touch higher
+  play('alert', { variation: 0.02 })
+  window.setTimeout(() => play('alert', { rate: 1.12, variation: 0.02 }), 420)
   if (hidden()) window.setTimeout(() => hidden() && pauseAudio(), 5000)
 }
 
@@ -130,27 +177,10 @@ export function setAudioConfig(c: AudioConfig) {
   }
 }
 
-/** A soft water droplet with an echo. `pan` -1..1. */
+/** A new item floats up (or one arrives from another device). `pan` -1..1. */
 export function drop(pan = 0) {
   if (!can('drops')) return
-  const c = ensure()
-  if (!c) return
-  const t = c.currentTime
-  const osc = c.createOscillator()
-  const g = c.createGain()
-  const p = c.createStereoPanner()
-  p.pan.value = pan
-  const f0 = 620 + Math.random() * 160
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(f0 * 1.9, t)
-  osc.frequency.exponentialRampToValueAtTime(f0, t + 0.09)
-  g.gain.setValueAtTime(0, t)
-  g.gain.linearRampToValueAtTime(0.28, t + 0.008)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38)
-  osc.connect(g).connect(p)
-  p.connect(master) // dry: a clean drop, no echo or tail
-  osc.start(t)
-  osc.stop(t + 0.45)
+  play('add', { pan })
 }
 
 function bell(freq: number, when: number, vol: number, pan: number, decay: number) {
@@ -174,67 +204,22 @@ function bell(freq: number, when: number, vol: number, pan: number, decay: numbe
   }
 }
 
-/** The chimes sit well below the wind bed they play over (a quarter quieter, then a quarter quieter again). */
-const CHIME_TRIM = 0.75 * 0.75
-
-export function chime(index?: number, vol = 0.09) {
-  if (!can('chimes')) return
-  const c = ensure()
-  if (!c) return
-  const f = SCALE[(index ?? Math.floor(Math.random() * SCALE.length)) % SCALE.length]
-  bell(f, c.currentTime, vol * CHIME_TRIM, Math.random() * 1.2 - 0.6, 4.5)
-}
-
-/** Rising two-note sparkle when a task blooms. */
+/** Finished. */
 export function bloom() {
   if (!can('chimes')) return
-  const c = ensure()
-  if (!c) return
-  const i = 4 + Math.floor(Math.random() * 3)
-  bell(SCALE[i], c.currentTime, 0.1 * CHIME_TRIM, -0.2, 3)
-  bell(SCALE[i + 2], c.currentTime + 0.11, 0.09 * CHIME_TRIM, 0.2, 3.5)
-  bell(SCALE[i + 4 > 11 ? 11 : i + 4], c.currentTime + 0.24, 0.07 * CHIME_TRIM, 0, 4)
+  play('done', { variation: 0.03 })
 }
 
-/** Bubble pop: a quick rising blip plus a puff of filtered noise. */
+/** A bubble is deleted. */
 export function pop() {
   if (!can('pops')) return
-  const c = ensure()
-  if (!c) return
-  const t = c.currentTime
-  const o = c.createOscillator()
-  const g = c.createGain()
-  o.type = 'sine'
-  o.frequency.setValueAtTime(260, t)
-  o.frequency.exponentialRampToValueAtTime(980, t + 0.07)
-  g.gain.setValueAtTime(0.0001, t)
-  g.gain.linearRampToValueAtTime(0.3, t + 0.01)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16)
-  o.connect(g).connect(master)
-  g.connect(reverbIn)
-  o.start(t)
-  o.stop(t + 0.2)
-  const len = Math.floor(c.sampleRate * 0.06)
-  const nb = c.createBuffer(1, len, c.sampleRate)
-  const d = nb.getChannelData(0)
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3)
-  const n = c.createBufferSource()
-  n.buffer = nb
-  const hp = c.createBiquadFilter()
-  hp.type = 'highpass'
-  hp.frequency.value = 2400
-  const ng = c.createGain()
-  ng.gain.value = 0.12
-  n.connect(hp).connect(ng).connect(master)
-  n.start(t)
+  play('pop')
 }
 
-/** Tiny tick for dropping into a folder. */
+/** Tagging, moving, dropping into a group. */
 export function plink() {
   if (!can('chimes')) return
-  const c = ensure()
-  if (!c) return
-  bell(SCALE[5 + Math.floor(Math.random() * 3)], c.currentTime, 0.08 * CHIME_TRIM, 0, 1.6)
+  play('tick')
 }
 
 function startWind() {
