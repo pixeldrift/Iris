@@ -3,14 +3,14 @@ import { satOf } from '../../core/color'
 import { useStore } from '../../state/store'
 import type { GameState } from './usePopGame'
 
-/** "score: 40 • round: 3 • best: 70", the numbers in bold (the compact line shown while playing). */
+/** "score 40 • round 3", the numbers in bold purple serif (the compact line shown while playing). */
 function Line({ items }: { items: [string, number][] }) {
   return (
     <span className="whitespace-nowrap tabular-nums">
       {items.map(([k, v], i) => (
         <span key={k}>
           {i > 0 && <span className="mx-1.5 text-ink-faint">•</span>}
-          {k}: <b className="font-display text-base font-bold text-lilac-600">{v}</b>
+          {k} <b className="font-display text-base font-bold text-lilac-600">{v}</b>
         </span>
       ))}
     </span>
@@ -48,7 +48,7 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
         <div data-ui data-game-bar className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-col items-start gap-2" role="status" aria-live="polite">
           {/* the score box is as wide as its words; the pattern box runs the whole width of the pond, below the mode buttons */}
           <div className={`${panel} w-fit px-3 py-1.5 text-xs text-ink-soft`}>
-            <Line items={[['score', g.score], ['round', g.round], ['best', Math.max(best, g.score)]]} />
+            <Line items={[['score', g.score], ['round', g.round]]} />
           </div>
           {/* the box is always the full width, however short the pattern is */}
           <div className={`${panel} flex min-h-[2.75rem] w-full flex-wrap items-center gap-1.5 px-3 py-2`} aria-label="The pattern">
