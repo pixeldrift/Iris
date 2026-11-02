@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { tint } from '../../core/color'
+import { colorVars, useTaskHue } from '../taskColor'
 import { addDays, diffDays, fromISO, MONTHS, today } from '../../core/dates'
 import { formatClock } from '../../core/locale'
 import { spanOf } from '../../core/tasks'
@@ -16,7 +17,7 @@ const MIN_W = 10
 const MAX_W = 1600
 const DAYS = 150
 const LABEL_W = 190
-const ROW_H = 44
+const ROW_H = 32
 /** From this many pixels per day on, hours appear and bars can start and end between midnights. */
 const FINE_W = 240
 const DAY_MIN = 1440
@@ -53,8 +54,7 @@ function Dot() {
 function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task; winStart: string; dayW: number; legend: boolean; onPreview: (p: Preview | null) => void; preview: Preview | null }) {
   const update = useStore((s) => s.updateTask)
   const select = useStore((s) => s.select)
-  const folders = useStore((s) => s.folders)
-  const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
+  const hueRaw = useTaskHue(task)
   const leave = useLeaveClass(task)
   const fine = dayW >= FINE_W
   const base = geometry(task, winStart, fine)
@@ -103,13 +103,9 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
   return (
     <div
       onPointerDown={begin('move')}
-      className={`absolute top-1.5 flex h-8 cursor-grab touch-none items-center overflow-hidden rounded-full px-5 text-xs shadow-sm ring-1 ring-white/80 transition-[box-shadow] hover:shadow-md ${task.status === 'done' ? 'opacity-50' : ''} ${leave}`}
-      style={{
-        left,
-        width,
-        background: `linear-gradient(90deg, ${tint(hue, 70, 86, 0.95)}, ${tint(hue, 65, 78, 0.95)})`,
-        color: `${tint(hue, 35, 25)}`,
-      }}
+      // the same look as the items everywhere else: the soft gradient with its solid outline
+      className={`tint absolute top-1 flex h-6 cursor-grab touch-none items-center overflow-hidden rounded-full px-5 text-xs transition-[box-shadow] hover:shadow-md ${task.status === 'done' ? 'opacity-50' : ''} ${leave}`}
+      style={{ left, width, ...colorVars(hueRaw, task.urgency) }}
     >
       <span onPointerDown={begin('left')} className="absolute inset-y-0 left-0 flex w-4 cursor-ew-resize items-center justify-start pl-1.5 opacity-55" aria-hidden>
         <Dot />
@@ -136,7 +132,6 @@ const clampW = (w: number) => Math.min(MAX_W, Math.max(MIN_W, w))
 export function Timeline() {
   const phone = usePhone()
   const visible = useVisibleTasks()
-  const update = useStore((s) => s.updateTask)
   const select = useStore((s) => s.select)
   const folders = useStore((s) => s.folders)
   const legend = useStore((s) => s.settings.timelineLegend)
@@ -239,9 +234,8 @@ export function Timeline() {
 
   const rows = useMemo(() => {
     const vis = visible
-    const dated = vis.filter((t) => spanOf(t)).sort((a, b) => spanOf(a)!.start.localeCompare(spanOf(b)!.start))
-    const undated = vis.filter((t) => !spanOf(t) && t.status !== 'done')
-    return [...dated, ...undated]
+    // only what has dates: things with none are not on a timeline
+    return vis.filter((t) => spanOf(t)).sort((a, b) => spanOf(a)!.start.localeCompare(spanOf(b)!.start))
   }, [visible])
 
   const days = Array.from({ length: DAYS }, (_, i) => addDays(winStart, i))
@@ -372,28 +366,11 @@ export function Timeline() {
               {/* day lines (and hour lines when zoomed in) run the whole height, rows or not */}
               <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: lines.join(','), backgroundSize: sizes.join(',') }} />
 
-              {rows.map((t) => {
-                const has = !!spanOf(t)
-                return (
-                  <div
-                    key={t.id}
-                    className="relative border-t border-white/60"
-                    style={{ height: ROW_H, cursor: has ? undefined : 'copy' }}
-                    onClick={(e) => {
-                      if (has) return
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      const day = addDays(winStart, Math.floor((e.clientX - rect.left) / dayW))
-                      update(t.id, { start: day, due: addDays(day, 2) })
-                    }}
-                  >
-                    {has ? (
-                      <Bar task={t} winStart={winStart} dayW={dayW} legend={legend} preview={preview} onPreview={setPreview} />
-                    ) : (
-                      <span className="pointer-events-none absolute left-3 top-3 text-xs italic text-ink-faint">{legend ? 'unscheduled' : `${t.title} · unscheduled`}</span>
-                    )}
-                  </div>
-                )
-              })}
+              {rows.map((t) => (
+                <div key={t.id} className="relative border-t border-white/60" style={{ height: ROW_H }}>
+                  <Bar task={t} winStart={winStart} dayW={dayW} legend={legend} preview={preview} onPreview={setPreview} />
+                </div>
+              ))}
               {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">No tasks to chart.</p>}
 
               {/* today line */}

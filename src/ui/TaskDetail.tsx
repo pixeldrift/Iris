@@ -27,11 +27,71 @@ function SoftSlider({ label, left, right, value, onChange }: { label: string; le
   )
 }
 
+/** Where it is: a place, a room, a link (events keep theirs beside their times). */
+function PlaceField({ task }: { task: Task }) {
+  const update = useStore((s) => s.updateTask)
+  return (
+    <label className="block text-xs font-medium text-ink-soft">
+      Where
+      <input value={task.place} onChange={(e) => update(task.id, { place: e.target.value })} placeholder="A place, a room, a link…" className="well mt-1 w-full rounded-xl px-3 py-2 text-sm font-normal text-ink placeholder:text-ink-faint" />
+    </label>
+  )
+}
+
+/**
+ * The dates of a task, in two plain steps: the day you plan to do it, and its deadline. Each has a reminder of its own right
+ * under it. The timeline start and what happens if the day passes live under "More", out of the way.
+ */
+function WhenFields({ task }: { task: Task }) {
+  const update = useStore((s) => s.updateTask)
+  const setDue = useStore((s) => s.setDue)
+  const [more, setMore] = useState(() => !!task.start || !task.rollover)
+  return (
+    <div className="space-y-3 rounded-2xl bg-white/35 p-3">
+      <div>
+        <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">When</h4>
+        <p className="text-[0.7rem] text-ink-faint">Plan for is the day you’ll do it; the deadline is when it has to be done. Both show on the calendar.</p>
+      </div>
+      <div className="space-y-1.5">
+        <DatePicker label="Plan for" value={task.day} onChange={(v) => update(task.id, { day: v })} />
+        <ReminderField task={task} which="do" label="Remind me on the day" />
+      </div>
+      <div className="space-y-1.5">
+        <DatePicker label="Deadline" value={task.due} onChange={(v) => setDue(task.id, v)} />
+        <ReminderField task={task} which="due" label="Remind me before the deadline" />
+      </div>
+      <div>
+        <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} className="text-xs text-lilac-700 hover:underline">
+          {more ? 'Fewer options' : 'More options'}
+        </button>
+        {more && (
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <DatePicker label="Timeline start" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
+            <div className="text-xs font-medium text-ink-soft">
+              If I don’t finish
+              <button
+                type="button"
+                onClick={() => update(task.id, { rollover: !task.rollover })}
+                aria-pressed={task.rollover}
+                className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
+              >
+                {task.rollover ? 'Carry to next day' : 'Leave it here'}
+                <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
+                  <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** Every editable field of a task, one under another. Used by the side panel and by the quick-add box. */
 export function TaskFields({ task, withKind = true }: { task: Task; withKind?: boolean }) {
   const people = useStore((s) => s.people)
   const update = useStore((s) => s.updateTask)
-  const setDue = useStore((s) => s.setDue)
   const setStatus = useStore((s) => s.setStatus)
   const linked = people.filter((p) => task.personIds.includes(p.id))
   const links = linked.flatMap((p) => allLinks(p).map((l) => ({ ...l, who: p.name.split(' ')[0] })))
@@ -46,6 +106,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
 
       {task.kind === 'list' && <ListEditor task={task} />}
       {task.kind === 'event' && <EventFields task={task} />}
+      {task.kind !== 'event' && <PlaceField task={task} />}
       {task.kind !== 'list' && <RepeatField task={task} />}
       {(!!task.repeat || task.kind === 'habit') && <RecentStrip task={task} />}
 
@@ -59,7 +120,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
         </div>
       )}
 
-      {task.kind !== 'event' && <ReminderField task={task} />}
+      {task.kind === 'habit' && <ReminderField task={task} />}
 
       <textarea
         value={task.notes}
@@ -75,29 +136,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
         <SoftSlider label="How urgent it is" left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} />
       </div>
 
-      <div className="space-y-3">
-        {task.kind !== 'event' && task.kind !== 'habit' && (
-        <div className="grid grid-cols-2 gap-3">
-          <DatePicker label="Do on" value={task.day} onChange={(v) => update(task.id, { day: v })} />
-          <DatePicker label="Due by" value={task.due} onChange={(v) => setDue(task.id, v)} />
-          <DatePicker label="Begins (timeline)" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
-          <div className="text-xs font-medium text-ink-soft">
-            If I don’t finish
-            <button
-              type="button"
-              onClick={() => update(task.id, { rollover: !task.rollover })}
-              aria-pressed={task.rollover}
-              className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
-            >
-              {task.rollover ? 'Carry to next day' : 'Leave it here'}
-              <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
-                <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
-              </span>
-            </button>
-          </div>
-        </div>
-        )}
-        </div>
+      {task.kind !== 'event' && task.kind !== 'habit' && <WhenFields task={task} />}
 
       {task.kind !== 'habit' && (
       <div>
@@ -137,7 +176,7 @@ export function TaskDetail() {
   const { mounted, closing } = useExit(!!id && !!live, 240)
 
   // "Saved" blinks whenever something about the task changes
-  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.repeat, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.days, task.folderIds, task.personIds]) : ''
+  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.repeat, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.dueRemindAt, task.place, task.days, task.folderIds, task.personIds]) : ''
   const [savedTick, setSavedTick] = useState(0)
   const firstSig = useRef(sig)
   useEffect(() => {

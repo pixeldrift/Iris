@@ -58,6 +58,10 @@ export interface Task {
   /** A reminder set relative to the item's day or deadline ("a day before"): how many days. It follows the date if it moves. */
   remindBefore?: number | null
   reminded: boolean
+  /** The same for the deadline: a reminder of its own, apart from the one for the day you plan to do it. */
+  dueRemindAt?: number | null
+  dueRemindBefore?: number | null
+  dueReminded?: boolean
   status: TaskStatus
   /** Its column in the Progress view when its group defines custom stages (by stage id); else derived from `status`. */
   stage?: string | null

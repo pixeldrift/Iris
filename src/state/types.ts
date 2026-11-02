@@ -118,7 +118,8 @@ export interface TasksSlice {
   /** Throw away a task that was only being set up in the quick-add box. */
   discardDraft: (id: string) => void
   /** Set (or clear with null) the alert on a task. */
-  setReminder: (id: string, at: number | null, before?: number | null) => void
+  /** `which`: the reminder for the day to do it (default) or for the deadline. */
+  setReminder: (id: string, at: number | null, before?: number | null, which?: 'do' | 'due') => void
   /** Look at a task's title for "call/email Sarah" and link or ask. */
   checkContact: (taskId: string) => void
   resolveContact: (personId: string | null) => void

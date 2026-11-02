@@ -797,3 +797,23 @@ describe('play limit', () => {
     expect(breakMessage(20_000)).toContain('1 minute ')
   })
 })
+
+import { remindersDue } from './reminders'
+describe('a reminder for the day and another for the deadline', () => {
+  const base = { draft: false, status: 'todo', remindAt: null, reminded: false, dueRemindAt: null, dueReminded: false } as never
+  it('each goes off on its own', () => {
+    const t = { ...(base as object), remindAt: 1000, dueRemindAt: 5000 } as never
+    expect(remindersDue(t, 500)).toEqual([])
+    expect(remindersDue(t, 2000)).toEqual(['do'])
+    expect(remindersDue(t, 6000)).toEqual(['do', 'due'])
+    expect(remindersDue({ ...(t as object), reminded: true } as never, 6000)).toEqual(['due'])
+    expect(remindersDue({ ...(t as object), status: 'done' } as never, 6000)).toEqual([])
+  })
+  it('"a day before" counts from the deadline for the deadline reminder, and from the day to do it for the other', () => {
+    const t = { day: '2099-03-10', due: '2099-03-20', time: null }
+    const a = remindFromRule(t, 1, 0, 'do')!
+    const b = remindFromRule(t, 1, 0, 'due')!
+    expect(new Date(a).getDate()).toBe(9)
+    expect(new Date(b).getDate()).toBe(19)
+  })
+})
