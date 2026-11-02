@@ -19,7 +19,6 @@ import { PopGameBar } from '../pond/PopGameBar'
 import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
-import * as sound from '../../audio/engine'
 import { Lily } from '../pond/Lily'
 import { usePondGestures } from '../pond/usePondGestures'
 import { useSize } from '../pond/useSize'
@@ -131,15 +130,8 @@ export function Pond() {
   popRef.current = popMode
   const playful = popMode === 'fun' || popMode === 'game'
   const addPopStats = useStore((st) => st.addPopStats)
-  const [fun, setFun] = useState<Record<string, 'gone' | 'back'>>({})
-  const funRef = useRef(fun)
-  funRef.current = fun
   const hues = useMemo(() => visible.map((t) => bubbleHue(t, folders)), [visible, folders])
   const palette = useMemo(() => paletteOf(hues), [hues])
-  const colourOf = (id: string) => {
-    const t = visible.find((x) => x.id === id)
-    return t ? gamePalette.indexOf(bubbleHue(t, folders)) : -1
-  }
   // the game's colours: the commonest among the bubbles, topped up so there are always at least four to play with
   const gamePalette = useMemo(() => {
     const out = [...palette]
@@ -384,23 +376,6 @@ export function Pond() {
       isFree: () => live.current.group === 'free',
       popMode: () => popRef.current,
       ripple: (id) => rippleRef.current(id),
-      funPop: (id) => {
-        if (funRef.current[id]) return
-        const mode = popRef.current
-        if (mode === 'game') {
-          // only while it is your turn, and only the colours in play
-          const gm = gameRef.current
-          const c = colourOf(id)
-          if (gm.g.phase !== 'play' || c < 0) return
-          gm.tap(c)
-        }
-        sound.pop()
-        rippleRef.current(id)
-        addPopStats({ popped: 1 })
-        setFun((f) => ({ ...f, [id]: 'gone' }))
-        window.setTimeout(() => setFun((f) => ({ ...f, [id]: 'back' })), 1500)
-        window.setTimeout(() => setFun(({ [id]: _x, ...rest }) => rest), 2400)
-      },
       grab: (id) => {
         const n = nodes.current.get(id)
         if (n) n.sim.pinned = true
@@ -655,7 +630,7 @@ export function Pond() {
       }}
       aria-label="Pond canvas. Tap the water to add a thought. Drag to pan, pinch to zoom."
     >
-      <div ref={worldRef} className="absolute left-0 top-0 origin-top-left" style={{ width: w, height: h, transform: 'translate(0px,0px) scale(1)' }}>
+      <div ref={worldRef} className="absolute left-0 top-0 z-[2] origin-top-left" style={{ width: w, height: h, transform: 'translate(0px,0px) scale(1)' }}>
         {labels.map((l) => (
           <div
             key={l.key}
@@ -716,15 +691,18 @@ export function Pond() {
         ))}
 
         {w > 0 &&
-          visible.map((t) => {
-            const c = popMode === 'game' ? gamePalette.indexOf(bubbleHue(t, folders)) : -1
-            return <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} fun={fun[t.id]} lit={popMode === 'game' && game.g.lit !== null && c === game.g.lit} dim={popMode === 'game' && c < 0} />
-          })}
+          visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} />)}
         {w > 0 && (
           <Strays
             active={pop}
             w={w}
             h={h}
+            // for fun and in the game every bubble is a plain one (the real ones are put away), starting where the real ones were
+            seeded={playful}
+            getSeed={() => {
+              const byId = new Map(visible.map((t) => [t.id, t]))
+              return [...nodes.current].map(([id, n]) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r, hue: byId.get(id) ? bubbleHue(byId.get(id)!, folders) : 285 }))
+            }}
             hues={popMode === 'game' ? gamePalette : undefined}
             litHue={popMode === 'game' && game.g.lit !== null ? gamePalette[game.g.lit] : null}
             canPop={(hue) => popRef.current !== 'game' || (gameRef.current.g.phase === 'play' && gamePalette.includes(hue))}
@@ -738,7 +716,7 @@ export function Pond() {
         )}
       </div>
 
-      <WaterRipples ref={water} className="z-10" />
+      <WaterRipples ref={water} className="z-[1]" />
 
       {visible.length === 0 && (
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to float an idea…</p>

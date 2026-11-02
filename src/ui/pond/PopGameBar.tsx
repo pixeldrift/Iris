@@ -4,6 +4,20 @@ import { useStore } from '../../state/store'
 import type { GameState } from './usePopGame'
 
 /** The pop game's panel at the top of the pond: the pattern as coloured dots, the round and the score, start and play again. */
+/** "score: 40 • round: 3 • best: 70", the numbers in bold. */
+function Line({ items }: { items: [string, number][] }) {
+  return (
+    <span className="whitespace-nowrap tabular-nums">
+      {items.map(([k, v], i) => (
+        <span key={k}>
+          {i > 0 && <span className="mx-1.5 text-ink-faint">•</span>}
+          {k}: <b className="font-semibold text-ink">{v}</b>
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function PopGameBar({ game, palette }: { game: { g: GameState; start: (memory?: boolean) => void }; palette: number[] }) {
   const { g } = game
   const best = useStore((s) => s.settings.popStats.best)
@@ -20,13 +34,13 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
   )
   return (
     <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
-      <div className="glass pointer-events-auto flex max-w-full flex-col items-center gap-1.5 rounded-2xl px-4 py-2 text-center" role="status" aria-live="polite">
+      <div className="glass pointer-events-auto flex max-w-full flex-col bg-white/85 items-center gap-1.5 rounded-2xl px-4 py-2 text-center" role="status" aria-live="polite">
         {g.phase === 'idle' || g.phase === 'over' ? (
           <>
             <div className="font-display text-lg leading-tight">{g.phase === 'over' ? 'Game over' : 'Pop game'}</div>
             <p className="text-xs text-ink-soft">
               {g.phase === 'over'
-                ? `Score ${g.score} · reached round ${g.round} · best ${Math.max(best, g.score)}`
+                ? <Line items={[['score', g.score], ['round', g.round], ['best', Math.max(best, g.score)]]} />
                 : tooFew
                   ? 'Needs bubbles in at least three colours (groups). Add a few and come back.'
                   : 'Watch the colours light up, then pop them in the same order. Each round adds one, and it speeds up.'}
@@ -35,10 +49,10 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
               <div className="flex items-center gap-3">
                 <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
                   <input type="checkbox" checked={memory} onChange={(e) => setMemory(e.target.checked)} aria-label="Memory mode" />
-                  Memory mode <span className="text-ink-faint">(pattern hidden, double points)</span>
+                  Memory mode <span className="text-ink-faint">(2x points)</span>
                 </label>
-                <button onClick={() => game.start(memory)} className="rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
-                  {g.phase === 'over' ? 'Play again' : 'Start'}
+                <button onClick={() => game.start(memory)} className="whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
+                  Play
                 </button>
               </div>
             )}
@@ -46,10 +60,8 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
         ) : (
           <>
             <div className="flex items-center gap-3 text-xs text-ink-soft tabular-nums">
-              <span>Round {g.round}</span>
-              <span className="font-medium text-lilac-700">{g.score} pts</span>
-              <span>Best {Math.max(best, g.score)}</span>
-              <span className="text-ink-faint">{g.phase === 'show' ? 'Watch…' : 'Your turn'}</span>
+              <Line items={[['score', g.score], ['round', g.round], ['best', Math.max(best, g.score)]]} />
+              <span className="whitespace-nowrap text-ink-faint">{g.phase === 'show' ? 'Watch…' : 'Your turn'}</span>
             </div>
             <div className="flex min-h-[1.25rem] items-center justify-center gap-1.5" aria-label="The pattern">
               {g.seq.map((c, i) => {
