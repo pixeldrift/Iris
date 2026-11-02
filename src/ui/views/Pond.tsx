@@ -146,6 +146,9 @@ export function Pond() {
   })
   // play is kept to three minutes at a time (deleting never is): a countdown in fun mode, a game played out, then a kind word and a break
   const limit = usePlayLimit({ mode: popMode, gamePhase: game.g.phase, onStop: () => setPopMode('off') })
+  // when time is up the water is cleared of bubbles (the plain ones shrink away, the real ones stay put away) while the message is up
+  const resting = !!limit.note && popMode === 'off'
+  const hidden = playful || resting
   // for fun: the whole field popped
   const [cleared, setCleared] = useState(false)
   // the edges of the pond that buttons and panels sit over: bubbles are framed and spawned inside what is left
@@ -153,13 +156,13 @@ export function Pond() {
   const [funReturn, setFunReturn] = useState(false)
   const wasPlayful = useRef(false)
   useEffect(() => {
-    if (wasPlayful.current && !playful) {
+    if (wasPlayful.current && !hidden) {
       setFunReturn(true)
       const t = window.setTimeout(() => setFunReturn(false), 900)
       return () => window.clearTimeout(t)
     }
-    wasPlayful.current = playful
-  }, [playful])
+    wasPlayful.current = hidden
+  }, [hidden])
   useEffect(() => {
     if (popMode !== 'game') game.stop()
   }, [popMode]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -667,7 +670,7 @@ export function Pond() {
   return (
     <div
       ref={ref}
-      className={`relative h-full w-full cursor-[crosshair] touch-none overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)] ${pop ? 'pop-mode' : ''} ${playful ? 'fun-mode' : ''} ${funReturn ? 'fun-return' : ''}`}
+      className={`relative h-full w-full cursor-[crosshair] touch-none overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)] ${pop ? 'pop-mode' : ''} ${hidden ? 'fun-mode' : ''} ${funReturn ? 'fun-return' : ''}`}
       style={{
         background:
           'radial-gradient(70% 60% at 30% 20%, rgba(255,255,255,0.75), transparent 70%), radial-gradient(60% 60% at 80% 90%, rgb(var(--lr-200)/0.55), transparent 70%), linear-gradient(160deg, rgba(255,255,255,0.5), rgba(240,231,250,0.45))',
@@ -746,7 +749,7 @@ export function Pond() {
               return { x0: (i.l - v.tx) / v.scale, x1: (W - i.r - v.tx) / v.scale, y0: (i.t - v.ty) / v.scale, y1: (H - i.b - v.ty) / v.scale, scale: v.scale }
             }}
             onCleared={setCleared}
-            active={pop}
+            active={pop && !(limit.locked && popMode !== 'delete')}
             w={w}
             h={h}
             // for fun and in the game every bubble is a plain one (the real ones are put away), starting where the real ones were
@@ -834,7 +837,8 @@ export function Pond() {
       {popMode === 'game' && <PopGameBar game={game} palette={gamePalette} breakText={limit.breakText} />}
       {limit.warn !== null && popMode !== 'delete' && <PlayTimer seconds={limit.warn} />}
       {limit.lastGame && popMode === 'game' && limit.warn === null && <PlayTimer lastGame />}
-      {limit.note && (
+      {limit.note && !(popMode === 'game' && game.g.phase === 'over') && (
+        // (the game's own results box says it when a game has just ended)
         // a kind word in the middle of the water when it is time for a break (or play is tried too soon)
         <p key={limit.note.key} role="status" className="break-note pointer-events-none absolute inset-0 z-20 grid place-items-center px-6">
           <span className="glass max-w-sm rounded-2xl !bg-white/95 px-6 py-4 text-center font-display text-xl italic leading-snug text-lilac-700">{limit.note.text}</span>

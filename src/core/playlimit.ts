@@ -36,7 +36,5 @@ export function lock(g: PlayGate, now: number): PlayGate {
 /** "That was a fun little break! Let's give it another five minutes until the next one." (the minutes are what is left of the break) */
 export function breakMessage(remainingMs: number): string {
   const n = Math.max(1, Math.ceil(remainingMs / 60_000))
-  const words = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen']
-  const say = words[n] || String(n)
-  return `That was a fun little break! Let’s give it another ${say} ${n === 1 ? 'minute' : 'minutes'} until the next one.`
+  return `That was a fun little break! Let’s give it another ${n} ${n === 1 ? 'minute' : 'minutes'} until the next one.`
 }

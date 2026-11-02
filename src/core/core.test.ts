@@ -793,7 +793,7 @@ describe('play limit', () => {
     expect((later.lockUntil - (g.lastLockAt + 4 * 3_600_000)) / 60_000).toBe(3)
   })
   it('says something kind about the break', () => {
-    expect(breakMessage(5 * 60_000)).toBe('That was a fun little break! Let’s give it another five minutes until the next one.')
-    expect(breakMessage(20_000)).toContain('one minute ')
+    expect(breakMessage(5 * 60_000)).toBe('That was a fun little break! Let’s give it another 5 minutes until the next one.')
+    expect(breakMessage(20_000)).toContain('1 minute ')
   })
 })

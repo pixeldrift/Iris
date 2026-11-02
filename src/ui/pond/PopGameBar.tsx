@@ -122,11 +122,12 @@ export function PlayTimer({ seconds, lastGame = false }: { seconds?: number; las
           <IconStopwatch size={18} />
         </span>
         {lastGame ? (
-          <span className="whitespace-nowrap">Last game, then a break</span>
+          <span className="whitespace-nowrap">Last game</span>
         ) : (
-          <span className="whitespace-nowrap">
-            <b className="font-display text-xl font-bold tabular-nums text-lilac-600">{seconds}</b> <span className="text-xs">{seconds === 1 ? 'second' : 'seconds'} until a break</span>
-          </span>
+          // just the stopwatch and the seconds left
+          <b className="font-display text-xl font-bold tabular-nums leading-none text-lilac-600" aria-label={`${seconds} seconds until a break`}>
+            {seconds}
+          </b>
         )}
       </div>
     </div>
