@@ -45,7 +45,7 @@ test.describe('the pond', () => {
     const n = await count()
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Delete' }).click() // (popping is for fun until deleting is asked for)
-    await expect(page.getByRole('alert')).toContainText('deletes tasks')
+    await expect(page.getByRole('alert')).toContainText('Pop to delete!')
     const bubble = page.locator('[data-node] [role=button]').first()
     const box = (await bubble.boundingBox())!
     await page.mouse.click(box.x + box.width / 2, box.y + 12)

@@ -49,3 +49,35 @@ export function stageAfterTicks(t: Pick<Task, 'stage' | 'status'>, stages: Stage
   if (done > 0) return cur === 0 || cur === last ? Math.min(1, last - 1) : null
   return cur === last ? 0 : null
 }
+
+const RANK_GAP = 1024
+
+/** One column's order: items placed by hand first (by rank), then the rest in the order given (by weight). */
+export function orderInStage<T extends { rank?: number | null }>(tasks: T[]): T[] {
+  const placed = tasks.filter((t) => t.rank != null).sort((a, b) => a.rank! - b.rank!)
+  return [...placed, ...tasks.filter((t) => t.rank == null)]
+}
+
+/** A rank that puts an item above everything in a column (the default place for an item moved there or added there). */
+export function topRank(column: { rank?: number | null }[]): number {
+  const ranks = column.filter((t) => t.rank != null).map((t) => t.rank!)
+  return ranks.length ? Math.min(...ranks) - RANK_GAP : 0
+}
+
+/**
+ * The rank that makes an item land at position `at` of a column (`list` is the column in order, without the item itself).
+ * Items not yet placed by hand that sit above the new spot are given ranks too, so they keep their order.
+ */
+export function planRank(list: { id: string; rank?: number | null }[], at: number): { rank: number; patches: Record<string, number> } {
+  const placed = list.filter((t) => t.rank != null).length // (placed items always come first)
+  if (at <= 0) return { rank: topRank(list), patches: {} }
+  const i = Math.min(at, list.length)
+  if (i <= placed) {
+    const prev = list[i - 1].rank!
+    return { rank: i < placed ? (prev + list[i].rank!) / 2 : prev + RANK_GAP, patches: {} }
+  }
+  const patches: Record<string, number> = {}
+  let last = placed ? list[placed - 1].rank! : -RANK_GAP
+  for (let k = placed; k < i; k++) patches[list[k].id] = last += RANK_GAP
+  return { rank: last + RANK_GAP, patches }
+}

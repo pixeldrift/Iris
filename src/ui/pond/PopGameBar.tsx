@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { satOf } from '../../core/color'
 import { useStore } from '../../state/store'
+import { IconStopwatch } from '../icons'
 import type { GameState } from './usePopGame'
 
 /** "score 40 • round 3", the numbers in bold purple serif (the compact line shown while playing). */
@@ -24,7 +25,7 @@ const panel = 'glass pointer-events-auto rounded-2xl !bg-white/95'
  * with their names under them. While playing, along the top left (in line with the mode buttons): the score box, the pattern
  * as bubbles in a row beneath it, and under that whose turn it is.
  */
-export function PopGameBar({ game, palette }: { game: { g: GameState; start: (memory?: boolean) => void }; palette: number[] }) {
+export function PopGameBar({ game, palette, breakText = null }: { game: { g: GameState; start: (memory?: boolean) => void }; palette: number[]; breakText?: string | null }) {
   const { g } = game
   const best = useStore((s) => s.settings.popStats.best)
   const [memory, setMemory] = useState(false)
@@ -92,7 +93,10 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
         ) : (
           <p className="text-xs text-ink-soft">{tooFew ? 'Needs bubbles in at least three colours (groups). Add a few and come back.' : 'Watch the colours light up, then pop them in the same order.'}</p>
         )}
-        {!tooFew && (
+        {breakText ? (
+          <p className="max-w-[17rem] font-display text-base italic leading-snug text-lilac-700">{breakText}</p>
+        ) : (
+          !tooFew && (
           <div className="flex items-center gap-3">
             <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-soft">
               <input type="checkbox" checked={memory} onChange={(e) => setMemory(e.target.checked)} aria-label="Memory mode" />
@@ -102,6 +106,27 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
               Play
             </button>
           </div>
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** At the top of the water, between the mode buttons and the score: the countdown before a break (fun mode), or a note that this game is the last. */
+export function PlayTimer({ seconds, lastGame = false }: { seconds?: number; lastGame?: boolean }) {
+  return (
+    <div data-ui className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+      <div role="timer" aria-live="polite" className={`${panel} flex items-center gap-2 px-3.5 py-1.5 text-sm text-ink-soft`}>
+        <span className="text-lilac-600">
+          <IconStopwatch size={18} />
+        </span>
+        {lastGame ? (
+          <span className="whitespace-nowrap">Last game, then a break</span>
+        ) : (
+          <span className="whitespace-nowrap">
+            <b className="font-display text-xl font-bold tabular-nums text-lilac-600">{seconds}</b> <span className="text-xs">{seconds === 1 ? 'second' : 'seconds'} until a break</span>
+          </span>
         )}
       </div>
     </div>

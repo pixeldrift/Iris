@@ -23,9 +23,9 @@ const labelOf = (el: Field) => (el.getAttribute('data-field-label') || el.getAtt
 const EASE_OUT = (t: number) => 1 - Math.pow(1 - t, 3)
 
 /**
- * What was just typed flies down from the bar to the box it belongs in, with a little hop as it lands, growing or
- * shrinking to the box's width on the way: so you can see where it went. The box is followed as it moves (the keyboard
- * leaving shifts the page), and its own text stays hidden until the flying copy arrives.
+ * What was just typed flies down from the bar to the box it belongs in, growing or shrinking to the box's width on the
+ * way, and gives one small bounce of scale as it lands (no hop): so you can see where it went. The box is followed as it
+ * moves (the keyboard leaving shifts the page), and its own text stays hidden until the flying copy has landed.
  */
 function fly(el: Field, from: DOMRect, text: string) {
   if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -55,27 +55,29 @@ function fly(el: Field, from: DOMRect, text: string) {
   const hide = el.style.color
   el.style.color = 'transparent'
   const t0 = performance.now()
-  const DURATION = 620
-  const FLIGHT = 0.68
+  const DURATION = 520
   const step = (now: number) => {
     const t = Math.min(1, (now - t0) / DURATION)
     // where the box is right now (the page may still be moving)
     const to = el.isConnected ? el.getBoundingClientRect() : first
-    const p = EASE_OUT(Math.min(1, t / FLIGHT))
-    const hop = t > FLIGHT ? -14 * Math.sin((Math.PI * (t - FLIGHT)) / (1 - FLIGHT)) : 0
+    const p = EASE_OUT(t)
     const x = from.left + (to.left - from.left) * p
-    const y = from.top + (to.top - from.top) * p + hop
+    const y = from.top + (to.top - from.top) * p
     ghost.style.transform = `translate(${x}px, ${y}px)`
     ghost.style.width = `${from.width + (to.width - from.width) * p}px`
     ghost.style.height = `${from.height + (to.height - from.height) * p}px`
     // lifted while it travels, set down as it lands
     ghost.style.boxShadow = `0 ${14 * (1 - p)}px ${28 * (1 - p)}px -10px rgb(var(--lr-700) / ${0.45 * (1 - p)})`
-    if (t >= 0.9) el.style.color = hide
-    if (t < 1) requestAnimationFrame(step)
-    else {
+    if (t < 1) return void requestAnimationFrame(step)
+    // landed: one bounce of scale, then the box shows its own text
+    const done = () => {
       el.style.color = hide
       ghost.remove()
     }
+    ghost.style.boxShadow = 'none'
+    const bounce = ghost.animate([{ transform: `${ghost.style.transform} scale(1)` }, { transform: `${ghost.style.transform} scale(1.06)`, offset: 0.4 }, { transform: `${ghost.style.transform} scale(1)` }], { duration: 260, easing: 'ease-out' })
+    bounce.onfinish = done
+    bounce.oncancel = done
   }
   requestAnimationFrame(step)
 }

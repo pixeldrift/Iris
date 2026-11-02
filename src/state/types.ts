@@ -1,6 +1,7 @@
 import type { DeleteChoices } from '../core/folders'
 import { type ContactVerb } from '../core/people'
 import { type Stage } from '../core/progress'
+import type { PlayGate } from '../core/playlimit'
 import type { Folder, Person, PondGroup, Scope, SortKey, Task, TaskStatus, ViewId } from '../core/types'
 
 export interface Settings {
@@ -31,6 +32,10 @@ export interface Settings {
   viewsClearFilters: boolean
   /** Pop mode's running totals (kept on this device). */
   popStats: PopStats
+  /** Keep playing (fun mode and the pop game) to three minutes at a time, with breaks between. Deleting is never limited. */
+  limitPlay: boolean
+  /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
+  playGate: PlayGate
   /** How dates are written (see core/locale). */
   dateFormat: 'us' | 'us-numeric' | 'dmy' | 'iso'
   clockFormat: '12' | '24'
@@ -80,6 +85,7 @@ export interface UiSlice {
   /** Add a filter to the ones on, or take it off (shift/⌘-click, or a long press, in the sidebar). */
   toggleFilter: (part: Scope) => void
   addPopStats: (d: Partial<Omit<PopStats, 'best'>> & { best?: number }) => void
+  setPlayGate: (g: PlayGate) => void
   setView: (v: ViewId) => void
   select: (id: string | null) => void
   setSidebar: (open: boolean) => void
@@ -123,7 +129,10 @@ export interface TasksSlice {
   checkContact: (taskId: string) => void
   resolveContact: (personId: string | null) => void
   /** Single entry point for every drag & drop in the app. */
-  dropTask: (taskId: string, target: string) => boolean
+  /** `hint` is where in a Progress column it was dropped: the column's items in order (without it) and the position. No hint puts it at the top. */
+  dropTask: (taskId: string, target: string, hint?: { index: number; ids: string[] }) => boolean
+  /** Set the by-hand rank of several items at once. */
+  applyRanks: (ranks: Record<string, number>) => void
 }
 
 export interface FoldersSlice {

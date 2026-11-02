@@ -5,6 +5,7 @@ import { currentOccurrence, repeatOf } from '../core/recurrence'
 import { formatTime, isOverdue, plannedDate, weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
+import { useBoardSlot } from './boardSlot'
 import { useDnd, usePointerDrag } from './dnd'
 import { IconCheck, IconCheckHint } from './icons'
 import { checkVars, useTaskHue } from './taskColor'
@@ -143,19 +144,22 @@ export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>,
     touchHold: true,
     onClick: (e) => (onClick ? onClick(e) : select(task.id)),
     onEnd: ({ target }) => {
-      if (target) useStore.getState().dropTask(task.id, target)
+      // dropped in a Progress column: where in it, if the column said (otherwise it goes to the top)
+      const slot = useBoardSlot.getState()
+      useBoardSlot.setState({ target: null, index: 0, ids: [] })
+      if (target) useStore.getState().dropTask(task.id, target, slot.target === target ? { index: slot.index, ids: slot.ids } : undefined)
     },
   })
 }
 
-export function GripHandle({ onPointerDown, label }: { onPointerDown: (e: React.PointerEvent, handle: boolean) => void; label?: string }) {
+export function GripHandle({ onPointerDown, label, compact = false }: { onPointerDown: (e: React.PointerEvent, handle: boolean) => void; label?: string; compact?: boolean }) {
   return (
     <span
       onPointerDown={(e) => {
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className="grid h-8 w-7 shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition [@media(hover:hover)]:group-hover:opacity-100"
+      className={`grid ${compact ? 'h-5 w-5' : 'h-8 w-7'} shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition [@media(hover:hover)]:group-hover:opacity-100`}
       title={label}
       aria-hidden
     >

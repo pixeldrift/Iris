@@ -62,8 +62,8 @@ test.describe('views', () => {
   test('progress: a column folds shut when its header is tapped', async ({ page }) => {
     await open(page)
     await goto(page, 'Progress')
-    await page.locator('header[role=button]').first().click()
-    await expect(page.locator('header[role=button][aria-expanded=false]')).toHaveCount(1)
+    await page.locator('[data-stage] header button[aria-expanded]').first().click()
+    await expect(page.locator('[data-stage] header button[aria-expanded=false]')).toHaveCount(1)
   })
 
   test('priority: dragging a bubble shows its value on both axes and the labels take its colour', async ({ page }) => {

@@ -61,6 +61,8 @@ export interface Task {
   status: TaskStatus
   /** Its column in the Progress view when its group defines custom stages (by stage id); else derived from `status`. */
   stage?: string | null
+  /** Its place in its column of the Progress view when put there by hand (lower is higher up); items without one follow, by weight. */
+  rank?: number | null
   /** 0..1 soft weights. Never shown to the user as numbers. */
   importance: number
   urgency: number

@@ -22,7 +22,7 @@ interface StraysProps {
   getArea?: () => { x0: number; y0: number; x1: number; y1: number; scale: number }
   /** every bubble is one of these (the real ones are put away): they begin where the real ones were, with their sizes and colours */
   seeded?: boolean
-  getSeed?: () => { x: number; y: number; r: number; hue: number }[]
+  getSeed?: () => { x: number; y: number; r: number; hue: number; u?: number }[]
   /** the colours to draw from (the pop game's); none means any colour at all */
   hues?: number[]
   /** the colour currently lit up in the game */
@@ -133,7 +133,7 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
         // the real bubbles' places, sizes and colours (in the game, the nearest of the game's colours), as plain ones
         const pool = live.current.hues
         const near = (hue: number) => (pool && pool.length ? pool.reduce((best, c) => (Math.abs(((c - hue + 540) % 360) - 180) < Math.abs(((best - hue + 540) % 360) - 180) ? c : best), pool[0]) : hue)
-        setList(seed.map((b) => ({ id: next.current++, fade: true, hue: near(b.hue), u: vivid(), x: b.x, y: b.y, r: b.r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 })))
+        setList(seed.map((b) => ({ id: next.current++, fade: true, hue: near(b.hue), u: b.u ?? vivid(), x: b.x, y: b.y, r: b.r, dur: 5 + Math.random() * 4, delay: 0 })))
       } else setList(fill())
       return
     }

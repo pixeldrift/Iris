@@ -12,6 +12,7 @@ export function SegmentedToggle<T extends string>({
   className = '',
   iconsOnly = false,
   fill = false,
+  tones,
 }: {
   options: readonly { id: T; label: string; icon?: React.ReactNode }[]
   value: T | null
@@ -22,6 +23,8 @@ export function SegmentedToggle<T extends string>({
   iconsOnly?: boolean
   /** on a phone, stretch to the full width with the options sharing it evenly */
   fill?: boolean
+  /** a colour for the highlight when a given option is chosen (the rest use the usual purple) */
+  tones?: Partial<Record<T, string>>
 }) {
   const refs = useRef(new Map<string, HTMLButtonElement>())
   const [box, setBox] = useState<{ left: number; width: number } | null>(null)
@@ -56,7 +59,7 @@ export function SegmentedToggle<T extends string>({
       {box && (
         <span
           aria-hidden
-          className="absolute inset-y-0.5 rounded-full bg-lilac-500 shadow shadow-lilac-500/30"
+          className={`absolute inset-y-0.5 rounded-full shadow transition-colors duration-300 ${(value !== null && tones?.[value]) || 'bg-lilac-500 shadow-lilac-500/30'}`}
           style={{ left: box.left, width: box.width, transition: settled.current ? `left 0.34s ${spring}, width 0.34s ${spring}` : 'none' }}
         />
       )}

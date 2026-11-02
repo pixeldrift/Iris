@@ -751,3 +751,49 @@ describe('pop game keeps the pattern playable', () => {
     expect(planRound([0, 1], [3, 3, 3], 2).add).toHaveLength(2)
   })
 })
+
+import { orderInStage, planRank, topRank } from './progress'
+describe('placing an item in a Progress column', () => {
+  const col = (...r: (number | null)[]) => r.map((rank, i) => ({ id: 't' + i, rank }))
+  it('orders by hand first, then the rest as given', () => {
+    expect(orderInStage([{ rank: null }, { rank: 5 }, { rank: 1 }, { rank: null }]).map((t) => t.rank)).toEqual([1, 5, null, null])
+  })
+  it('the top is above everything, and the default', () => {
+    expect(topRank([])).toBe(0)
+    expect(topRank(col(null, null))).toBe(0)
+    expect(topRank(col(10, 20, null))).toBeLessThan(10)
+    expect(planRank(col(10, 20), 0).rank).toBeLessThan(10)
+  })
+  it('lands between its neighbours, or after the last', () => {
+    expect(planRank(col(10, 20), 1).rank).toBe(15)
+    expect(planRank(col(10, 20), 2).rank).toBeGreaterThan(20)
+    expect(planRank(col(10, 20, null), 2).rank).toBeGreaterThan(20)
+  })
+  it('gives the items above the spot ranks when none were placed yet, so they keep their order', () => {
+    const p = planRank(col(null, null, null), 2)
+    expect(p.patches).toEqual({ t0: 0, t1: 1024 })
+    expect(p.rank).toBe(2048)
+  })
+})
+
+import { breakMessage, cooldownMs, EMPTY_GATE, isLocked, lock as lockGate } from './playlimit'
+describe('play limit', () => {
+  it('breaks get longer, to a ceiling, and start over after a quiet spell', () => {
+    expect([0, 1, 2, 3, 4, 5, 9].map((l) => cooldownMs(l) / 60_000)).toEqual([3, 5, 10, 15, 30, 30, 30])
+    let g = EMPTY_GATE
+    const lens: number[] = []
+    for (let i = 0; i < 4; i++) {
+      g = lockGate(g, 1000 + i * 10_000)
+      lens.push((g.lockUntil - (1000 + i * 10_000)) / 60_000)
+    }
+    expect(lens).toEqual([3, 5, 10, 15])
+    expect(isLocked(g, g.lockUntil - 1)).toBe(true)
+    expect(isLocked(g, g.lockUntil)).toBe(false)
+    const later = lockGate(g, g.lastLockAt + 4 * 3_600_000)
+    expect((later.lockUntil - (g.lastLockAt + 4 * 3_600_000)) / 60_000).toBe(3)
+  })
+  it('says something kind about the break', () => {
+    expect(breakMessage(5 * 60_000)).toBe('That was a fun little break! Let’s give it another five minutes until the next one.')
+    expect(breakMessage(20_000)).toContain('one minute ')
+  })
+})

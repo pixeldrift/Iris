@@ -264,6 +264,9 @@ export function SettingsDialog() {
         <Group title="Views &amp; filters">
           <Row k="viewsClearFilters" label="Switching views clears filters" hint="start every view from Everything" />
         </Group>
+        <Group title="Play">
+          <Row k="limitPlay" label="Limit play time" hint="three minutes of bubble play at a time, with breaks between" />
+        </Group>
         <Group title="Help">
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
         </Group>
