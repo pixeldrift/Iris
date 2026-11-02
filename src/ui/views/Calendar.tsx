@@ -11,7 +11,9 @@ import { colorVars, useTaskHue } from '../taskColor'
 import { DoneButton, useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate } from '../../core/tasks'
+import { spanOnDay } from '../../core/schedule'
 import { useIsMobile, useLandscapePhone } from '../useMedia'
+import { DaySchedule } from './DaySchedule'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 
 function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; deadline?: boolean; loggedOn?: string; rich?: boolean }) {
@@ -115,6 +117,7 @@ function Cell({
   roomy = false,
   dots = false,
   rich = false,
+  plan = false,
   dimmed,
   onOpen,
 }: {
@@ -127,6 +130,8 @@ function Cell({
   dots?: boolean
   /** checkbox on the left and the item's type on the right (the week and day views) */
   rich?: boolean
+  /** the day view as a schedule laid out by the clock, not a list */
+  plan?: boolean
   dimmed?: boolean
   /** the month view: tapping the day opens it */
   onOpen?: (date: string, from: DOMRect) => void
@@ -189,6 +194,22 @@ function Cell({
             <Dot key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
           ))}
           {tasks.length > 15 && <span className="text-[0.62rem] leading-2 text-ink-faint">+{tasks.length - 15}</span>}
+        </div>
+      ) : roomy && plan ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-1">
+          {/* items with no time of their own sit above the clock */}
+          {tasks.some((t) => t.deadline || !spanOnDay(t.task)) && (
+            <div className="scroll-soft flex max-h-[26%] shrink-0 flex-col gap-1 overflow-y-auto px-0.5 py-0.5">
+              {tasks
+                .filter((t) => t.deadline || !spanOnDay(t.task))
+                .map((t) => (
+                  <Chip key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} rich />
+                ))}
+            </div>
+          )}
+          <div className="scroll-soft min-h-0 flex-1 overflow-y-auto pb-2 pt-2">
+            <DaySchedule date={date} tasks={tasks} />
+          </div>
         </div>
       ) : roomy ? (
         // the day view: rows like the list view's (room around them, so their rounded corners and lift are never clipped)
@@ -339,6 +360,22 @@ export function CalendarView() {
   const mobile = useIsMobile()
   const [mode, setMode] = useState<Mode>('month')
   const [anchor, setAnchor] = useState(today())
+  // the day as a list of what is on it, or as a schedule by the clock
+  const [plan, setPlan] = useState(() => {
+    try {
+      return localStorage.getItem('lilac-dayplan') === '1'
+    } catch {
+      return false
+    }
+  })
+  const togglePlan = (v: boolean) => {
+    setPlan(v)
+    try {
+      localStorage.setItem('lilac-dayplan', v ? '1' : '0')
+    } catch {
+      /* private mode: just for this visit */
+    }
+  }
   const [weekends, setWeekends] = useState(readWeekends)
   const monthRolling = useStore((s) => s.settings.monthStyle === 'rolling')
   const weekRolling = useStore((s) => s.settings.weekStyle === 'rolling')
@@ -470,6 +507,15 @@ export function CalendarView() {
             </button>
           ))}
         </div>
+        {mode === 'day' && (
+          <div className="glass-soft order-5 flex h-8 items-center rounded-full p-0.5 text-xs" role="group" aria-label="Day layout">
+            {([[false, 'List'], [true, 'Schedule']] as const).map(([v, name]) => (
+              <button key={name} onClick={() => togglePlan(v)} aria-pressed={plan === v} className={`h-full rounded-full px-2.5 transition md:px-3 ${plan === v ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
         {mode !== 'day' && (
           // business days only: weekends are left out while it is on
           <>
@@ -521,6 +567,7 @@ export function CalendarView() {
             tall={mode !== 'month'}
             named={stacked || mode === 'day'}
             roomy={mode === 'day'}
+            plan={mode === 'day' && plan}
             dots={mode === 'month'}
             rich={mode === 'week'}
             onOpen={mode === 'month' ? (date, from) => setPop({ date, from }) : undefined}

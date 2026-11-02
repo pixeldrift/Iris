@@ -6,7 +6,8 @@ import type { Recurrence, Task } from '../core/types'
 import { useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { DatePicker } from './DatePicker'
-import { TimePicker } from './TimePicker'
+import { DurationPicker, TimePicker } from './TimePicker'
+import { durationOf, patchDuration, patchStart } from '../core/schedule'
 import { IconBell, IconClose, IconPlus, IconRepeat } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { askNotify } from './notify'
@@ -20,8 +21,10 @@ export function EventFields({ task }: { task: Task }) {
       <div className="grid grid-cols-2 gap-3">
         <DatePicker label="Date" value={task.day} onChange={(v) => update(task.id, { day: v })} />
         <span />
-        <TimePicker label="Starts" value={task.time} onChange={(v) => update(task.id, { time: v })} />
+        {/* start, end and duration are one fact told three ways: moving the start carries the end along, and end and duration follow each other */}
+        <TimePicker label="Starts" value={task.time} onChange={(v) => update(task.id, patchStart(task, v))} />
         <TimePicker label="Ends" value={task.endTime} onChange={(v) => update(task.id, { endTime: v })} />
+        <DurationPicker label="Duration" value={durationOf(task)} disabled={!task.time} onChange={(m) => update(task.id, patchDuration(task, m))} />
       </div>
       <label className="block text-xs font-medium text-ink-soft">
         Where
