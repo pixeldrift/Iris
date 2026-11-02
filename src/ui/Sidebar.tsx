@@ -16,7 +16,7 @@ import { AccountRow } from './Account'
 import { Tip } from './Tip'
 import { IconAll, IconBoard, IconCalendar, IconChart, IconInbox, IconBook, IconList, IconPlus, IconPond, IconPriority, IconTimeline } from './icons'
 
-import { Gap, rowBase } from './sidebar/parts'
+import { Disclosure, Gap, rowBase } from './sidebar/parts'
 import { ScopeRow, Section, weekMonths } from './sidebar/Section'
 import { PersonRow } from './sidebar/PersonRow'
 import { useFolderSlot } from './sidebar/folderSlot'
@@ -32,6 +32,53 @@ export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof Icon
   { id: 'overview', label: 'Overview', hint: 'Stats', icon: IconChart },
 ]
 
+
+/**
+ * How you look: the views, as a purple card of their own (white on purple), apart from the filters below it. Folded away with
+ * the arrow it becomes a row of icons, the same shortcuts the sideways layout keeps when its menu is tucked in.
+ */
+function ViewSwitcher() {
+  const view = useStore((s) => s.view)
+  const setView = useStore((s) => s.setView)
+  const folded = useStore((s) => s.sidebar.collapsed.includes('views'))
+  const toggle = useStore((s) => s.toggleSection)
+  return (
+    <section data-section-id="views" className="mt-1 rounded-2xl bg-gradient-to-b from-lilac-400 to-lilac-600 p-1.5 text-white shadow-lg shadow-lilac-500/30">
+      <div className="flex items-center gap-1 px-1 pb-1">
+        <button onClick={() => toggle('views')} aria-expanded={!folded} aria-label={`${folded ? 'Expand' : 'Collapse'} Views`} className="grid h-6 w-6 place-items-center rounded-full text-white/80 transition hover:bg-white/20 hover:text-white">
+          <Disclosure open={!folded} size={15} />
+        </button>
+        <h3 className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-white/85">
+          View
+        </h3>
+      </div>
+      {folded ? (
+        <div className="flex justify-between px-0.5 pb-0.5" role="group" aria-label="Views">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              aria-label={v.label}
+              aria-pressed={view === v.id}
+              title={v.label}
+              className={`grid h-8 w-8 place-items-center rounded-full transition ${view === v.id ? 'bg-white text-lilac-600 shadow' : 'text-white hover:bg-white/20'}`}
+            >
+              <v.icon />
+            </button>
+          ))}
+        </div>
+      ) : (
+        VIEWS.map((v) => (
+          <button key={v.id} onClick={() => setView(v.id)} aria-pressed={view === v.id} className={`${rowBase} ${view === v.id ? 'bg-white font-medium text-lilac-700 shadow-md' : 'text-white hover:bg-white/15'}`}>
+            <v.icon />
+            {v.label}
+            <span className={`ml-auto text-xs ${view === v.id ? 'text-lilac-500/80' : 'text-white/70'}`}>{v.hint}</span>
+          </button>
+        ))
+      )}
+    </section>
+  )
+}
 
 export function Sidebar() {
   const view = useStore((s) => s.view)
@@ -96,23 +143,6 @@ export function Sidebar() {
   const order = useStore((st) => st.sidebar.order)
 
   const sections: Record<string, React.ReactNode> = {
-    views: (
-      <Section id="views" title="Views" pinned>
-        {VIEWS.map((v) => (
-          <button
-            key={v.id}
-            onClick={() => setView(v.id)}
-            className={`${rowBase} ${view === v.id ? 'bg-lilac-500/90 text-white shadow-md shadow-lilac-500/30' : 'hover:bg-white/45'}`}
-          >
-            <span className={view === v.id ? 'text-white' : 'text-lilac-500'}>
-              <v.icon />
-            </span>
-            {v.label}
-            <span className={`ml-auto text-xs ${view === v.id ? 'text-white/70' : 'text-ink-faint'}`}>{v.hint}</span>
-          </button>
-        ))}
-      </Section>
-    ),
     people: (
       <Section
         id="people"
@@ -361,9 +391,11 @@ export function Sidebar() {
 
         <ScrollFade className="rounded-b-3xl">
           <nav ref={navRef} className="px-[calc(0.35rem+var(--sb)*0.6rem)] pb-[calc(0.6rem+var(--sb)*1.2rem)]">
-            {sections.views}
-            {/* views are how you look; everything below is what you look at */}
-            <div aria-hidden className="mx-3 mb-[calc(0.2rem+var(--sb)*0.4rem)] mt-[calc(0.3rem+var(--sb)*0.5rem)] h-px bg-gradient-to-r from-transparent via-ink-faint/35 to-transparent" />
+            <ViewSwitcher />
+            {/* views are how you look; everything below is what you look at (the filter) */}
+            <p className="mt-[calc(0.7rem+var(--sb)*0.5rem)] px-2.5 font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink-faint">
+              Filter
+            </p>
             <div className="mt-1">
               <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
             </div>

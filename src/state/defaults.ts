@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   themeHue: 271,
   priorityScale: 1,
   tooltips: true,
+  viewsClearFilters: false,
   dateFormat: 'us',
   clockFormat: '12',
   notch: 'auto',
