@@ -47,7 +47,7 @@ export interface ContactPrompt {
 }
 
 // (the Views list is pinned at the top and is not one of the movable sections)
-export const SECTION_IDS = ['people', 'week', 'folders'] as const
+export const SECTION_IDS = ['folders', 'people', 'week'] as const
 
 export interface UiSlice {
   scope: Scope

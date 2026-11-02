@@ -49,7 +49,7 @@ function ViewSwitcher() {
           <Disclosure open={!folded} size={15} />
         </button>
         <h3 className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-white/85">
-          View<i className="ml-1.5 text-[0.82rem] font-normal normal-case italic tracking-normal text-white/65">(how it looks)</i>
+          View
         </h3>
       </div>
       {folded ? (
@@ -394,7 +394,7 @@ export function Sidebar() {
             <ViewSwitcher />
             {/* views are how you look; everything below is what you look at (the filter) */}
             <p className="mt-[calc(0.7rem+var(--sb)*0.5rem)] px-2.5 font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink-faint">
-              Filter<i className="ml-1.5 text-[0.82rem] font-normal normal-case italic tracking-normal">(what shows, in any view)</i>
+              Filter
             </p>
             <div className="mt-1">
               <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
