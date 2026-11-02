@@ -51,3 +51,28 @@ test('several filters at once show as chips, each can be taken off, and "Everyth
   await sub.getByRole('button', { name: 'Everything' }).click()
   await expect(sub).toHaveText(/^Filter: Everything$/)
 })
+
+test('the filter path: purple links, the current level a purple pill that slides back when you go up', async ({ page }) => {
+  await open(page)
+  await goto(page, 'List')
+  const sub = page.locator('header p').first()
+  await folderRow(page, 'English 101').click()
+  await expect(sub).toContainText('English 101')
+  // "Filter:" is bold serif; the links purple; the current step a filled purple pill
+  expect(await sub.getByText('Filter:').evaluate((e) => getComputedStyle(e).fontWeight)).toBe('700')
+  const link = sub.getByRole('button', { name: 'School' })
+  expect(await link.evaluate((e) => getComputedStyle(e).color)).not.toBe(await sub.evaluate((e) => getComputedStyle(e).color))
+  const pill = sub.locator('span[aria-hidden].bg-lilac-500')
+  await expect(pill).toHaveCount(1)
+  const left = async () => (await pill.boundingBox())!.x
+  const before = await left()
+  await link.click()
+  await page.waitForTimeout(80)
+  const mid = await left()
+  await page.waitForTimeout(700)
+  const after = await left()
+  expect(after).toBeLessThan(before - 20) // it moved back along the path...
+  expect(mid).toBeGreaterThan(after) // ...gliding, not jumping
+  await expect(sub).toContainText(/Everything\s*›\s*School$/)
+  await page.screenshot({ path: 'test-results/crumbs.png', clip: { x: 300, y: 40, width: 500, height: 50 } })
+})

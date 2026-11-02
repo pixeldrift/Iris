@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { dayLabel, weekdayName } from '../core/dates'
 import { formatDate } from '../core/locale'
 import { pathOf } from '../core/folders'
-import type { Folder, PondGroup, Scope } from '../core/types'
+import type { PondGroup, Scope } from '../core/types'
 import { useStore } from '../state/store'
 import { IconCalendar, IconClose, IconDrift, IconFolder, IconList, IconMenu, IconPerson, IconPlus, IconSearch, IconUndo } from './icons'
 import { undo, useHistory } from '../state/history'
@@ -37,28 +37,74 @@ function UndoRedo() {
   )
 }
 
-/** School › English 101: the folders above are links (lighter, italic, underlined) that move up a level. */
-function Crumbs({ path, go }: { path: Folder[]; go: (id: string) => void; small?: boolean }) {
+/**
+ * The filter as a path (Everything › School › English 101): the steps above are purple links, the level you are at is a purple
+ * pill, and when you go up a level the pill slides back along the path to it (the way the highlight in the toggles glides).
+ */
+function FilterPath({ items, vertical = false }: { items: { key: string; label: string; go?: () => void }[]; vertical?: boolean }) {
+  const box = useRef<HTMLSpanElement>(null)
+  const refs = useRef(new Map<string, HTMLElement>())
+  const [pill, setPill] = useState<{ x: number; w: number } | null>(null)
+  const settled = useRef(false)
+  const active = items[items.length - 1].key
+  const sig = items.map((i) => i.key + i.label).join('|')
+  useLayoutEffect(() => {
+    if (vertical) return
+    const measure = () => {
+      const el = refs.current.get(active)
+      const b = box.current
+      if (!el || !b) return
+      const r = el.getBoundingClientRect()
+      const br = b.getBoundingClientRect()
+      setPill((p) => (p && Math.abs(p.x - (r.left - br.left)) < 0.5 && Math.abs(p.w - r.width) < 0.5 ? p : { x: r.left - br.left, w: r.width }))
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' && box.current ? new ResizeObserver(measure) : null
+    if (ro && box.current) ro.observe(box.current)
+    return () => ro?.disconnect()
+  }, [active, sig, vertical])
+  useEffect(() => {
+    // no glide on the very first placement
+    const id = requestAnimationFrame(() => (settled.current = true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+  const pad = vertical ? 'px-0.5 py-1.5' : 'px-2.5 py-0.5'
   return (
-    <>
-      {path.map((f, i) =>
-        i < path.length - 1 ? (
-          <Fragment key={f.id}>
-            <button
-              onClick={() => go(f.id)}
-              className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
-            >
-              {f.name}
-            </button>
-            <span className="mx-1.5 text-ink-faint" aria-hidden>
-              ›
-            </span>
-          </Fragment>
-        ) : (
-          <span key={f.id}>{f.name}</span>
-        ),
+    <span ref={box} className="relative inline-flex items-center align-middle">
+      {!vertical && pill && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 rounded-full bg-lilac-500 shadow shadow-lilac-500/30"
+          style={{ left: pill.x, width: pill.w, transition: settled.current ? 'left 0.34s cubic-bezier(0.34, 1.35, 0.55, 1), width 0.34s cubic-bezier(0.34, 1.35, 0.55, 1)' : 'none' }}
+        />
       )}
-    </>
+      {items.map((it, i) => {
+        const last = i === items.length - 1
+        return (
+          <Fragment key={it.key}>
+            {i > 0 && (
+              <span className="relative text-ink-faint" aria-hidden>
+                ›
+              </span>
+            )}
+            {last ? (
+              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" className={`relative rounded-full font-medium text-white ${pad} ${vertical ? 'bg-lilac-500' : ''}`}>
+                {it.label}
+              </span>
+            ) : (
+              <button
+                ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))}
+                onClick={it.go}
+                title={i === 0 ? 'Clear all filters' : `Back to ${it.label}`}
+                className={`relative rounded-full text-lilac-600 transition hover:text-lilac-700 hover:underline ${pad}`}
+              >
+                {it.label}
+              </button>
+            )}
+          </Fragment>
+        )
+      })}
+    </span>
   )
 }
 
@@ -197,7 +243,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     <button
       onClick={() => setScope({ type: 'all' })}
       title="Clear all filters"
-      className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
+      className="text-lilac-600 transition hover:text-lilac-700 hover:underline"
     >
       Everything
     </button>
@@ -213,9 +259,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       sub
     ) : (
       <>
-        <span className="font-medium text-lilac-600">Filter:</span>{' '}
+        <span className="font-display font-bold text-lilac-700">Filter:</span>{' '}
         {scope.type === 'all' ? (
-          'Everything'
+          <FilterPath vertical={land} items={[{ key: 'all', label: 'Everything' }]} />
         ) : scope.type === 'multi' ? (
           <>
             {first}
@@ -231,9 +277,15 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           </>
         ) : (
           <>
-            {first}
-            {sep}
-            {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
+            <FilterPath
+              vertical={land}
+              items={[
+                { key: 'all', label: 'Everything', go: () => setScope({ type: 'all' }) },
+                ...(scope.type === 'folder'
+                  ? pathOf(folders, scope.id).map((f) => ({ key: f.id, label: f.name, go: () => setScope({ type: 'folder', id: f.id }) }))
+                  : [{ key: 'cur', label: title }]),
+              ]}
+            />
             {sub ? ` · ${sub}` : ''}
           </>
         )}
