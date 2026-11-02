@@ -713,3 +713,23 @@ describe('pop game', () => {
     for (let i = 0; i < 50; i++) expect(randomColour(3, 1)).not.toBe(1)
   })
 })
+
+import { firstColour, planRound } from './popgame'
+describe('pop game keeps the pattern playable', () => {
+  it('only starts with a colour there is a bubble for', () => {
+    expect(firstColour([0, 0, 3])).toBe(2)
+    expect(firstColour([0, 0, 0])).toBeNull()
+  })
+  it('never asks for a colour more often than there are bubbles, and replaces what was popped', () => {
+    for (let i = 0; i < 40; i++) {
+      const counts = [0, 1, 0]
+      const { next, add } = planRound([1], counts, 1)
+      const seq = [1, next]
+      const have = counts.map((n, c) => n + add.filter((x) => x === c).length)
+      seq.forEach((c) => expect(have[c]).toBeGreaterThanOrEqual(seq.filter((x) => x === c).length))
+      expect(add.length).toBeGreaterThanOrEqual(1)
+    }
+    // plenty of bubbles: replaced one for one
+    expect(planRound([0, 1], [3, 3, 3], 2).add).toHaveLength(2)
+  })
+})

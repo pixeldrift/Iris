@@ -406,6 +406,10 @@ input[type='range'].hue::-moz-range-track {
 /* the pop game: the colour being shown lights up */
 .game-lit { transform: scale(1.14) !important; filter: brightness(1.18) saturate(1.7) !important; box-shadow: 0 0 0 5px rgba(255,255,255,0.95), 0 0 34px 12px hsl(var(--h) 90% 68% / 0.85) !important; }
 
+/* fun mode: the whole field popped */
+@keyframes all-cleared { 0% { opacity: 0; transform: scale(0.96); } 22% { opacity: 1; transform: scale(1); } 70% { opacity: 1; } 100% { opacity: 0; } }
+.all-cleared { animation: all-cleared 1.9s ease both; }
+
 /* pop mode's spare bubbles */
 @keyframes stray-in { 0% { transform: scale(0); opacity: 0; } 65% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes stray-out { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }

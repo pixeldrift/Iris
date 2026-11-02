@@ -49,12 +49,45 @@ test.describe('pop modes', () => {
     await expect(page.getByLabel('New item')).toHaveCount(0)
   })
 
+  test('fun mode: clearing every bubble says "All cleared!", then the field fills again', async ({ page }) => {
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    const pads = page.locator('[data-stray] button:not([disabled])')
+    await expect.poll(() => pads.count()).toBeGreaterThan(3)
+    for (let guard = 0; guard < 60 && (await pads.count()) > 0; guard++) {
+      await pads.first().dispatchEvent('pointerdown', { button: 0 })
+      await page.waitForTimeout(40)
+    }
+    await expect(page.getByText('All cleared!')).toBeVisible({ timeout: 4000 })
+    await expect(page.getByText('All cleared!')).toBeHidden({ timeout: 4000 })
+    await expect.poll(() => pads.count(), { timeout: 6000 }).toBeGreaterThan(3)
+  })
+
   test('checking an item off sends a ripple out, and the other bubbles bob', async ({ page }) => {
     const waves = () => page.evaluate(() => document.getAnimations().filter((a) => (a.effect as KeyframeEffect | null)?.getTiming().duration === 2400).length)
     expect(await waves()).toBe(0)
     const c = (await page.locator('[data-node] .pad button[aria-label*="done" i], [data-node] .pad button[aria-label*="Mark"]').first().boundingBox())!
     await page.mouse.click(c.x + c.width / 2, c.y + c.height / 2) // (the bubbles drift, so no waiting for them to hold still)
     await expect.poll(waves).toBeGreaterThan(0)
+  })
+
+  test('the pop game always has a bubble for every colour the pattern asks for, over several rounds', async ({ page }) => {
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await page.getByRole('radio', { name: 'Game' }).click()
+    await page.getByRole('button', { name: 'Play', exact: true }).click()
+    const status = page.getByRole('status')
+    for (let round = 1; round <= 4; round++) {
+      await expect(status).toContainText('Your turn', { timeout: 15000 })
+      await expect(status).toContainText(`round: ${round}`)
+      const hues = await page.locator('[aria-label="The pattern"] [data-hue]').evaluateAll((els) => els.map((e) => e.getAttribute('data-hue')!))
+      expect(hues).toHaveLength(round)
+      for (const h of hues) {
+        const bubble = page.locator(`[data-stray] .pad[data-hue="${h}"]:not([disabled])`)
+        expect(await bubble.count(), `a bubble for colour ${h}`).toBeGreaterThan(0)
+        await bubble.first().dispatchEvent('pointerdown', { button: 0 })
+        await page.waitForTimeout(60)
+      }
+    }
+    await expect(status).not.toContainText('Game over')
   })
 
   test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept', async ({ page }) => {
