@@ -1,9 +1,18 @@
 import { useState } from 'react'
-import { tint } from '../../core/color'
+import { satOf } from '../../core/color'
 import { useStore } from '../../state/store'
 import type { GameState } from './usePopGame'
 
 /** The pop game's panel at the top of the pond: the pattern as coloured dots, the round and the score, start and play again. */
+/** The bubbles' glossy look (a highlight over the colour, a thin outline), but with the colour at full strength. */
+const dotStyle = (hue: number): React.CSSProperties => {
+  const sat = satOf(hue)
+  return {
+    background: `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.85), rgba(255,255,255,0) 55%), radial-gradient(circle at 70% 80%, hsl(${hue}, ${85 * sat}%, 52%), hsl(${hue}, ${80 * sat}%, 66%))`,
+    boxShadow: `0 1px 1px rgba(255,255,255,0.9) inset, 0 0 0 1px hsla(${hue}, ${62 * sat}%, 45%, 0.7), 0 3px 8px -2px hsla(${hue}, ${70 * sat}%, 45%, 0.5)`,
+  }
+}
+
 /** "score: 40 • round: 3 • best: 70", the numbers in bold. */
 function Line({ items }: { items: [string, number][] }) {
   return (
@@ -24,12 +33,13 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
   const [memory, setMemory] = useState(false)
   const tooFew = palette.length < 3
   const dot = (i: number, c: number, state: 'hidden' | 'seen' | 'done' | 'next') => (
+    // the same glossy look as the bubbles, at full intensity so the colour is plain to see
     <span
       key={i}
       aria-hidden
       data-hue={palette[c]}
-      className={`h-4 w-4 rounded-full transition ${state === 'hidden' ? 'bg-ink-faint/25' : ''} ${state === 'next' ? 'ring-2 ring-white scale-125' : ''} ${state === 'done' ? 'opacity-40' : ''}`}
-      style={state === 'hidden' ? undefined : { background: tint(palette[c] ?? 285, 70, 62) }}
+      className={`block h-5 w-5 rounded-full transition ${state === 'hidden' ? 'bg-ink-faint/25' : ''} ${state === 'next' ? 'scale-125 ring-2 ring-white' : ''} ${state === 'done' ? 'opacity-40' : ''}`}
+      style={state === 'hidden' ? undefined : dotStyle(palette[c] ?? 285)}
     />
   )
   return (

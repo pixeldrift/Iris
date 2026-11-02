@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as sound from '../../audio/engine'
-import { POP_POINTS, randomColour, roundPoints, stepMs } from '../../core/popgame'
+import { firstColour, planRound, POP_POINTS, roundPoints, stepMs } from '../../core/popgame'
 import { useStore } from '../../state/store'
 
 export type Phase = 'idle' | 'show' | 'play' | 'over'
@@ -25,13 +25,21 @@ const START: GameState = { phase: 'idle', seq: [], progress: 0, lit: null, round
  * Simon with bubbles. Each round adds one colour to the pattern, lights it up, then waits for you to pop that colour
  * order back (any bubble of the colour will do). Quicker every round; a wrong pop ends the game.
  */
-export function usePopGame(colours: number) {
+/** What the game asks of the field of bubbles: how many there are of each colour, and to add more of given colours. */
+export interface GameField {
+  counts: () => number[]
+  add: (colours: number[]) => void
+}
+
+export function usePopGame(colours: number, field: GameField) {
   const [g, setG] = useState<GameState>(START)
   const ref = useRef(g)
   ref.current = g
   const timers = useRef<number[]>([])
   const playStart = useRef(0)
   const addStats = useStore((s) => s.addPopStats)
+  const fieldRef = useRef(field)
+  fieldRef.current = field
 
   const clear = () => {
     timers.current.forEach(window.clearTimeout)
@@ -61,7 +69,14 @@ export function usePopGame(colours: number) {
       clear()
       if (colours < 2) return
       setG({ ...START, memory, score: 0 })
-      show([randomColour(colours)], 1)
+      // the pattern only ever asks for colours there is a bubble for
+      let first = firstColour(fieldRef.current.counts())
+      if (first === null) {
+        const add = Array.from({ length: 6 }, () => Math.floor(Math.random() * colours))
+        fieldRef.current.add(add)
+        first = add[0]
+      }
+      show([first], 1)
     },
     [colours, show],
   )
@@ -92,7 +107,10 @@ export function usePopGame(colours: number) {
       // the whole pattern, right: bonus, then one more colour and a faster pace
       score += roundPoints(s.round, Date.now() - playStart.current, s.memory)
       set({ progress, score, phase: 'show', lit: null })
-      later(() => show([...s.seq, randomColour(colours, s.seq[s.seq.length - 1])], s.round + 1), 900)
+      // new bubbles replace the ones just popped, and the next colour is one the field can supply
+      const plan = planRound(s.seq, fieldRef.current.counts(), s.seq.length)
+      fieldRef.current.add(plan.add)
+      later(() => show([...s.seq, plan.next], s.round + 1), 900 + plan.add.length * 110)
     },
     [colours, show, addStats],
   )

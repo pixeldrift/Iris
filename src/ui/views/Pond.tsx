@@ -14,7 +14,7 @@ import { Tip } from '../Tip'
 import { useSearchMatcher, useVisibleTasks } from '../useVisible'
 import { WATER } from '../water'
 import { WaterRipples, type WaterHandle } from '../WaterRipples'
-import { Strays } from '../pond/Strays'
+import { Strays, type StrayField } from '../pond/Strays'
 import { PopGameBar } from '../pond/PopGameBar'
 import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
@@ -138,7 +138,13 @@ export function Pond() {
     for (const h of [285, 200, 150, 40, 340, 10]) if (out.length < 4 && !out.includes(h)) out.push(h)
     return out
   }, [palette])
-  const game = usePopGame(gamePalette.length)
+  const field = useRef<StrayField>(null)
+  const game = usePopGame(gamePalette.length, {
+    counts: () => field.current?.counts(gamePalette) ?? gamePalette.map(() => 0),
+    add: (cs) => field.current?.add(cs.map((c) => gamePalette[c])),
+  })
+  // for fun: the whole field popped
+  const [cleared, setCleared] = useState(false)
   const [funReturn, setFunReturn] = useState(false)
   const wasPlayful = useRef(false)
   useEffect(() => {
@@ -694,6 +700,8 @@ export function Pond() {
           visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} />)}
         {w > 0 && (
           <Strays
+            ref={field}
+            onCleared={setCleared}
             active={pop}
             w={w}
             h={h}
@@ -717,6 +725,12 @@ export function Pond() {
       </div>
 
       <WaterRipples ref={water} className="z-[1]" />
+      {cleared && (
+        // a soft word on the water: it fades in, stays a moment and fades out before the bubbles come back
+        <p aria-live="polite" className="all-cleared pointer-events-none absolute inset-0 z-[1] grid place-items-center font-display text-4xl italic text-lilac-700/70">
+          All cleared!
+        </p>
+      )}
 
       {visible.length === 0 && (
         <p className="pointer-events-none absolute inset-0 grid place-items-center px-8 text-center font-display text-xl italic text-ink-faint">Touch the water to float an idea…</p>
