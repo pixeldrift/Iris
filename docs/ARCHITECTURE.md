@@ -7,7 +7,7 @@
 | UI | React 19 + TypeScript + Tailwind v4 | Fast to iterate, and the component tree maps cleanly to SwiftUI views |
 | State | Zustand (+ `localStorage` persist) | One store, plain actions: the shape of a SwiftUI `@Observable` model |
 | Build / PWA | Vite, hand-written `manifest.webmanifest` + `sw.js` | No plugin magic; installable on iOS via Add to Home Screen |
-| Audio | Web Audio synthesis (no samples) | Water drop, chimes and wind are generated: nothing to license or ship |
+| Audio | Web Audio; short recorded samples for interface sounds (`public/sounds`), generated wind and wind chimes for the ambient bed | The interface sounds are deliberately not bell-like so they never blend into the ambient chimes |
 | Hosting | Vercel (static) | `vercel.json` handles SPA fallback |
 | DB + accounts | Neon Postgres (`db/schema.sql`), Neon Auth (managed Better Auth), Vercel functions in `api/` | Local-first app; sign in to sync. See [ACCOUNTS.md](ACCOUNTS.md) |
 

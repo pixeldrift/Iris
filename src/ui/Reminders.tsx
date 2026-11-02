@@ -1,6 +1,6 @@
 import { suppressHistory } from '../state/history'
 import { useEffect, useRef } from 'react'
-import { alertChime } from '../audio/engine'
+import { alertSound } from '../audio/engine'
 import { addDays, toISO } from '../core/dates'
 import { anchorOf, nextOccurrence, repeatOf } from '../core/recurrence'
 import { alertLabel, dueAlerts, dueReminders, eventStartsFor, formatReminder } from '../core/reminders'
@@ -11,7 +11,7 @@ import { showSystem } from './notify'
 
 const note = (minutes: number) => (minutes <= 0 ? 'Starting now' : `Starts in ${alertLabel(minutes).replace(' before', '')}`)
 
-/** Watches the clock: when a reminder comes due it chimes, shows a card, and posts a system notification. */
+/** Watches the clock: when a reminder comes due it sounds an alert, shows a card, and posts a system notification. */
 export function ReminderHost() {
   const tasks = useStore((s) => s.tasks)
   const items = useAlerts((s) => s.items)
@@ -48,7 +48,7 @@ export function ReminderHost() {
       })))
       const cards = [...due.map((t) => ({ id: t.id, note: formatReminder(t.remindAt!, now) })), ...alerts.map((a) => ({ id: a.task.id, note: note(a.minutes) }))]
       useAlerts.setState((s) => ({ items: [...s.items.filter((x) => !cards.some((c) => c.id === x.id)), ...cards] }))
-      alertChime()
+      alertSound()
       for (const c of cards) void showSystem(c.id, st.tasks.find((t) => t.id === c.id)?.title || 'Reminder', c.note)
     }
     check()
