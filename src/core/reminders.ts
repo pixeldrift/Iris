@@ -16,7 +16,16 @@ export function eventStart(t: Pick<Task, 'day' | 'time'>): number | null {
 
 /** Reminders that have come due and not yet been shown. Finished tasks stay quiet. */
 export function dueReminders(tasks: Task[], now: number): Task[] {
-  return tasks.filter((t) => !t.draft && t.remindAt !== null && !t.reminded && t.remindAt <= now && t.status !== 'done')
+  return tasks.filter((t) => remindersDue(t, now).length > 0)
+}
+
+/** Which of an item's two reminders (for the day to do it, and for its deadline) have come due. */
+export function remindersDue(t: Task, now: number): ('do' | 'due')[] {
+  if (t.draft || t.status === 'done') return []
+  const out: ('do' | 'due')[] = []
+  if (t.remindAt !== null && !t.reminded && t.remindAt <= now) out.push('do')
+  if (t.dueRemindAt != null && !t.dueReminded && t.dueRemindAt <= now) out.push('due')
+  return out
 }
 
 export interface ReminderPreset {
@@ -40,8 +49,8 @@ export const remindAnchor = (t: Pick<Task, 'day' | 'due'>): string | null => t.d
  * "A day before" without having to say when: the same time of day if the item has one, otherwise a sensible
  * morning (9 am). Null when there is no date to be before, or that moment has already gone.
  */
-export function remindFromRule(t: Pick<Task, 'day' | 'due' | 'time'>, daysBefore: number, now = Date.now()): number | null {
-  const a = remindAnchor(t)
+export function remindFromRule(t: Pick<Task, 'day' | 'due' | 'time'>, daysBefore: number, now = Date.now(), which: 'do' | 'due' = 'do'): number | null {
+  const a = which === 'due' ? t.due : remindAnchor(t)
   if (!a) return null
   const [h, m] = (t.time ?? '09:00').split(':').map(Number)
   const d = fromISO(addDays(a, -daysBefore))
@@ -50,10 +59,10 @@ export function remindFromRule(t: Pick<Task, 'day' | 'due' | 'time'>, daysBefore
 }
 
 /** One-tap choices that are still in the future. Events also get "before it starts" options. */
-export function reminderPresets(t: Task, now: number): ReminderPreset[] {
+export function reminderPresets(t: Task, now: number, which: 'do' | 'due' = 'do'): ReminderPreset[] {
   const today = toISO(new Date(now))
   const list: ReminderPreset[] = []
-  const start = t.kind === 'event' ? eventStart(t) : null
+  const start = t.kind === 'event' && which === 'do' ? eventStart(t) : null
   if (start) {
     list.push({ id: 'at', label: 'At start', at: start })
     list.push({ id: '10m', label: '10 min before', at: start - 10 * MIN })
@@ -61,9 +70,9 @@ export function reminderPresets(t: Task, now: number): ReminderPreset[] {
     list.push({ id: '1d', label: 'A day before', at: start - 24 * 60 * MIN })
   }
   // relative to the item's own date: no clock times to think about
-  if (!start && remindAnchor(t)) {
+  if (!start && (which === 'due' ? t.due : remindAnchor(t))) {
     for (const [n, label] of [[0, 'Morning of'], [1, 'Day before'], [7, 'Week before']] as const) {
-      const at = remindFromRule(t, n, now)
+      const at = remindFromRule(t, n, now, which)
       if (at) list.push({ id: `before${n}`, label, at, before: n })
     }
   }

@@ -152,25 +152,30 @@ export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>,
   })
 }
 
+/** The dots of a grab handle, pressed into the surface (two columns of three); in a tinted item they take its colour. */
+export function GripDots() {
+  return (
+    <span aria-hidden data-grip-dots className="grid grid-cols-2 gap-[3px]">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className="emboss-dot" />
+      ))}
+    </span>
+  )
+}
+
 export function GripHandle({ onPointerDown, label, compact = false }: { onPointerDown: (e: React.PointerEvent, handle: boolean) => void; label?: string; compact?: boolean }) {
   return (
     <span
+      data-grip
       onPointerDown={(e) => {
         e.stopPropagation()
         onPointerDown(e, true)
       }}
-      className={`grid ${compact ? 'h-5 w-5' : 'h-8 w-7'} shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition [@media(hover:hover)]:group-hover:opacity-100`}
+      className={`grid ${compact ? 'h-5 w-5' : 'h-8 w-7'} shrink-0 cursor-grab touch-none place-items-center [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:transition [@media(hover:hover)]:group-hover:opacity-100`}
       title={label}
       aria-hidden
     >
-      <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
-        {[2, 7, 12].map((y) => (
-          <g key={y}>
-            <circle cx="1.5" cy={y} r="1.1" />
-            <circle cx="6.5" cy={y} r="1.1" />
-          </g>
-        ))}
-      </svg>
+      <GripDots />
     </span>
   )
 }

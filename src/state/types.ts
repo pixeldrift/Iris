@@ -34,6 +34,8 @@ export interface Settings {
   popStats: PopStats
   /** Keep playing (fun mode and the pop game) to three minutes at a time, with breaks between. Deleting is never limited. */
   limitPlay: boolean
+  /** Urgency rises by itself as a deadline nears (the slider keeps your own value). */
+  autoUrgency: boolean
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */
@@ -118,7 +120,8 @@ export interface TasksSlice {
   /** Throw away a task that was only being set up in the quick-add box. */
   discardDraft: (id: string) => void
   /** Set (or clear with null) the alert on a task. */
-  setReminder: (id: string, at: number | null, before?: number | null) => void
+  /** `which`: the reminder for the day to do it (default) or for the deadline. */
+  setReminder: (id: string, at: number | null, before?: number | null, which?: 'do' | 'due') => void
   /** Look at a task's title for "call/email Sarah" and link or ask. */
   checkContact: (taskId: string) => void
   resolveContact: (personId: string | null) => void

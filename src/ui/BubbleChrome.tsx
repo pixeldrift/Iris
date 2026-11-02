@@ -41,7 +41,7 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { t
         </a>
       ),
     })
-  if ((task.remindAt !== null && !task.reminded) || (task.alerts?.length ?? 0) > 0)
+  if ((task.remindAt !== null && !task.reminded) || (task.dueRemindAt != null && !task.dueReminded) || (task.alerts?.length ?? 0) > 0)
     extras.push({ key: 'bell', w: 13, node: <span title="Reminder set" role="img" aria-label="Reminder set" className="text-lilac-500"><IconBell size={13} /></span> })
   if ((!!task.repeat || task.kind === 'habit') && habitStreak(task) > 0)
     extras.push({ key: 'streak', w: 24, node: <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.6rem] tabular-nums text-lilac-600">↻ {habitStreak(task)}</span> })

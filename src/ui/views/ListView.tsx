@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
-import { sortTasks } from '../../core/tasks'
+import { sortTasks, effectiveUrgency } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { MenuItem, Popover } from '../Popover'
@@ -100,7 +100,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
             onPointerDown(e)
             swipe(e)
           }}
-          style={{ touchAction: 'pan-y', ...colorVars(hue, task.urgency) }}
+          style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
           className={`tint lift-on-press group rise-in relative flex cursor-pointer items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
         >
           {(selecting || selected) && (

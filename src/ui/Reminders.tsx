@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { alertSound } from '../audio/engine'
 import { addDays, toISO } from '../core/dates'
 import { anchorOf, nextOccurrence, repeatOf } from '../core/recurrence'
-import { alertLabel, dueAlerts, dueReminders, eventStartsFor, formatReminder } from '../core/reminders'
+import { alertLabel, dueAlerts, dueReminders, eventStartsFor, formatReminder, remindersDue } from '../core/reminders'
 import { useStore } from '../state/store'
 import { IconBell, IconChevron, IconClose } from './icons'
 import { dismissAlert as dismiss, openNotices, useAlerts } from './notices'
@@ -27,15 +27,18 @@ export function ReminderHost() {
       suppressHistory(() => useStore.setState((s) => ({
         tasks: s.tasks.map((t) => {
           let next = t
-          if (due.some((d) => d.id === t.id)) {
+          const which = due.some((d) => d.id === t.id) ? remindersDue(t, now) : []
+          // the deadline's reminder goes off once, on its own
+          if (which.includes('due')) next = { ...next, dueReminded: true }
+          if (which.includes('do')) {
             // a repeating task's alert comes round again: same time of day, next occurrence
             const r = repeatOf(t)
             const nextDay = r && t.remindAt !== null ? nextOccurrence(r, addDays(toISO(new Date(t.remindAt)), 1), anchorOf(t)) : null
             if (nextDay && t.remindAt !== null) {
               const at = new Date(t.remindAt)
               const [y, m, d] = nextDay.split('-').map(Number)
-              next = { ...t, remindAt: new Date(y, m - 1, d, at.getHours(), at.getMinutes()).getTime(), reminded: false }
-            } else next = { ...t, reminded: true }
+              next = { ...next, remindAt: new Date(y, m - 1, d, at.getHours(), at.getMinutes()).getTime(), reminded: false }
+            } else next = { ...next, reminded: true }
           }
           const fired = alerts.filter((a) => a.task.id === t.id).map((a) => a.key)
           if (fired.length) {
@@ -46,7 +49,12 @@ export function ReminderHost() {
           return next
         }),
       })))
-      const cards = [...due.map((t) => ({ id: t.id, note: formatReminder(t.remindAt!, now) })), ...alerts.map((a) => ({ id: a.task.id, note: note(a.minutes) }))]
+      const cards = [
+        ...due.map((t) => {
+          const w = remindersDue(t, now)
+          // (what kind of reminder it is, when it is the deadline's)
+          return { id: t.id, note: w.includes('do') ? formatReminder(t.remindAt!, now) : `Deadline · ${formatReminder(t.dueRemindAt!, now)}` }
+        }), ...alerts.map((a) => ({ id: a.task.id, note: note(a.minutes) }))]
       useAlerts.setState((s) => ({ items: [...s.items.filter((x) => !cards.some((c) => c.id === x.id)), ...cards] }))
       alertSound()
       for (const c of cards) void showSystem(c.id, st.tasks.find((t) => t.id === c.id)?.title || 'Reminder', c.note)

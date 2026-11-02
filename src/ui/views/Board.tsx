@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { orderInStage, patchForStage, stageIndex, stagesOf, topRank, type Stage } from '../../core/progress'
-import { sortTasks } from '../../core/tasks'
+import { sortTasks, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useBoardSlot } from '../boardSlot'
@@ -12,7 +12,7 @@ import { ScrollFade } from '../ScrollFade'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GripHandle, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GripDots, GripHandle, useTaskDrag } from '../shared'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -38,7 +38,7 @@ function Card({ task }: { task: Task }) {
         ref={el}
         data-lift-id={`task:${task.id}`}
         onPointerDown={(e) => onPointerDown(e)}
-        style={colorVars(hue, task.urgency)}
+        style={colorVars(hue, effectiveUrgency(task))}
         className={`tint lift-on-press rise-in group relative cursor-pointer rounded-2xl px-2.5 py-2 shadow-[0_6px_20px_-10px_rgb(var(--lr-700)/0.3)] transition hover:-translate-y-0.5 ${leave}`}
       >
         <div className="flex items-start gap-2 pr-5">
@@ -279,15 +279,8 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom }: { ope
               <button onClick={() => save(stages.filter((_, k) => k !== i))} disabled={stages.length <= 2} aria-label={`Remove ${s.name}`} className="grid h-7 w-7 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-[#b04a6e] disabled:opacity-30">
                 <IconClose size={12} />
               </button>
-              <span onPointerDown={begin(i)} role="button" aria-label={`Move ${s.name}`} title="Drag to reorder" className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center text-ink-faint/70 hover:text-lilac-500">
-                <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden>
-                  {[2, 7, 12].map((y) => (
-                    <g key={y}>
-                      <circle cx="1.5" cy={y} r="1.1" />
-                      <circle cx="6.5" cy={y} r="1.1" />
-                    </g>
-                  ))}
-                </svg>
+              <span data-grip onPointerDown={begin(i)} role="button" aria-label={`Move ${s.name}`} title="Drag to reorder" className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center">
+                <GripDots />
               </span>
             </li>
           )

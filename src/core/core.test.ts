@@ -797,3 +797,47 @@ describe('play limit', () => {
     expect(breakMessage(20_000)).toContain('1 minute ')
   })
 })
+
+import { remindersDue } from './reminders'
+describe('a reminder for the day and another for the deadline', () => {
+  const base = { draft: false, status: 'todo', remindAt: null, reminded: false, dueRemindAt: null, dueReminded: false } as never
+  it('each goes off on its own', () => {
+    const t = { ...(base as object), remindAt: 1000, dueRemindAt: 5000 } as never
+    expect(remindersDue(t, 500)).toEqual([])
+    expect(remindersDue(t, 2000)).toEqual(['do'])
+    expect(remindersDue(t, 6000)).toEqual(['do', 'due'])
+    expect(remindersDue({ ...(t as object), reminded: true } as never, 6000)).toEqual(['due'])
+    expect(remindersDue({ ...(t as object), status: 'done' } as never, 6000)).toEqual([])
+  })
+  it('"a day before" counts from the deadline for the deadline reminder, and from the day to do it for the other', () => {
+    const t = { day: '2099-03-10', due: '2099-03-20', time: null }
+    const a = remindFromRule(t, 1, 0, 'do')!
+    const b = remindFromRule(t, 1, 0, 'due')!
+    expect(new Date(a).getDate()).toBe(9)
+    expect(new Date(b).getDate()).toBe(19)
+  })
+})
+
+import { effectiveUrgency, setAutoUrgency, urgencyRamp } from './tasks'
+describe('auto urgency', () => {
+  it('rises as the deadline nears, never lowers your own value, and can be switched off', () => {
+    const now = '2026-10-26'
+    expect(urgencyRamp(null, now)).toBe(0)
+    expect(urgencyRamp('2026-12-01', now)).toBe(0)
+    expect(urgencyRamp('2026-10-26', now)).toBeCloseTo(0.9, 5)
+    expect(urgencyRamp('2026-10-25', now)).toBe(0.95)
+    // always more as it gets closer
+    let prev = 0
+    for (let d = 14; d >= 0; d--) {
+      const u = urgencyRamp(`2026-10-${26 + d}`.replace(/-(\d+)$/, (_, n) => '-' + String(Math.min(31, Number(n))).padStart(2, '0')), now)
+      expect(u).toBeGreaterThanOrEqual(prev)
+      prev = u
+    }
+    expect(effectiveUrgency({ urgency: 0.2, due: '2026-10-27', status: 'todo' }, now)).toBeGreaterThan(0.7)
+    expect(effectiveUrgency({ urgency: 0.95, due: '2026-10-27', status: 'todo' }, now)).toBe(0.95)
+    expect(effectiveUrgency({ urgency: 0.2, due: '2026-10-27', status: 'done' }, now)).toBe(0.2)
+    setAutoUrgency(false)
+    expect(effectiveUrgency({ urgency: 0.2, due: '2026-10-27', status: 'todo' }, now)).toBe(0.2)
+    setAutoUrgency(true)
+  })
+})

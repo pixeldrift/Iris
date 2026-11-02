@@ -3,7 +3,7 @@ import { formatClock } from '../../core/locale'
 import { repeatOf } from '../../core/recurrence'
 import { columnsFor, DAY_MIN, durationOf, formatDuration, freeGaps, hhmm, spanOnDay } from '../../core/schedule'
 import { today } from '../../core/dates'
-import { formatTime } from '../../core/tasks'
+import { formatTime, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { DoneButton } from '../shared'
@@ -81,7 +81,7 @@ function Block({ task, s, e, col, cols, date, preview, onPreview }: { task: Task
       data-event={task.id}
       onPointerDown={begin('move')}
       onClick={(ev) => ev.stopPropagation()}
-      style={{ top, height: height - 2, left: `calc(${(col / cols) * 100}% + 1px)`, width: `calc(${100 / cols}% - 3px)`, touchAction: 'pan-y', ...colorVars(hue, task.urgency) }}
+      style={{ top, height: height - 2, left: `calc(${(col / cols) * 100}% + 1px)`, width: `calc(${100 / cols}% - 3px)`, touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
       // (a solid white base under the tint, so the hour lines don't show through)
       className={`tint lift-on-press absolute z-10 flex cursor-pointer select-none gap-2 overflow-hidden rounded-xl bg-white px-2 py-1 text-left [-webkit-touch-callout:none] ${done ? 'opacity-60' : ''} ${preview?.id === task.id ? 'z-20 shadow-lg' : ''}`}
       title={`${task.title} · ${range}`}
@@ -100,7 +100,7 @@ function Block({ task, s, e, col, cols, date, preview, onPreview }: { task: Task
         ) : null}
       </span>
       <span onPointerDown={begin('resize')} aria-label="Change length" className="absolute inset-x-0 bottom-0 grid h-3 cursor-ns-resize touch-none place-items-center" role="separator">
-        <span className="h-0.5 w-6 rounded-full bg-ink-faint/40" />
+        <span className="emboss-dot !h-[3px] !w-6" />
       </span>
     </div>
   )

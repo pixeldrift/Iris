@@ -67,6 +67,11 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
               next.remindAt = remindFromRule(next, next.remindBefore)
               next.reminded = false
             }
+            // and the deadline's own reminder follows the deadline
+            if (next.dueRemindBefore != null && 'due' in patch) {
+              next.dueRemindAt = remindFromRule(next, next.dueRemindBefore, Date.now(), 'due')
+              next.dueReminded = false
+            }
             return next
           }),
         })),
@@ -197,7 +202,12 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         }
         sound.plink()
       },
-      setReminder: (id, at, before = null) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, remindAt: at, reminded: false, remindBefore: at === null ? null : before } : t)) })),
+      setReminder: (id, at, before = null, which = 'do') =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id !== id ? t : which === 'due' ? { ...t, dueRemindAt: at, dueReminded: false, dueRemindBefore: at === null ? null : before } : { ...t, remindAt: at, reminded: false, remindBefore: at === null ? null : before },
+          ),
+        })),
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
 
       checkContact: (taskId) => {
