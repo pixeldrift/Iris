@@ -27,6 +27,8 @@ export interface Settings {
   priorityScale: number
   /** Labels that appear when you hover (or tap) an icon. */
   tooltips: boolean
+  /** Switching to another view also clears the filter (back to Everything), instead of keeping it. */
+  viewsClearFilters: boolean
   /** How dates are written (see core/locale). */
   dateFormat: 'us' | 'us-numeric' | 'dmy' | 'iso'
   clockFormat: '12' | '24'

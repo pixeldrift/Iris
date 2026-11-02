@@ -18,11 +18,29 @@ iPhone to install it as an app. Data lives in `localStorage` for now.
 
 ## What's in the prototype
 
-**Views** (left sidebar): Pond (free canvas), List (sortable), Board (kanban),
-Priority (Eisenhower), Calendar (month/week) and Timeline (gantt). Every view
-respects the selected group or day.
+**Views** (the purple card in the left sidebar): Pond (free canvas), List
+(sortable), Board (kanban), Priority (Eisenhower), Calendar (month/week/day) and
+Timeline (gantt). Every view respects the selected filter (a group, person or
+day). Fold the card with its arrow and the views become a row of icons.
 
-**Groups are tags.** Make your own tree (hover a group for + / rename /
+## The mental model (keep this in mind)
+
+**Views and filters are two separate things.** The purple *View* card in the
+sidebar chooses *how* you look (Pond, List, Progress, Priority, Calendar, Timeline,
+Overview). Everything below it, under *Filter*, chooses *what* you look at. Each
+works on its own: any filter shows in any view, and the line under the view's
+name always says which one is on ("Filter: Everything › School › English"; its
+first step, *Everything*, clears every filter). The setting *Switching views
+clears filters* starts each view from Everything instead of keeping the filter.
+
+**Groups are tags, not folders.** A group does not contain anything. It is a
+filter: choosing it shows the tasks carrying that tag, in whichever view you are
+in. The tree only organizes the tags themselves (School › English), so a group
+shows its own tasks and those of the groups under it. The relationship works in
+either direction: add a tag to an item, or drag an item onto a tag. Both do the
+same thing. (In the code these are still called `folders`.)
+
+Make your own tree (hover a group for + / rename /
 delete, double-click to rename, drag a group onto another to nest it). Drag any
 task onto a group to tag it, or onto a day under *This week* to schedule it.
 In a task's panel, type in the tag box: it fuzzy-matches existing groups

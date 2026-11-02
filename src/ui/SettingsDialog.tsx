@@ -261,6 +261,9 @@ export function SettingsDialog() {
             />
           </div>
         </Group>
+        <Group title="Views &amp; filters">
+          <Row k="viewsClearFilters" label="Switching views clears filters" hint="start every view from Everything" />
+        </Group>
         <Group title="Help">
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
         </Group>

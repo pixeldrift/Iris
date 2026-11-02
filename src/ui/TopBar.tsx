@@ -189,7 +189,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     </>
   )
   // the line under the title, as plain text (the title bar's own version has links in it)
-  const railSub = scope.type === 'contacts' ? sub : `${scope.type === 'folder' ? pathOf(folders, scope.id).map((f) => f.name).join(' › ') : title}${sub ? ` · ${sub}` : ''}`
+  const railSub = scope.type === 'contacts' ? sub : `Filter: ${scope.type === 'all' ? 'Everything' : ['Everything', ...(scope.type === 'folder' ? pathOf(folders, scope.id).map((f) => f.name) : [title])].join(' › ')}${sub ? ` · ${sub}` : ''}`
   const heading = scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label
 
   // turned sideways: the title and the buttons run down the right-hand side, and the content takes the full height
@@ -234,7 +234,25 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           sub
         ) : (
           <>
-            {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
+            {/* what is being shown, as a path from Everything: its first step clears every filter */}
+            <span className="font-medium text-lilac-600">Filter:</span>{' '}
+            {scope.type === 'all' ? (
+              'Everything'
+            ) : (
+              <>
+                <button
+                  onClick={() => setScope({ type: 'all' })}
+                  title="Clear all filters"
+                  className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
+                >
+                  Everything
+                </button>
+                <span className="mx-1.5 text-ink-faint" aria-hidden>
+                  ›
+                </span>
+                {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
+              </>
+            )}
             {sub ? ` · ${sub}` : ''}
           </>
         )}

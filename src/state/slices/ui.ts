@@ -16,7 +16,9 @@ export const createUiSlice = (set: SetState, get: GetState): UiSlice => ({
       toast: null,
 
       setScope: (scope) => set({ scope, sidebarOpen: false }),
-      setView: (view) => set({ view, sidebarOpen: false }),
+      // (with the option on, a new view starts from Everything; the address book is a page of its own, not a filter)
+      setView: (view) =>
+        set((st) => ({ view, sidebarOpen: false, ...(st.settings.viewsClearFilters && st.scope.type !== 'contacts' && view !== st.view ? { scope: { type: 'all' as const } } : {}) })),
       select: (selectedId) => set({ selectedId }),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
       setNavHidden: (navHidden) => set({ navHidden }),
