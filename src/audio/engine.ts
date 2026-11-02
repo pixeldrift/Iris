@@ -258,7 +258,7 @@ export function spawn() {
   o.frequency.setValueAtTime(f, c.currentTime)
   o.frequency.exponentialRampToValueAtTime(f * 1.7, c.currentTime + 0.11)
   g.gain.setValueAtTime(0.0001, c.currentTime)
-  g.gain.exponentialRampToValueAtTime(0.05, c.currentTime + 0.025)
+  g.gain.exponentialRampToValueAtTime(0.16, c.currentTime + 0.025)
   g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.2)
   o.connect(g).connect(master)
   g.connect(reverbIn)
