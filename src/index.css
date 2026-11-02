@@ -398,11 +398,14 @@ input[type='range'].hue::-moz-range-track {
   50% { transform: scale(1.18); opacity: 1; }
 }
 .glow-breathe { animation: glow-breathe 2.6s ease-in-out infinite; }
-/* pop mode's spare bubbles: plain, uncoloured, nothing like a real item */
-.stray {
-  background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95), rgba(255,255,255,0.35) 55%, rgba(255,255,255,0.18));
-  box-shadow: inset 0 0 0 1.5px rgba(150,130,190,0.45), inset -3px -4px 8px rgba(120,100,160,0.14), 0 3px 10px rgba(90,70,120,0.16);
-}
+/* pop for fun: the bubbles keep their size and colour, and lose their words and marks */
+.fun-mode [data-node] .pad > * { opacity: 0 !important; transition: opacity 0.8s ease !important; pointer-events: none; }
+@keyframes fun-return { from { opacity: 0; } to { opacity: 1; } }
+.fun-return [data-node] .pad > * { animation: fun-return 0.8s ease both; }
+/* the pop game: the colour being shown lights up */
+.game-lit { transform: scale(1.14) !important; filter: brightness(1.18) saturate(1.7) !important; box-shadow: 0 0 0 5px rgba(255,255,255,0.95), 0 0 34px 12px hsl(var(--h) 90% 68% / 0.85) !important; }
+
+/* pop mode's spare bubbles */
 @keyframes stray-in { 0% { transform: scale(0); opacity: 0; } 65% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes stray-out { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }
 @keyframes stray-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
@@ -460,7 +463,7 @@ body.scrubbing .glow-breathe {
   --safe-r: 0px;
   --sliver: 1.2rem;
   /* the column of title and buttons down the right-hand side of a phone turned sideways */
-  --rail: 3rem;
+  --rail: 3.6rem;
 }
 
 /* an item picked up by press-and-hold: raised off the page with a shadow, so it is plain that it is now being carried, not scrolled */

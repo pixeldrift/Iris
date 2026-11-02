@@ -6,6 +6,7 @@ import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { remindFromRule } from '../../core/reminders'
 import { rolloverDay, urgencyForDue } from '../../core/tasks'
 import type { Task, TaskKind, TaskStatus } from '../../core/types'
+import { firstOf } from '../../core/scope'
 import * as sound from '../../audio/engine'
 import { initial, uid } from '../defaults'
 import type { SetState, GetState, TasksSlice } from '../types'
@@ -16,10 +17,10 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
       addTask: (p) => {
         const { scope, folders } = get()
         const id = uid()
-        const folderIds = p.folderIds ?? (scope.type === 'folder' ? [scope.id] : [])
-        const personIds = p.personIds ?? (scope.type === 'person' ? [scope.id] : [])
+        const folderIds = p.folderIds ?? (firstOf(scope, 'folder') ? [firstOf(scope, 'folder')!.id] : [])
+        const personIds = p.personIds ?? (firstOf(scope, 'person') ? [firstOf(scope, 'person')!.id] : [])
         const due = p.due ?? null
-        const day = p.day ?? (scope.type === 'day' ? scope.date : null)
+        const day = p.day ?? firstOf(scope, 'day')?.date ?? null
         const task: Task = {
           id,
           notes: '',

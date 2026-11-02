@@ -4,6 +4,8 @@ import { useStore } from '../../state/store'
 import { useDnd, useDropTarget, usePointerDrag } from '../dnd'
 import { GripHandle } from '../shared'
 
+import type { Scope } from '../../core/types'
+import { useFilterPress } from './filterPress'
 import { Collapse, Count, Disclosure, Gap, rowBase } from './parts'
 
 export const sectionAt = (x: number, y: number): string | null => {
@@ -102,13 +104,19 @@ export function ScopeRow(props: {
   sub?: string
   /** leave room where a group row has its drag handle, so the count bubbles line up with the groups above */
   handleGap?: boolean
+  /** the filter this row is, so it can be added to the ones already on (shift/⌘-click, long press) */
+  part?: Scope
 }) {
+  const press = useFilterPress(props.part ?? { type: 'all' })
   const { over, active: dragging, props: dropProps } = useDropTarget(props.dropId ?? '')
   const isOver = !!props.dropId && over
   return (
     <button
       {...(props.dropId ? dropProps : {})}
-      onClick={props.onClick}
+      onPointerDown={props.part ? press.down : undefined}
+      onPointerUp={props.part ? press.cancel : undefined}
+      onPointerCancel={props.part ? press.cancel : undefined}
+      onClick={(e) => !(props.part && press.click(e)) && props.onClick()}
       className={`${rowBase} ${
         props.active ? 'bg-white/70 font-medium text-lilac-700' : 'text-ink hover:bg-white/45'
       } ${isOver ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : ''} ${

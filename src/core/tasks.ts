@@ -28,6 +28,12 @@ export function plannedDate(t: Task, now = today()): string | null {
 
 export function matchesScope(task: Task, scope: Scope, folders: Folder[]): boolean {
   switch (scope.type) {
+    case 'multi': {
+      // a group that has since been deleted no longer counts as a filter
+      const parts = scope.parts.filter((p) => p.type !== 'folder' || folders.some((f) => f.id === p.id))
+      const kinds = [...new Set(parts.map((p) => p.type))]
+      return kinds.every((k) => parts.filter((p) => p.type === k).some((p) => matchesScope(task, p, folders)))
+    }
     case 'all':
     case 'contacts':
       return true

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { dayLabel, weekdayName } from '../core/dates'
 import { formatDate } from '../core/locale'
 import { pathOf } from '../core/folders'
-import type { Folder, PondGroup } from '../core/types'
+import type { Folder, PondGroup, Scope } from '../core/types'
 import { useStore } from '../state/store'
 import { IconCalendar, IconClose, IconDrift, IconFolder, IconList, IconMenu, IconPerson, IconPlus, IconSearch, IconUndo } from './icons'
 import { undo, useHistory } from '../state/history'
@@ -91,7 +91,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   }, [])
 
   const title =
-    scope.type === 'all'
+    scope.type === 'multi'
+      ? 'Several filters'
+      : scope.type === 'all'
       ? 'Everything'
       : scope.type === 'inbox'
         ? 'Unsorted'
@@ -188,8 +190,55 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       <UndoRedo />
     </>
   )
-  // the line under the title, as plain text (the title bar's own version has links in it)
-  const railSub = scope.type === 'contacts' ? sub : `Filter: ${scope.type === 'all' ? 'Everything' : ['Everything', ...(scope.type === 'folder' ? pathOf(folders, scope.id).map((f) => f.name) : [title])].join(' › ')}${sub ? ` · ${sub}` : ''}`
+  const nameOf = (p: Scope) =>
+    p.type === 'folder' ? pathOf(folders, p.id).map((f) => f.name).join(' › ') : p.type === 'person' ? (people.find((x) => x.id === p.id)?.name ?? 'Person') : p.type === 'day' ? weekdayName(p.date) : p.type === 'inbox' ? 'Unsorted' : ''
+  const toggleFilter = useStore((s) => s.toggleFilter)
+  const first = (
+    <button
+      onClick={() => setScope({ type: 'all' })}
+      title="Clear all filters"
+      className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
+    >
+      Everything
+    </button>
+  )
+  const sep = (
+    <span className="mx-1.5 text-ink-faint" aria-hidden>
+      ›
+    </span>
+  )
+  // the filter, as a path from Everything: one filter reads as a breadcrumb, several as chips that can each be taken off
+  const filterLine =
+    scope.type === 'contacts' ? (
+      sub
+    ) : (
+      <>
+        <span className="font-medium text-lilac-600">Filter:</span>{' '}
+        {scope.type === 'all' ? (
+          'Everything'
+        ) : scope.type === 'multi' ? (
+          <>
+            {first}
+            {sep}
+            {scope.parts.map((p, i) => (
+              <span key={i} className="mr-1 inline-flex items-center gap-0.5 rounded-full bg-lilac-100/80 py-px pl-2 pr-0.5 text-lilac-700 [writing-mode:inherit]">
+                {nameOf(p)}
+                <button onClick={() => toggleFilter(p)} aria-label={`Remove filter ${nameOf(p)}`} title="Remove" className="grid h-4 w-4 place-items-center rounded-full text-lilac-500 hover:bg-white/80 hover:text-lilac-700">
+                  <IconClose size={9} />
+                </button>
+              </span>
+            ))}
+          </>
+        ) : (
+          <>
+            {first}
+            {sep}
+            {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
+            {sub ? ` · ${sub}` : ''}
+          </>
+        )}
+      </>
+    )
   const heading = scope.type === 'contacts' ? 'Address book' : VIEWS.find((v) => v.id === view)?.label
 
   // turned sideways: the title and the buttons run down the right-hand side, and the content takes the full height
@@ -205,11 +254,13 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" // the bottom button lines up with the zoom buttons in the pond (the content's bottom margin, plus the pond's own 0.75rem)
           style={{ width: 'var(--rail)', paddingTop: '2.75rem', paddingBottom: 'calc(max(0.75rem, env(safe-area-inset-bottom)) + 0.75rem)' }}>
           {/* turned clockwise, like the title on a book's spine; started well down so the curve of the screen's corner never clips it */}
-          <h2 className="pointer-events-auto min-h-0 max-h-[62%] truncate font-display text-xl leading-tight" style={{ writingMode: 'vertical-rl' }}>
-            {heading}
-            {/* one line with the title, so they share a baseline */}
-            {railSub && <span className="font-sans text-[0.7rem] font-normal text-ink-soft" style={{ marginInlineStart: '0.6rem' }}>{railSub}</span>}
-          </h2>
+          {/* two lines, like the title and its filter line above the content when upright, turned the same way: the title, then the filter to its left */}
+          <div className="pointer-events-auto flex min-h-0 max-h-[70%] flex-col" style={{ writingMode: 'vertical-rl' }}>
+            <h2 className="truncate font-display text-xl leading-tight">{heading}</h2>
+            <p className="mt-0.5 min-h-0 truncate font-sans text-[0.7rem] font-normal leading-tight text-ink-soft" style={{ marginInlineEnd: '0.1rem' }}>
+              {filterLine}
+            </p>
+          </div>
           <div className="pointer-events-auto mt-auto flex flex-col items-center gap-2">
             {tools}
             {scope.type !== 'contacts' && newBtn}
@@ -229,34 +280,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       )}
       <h2 className="order-2 min-w-0 flex-1 truncate font-display text-2xl leading-9 md:text-3xl md:leading-9">{heading}</h2>
       {/* its own full-width line under the title row, so a long list of groups has room to wrap */}
-      <p className="order-6 -mt-1 basis-full text-xs leading-snug text-ink-soft">
-        {scope.type === 'contacts' ? (
-          sub
-        ) : (
-          <>
-            {/* what is being shown, as a path from Everything: its first step clears every filter */}
-            <span className="font-medium text-lilac-600">Filter:</span>{' '}
-            {scope.type === 'all' ? (
-              'Everything'
-            ) : (
-              <>
-                <button
-                  onClick={() => setScope({ type: 'all' })}
-                  title="Clear all filters"
-                  className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
-                >
-                  Everything
-                </button>
-                <span className="mx-1.5 text-ink-faint" aria-hidden>
-                  ›
-                </span>
-                {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
-              </>
-            )}
-            {sub ? ` · ${sub}` : ''}
-          </>
-        )}
-      </p>
+      <p className="order-6 -mt-1 basis-full text-xs leading-snug text-ink-soft">{filterLine}</p>
       {searchField('relative order-7 basis-full md:order-3 md:basis-64')}
       <div className="order-4 flex items-center gap-1.5">{tools}</div>
       {/* the address book has its own add button for people, so a second "add" here would only confuse */}

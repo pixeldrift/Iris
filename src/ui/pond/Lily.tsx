@@ -8,6 +8,7 @@ import { TitleFit } from '../TitleFit'
 import { DueChip } from '../shared'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass } from '../useVisible'
+import { bubbleHue } from './hue'
 import type { PondApi } from './types'
 
 // stable pseudo-random motion per task so bubbles don't re-sync on re-render
@@ -17,17 +18,14 @@ export function motion(id: string) {
   return { cls: (['drift-a', 'drift-b', 'drift-c'] as const)[h % 3], dur: 9 + (h % 8), delay: -(h % 13) }
 }
 
-export const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null }) {
+export const Lily = memo(function Lily({ task, r, api, start, match, fun, lit = false, dim = false }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null; fun?: 'gone' | 'back'; lit?: boolean; dim?: boolean }) {
   const update = useStore((s) => s.updateTask)
   const drift = useStore((s) => s.settings.drift)
   const folders = useStore((s) => s.folders)
   const leave = useLeaveClass(task)
   const m = useMemo(() => motion(task.id), [task.id])
   const fresh = useRef(Date.now() - task.createdAt < 1500).current
-  const hue = useMemo(() => {
-    const f = folders.find((x) => x.id === task.folderIds[0])
-    return f ? f.hue : task.kind === 'idea' ? 320 : task.kind === 'list' ? 200 : task.kind === 'event' ? 40 : task.kind === 'habit' ? 150 : 285
-  }, [folders, task.folderIds, task.kind])
+  const hue = useMemo(() => bubbleHue(task, folders), [folders, task])
 
   const outer = useRef<HTMLDivElement>(null)
   const jig = useRef<HTMLDivElement>(null)
@@ -81,19 +79,22 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
       style={{ width: r * 2, height: r * 2, transform: `translate(${start.x - r}px, ${start.y - r}px)` }}
     >
       <div ref={jig} className="h-full w-full">
-        <div className={`h-full w-full ${fresh ? 'bloom-in' : ''} ${leave}`}>
+        <div className={`h-full w-full ${fun === 'gone' ? 'burst pointer-events-none' : fun === 'back' ? 'bloom-in' : fresh ? 'bloom-in' : ''} ${leave}`}>
           <div
             className={`h-full w-full ${drift ? m.cls : ''}`}
             style={{ '--dur': `${m.dur}s`, '--delay': `${m.delay}s` } as React.CSSProperties}
           >
             <div
               role="button"
+              data-hue={hue}
               tabIndex={0}
               onPointerDown={(e) => {
                 // pop mode: no dragging, no opening; the bubble goes the moment it is touched
-                if (api.popMode()) {
+                const mode = api.popMode()
+                if (mode !== 'off') {
                   e.stopPropagation()
-                  useStore.getState().deleteTask(task.id)
+                  if (mode === 'delete') useStore.getState().deleteTask(task.id)
+                  else api.funPop(task.id) // for fun: it pops and floats back
                   return
                 }
                 onPointerDown(e, true)
@@ -101,7 +102,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
-              } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
+              } ${dim ? 'opacity-30 saturate-50' : ''} ${lit ? 'game-lit' : ''} ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
               style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
             >
               <TitleFit text={task.title || 'Untitled'} font={`${font}px`} lineHeight={1.15} done={done} watch={r} />

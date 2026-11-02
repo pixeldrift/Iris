@@ -36,3 +36,18 @@ test.describe('views and filters are two different things', () => {
     await expect(page.locator('header p').first()).toHaveText(/^Filter: Everything$/)
   })
 })
+
+test('several filters at once show as chips, each can be taken off, and "Everything" clears them', async ({ page }) => {
+  await open(page)
+  await goto(page, 'List')
+  const sub = page.locator('header p').first()
+  await folderRow(page, 'English 101').click()
+  await folderRow(page, 'Biology').click({ modifiers: ['Shift'] })
+  await expect(sub.getByRole('button', { name: /Remove filter/ })).toHaveCount(2)
+  await expect(sub).toContainText('Biology')
+  await sub.getByRole('button', { name: /Remove filter .*Biology/ }).click()
+  await expect(sub).toContainText(/Everything\s*›\s*School\s*›\s*English 101/)
+  await folderRow(page, 'Biology').click({ modifiers: ['Shift'] })
+  await sub.getByRole('button', { name: 'Everything' }).click()
+  await expect(sub).toHaveText(/^Filter: Everything$/)
+})

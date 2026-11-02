@@ -119,6 +119,8 @@ export function Overview() {
   )
   const hueOf = (t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? null
   const longestRun = habits[0]?.current ?? 0
+  const pops = useStore((st) => st.settings.popStats)
+  const popTime = pops.ms < 60_000 ? `${Math.round(pops.ms / 1000)} sec` : pops.ms < 3_600_000 ? `${Math.round(pops.ms / 60_000)} min` : `${Math.floor(pops.ms / 3_600_000)} hr ${Math.round((pops.ms % 3_600_000) / 60_000)} min`
   const maxGroup = Math.max(1, ...groups.map((g) => g.count))
   const spanDays = Math.min(sum.days, Math.max(1, range === 'year' ? 365 : sum.days))
 
@@ -161,6 +163,19 @@ export function Overview() {
                   <Streak key={task.id} task={task} hue={hueOf(task)} now={now} />
                 ))}
               </ul>
+            </section>
+          )}
+
+          {(pops.popped > 0 || pops.games > 0) && (
+            // popping for fun and the pop game, over all time (not the window above)
+            <section aria-label="Popping">
+              <h3 className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">Popping</h3>
+              <div className="flex flex-wrap gap-2">
+                <Tile big={String(pops.popped)} small="bubbles popped" hint="for fun, and in the game" />
+                <Tile big={String(pops.points)} small="game points" hint={`${pops.games} ${pops.games === 1 ? 'game' : 'games'}`} />
+                <Tile big={String(pops.best)} small="high score" />
+                <Tile big={popTime} small="spent popping" />
+              </div>
             </section>
           )}
 
