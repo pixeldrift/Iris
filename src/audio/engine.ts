@@ -27,6 +27,7 @@ const SOUNDS = {
   arrive: { url: '/sounds/bubbles-wet.wav', gain: 1.4 }, // an item arriving from another device
   pop: { url: '/sounds/pop-high.wav', gain: 2.2 }, // a bubble deleted
   done: { url: '/sounds/drip-double.wav', gain: 0.5 }, // checking an item off, and nothing else
+  undone: { url: '/sounds/drip-down.wav', gain: 0.5 }, // un-checking it: the same two drips, in the opposite order
   tick: { url: '/sounds/pop-low.wav', gain: 0.9 }, // tagged, moved, dropped into a group
   alert: { url: '/sounds/bubble-trio.wav', gain: 5 }, // a reminder going off
 } as const
@@ -213,6 +214,12 @@ function bell(freq: number, when: number, vol: number, pan: number, decay: numbe
 export function bloom() {
   if (!can('chimes')) return
   play('done', { variation: 0.03 })
+}
+
+/** Un-checked: the two drips of finishing, played the other way round (it falls instead of rises). */
+export function undone() {
+  if (!can('chimes')) return
+  play('undone', { variation: 0.03 })
 }
 
 /** A bubble is deleted. */

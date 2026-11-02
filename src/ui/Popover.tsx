@@ -118,7 +118,8 @@ export function Popover({
     >
       {footer ? (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+          {/* (a little room round the content, so a focused field's ring is not cut off by the scroll area) */}
+          <div className="-mx-1.5 -mt-1 min-h-0 flex-1 overflow-y-auto px-1.5 pt-1">{children}</div>
           <div className="shrink-0">{footer}</div>
         </>
       ) : (

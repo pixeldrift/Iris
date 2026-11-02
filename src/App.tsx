@@ -109,7 +109,7 @@ export default function App() {
     <div key={fmtKey} className="relative flex h-full overflow-hidden" style={{ paddingRight: 'var(--safe-r)' }}>
       <Decor />
       <Sidebar />
-      <main className={`relative z-10 flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ${land ? 'pl-0' : 'pl-[var(--sliver)] md:pl-0'} ${hasDetail ? 'md:pr-[25.5rem]' : ''}`}>
+      <main className={`relative z-10 flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ${land ? 'pl-0' : 'pl-[var(--sliver)] md:pl-0'} ${hasDetail && !land ? 'md:pr-[25.5rem]' : ''}`}>
         <TopBar onNew={() => openCompose()} />
         <div className="relative min-h-0 flex-1 px-3 pb-3 md:px-4 md:pb-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', ...(land ? { paddingTop: '0.75rem', paddingRight: 'calc(var(--rail) + 0.25rem)' } : {}) }}>
           <View />

@@ -94,6 +94,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           const day = currentOccurrence(t, today()) ?? today()
           const had = t.log.includes(day)
           if (!had) sound.bloom()
+          else sound.undone()
           set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, log: had ? x.log.filter((d) => d !== day) : [...x.log, day].sort() } : x)) }))
           return
         }
@@ -118,6 +119,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         const stages = given ?? stagesForTask(t, get().folders)
         const to = patchForStage(stages, i)
         if (stageIndex(t, stages) === Math.max(0, Math.min(stages.length - 1, i)) && t.status === to.status && t.stage === to.stage) return
+        if (t.status === 'done' && to.status !== 'done') sound.undone()
         if (to.status === 'done' && t.status !== 'done') {
           sound.bloom()
           // keep it on screen long enough to bloom, then it fades out
