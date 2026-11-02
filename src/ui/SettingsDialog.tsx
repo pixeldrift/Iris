@@ -143,9 +143,6 @@ export function SettingsDialog() {
   const space = useStore((s) => s.settings.sidebarSpace)
   const hue = useStore((s) => s.settings.themeHue)
   const dateFormat = useStore((s) => s.settings.dateFormat)
-  const notch = useStore((s) => s.settings.notch)
-  const monthStyle = useStore((s) => s.settings.monthStyle)
-  const weekStyle = useStore((s) => s.settings.weekStyle)
   const clockFormat = useStore((s) => s.settings.clockFormat)
   const sound = useStore((s) => s.settings.sound)
   const volume = useStore((s) => s.settings.volume)
@@ -214,51 +211,6 @@ export function SettingsDialog() {
               <span>Compact</span>
               <span>Relaxed</span>
             </div>
-          </div>
-        </Group>
-        <Group title="Calendar">
-          <div className="space-y-2 px-2 py-1.5">
-            <div>
-              <div className="mb-1 text-sm">Month view</div>
-              <SegmentedToggle
-                label="Month view"
-                value={monthStyle}
-                options={[
-                  { id: 'month', label: 'Calendar month' },
-                  { id: 'rolling', label: 'Next 30 days' },
-                ]}
-                onChange={(v) => setSetting('monthStyle', v)}
-              />
-            </div>
-            <div>
-              <div className="mb-1 text-sm">Week view</div>
-              <SegmentedToggle
-                label="Week view"
-                value={weekStyle}
-                options={[
-                  { id: 'week', label: 'Calendar week' },
-                  { id: 'rolling', label: 'Next 7 days' },
-                ]}
-                onChange={(v) => setSetting('weekStyle', v)}
-              />
-            </div>
-          </div>
-        </Group>
-        <Group title="Phone">
-          <div className="space-y-1 px-2 py-1.5">
-            <div className="text-sm">
-              Notch <span className="ml-1 text-[0.7rem] text-ink-faint">which side, when turned sideways</span>
-            </div>
-            <SegmentedToggle
-              label="Notch side"
-              value={notch}
-              options={[
-                { id: 'auto', label: 'Automatic' },
-                { id: 'left', label: 'Left' },
-                { id: 'right', label: 'Right' },
-              ]}
-              onChange={(v) => setSetting('notch', v)}
-            />
           </div>
         </Group>
         <Group title="Views &amp; filters">

@@ -749,7 +749,7 @@ export function Pond() {
               return { x0: (i.l - v.tx) / v.scale, x1: (W - i.r - v.tx) / v.scale, y0: (i.t - v.ty) / v.scale, y1: (H - i.b - v.ty) / v.scale, scale: v.scale }
             }}
             onCleared={setCleared}
-            active={pop && !(limit.locked && popMode !== 'delete')}
+            active={pop && popMode !== 'delete' && !limit.locked}
             w={w}
             h={h}
             // for fun and in the game every bubble is a plain one (the real ones are put away), starting where the real ones were

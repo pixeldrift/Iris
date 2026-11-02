@@ -88,16 +88,17 @@ export function freeGaps(spans: { s: number; e: number }[], min = 30): { s: numb
 
 /** The free room around an event: from the end of the one before it (or `dayFrom`) to the start of the one after (or `dayTo`). */
 export function gapAround(others: { s: number; e: number }[], s: number, e: number, dayFrom = 8 * 60, dayTo = 18 * 60): { from: number; to: number } {
-  let from = Math.min(dayFrom, s)
-  let to = Math.max(dayTo, e)
+  // a neighbouring event is the limit on its side, wherever it is; the edges of the day are only for when there is none
+  let prevEnd: number | null = null
+  let nextStart: number | null = null
   for (const o of others) {
-    if (o.e <= s) from = Math.max(from, o.e)
-    else if (o.s >= e) to = Math.min(to, o.s)
+    if (o.e <= s) prevEnd = Math.max(prevEnd ?? -Infinity, o.e)
+    else if (o.s >= e) nextStart = Math.min(nextStart ?? Infinity, o.s)
     else {
       // overlapping: it bounds nothing on the side it sits in, but can't be passed either
-      if (o.s < s) from = Math.max(from, Math.min(o.e, s))
-      if (o.e > e) to = Math.min(to, Math.max(o.s, e))
+      if (o.s < s) prevEnd = Math.max(prevEnd ?? -Infinity, Math.min(o.e, s))
+      if (o.e > e) nextStart = Math.min(nextStart ?? Infinity, Math.max(o.s, e))
     }
   }
-  return { from, to }
+  return { from: prevEnd ?? Math.min(dayFrom, s), to: nextStart ?? Math.max(dayTo, e) }
 }

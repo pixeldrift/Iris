@@ -99,7 +99,7 @@ export function PopGameBar({ game, palette, breakText = null }: { game: { g: Gam
           !tooFew && (
           <div className="flex items-center gap-3">
             <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-soft">
-              <input type="checkbox" checked={memory} onChange={(e) => setMemory(e.target.checked)} aria-label="Memory mode" />
+              <input type="checkbox" checked={memory} onChange={(e) => setMemory(e.target.checked)} aria-label="Memory mode" style={{ accentColor: 'var(--color-lilac-500)' }} />
               Memory mode <span className="text-ink-faint">(2x points)</span>
             </label>
             <button onClick={() => game.start(memory)} className="whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
