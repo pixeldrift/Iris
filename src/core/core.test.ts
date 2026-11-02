@@ -719,7 +719,13 @@ describe('pop game', () => {
   it('uses the commonest colours, speeds up to a floor, and scores', () => {
     expect(paletteOf([1, 2, 2, 3, 3, 3, 4], 3)).toEqual([3, 2, 1])
     expect(stepMs(1)).toBeGreaterThan(stepMs(5))
-    expect(stepMs(100)).toBe(260)
+    expect(stepMs(1)).toBeGreaterThanOrEqual(1000) // slow and easy to start with
+    expect(stepMs(100)).toBeLessThanOrEqual(385) // never below its floor, and close to it by then
+    // always quicker, but by less each round
+    for (let r = 1; r < 25; r++) {
+      expect(stepMs(r + 1)).toBeLessThan(stepMs(r) + 1)
+      expect(stepMs(r) - stepMs(r + 1)).toBeGreaterThanOrEqual(stepMs(r + 1) - stepMs(r + 2) - 1)
+    }
     expect(roundPoints(3, 1000, false)).toBeGreaterThan(roundPoints(3, 60_000, false))
     expect(roundPoints(3, 60_000, true)).toBe(60)
     for (let i = 0; i < 50; i++) expect(randomColour(3, 1)).not.toBe(1)

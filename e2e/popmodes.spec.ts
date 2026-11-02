@@ -71,6 +71,7 @@ test.describe('pop modes', () => {
   })
 
   test('the pop game always has a bubble for every colour the pattern asks for, over several rounds', async ({ page }) => {
+    test.setTimeout(90_000) // (the early rounds are slow on purpose)
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
     await page.getByRole('button', { name: 'Play', exact: true }).click()
@@ -91,6 +92,7 @@ test.describe('pop modes', () => {
   })
 
   test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept', async ({ page }) => {
+    test.setTimeout(60_000)
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
     await page.getByRole('button', { name: 'Play', exact: true }).click()
