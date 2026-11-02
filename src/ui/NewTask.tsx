@@ -153,29 +153,47 @@ export function NewTask() {
     setMore(true)
   }
 
-  const finish = (id: string) => {
+  const deleteTask = useStore((s) => s.deleteTask)
+  const showToast = useStore((s) => s.showToast)
+  const finish = (id: string, quiet = false) => {
     closeCompose()
-    // the pond ripples from the new bubble; elsewhere the new item opens for details
+    // the pond ripples from the new bubble; elsewhere the new item opens for details (unless it was placed by closing the box)
     if (view === 'pond') window.dispatchEvent(new CustomEvent('lilac:added', { detail: { id } }))
-    else select(id)
+    else if (!quiet) select(id)
+  }
+
+  /** Put the item in place. `quiet` is for closing the box without pressing Add: nothing opens, and a toast offers Undo. */
+  const place = (quiet = false) => {
+    if (!title.trim()) return closeCompose()
+    drop(0)
+    const name = title.trim()
+    const done = (id: string) => {
+      finish(id, quiet)
+      if (quiet) showToast(`Added “${(parsed?.title || name).slice(0, 40)}”`, { label: 'Undo', run: () => deleteTask(id) })
+    }
+    if (draftId && draft) {
+      update(draftId, { title: name, draft: false })
+      if (draft.remindAt) void askNotify()
+      const id = draftId
+      setDraftId(null) // placed: closing must not throw it away
+      return done(id)
+    }
+    const q = parsed
+    const id = add({ title: q?.title || name, kind: shownKind, ...spot.current, ...fieldsFrom(q) })
+    if (q?.remindAt) void askNotify()
+    done(id)
   }
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return closeCompose()
-    drop(0)
-    if (draftId && draft) {
-      update(draftId, { title: title.trim(), draft: false })
-      if (draft.remindAt) void askNotify()
-      const id = draftId
-      setDraftId(null) // placed: closing must not throw it away
-      return finish(id)
-    }
-    const q = parsed
-    const id = add({ title: q?.title || title.trim(), kind: shownKind, ...spot.current, ...fieldsFrom(q) })
-    if (q?.remindAt) void askNotify()
-    finish(id)
+    place()
   }
+
+  /**
+   * Clicking away by accident: whatever has a name is kept (a bubble is easy to delete; re-entering everything is not), and one
+   * with no name simply closes. Escape, the × and Cancel are deliberate, and throw the item away.
+   */
+  const dismiss = () => place(true)
 
   const changeKind = (k: TaskKind) => {
     setKind(k)
@@ -189,7 +207,7 @@ export function NewTask() {
       className={`fixed inset-0 z-[80] flex items-start justify-center bg-ink/10 backdrop-blur-[3px] transition-[opacity,padding] duration-200 ${closing ? 'opacity-0' : 'opacity-100'}`}
       // a phone turned sideways has little height and the keyboard takes most of it: the box starts near the top there
       style={{ paddingTop: more || land ? '0.5rem' : '18vh', paddingBottom: 'calc(var(--kb, 0px) + 0.75rem)', paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}
-      onClick={closeCompose}
+      onClick={dismiss}
     >
       <div
         onClick={(e) => e.stopPropagation()}

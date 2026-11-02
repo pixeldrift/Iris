@@ -49,6 +49,12 @@
   Still to do: more phrasings, other languages, and the same parser for the title field in the detail panel.
 - **Native iPhone app (SwiftUI).** Port `src/core` first (types, fuzzy match, folder tree, flocking sim,
   grouping), then the views. `ContactsUI`'s contact picker replaces the web .vcf import.
+  Things the web version works around that the native app can simply do properly:
+  - **The form-field strip above the iPhone keyboard** (the up and down arrows and ✓ iOS adds above the keyboard) cannot
+    be hidden from a web page, and it costs a lot of height on a phone turned sideways. In a native text field it is one
+    line (`inputAccessoryView = nil`). The web app's sideways "typing bar" (`src/ui/LandscapeInput.tsx`) exists only to
+    get around this and the keyboard covering the box; the native app should not need it.
+  - Haptics for pops and checking off, background reminders (APNs), and the system share sheet.
 
 ## Images and files
 - **Attach images to an item**, and later other file types (PDFs, documents). They show on the item's details panel

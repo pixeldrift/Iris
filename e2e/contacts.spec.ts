@@ -86,7 +86,7 @@ test.describe('the address book', () => {
 
   test('tapping a day in the month view opens it, with list-style items and arrows to the next day', async ({ page }) => {
     await page.locator('button', { hasText: /^Calendar/ }).first().click()
-    await page.locator('[data-drop^="day:"]').nth(8).click()
+    await page.getByRole('img', { name: /items? on / }).first().locator('..').click() // the first day with something on it
     const day = page.getByRole('dialog')
     await expect(day.getByRole('heading')).toContainText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/)
     const before = await day.getByRole('heading').innerText()
@@ -129,10 +129,10 @@ test.describe('the address book', () => {
 
   test('closing an item opened from a day popup brings the day back, and today, tomorrow and yesterday are named', async ({ page }) => {
     await page.locator('button', { hasText: /^Calendar/ }).first().click()
-    await page.locator('[data-drop^="day:"]').nth(8).click()
+    await page.getByRole('img', { name: /items? on / }).first().locator('..').click() // the first day with something on it
     const day = page.getByRole('dialog')
     await day.getByRole('button', { name: /Mark done|Done this one/ }).first().waitFor()
-    await day.getByText('Lab report: osmosis').first().click().catch(() => day.locator('.tint').first().click())
+    await day.locator('.tint').first().click()
     await expect(page.getByRole('dialog', { name: /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/ })).toHaveCount(0)
     await page.getByRole('button', { name: 'Close' }).first().click()
     await expect(page.getByRole('dialog', { name: /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/ })).toBeVisible()

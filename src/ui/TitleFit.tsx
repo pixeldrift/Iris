@@ -5,7 +5,7 @@ const STEP = 0.04
 
 /**
  * A bubble's title that never gets a hard cut. The type shrinks a little (down to about 70%) until the whole title fits
- * the bubble's room, and if it still can't, the last line fades out instead of being sliced off. The shrink is a
+ * the bubble's room, and if it still can't, whole lines are kept and the last one ends in an ellipsis. The shrink is a
  * ratio (`--fit`), so it holds while the bubble is resized by dragging; `watch` re-measures when the bubble's size changes.
  */
 export function TitleFit({ text, font, lineHeight, className = '', done = false, watch = 0 }: { text: string; font: string; lineHeight: number; className?: string; done?: boolean; watch?: number }) {
@@ -18,8 +18,7 @@ export function TitleFit({ text, font, lineHeight, className = '', done = false,
     let room = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
     // whatever else sits in the flow under the title (the due chip) takes its share
     for (const c of Array.from(box.children)) if (c !== el && getComputedStyle(c).position !== 'absolute') room -= (c as HTMLElement).offsetHeight + 4
-    el.style.maxHeight = ''
-    el.style.maskImage = el.style.webkitMaskImage = ''
+    for (const k of ['maxHeight', 'display', 'overflow', 'webkitLineClamp', 'webkitBoxOrient'] as const) el.style[k as 'maxHeight'] = ''
     let fit = 1
     el.style.setProperty('--fit', '1')
     while (el.scrollHeight > room + 1 && fit > FLOOR) {
@@ -27,13 +26,13 @@ export function TitleFit({ text, font, lineHeight, className = '', done = false,
       el.style.setProperty('--fit', String(fit))
     }
     if (el.scrollHeight > room + 1) {
-      // still too long: keep whole lines and let the last one dissolve
+      // still too long: keep as many whole lines as fit, ending in an ellipsis
       const line = parseFloat(getComputedStyle(el).fontSize) * lineHeight
       const lines = Math.max(1, Math.floor(room / line))
-      el.style.maxHeight = `${lines * line}px`
+      el.style.display = '-webkit-box'
       el.style.overflow = 'hidden'
-      const fade = 'linear-gradient(to bottom, #000 calc(100% - 0.9em), transparent)'
-      el.style.maskImage = el.style.webkitMaskImage = fade
+      el.style.setProperty('-webkit-line-clamp', String(lines))
+      el.style.setProperty('-webkit-box-orient', 'vertical')
     }
   }, [text, font, lineHeight, watch])
   return (

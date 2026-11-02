@@ -171,10 +171,10 @@ export function TaskDetail() {
     <>
       <div className={`fixed inset-0 z-[60] bg-ink/10 transition-opacity md:hidden ${closing ? 'opacity-0' : 'opacity-100'}`} onClick={() => select(null)} />
       <section
-        className={`glass glass-strong fixed inset-x-0 bottom-[var(--kb,0px)] z-[70] flex max-h-[min(88dvh,calc(100dvh-var(--kb,0px)-0.75rem))] flex-col transition-[bottom,max-height] duration-200 ease-out rounded-t-3xl md:inset-x-auto md:bottom-3 md:right-[max(0.75rem,var(--safe-r))] md:top-3 md:max-h-none md:w-[24rem] md:rounded-3xl ${
+        className={`glass glass-strong fixed inset-x-0 bottom-[var(--kb,0px)] pl-[var(--safe-l)] pr-[var(--safe-r)] md:px-0 z-[70] flex max-h-[min(88dvh,calc(100dvh-var(--kb,0px)-0.75rem))] flex-col transition-[bottom,max-height] duration-200 ease-out rounded-t-3xl md:inset-x-auto md:bottom-3 md:right-[max(0.75rem,var(--safe-r))] md:top-3 md:max-h-none md:w-[24rem] md:rounded-3xl ${
           closing ? 'slide-out-right' : 'slide-in-right'
         }`}
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         aria-label="Task details"
       >
         <header className="flex items-start gap-3 px-5 pb-2 pt-5">

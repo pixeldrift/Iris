@@ -37,6 +37,7 @@ export function Popover({
     const down = (e: PointerEvent) => {
       const t = e.target as Node
       if (box.current?.contains(t) || anchor.current?.contains(t)) return
+      if ((t as Element).closest?.('[data-input-proxy]')) return // the typing bar for a sideways phone belongs to whatever is open
       onClose()
     }
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -118,7 +119,8 @@ export function Popover({
     >
       {footer ? (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+          {/* (a little room round the content, so a focused field's ring is not cut off by the scroll area) */}
+          <div className="-mx-1.5 -mt-1 min-h-0 flex-1 overflow-y-auto px-1.5 pt-1">{children}</div>
           <div className="shrink-0">{footer}</div>
         </>
       ) : (

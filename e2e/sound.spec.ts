@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { open } from './helpers'
 
 // Each recording's length (seconds), to tell which one played.
-const LEN = { drop: 0.281, drip: 0.261, trio: 0.54 }
+const LEN = { drop: 0.281, drip: 0.261, down: 0.246, trio: 0.54 }
 
 test.describe('interface sounds', () => {
   test.beforeEach(async ({ page }) => {
@@ -34,10 +34,14 @@ test.describe('interface sounds', () => {
     await expect.poll(async () => (await played(page)).some((d) => near(d, LEN.drip))).toBe(true)
     // adding it played no drip: the double drip belongs to checking off alone
     expect((await played(page)).filter((d) => near(d, LEN.drip))).toHaveLength(1)
+    // un-checking plays the same two drips the other way round (a habit's tick: its row does not fade away like a finished task's)
+    await page.getByRole('button', { name: 'Done this one' }).first().click()
+    await page.getByRole('button', { name: 'Undo this one' }).first().click()
+    await expect.poll(async () => (await played(page)).some((d) => near(d, LEN.down))).toBe(true)
   })
 
   test('the recordings are served', async ({ page }) => {
-    for (const f of ['drop-wet', 'bubbles-wet', 'bubble-trio', 'drip-double', 'pop-high', 'pop-low']) {
+    for (const f of ['drop-wet', 'bubbles-wet', 'bubble-trio', 'drip-double', 'drip-down', 'pop-high', 'pop-low']) {
       const r = await page.request.get(`/sounds/${f}.wav`)
       expect(r.ok()).toBe(true)
       expect((await r.body()).byteLength).toBeGreaterThan(10_000)
