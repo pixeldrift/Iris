@@ -8,7 +8,7 @@ import { useLandscapePhone } from './useMedia'
  * top of the screen, with the box's name in front of it, which is always above the keyboard. Confirming (✓, or Return
  * on a one-line box) writes what was typed into the real box; × throws it away.
  *
- * It only steps in for boxes low enough to be covered (higher ones are left alone), and not for any marked `data-no-proxy`.
+ * It only steps in for boxes low enough to be covered (higher ones, in the top 30% of the screen, are left alone), and not for any marked `data-no-proxy`.
  * A box marked `data-proxy-enter` also gets a Return pressed in it after the text arrives (the tag box adds its tag that way).
  */
 type Field = HTMLInputElement | HTMLTextAreaElement
@@ -65,8 +65,8 @@ export function LandscapeInput() {
       if (el.closest('[data-input-proxy]') || el.closest('[data-no-proxy]') || el.readOnly || el.disabled) return
       if (performance.now() - lastTap.current > 700) return
       if (el instanceof HTMLInputElement && !TEXTY.has(el.type)) return
-      // high enough on the screen to stay above the keyboard: leave it be
-      if (el.getBoundingClientRect().bottom < window.innerHeight * 0.45) return
+      // high enough to stay above the keyboard (and the strip iOS adds above it: together they cover the lower two thirds): leave it be
+      if (el.getBoundingClientRect().bottom < window.innerHeight * 0.3) return
       const multi = el instanceof HTMLTextAreaElement
       const proxy = multi ? area.current : line.current
       if (!proxy) return
