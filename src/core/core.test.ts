@@ -664,3 +664,12 @@ describe('day schedule maths', () => {
     expect(freeGaps(spans)).toEqual([{ s: 630, e: 720 }])
   })
 })
+
+import { gapAround } from './schedule'
+describe('fit to the gap', () => {
+  it('reaches the neighbours, or the day edges when there are none', () => {
+    expect(gapAround([{ s: 540, e: 600 }, { s: 780, e: 840 }], 660, 720)).toEqual({ from: 600, to: 780 })
+    expect(gapAround([], 660, 720)).toEqual({ from: 480, to: 1080 })
+    expect(gapAround([], 420, 1200)).toEqual({ from: 420, to: 1200 })
+  })
+})

@@ -7,7 +7,7 @@ import { useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { DatePicker } from './DatePicker'
 import { DurationPicker, TimePicker } from './TimePicker'
-import { durationOf, patchDuration, patchStart } from '../core/schedule'
+import { durationOf, gapAround, hhmm, patchDuration, patchStart, spanOnDay } from '../core/schedule'
 import { IconBell, IconClose, IconPlus, IconRepeat } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { askNotify } from './notify'
@@ -16,6 +16,18 @@ import { ALERT_CHOICES, alertLabel, nextAlertChoice } from '../core/reminders'
 /** An event: the day, a start and end time, and where. */
 export function EventFields({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
+  const tasks = useStore((s) => s.tasks)
+  // the free room around this event on its day: out to the events either side of it
+  const mine = spanOnDay(task)
+  const gap = mine
+    ? gapAround(
+        tasks.filter((t) => t.id !== task.id && t.day === task.day && !t.repeat && t.status !== 'done').flatMap((t) => spanOnDay(t) ?? []),
+        mine.s,
+        mine.e,
+      )
+    : null
+  const canFitStart = !!gap && gap.from < mine!.s
+  const canFitEnd = !!gap && gap.to > mine!.e
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -25,6 +37,27 @@ export function EventFields({ task }: { task: Task }) {
         <TimePicker label="Starts" value={task.time} onChange={(v) => update(task.id, patchStart(task, v))} />
         <TimePicker label="Ends" value={task.endTime} onChange={(v) => update(task.id, { endTime: v })} />
         <DurationPicker label="Duration" value={durationOf(task)} disabled={!task.time} onChange={(m) => update(task.id, patchDuration(task, m))} />
+        {task.time && (
+          // stretch to the free time either side: out to the neighbouring events (or 8 am and 6 pm when nothing is nearer)
+          <div className="col-span-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={!canFitStart}
+              onClick={() => update(task.id, { time: hhmm(gap!.from), endTime: task.endTime ?? hhmm(mine!.e) })}
+              className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition enabled:hover:bg-lilac-100/80 disabled:opacity-40"
+            >
+              ⇤ Start as early as fits
+            </button>
+            <button
+              type="button"
+              disabled={!canFitEnd}
+              onClick={() => update(task.id, { endTime: hhmm(gap!.to) })}
+              className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition enabled:hover:bg-lilac-100/80 disabled:opacity-40"
+            >
+              End as late as fits ⇥
+            </button>
+          </div>
+        )}
       </div>
       <label className="block text-xs font-medium text-ink-soft">
         Where
