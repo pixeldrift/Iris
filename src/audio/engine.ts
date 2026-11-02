@@ -23,11 +23,12 @@ let ambientOn = false
  * Change a sound here to swap it.
  */
 const SOUNDS = {
-  add: { url: '/sounds/bubble.wav', gain: 3.8 }, // a new item floats up
+  add: { url: '/sounds/drop-wet.wav', gain: 3.4 }, // a new item: a water drop
+  arrive: { url: '/sounds/bubbles-wet.wav', gain: 1.4 }, // an item arriving from another device
   pop: { url: '/sounds/pop-high.wav', gain: 2.2 }, // a bubble deleted
-  done: { url: '/sounds/drip-double.wav', gain: 0.5 }, // finished
+  done: { url: '/sounds/drip-double.wav', gain: 0.5 }, // checking an item off, and nothing else
   tick: { url: '/sounds/pop-low.wav', gain: 0.9 }, // tagged, moved, dropped into a group
-  alert: { url: '/sounds/drip-double.wav', gain: 0.8 }, // a reminder going off
+  alert: { url: '/sounds/bubble-trio.wav', gain: 5 }, // a reminder going off
 } as const
 type SoundKey = keyof typeof SOUNDS
 const buffers = new Map<string, AudioBuffer>()
@@ -110,9 +111,7 @@ export function alertSound() {
   if (!cfg.master) return
   const c = ensure(true)
   if (!c) return
-  // two drips, the second a touch higher
   play('alert', { variation: 0.02 })
-  window.setTimeout(() => play('alert', { rate: 1.12, variation: 0.02 }), 420)
   if (hidden()) window.setTimeout(() => hidden() && pauseAudio(), 5000)
 }
 
@@ -177,10 +176,16 @@ export function setAudioConfig(c: AudioConfig) {
   }
 }
 
-/** A new item floats up (or one arrives from another device). `pan` -1..1. */
+/** A new item is added. `pan` -1..1. */
 export function drop(pan = 0) {
   if (!can('drops')) return
   play('add', { pan })
+}
+
+/** An item arrives from another device. */
+export function arrive(pan = 0) {
+  if (!can('drops')) return
+  play('arrive', { pan })
 }
 
 function bell(freq: number, when: number, vol: number, pan: number, decay: number) {

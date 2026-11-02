@@ -1,6 +1,6 @@
 import { clearHistory, suppressHistory } from '../state/history'
 import { create } from 'zustand'
-import { drop } from '../audio/engine'
+import { arrive } from '../audio/engine'
 import { apiToken } from './auth'
 import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normalize'
 import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
@@ -236,7 +236,7 @@ async function syncOnce(userId: string) {
 
 /** A drop of water for something that just arrived from another device (a few at most: a burst is one splash). */
 function announceArrivals(ids: string[]) {
-  drop(0)
+  arrive(0)
   for (const id of ids.slice(0, 3)) window.dispatchEvent(new CustomEvent('lilac:added', { detail: { id } }))
 }
 
