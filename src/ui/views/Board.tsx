@@ -94,7 +94,7 @@ export function Board() {
           </>
         )}
       </div>
-      <div ref={columns} className="-m-1 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-1 md:grid md:grid-flow-col md:auto-cols-[minmax(15rem,1fr)] md:overflow-x-auto md:overflow-y-visible">
+      <div ref={columns} className="pointer-events-none -mx-8 -mb-8 -mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-8 pb-8 pt-3 md:grid md:grid-flow-col md:auto-cols-[minmax(15rem,1fr)] md:overflow-x-auto md:overflow-y-visible">
         {stages.map((st, i) => {
           const tasks = orderInStage(sorted.filter((t) => stageIndex(t, stages) === i))
           return (
@@ -160,7 +160,7 @@ function Column({ id, target, name, tasks, onAdd }: { id: string; target: string
     <section
       {...props}
       data-stage={id}
-      className={`glass flex shrink-0 flex-col self-stretch rounded-[1.8rem] p-3.5 transition md:shrink md:self-start ${open ? 'min-h-[10rem] md:min-h-0 md:self-stretch' : ''} ${over ? 'bg-lilac-100/50 outline outline-[3px] outline-lilac-500' : active ? 'outline outline-1 outline-lilac-300/60' : ''}`}
+      className={`glass pointer-events-auto flex shrink-0 flex-col self-stretch rounded-[1.8rem] p-3.5 transition md:shrink md:self-start ${open ? 'min-h-[10rem] md:min-h-0 md:self-stretch' : ''} ${over ? 'bg-lilac-100/50 outline outline-[3px] outline-lilac-500' : active ? 'outline outline-1 outline-lilac-300/60' : ''}`}
     >
       <header className={`flex items-center gap-2 ${open ? 'mb-2' : ''}`}>
         <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex min-w-0 flex-1 cursor-pointer select-none items-center gap-2 rounded-xl px-1 py-0.5 text-left">
