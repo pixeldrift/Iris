@@ -69,12 +69,12 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { t
 
 
   return (
-    <span aria-hidden={false} className="pointer-events-none absolute inset-0" style={{ transform: `scale(calc(var(--r, ${radius}) / ${r}))` }}>
-      {(
-        <span title={task.kind} className="absolute left-1/2 top-[5.5%] -translate-x-1/2 text-lilac-600/70" aria-hidden>
-          <KindIcon kind={task.kind} size={Math.round(Math.max(12, Math.min(16, r * 0.19)))} />
-        </span>
-      )}
+    // laid out in a square of its own, 2r across (the size the positions below were worked out for), centred on the bubble and
+    // scaled to the bubble's real radius: so everything keeps its place whatever size the bubble is (or is being dragged to)
+    <span aria-hidden={false} className="pointer-events-none absolute left-1/2 top-1/2" style={{ width: r * 2, height: r * 2, marginLeft: -r, marginTop: -r, transform: `scale(calc(var(--r, ${radius}) / ${r}))` }}>
+      <span title={task.kind} className="absolute left-1/2 top-[5.5%] -translate-x-1/2 text-lilac-600/70" aria-hidden>
+        <KindIcon kind={task.kind} size={Math.round(Math.max(12, Math.min(16, r * 0.19)))} />
+      </span>
       <span className="pointer-events-auto absolute bottom-[7%] left-1/2 -translate-x-1/2">
         <DoneButton task={task} size={cb} />
       </span>

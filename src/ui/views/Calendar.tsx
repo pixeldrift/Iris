@@ -29,10 +29,11 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
       data-lift-id={deadline ? undefined : `task:${task.id}`}
       onPointerDown={(e) => {
         e.stopPropagation()
-        onPointerDown(e, true)
+        // not as a "handle": a finger must rest on it for a moment before it lifts, so touching to scroll the days never drags an item
+        onPointerDown(e)
       }}
-      className={`pop-in flex cursor-pointer touch-none items-center gap-1.5 rounded-lg py-0.5 text-[0.72rem] leading-snug transition hover:brightness-95 ${rich ? 'px-1' : 'truncate px-1.5'} ${isDone ? 'opacity-60' : ''} ${missed ? 'opacity-55 outline-dashed outline-1 -outline-offset-1 outline-ink-faint/50' : ''} ${leave}`}
-      style={deadline ? { background: 'transparent', boxShadow: `inset 0 0 0 1px ${tint(hue, 45, 60, .55)}`, color: `${tint(hue, 35, 35)}` } : { background: `${tint(hue, 70, 87, .9)}`, color: `${tint(hue, 35, 28)}` }}
+      style={deadline ? { touchAction: 'pan-y', background: 'transparent', boxShadow: `inset 0 0 0 1px ${tint(hue, 45, 60, .55)}`, color: `${tint(hue, 35, 35)}` } : { touchAction: 'pan-y', background: `${tint(hue, 70, 87, .9)}`, color: `${tint(hue, 35, 28)}` }}
+      className={`pop-in flex cursor-pointer select-none items-center gap-1.5 rounded-lg py-0.5 [-webkit-touch-callout:none] text-[0.72rem] leading-snug transition hover:brightness-95 ${rich ? 'px-1' : 'truncate px-1.5'} ${isDone ? 'opacity-60' : ''} ${missed ? 'opacity-55 outline-dashed outline-1 -outline-offset-1 outline-ink-faint/50' : ''} ${leave}`}
       title={deadline ? `${task.title} (due)` : task.title}
     >
       {rich && <DoneButton task={task} size={16} />}
@@ -64,7 +65,7 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
       data-lift-id={deadline || !drag ? undefined : `task:${task.id}`}
       onPointerDown={(e) => {
         e.stopPropagation()
-        if (drag) pointer(e, true)
+        if (drag) pointer(e) // (a touch must rest a moment before the item lifts, so scrolling the day never drags it)
       }}
       onClick={() => {
         if (!drag) {

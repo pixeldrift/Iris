@@ -89,6 +89,12 @@ export function usePointerDrag(opts: Options) {
     }
     let started = false
     let lifted = false
+    // an item picked up by press-and-hold is raised off the page the moment the hold succeeds, before it has moved at all
+    let grabbed: HTMLElement | null = null
+    const drop = () => {
+      grabbed?.classList.remove('grabbed')
+      grabbed = null
+    }
 
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - sx
@@ -96,6 +102,7 @@ export function usePointerDrag(opts: Options) {
       if (!started) {
         if (Math.hypot(dx, dy) < 5) return
         started = true
+        drop()
         document.body.classList.add('dragging')
         const src = optsRef.current.lift?.()
         if (src) {
@@ -118,6 +125,7 @@ export function usePointerDrag(opts: Options) {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', cancel)
       document.body.classList.remove('dragging')
+      drop()
       const cur = optsRef.current
       if (started) {
         // the browser still sends a click after a drag: swallow it
@@ -163,6 +171,8 @@ export function usePointerDrag(opts: Options) {
       abandon()
       holding = true
       navigator.vibrate?.(8)
+      grabbed = optsRef.current.lift?.() ?? null
+      grabbed?.classList.add('grabbed')
       arm()
     }, HOLD_MS)
     window.addEventListener('pointermove', early)

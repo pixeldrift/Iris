@@ -180,10 +180,25 @@ export const IconAll = (p: P) => (
     <path d="M12 3.5c-3 3-3 14 0 17M12 3.5c3 3 3 14 0 17M3.5 12h17" opacity=".6" />
   </Svg>
 )
-/** A faint, dotted checkmark: the hint inside an empty checkbox. */
+/**
+ * A faint, dotted checkmark: the hint inside an empty checkbox. The dots are placed by hand, evenly along the tick
+ * (the same spacing down the short arm and along the long one, with one on the bend), rather than left to a dashed line,
+ * which bunches them unevenly round the corner.
+ */
+const CHECK_DOTS: [number, number][] = [
+  [5, 12.5],
+  [7.25, 14.75],
+  [9.5, 17],
+  [11.875, 14.625],
+  [14.25, 12.25],
+  [16.625, 9.875],
+  [19, 7.5],
+]
 export const IconCheckHint = (p: P) => (
   <Svg {...p}>
-    <path d="m5 12.5 4.5 4.5L19 7.5" strokeWidth="2.4" strokeDasharray="0.1 3.6" />
+    {CHECK_DOTS.map(([x, y]) => (
+      <circle key={`${x}-${y}`} cx={x} cy={y} r="1.2" fill="currentColor" stroke="none" />
+    ))}
   </Svg>
 )
 export const IconCheck = (p: P) => (
