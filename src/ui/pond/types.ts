@@ -3,6 +3,8 @@ import type { SimNode } from '../../core/flock'
 export const MIN_SCALE = 0.2
 export const MAX_SCALE = 3
 
+export type PopMode = 'off' | 'fun' | 'delete' | 'game'
+
 export interface View {
   scale: number
   tx: number
@@ -21,8 +23,10 @@ export interface PondApi {
   release: (id: string, committed: boolean) => void
   /** Only in Free mode do drags change a bubble's saved position. */
   isFree: () => boolean
-  /** Pop mode: pressing a bubble deletes it on the spot. */
-  popMode: () => boolean
+  /** Pop mode: in `delete` pressing a bubble deletes it on the spot; in `fun` and `game` it only pops (and comes back). */
+  popMode: () => PopMode
+  /** A bubble popped for fun or in the game: nothing is deleted. */
+  funPop: (id: string) => void
 }
 
 export interface Rec {

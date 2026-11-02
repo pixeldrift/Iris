@@ -283,6 +283,16 @@ export const IconPop = (p: P) => (
   </Svg>
 )
 
+/** A little controller: the pop game. */
+export const IconGame = (p: P) => (
+  <Svg {...p}>
+    <rect x="2.5" y="7" width="19" height="10.5" rx="5" />
+    <path d="M7.5 10.5v3.5M5.75 12.25h3.5" />
+    <circle cx="15.5" cy="11.2" r=".7" fill="currentColor" />
+    <circle cx="17.8" cy="13.4" r=".7" fill="currentColor" />
+  </Svg>
+)
+
 /** A quiet mark for an item's type, shown at the top of its bubble. */
 export const IconTask = (p: P) => (
   <Svg {...p}>

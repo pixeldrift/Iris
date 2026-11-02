@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ZoomControl'
-import { IconPop } from '../icons'
+import { IconGame, IconPop } from '../icons'
 import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL } from '../../core/flock'
@@ -14,10 +14,15 @@ import { useSearchMatcher, useVisibleTasks } from '../useVisible'
 import { WATER } from '../water'
 import { WaterRipples, type WaterHandle } from '../WaterRipples'
 import { Strays } from '../pond/Strays'
+import { PopGameBar } from '../pond/PopGameBar'
+import { bubbleHue } from '../pond/hue'
+import { usePopGame } from '../pond/usePopGame'
+import { paletteOf } from '../../core/popgame'
+import * as sound from '../../audio/engine'
 import { Lily } from '../pond/Lily'
 import { usePondGestures } from '../pond/usePondGestures'
 import { useSize } from '../pond/useSize'
-import { MAX_SCALE, MIN_SCALE, type PondApi, type Rec, type View } from '../pond/types'
+import { MAX_SCALE, MIN_SCALE, type PondApi, type PopMode, type Rec, type View } from '../pond/types'
 import { usePhone } from '../useMedia'
 
 export function Pond() {
@@ -118,9 +123,53 @@ export function Pond() {
   const radius = useCallback((t: Task) => Math.round(bubbleRadius(t, scale) * rf), [scale, rf])
   const rel = useMemo(() => relations(visible), [visible])
 
-  const [pop, setPop] = useState(false)
-  const popRef = useRef(false)
-  popRef.current = pop
+  // pop mode: `fun` pops bubbles that come back (the words and marks fade away), `delete` really deletes them, `game` is Simon
+  const [popMode, setPopMode] = useState<PopMode>('off')
+  const pop = popMode !== 'off'
+  const popRef = useRef<PopMode>('off')
+  popRef.current = popMode
+  const playful = popMode === 'fun' || popMode === 'game'
+  const addPopStats = useStore((st) => st.addPopStats)
+  const [fun, setFun] = useState<Record<string, 'gone' | 'back'>>({})
+  const funRef = useRef(fun)
+  funRef.current = fun
+  const hues = useMemo(() => visible.map((t) => bubbleHue(t, folders)), [visible, folders])
+  const palette = useMemo(() => paletteOf(hues), [hues])
+  const colourOf = (id: string) => {
+    const t = visible.find((x) => x.id === id)
+    return t ? palette.indexOf(bubbleHue(t, folders)) : -1
+  }
+  const game = usePopGame(palette.length)
+  const [funReturn, setFunReturn] = useState(false)
+  const wasPlayful = useRef(false)
+  useEffect(() => {
+    if (wasPlayful.current && !playful) {
+      setFunReturn(true)
+      const t = window.setTimeout(() => setFunReturn(false), 900)
+      return () => window.clearTimeout(t)
+    }
+    wasPlayful.current = playful
+  }, [playful])
+  useEffect(() => {
+    if (popMode !== 'game') game.stop()
+  }, [popMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  // time spent popping (fun and the game), banked every few seconds and when it stops
+  useEffect(() => {
+    if (!playful) return
+    let since = Date.now()
+    const bank = () => {
+      const now = Date.now()
+      addPopStats({ ms: now - since })
+      since = now
+    }
+    const iv = window.setInterval(bank, 10_000)
+    return () => {
+      window.clearInterval(iv)
+      bank()
+    }
+  }, [playful, addPopStats])
+  const gameRef = useRef(game)
+  gameRef.current = game
   const live = useRef({ rel, group })
   live.current = { rel, group }
   const FOLLOW_DELAY = 160 // ms the cluster waits before following, so a quick yank is spotted first
@@ -326,6 +375,22 @@ export function Pond() {
       },
       isFree: () => live.current.group === 'free',
       popMode: () => popRef.current,
+      funPop: (id) => {
+        if (funRef.current[id]) return
+        const mode = popRef.current
+        if (mode === 'game') {
+          // only while it is your turn, and only the colours in play
+          const gm = gameRef.current
+          const c = colourOf(id)
+          if (gm.g.phase !== 'play' || c < 0) return
+          gm.tap(c)
+        }
+        sound.pop()
+        addPopStats({ popped: 1 })
+        setFun((f) => ({ ...f, [id]: 'gone' }))
+        window.setTimeout(() => setFun((f) => ({ ...f, [id]: 'back' })), 1500)
+        window.setTimeout(() => setFun(({ [id]: _x, ...rest }) => rest), 2400)
+      },
       grab: (id) => {
         const n = nodes.current.get(id)
         if (n) n.sim.pinned = true
@@ -529,7 +594,7 @@ export function Pond() {
   return (
     <div
       ref={ref}
-      className={`relative h-full w-full cursor-[crosshair] touch-none overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)] ${pop ? 'pop-mode' : ''}`}
+      className={`relative h-full w-full cursor-[crosshair] touch-none overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)] ${pop ? 'pop-mode' : ''} ${playful ? 'fun-mode' : ''} ${funReturn ? 'fun-return' : ''}`}
       style={{
         background:
           'radial-gradient(70% 60% at 30% 20%, rgba(255,255,255,0.75), transparent 70%), radial-gradient(60% 60% at 80% 90%, rgb(var(--lr-200)/0.55), transparent 70%), linear-gradient(160deg, rgba(255,255,255,0.5), rgba(240,231,250,0.45))',
@@ -597,8 +662,11 @@ export function Pond() {
         ))}
 
         {w > 0 &&
-          visible.map((t) => <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} />)}
-        {w > 0 && <Strays active={pop} w={w} h={h} getAvoid={() => [...nodes.current.values()].map((n) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r }))} />}
+          visible.map((t) => {
+            const c = popMode === 'game' ? palette.indexOf(bubbleHue(t, folders)) : -1
+            return <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} fun={fun[t.id]} lit={popMode === 'game' && game.g.lit !== null && c === game.g.lit} dim={popMode === 'game' && c < 0} />
+          })}
+        {w > 0 && <Strays active={pop && popMode !== 'game'} onPop={() => addPopStats({ popped: 1 })} w={w} h={h} getAvoid={() => [...nodes.current.values()].map((n) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r }))} />}
       </div>
 
       <WaterRipples ref={water} className="z-10" />
@@ -608,23 +676,44 @@ export function Pond() {
       )}
       {visible.length > 0 && !phone && (
         <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-32 pr-40 text-left text-xs text-ink-faint/80 sm:block">
-          {pop ? 'Pop mode: tap bubbles to pop them · undo brings one back' : 'Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
+          {popMode === 'delete' ? 'Delete mode: popping a bubble deletes its task · undo brings it back' : popMode === 'fun' ? 'Fun mode: pop away, nothing is deleted' : popMode === 'game' ? 'Pop game: watch the colours, then pop them in the same order' : 'Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
         </p>
       )}
 
-      {/* top right: pop mode. bottom right: zoom. bottom left: frame all */}
-      <div data-ui className="absolute right-3 top-3 z-10">
-        <Tip label={pop ? 'Stop popping' : 'Pop mode: tap bubbles to delete them'}>
+      {/* top right: pop mode (fun by default; deleting has to be chosen) and the pop game. bottom right: zoom. bottom left: frame all */}
+      <div data-ui className="absolute right-3 top-3 z-10 flex items-center gap-2">
+        {pop && popMode !== 'game' && (
+          <div role="group" aria-label="What popping does" className="glass-soft flex h-9 items-center rounded-full p-0.5 text-xs">
+            <button onClick={() => setPopMode('fun')} aria-pressed={popMode === 'fun'} className={`h-full rounded-full px-3 transition ${popMode === 'fun' ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
+              Fun
+            </button>
+            <button onClick={() => setPopMode('delete')} aria-pressed={popMode === 'delete'} className={`h-full rounded-full px-3 transition ${popMode === 'delete' ? 'bg-rose-500 text-white shadow' : 'text-ink-soft'}`}>
+              Delete
+            </button>
+          </div>
+        )}
+        <Tip label={popMode === 'game' ? 'Stop the pop game' : 'Pop game: pop the colours in order'}>
           <button
-            onClick={() => setPop((p) => !p)}
+            onClick={() => setPopMode((m) => (m === 'game' ? 'fun' : 'game'))}
+            aria-pressed={popMode === 'game'}
+            aria-label="Pop game"
+            className={`grid h-9 w-9 place-items-center rounded-full transition ${popMode === 'game' ? 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40' : 'glass-soft text-ink-soft hover:bg-white/80'}`}
+          >
+            <IconGame size={19} />
+          </button>
+        </Tip>
+        <Tip label={pop ? 'Stop popping' : 'Pop mode: pop bubbles for fun'}>
+          <button
+            onClick={() => setPopMode((m) => (m === 'off' ? 'fun' : 'off'))}
             aria-pressed={pop}
             aria-label="Pop mode"
-            className={`grid h-9 w-9 place-items-center rounded-full transition ${pop ? 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40' : 'glass-soft text-ink-soft hover:bg-white/80'}`}
+            className={`grid h-9 w-9 place-items-center rounded-full transition ${pop ? (popMode === 'delete' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/40' : 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40') : 'glass-soft text-ink-soft hover:bg-white/80'}`}
           >
             <IconPop size={19} />
           </button>
         </Tip>
       </div>
+      {popMode === 'game' && <PopGameBar game={game} palette={palette} />}
       <div data-ui className="absolute bottom-3 right-3 z-10">
         <ZoomControl onZoom={(f) => zoomAbout(f, w / 2, h / 2)} />
       </div>

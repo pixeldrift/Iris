@@ -228,6 +228,30 @@ export function pop() {
   play('pop')
 }
 
+/** A soft note for the pop game: each colour has its own, so a pattern can be heard as well as seen. */
+export function blip(i: number) {
+  if (!can('pops')) return
+  const c = ensure()
+  if (!c) return
+  const o = c.createOscillator()
+  const g = c.createGain()
+  o.type = 'sine'
+  o.frequency.value = SCALE[(i * 2) % SCALE.length] * 1.5
+  g.gain.setValueAtTime(0.0001, c.currentTime)
+  g.gain.exponentialRampToValueAtTime(0.28, c.currentTime + 0.02)
+  g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.35)
+  o.connect(g).connect(master)
+  g.connect(reverbIn)
+  o.start()
+  o.stop(c.currentTime + 0.4)
+}
+
+/** A wrong answer in the pop game: low and short. */
+export function buzz() {
+  if (!can('pops')) return
+  play('pop', { rate: 0.55, variation: 0 })
+}
+
 /** Tagging, moving, dropping into a group. */
 export function plink() {
   if (!can('chimes')) return

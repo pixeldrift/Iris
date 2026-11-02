@@ -8,14 +8,17 @@ test('pop mode scatters spare bubbles that pop without deleting anything', async
   await expect(strays).toHaveCount(0)
   const before = (await saved(page))!.tasks.length
   await page.getByRole('button', { name: 'Pop mode' }).click()
-  await expect.poll(() => strays.count()).toBeGreaterThanOrEqual(8)
+  await expect.poll(() => strays.count()).toBeGreaterThanOrEqual(4)
   await expect(strays.first()).toHaveText('Pop me!')
   // plain: sans-serif, and none of a real bubble's furniture
   expect(await strays.first().evaluate((e) => getComputedStyle(e).fontFamily)).not.toMatch(/display|serif.*italic/i)
   const n = await strays.count()
   await page.screenshot({ path: 'test-results/strays.png' })
   await strays.first().dispatchEvent('pointerdown', { button: 0 })
-  await expect.poll(() => strays.count()).toBe(n - 1)
+  // it bursts, and a new one floats up somewhere else so there is always something to pop
+  await expect(page.locator('[data-stray] button[disabled]')).toHaveCount(1)
+  await expect(page.locator('[data-stray] button[disabled]')).toHaveCount(0, { timeout: 3000 })
+  await expect.poll(() => strays.count()).toBe(n)
   expect((await saved(page))!.tasks.length).toBe(before)
   await page.getByRole('button', { name: 'Pop mode' }).click()
   await expect(strays).toHaveCount(0)

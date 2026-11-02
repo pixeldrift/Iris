@@ -701,3 +701,15 @@ describe('several filters at once', () => {
     expect(matchesScope(mk(['c'], ['p']), both, folders)).toBe(false)
   })
 })
+
+import { paletteOf, randomColour, roundPoints, stepMs } from './popgame'
+describe('pop game', () => {
+  it('uses the commonest colours, speeds up to a floor, and scores', () => {
+    expect(paletteOf([1, 2, 2, 3, 3, 3, 4], 3)).toEqual([3, 2, 1])
+    expect(stepMs(1)).toBeGreaterThan(stepMs(5))
+    expect(stepMs(100)).toBe(260)
+    expect(roundPoints(3, 1000, false)).toBeGreaterThan(roundPoints(3, 60_000, false))
+    expect(roundPoints(3, 60_000, true)).toBe(60)
+    for (let i = 0; i < 50; i++) expect(randomColour(3, 1)).not.toBe(1)
+  })
+})

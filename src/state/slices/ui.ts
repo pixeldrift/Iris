@@ -17,6 +17,11 @@ export const createUiSlice = (set: SetState, get: GetState): UiSlice => ({
       toast: null,
 
       setScope: (scope) => set({ scope, sidebarOpen: false }),
+      addPopStats: (d) =>
+        set((st) => {
+          const c = st.settings.popStats
+          return { settings: { ...st.settings, popStats: { popped: c.popped + (d.popped ?? 0), points: c.points + (d.points ?? 0), games: c.games + (d.games ?? 0), ms: c.ms + (d.ms ?? 0), best: Math.max(c.best, d.best ?? 0) } } }
+        }),
       toggleFilter: (part) => set((st) => ({ scope: st.scope.type === 'contacts' ? part : toggleScope(st.scope, part) })),
       // (with the option on, a new view starts from Everything; the address book is a page of its own, not a filter)
       setView: (view) =>

@@ -398,6 +398,13 @@ input[type='range'].hue::-moz-range-track {
   50% { transform: scale(1.18); opacity: 1; }
 }
 .glow-breathe { animation: glow-breathe 2.6s ease-in-out infinite; }
+/* pop for fun: the bubbles keep their size and colour, and lose their words and marks */
+.fun-mode [data-node] .pad > * { opacity: 0 !important; transition: opacity 0.8s ease !important; pointer-events: none; }
+@keyframes fun-return { from { opacity: 0; } to { opacity: 1; } }
+.fun-return [data-node] .pad > * { animation: fun-return 0.8s ease both; }
+/* the pop game: the colour being shown lights up */
+.game-lit { transform: scale(1.14) !important; filter: brightness(1.18) saturate(1.7) !important; box-shadow: 0 0 0 5px rgba(255,255,255,0.95), 0 0 34px 12px hsl(var(--h) 90% 68% / 0.85) !important; }
+
 /* pop mode's spare bubbles: plain, uncoloured, nothing like a real item */
 .stray {
   background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95), rgba(255,255,255,0.35) 55%, rgba(255,255,255,0.18));

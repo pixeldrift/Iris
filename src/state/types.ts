@@ -29,6 +29,8 @@ export interface Settings {
   tooltips: boolean
   /** Switching to another view also clears the filter (back to Everything), instead of keeping it. */
   viewsClearFilters: boolean
+  /** Pop mode's running totals (kept on this device). */
+  popStats: PopStats
   /** How dates are written (see core/locale). */
   dateFormat: 'us' | 'us-numeric' | 'dmy' | 'iso'
   clockFormat: '12' | '24'
@@ -47,6 +49,15 @@ export interface ContactPrompt {
 }
 
 // (the Views list is pinned at the top and is not one of the movable sections)
+/** Bubbles popped for fun, points won in the pop game, the best game, games played and time spent popping. */
+export interface PopStats {
+  popped: number
+  points: number
+  best: number
+  games: number
+  ms: number
+}
+
 export const SECTION_IDS = ['folders', 'people', 'week'] as const
 
 export interface UiSlice {
@@ -68,6 +79,7 @@ export interface UiSlice {
   setScope: (s: Scope) => void
   /** Add a filter to the ones on, or take it off (shift/⌘-click, or a long press, in the sidebar). */
   toggleFilter: (part: Scope) => void
+  addPopStats: (d: Partial<Omit<PopStats, 'best'>> & { best?: number }) => void
   setView: (v: ViewId) => void
   select: (id: string | null) => void
   setSidebar: (open: boolean) => void
