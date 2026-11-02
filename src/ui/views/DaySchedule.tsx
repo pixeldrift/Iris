@@ -100,7 +100,7 @@ function Block({ task, s, e, col, cols, date, preview, onPreview }: { task: Task
         ) : null}
       </span>
       <span onPointerDown={begin('resize')} aria-label="Change length" className="absolute inset-x-0 bottom-0 grid h-3 cursor-ns-resize touch-none place-items-center" role="separator">
-        <span className="h-0.5 w-6 rounded-full bg-ink-faint/40" />
+        <span className="emboss-dot !h-[3px] !w-6" />
       </span>
     </div>
   )
