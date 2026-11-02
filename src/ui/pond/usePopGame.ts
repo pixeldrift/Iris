@@ -56,7 +56,7 @@ export function usePopGame(colours: number, field: GameField) {
         sound.blip(c)
         set({ lit: c, progress: i + 1 })
       }, 650 + i * step)
-      later(() => set({ lit: null }), 650 + i * step + step * 0.62)
+      later(() => set({ lit: null }), 650 + i * step + step * 0.72)
     })
     later(() => {
       playStart.current = Date.now()

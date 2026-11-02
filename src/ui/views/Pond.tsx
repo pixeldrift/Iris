@@ -145,6 +145,8 @@ export function Pond() {
   })
   // for fun: the whole field popped
   const [cleared, setCleared] = useState(false)
+  // the edges of the pond that buttons and panels sit over: bubbles are framed and spawned inside what is left
+  const freeInset = useRef({ t: 52, r: 8, b: 52, l: 8 })
   const [funReturn, setFunReturn] = useState(false)
   const wasPlayful = useRef(false)
   useEffect(() => {
@@ -203,9 +205,9 @@ export function Pond() {
       const el = worldRef.current
       if (!el) return
       const v = view.current
-      el.style.transition = animate ? 'transform .7s cubic-bezier(.2,.8,.2,1)' : 'none'
+      el.style.transition = animate ? 'transform 1.4s cubic-bezier(.3,.7,.2,1)' : 'none'
       el.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.scale})`
-      if (animate) window.setTimeout(() => (el.style.transition = 'none'), 750)
+      if (animate) window.setTimeout(() => (el.style.transition = 'none'), 1450)
       checkOffscreen()
     },
     [checkOffscreen],
@@ -223,17 +225,40 @@ export function Pond() {
   )
 
   const frameAll = useCallback(
-    (fromHomes = false) => {
+    (fromHomes = false, inset?: { t?: number; r?: number; b?: number; l?: number }) => {
       const list = [...nodes.current.values()].map((n) => ({ x: fromHomes ? n.sim.hx : n.sim.x, y: fromHomes ? n.sim.hy : n.sim.y, r: n.sim.r }))
       // group titles count too, so none is framed out of view
-      for (const l of labelsRef.current) list.push({ x: l.x, y: l.y, r: 40 })
+      for (const l of labelsRef.current) list.push({ x: l.x, y: l.y, r: 30 })
       const b = boundsOf(list)
       const { w: W, h: H } = dims.current
-      view.current = b ? fitView(b, W, H, 56) : { scale: 1, tx: 0, ty: 0 }
+      view.current = b ? fitView(b, W, H, 18, inset) : { scale: 1, tx: 0, ty: 0 }
       applyView(true)
     },
     [applyView],
   )
+
+  // starting the game frames all the bubbles, clear of the score box, the pattern and the buttons
+  const lastPhase = useRef<string>('idle')
+  useEffect(() => {
+    const ph = game.g.phase
+    const bar = () => ref.current?.querySelector('[data-game-bar]')?.getBoundingClientRect()
+    const pondTop = () => ref.current?.getBoundingClientRect().top ?? 0
+    if (popMode !== 'game') {
+      freeInset.current = { t: 52, r: 8, b: 52, l: 8 }
+      lastPhase.current = 'idle'
+      return
+    }
+    const starting = (lastPhase.current === 'idle' || lastPhase.current === 'over') && ph === 'show'
+    lastPhase.current = ph
+    const r = bar()
+    if (!r) return
+    const top = r.bottom - pondTop() + 10
+    // (and again if a longer pattern has grown the box down over the bubbles)
+    if (starting || top > freeInset.current.t) {
+      freeInset.current = { t: top, r: 10, b: 56, l: 10 }
+      frameAll(false, freeInset.current)
+    }
+  }, [game.g.phase, game.g.round, popMode, frameAll])
 
   /* ---------- simulation ---------- */
   const paint = useCallback(() => {
@@ -701,6 +726,12 @@ export function Pond() {
         {w > 0 && (
           <Strays
             ref={field}
+            getArea={() => {
+              const v = view.current
+              const { w: W, h: H } = dims.current
+              const i = freeInset.current
+              return { x0: (i.l - v.tx) / v.scale, x1: (W - i.r - v.tx) / v.scale, y0: (i.t - v.ty) / v.scale, y1: (H - i.b - v.ty) / v.scale, scale: v.scale }
+            }}
             onCleared={setCleared}
             active={pop}
             w={w}

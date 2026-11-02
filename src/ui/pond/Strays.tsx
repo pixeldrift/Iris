@@ -18,6 +18,8 @@ interface StraysProps {
   w: number
   h: number
   getAvoid: () => { x: number; y: number; r: number }[]
+  /** the part of the water that is in view and free of buttons, in the water's own units, and the zoom: new bubbles go there, at a size that looks the same at any zoom */
+  getArea?: () => { x0: number; y0: number; x1: number; y1: number; scale: number }
   /** every bubble is one of these (the real ones are put away): they begin where the real ones were, with their sizes and colours */
   seeded?: boolean
   getSeed?: () => { x: number; y: number; r: number; hue: number }[]
@@ -39,15 +41,15 @@ const CLEARED_MS = 1900
  * slower than they are being popped (never closer than 1.5 seconds), and if the whole field is cleared it says so and
  * fills again. In the pop game their colours are the game's own, and the game adds new ones between rounds.
  */
-export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ active, w, h, getAvoid, seeded = false, getSeed, hues, litHue = null, canPop, onPop, onCleared }, ref) {
+export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ active, w, h, getAvoid, getArea, seeded = false, getSeed, hues, litHue = null, canPop, onPop, onCleared }, ref) {
   const [list, setList] = useState<Stray[]>([])
   const [leaving, setLeaving] = useState(false)
   const [popped, setPopped] = useState<Set<number>>(new Set())
   const next = useRef(0)
   const leavingRef = useRef(false)
   leavingRef.current = !active || leaving
-  const live = useRef({ hues, getAvoid, getSeed, seeded, canPop, onPop, onCleared, w, h })
-  live.current = { hues, getAvoid, getSeed, seeded, canPop, onPop, onCleared, w, h }
+  const live = useRef({ hues, getAvoid, getArea, getSeed, seeded, canPop, onPop, onCleared, w, h })
+  live.current = { hues, getAvoid, getArea, getSeed, seeded, canPop, onPop, onCleared, w, h }
   const listRef = useRef(list)
   listRef.current = list
   const poppedRef = useRef(popped)
@@ -59,14 +61,20 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
     const { hues: pool, getAvoid: avoidNow, w: W, h: H } = live.current
     // (when the real bubbles are put away there is nothing to keep clear of but the other plain ones)
     const avoid = live.current.seeded ? [] : avoidNow()
-    const biggest = Math.max(30, Math.min(80, Math.min(W, H) / 6))
+    const A = live.current.getArea?.() ?? { x0: 0, y0: 0, x1: W, y1: H, scale: 1 }
+    const aw = A.x1 - A.x0
+    const ah = A.y1 - A.y0
+    if (aw < 60 / A.scale || ah < 60 / A.scale) return null
+    // sizes are what they look like on screen, so they are the same however far in or out the view is
+    const biggest = Math.max(30, Math.min(80, (Math.min(aw, ah) * A.scale) / 6))
     for (let tries = 0; tries < 40; tries++) {
       // mostly small, now and then a big one
-      const r = 24 + Math.pow(Math.random(), 1.6) * (biggest - 24)
-      const x = r + Math.random() * (W - 2 * r)
-      const y = r + Math.random() * (H - 2 * r)
-      if (avoid.some((a) => Math.hypot(a.x - x, a.y - y) < a.r + r + 6)) continue
-      if (others.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 6)) continue
+      const r = (24 + Math.pow(Math.random(), 1.6) * (biggest - 24)) / A.scale
+      if (2 * r > Math.min(aw, ah)) continue
+      const x = A.x0 + r + Math.random() * (aw - 2 * r)
+      const y = A.y0 + r + Math.random() * (ah - 2 * r)
+      if (avoid.some((a) => Math.hypot(a.x - x, a.y - y) < a.r + r + 6 / A.scale)) continue
+      if (others.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 6 / A.scale)) continue
       const hu = hue ?? (pool && pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * 360))
       return { id: next.current++, hue: hu, u: vivid(), x, y, r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 }
     }
@@ -98,14 +106,17 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
     if (!p.timer) p.timer = window.setTimeout(go, gap())
   }
 
-  /** A whole new field of random bubbles, appearing one after another. */
-  const fill = () => {
+  /** A whole new field of random bubbles, appearing one after another: enough to cover about `cover` of the water. */
+  const fill = (cover = 0.2) => {
     const { w: W, h: H } = live.current
-    const count = Math.max(8, Math.min(22, Math.round((W * H) / 90_000)))
+    const A = live.current.getArea?.() ?? { x0: 0, y0: 0, x1: W, y1: H }
     const out: Stray[] = []
-    for (let i = 0; i < count; i++) {
+    let area = 0
+    for (let i = 0; i < 90 && area < cover * (A.x1 - A.x0) * (A.y1 - A.y0); i++) {
       const one = make(out)
-      if (one) out.push({ ...one, enter: i * 70 })
+      if (!one) break
+      area += Math.PI * one.r * one.r
+      out.push({ ...one, enter: i * 60 })
     }
     return out
   }
@@ -149,7 +160,7 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
     clearing.current = window.setTimeout(() => {
       clearing.current = 0
       live.current.onCleared?.(false)
-      if (!leavingRef.current) setList(fill())
+      if (!leavingRef.current) setList(fill(0.4)) // about twice what the field began with, so the cleared water fills up
     }, CLEARED_MS)
   }, [list, popped, active, leaving, hues, seeded]) // eslint-disable-line react-hooks/exhaustive-deps
 

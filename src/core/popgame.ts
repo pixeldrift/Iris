@@ -7,8 +7,13 @@ export function paletteOf(hues: number[], max = 5): number[] {
   return [...n.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, max).map(([h]) => h)
 }
 
-/** How long each light stays on and how fast the pattern runs: quicker every round, down to a floor. */
-export const stepMs = (round: number): number => Math.max(260, 760 - (round - 1) * 45)
+/**
+ * How long each step of the pattern takes: slow and easy to follow in the early rounds, a little quicker every round, and
+ * the gain shrinks as it gets harder (it eases toward a floor rather than dropping by the same amount each time).
+ */
+export const STEP_START = 1200
+export const STEP_FLOOR = 380
+export const stepMs = (round: number): number => Math.round(STEP_FLOOR + (STEP_START - STEP_FLOOR) * Math.pow(0.9, Math.max(0, round - 1)))
 
 /** Points for popping one right, for finishing a round (more the longer the pattern), and a bonus for doing it quickly. */
 export const POP_POINTS = 10
