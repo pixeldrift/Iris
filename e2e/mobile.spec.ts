@@ -49,7 +49,7 @@ test.describe('on a phone', () => {
     await page.locator('[data-lift-id^="task:"]').first().tap()
     const notes = page.locator('textarea[placeholder^="Notes"]')
     await notes.scrollIntoViewIfNeeded()
-    await notes.focus()
+    await notes.click() // (a real tap: focusing it from a script makes the test runner insist on focus staying put)
     await page.setViewportSize({ width: 390, height: 430 }) // what is left above a keyboard
     await expect
       .poll(() => notes.evaluate((el) => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight }))
@@ -183,5 +183,40 @@ test.describe('a phone turned sideways', () => {
     const title = (await panel.getByRole('button', { name: /Mark (not )?done/ }).first().boundingBox())!
     expect(title.x - p.x).toBeLessThan(40)
     expect(p.x + p.width).toBeLessThanOrEqual(844 + 1)
+  })
+
+  test('a text box low on the screen is typed into a bar at the top, above the keyboard, and the text lands in the box', async ({ page }) => {
+    await open(page)
+    await page.getByRole('button', { name: /Address book/ }).first().click().catch(async () => {
+      await page.locator('aside').getByRole('button', { name: /Address book/ }).first().click()
+    })
+    await page.getByRole('button', { name: 'Add a person' }).last().click()
+    const notes = page.getByRole('dialog').getByPlaceholder('Notes') // (the typing bar's own box shares the placeholder, but is not in the dialog)
+    await notes.scrollIntoViewIfNeeded()
+    await notes.focus()
+    // the bar appears at the top, named for the box
+    const bar = page.locator('[data-input-proxy]')
+    await expect(bar).toContainText('Notes')
+    const typing = bar.getByLabel('Notes: type here')
+    await expect(typing).toBeFocused()
+    expect((await typing.boundingBox())!.y).toBeLessThan(60)
+    await typing.fill('met at the lab')
+    await bar.getByRole('button', { name: 'Done' }).click()
+    await expect(notes).toHaveValue('met at the lab')
+    await expect(bar).toHaveAttribute('aria-hidden', 'true') // and the bar goes away
+    // cancelling throws the text away
+    await notes.click()
+    await bar.getByLabel('Notes: type here').fill('nope')
+    await bar.getByRole('button', { name: 'Cancel' }).click()
+    await expect(notes).toHaveValue('met at the lab')
+  })
+
+  test('the quick-add line, near the top of the screen, is typed into where it is', async ({ page }) => {
+    await open(page)
+    await page.getByRole('button', { name: 'New task' }).click()
+    const line = page.getByLabel('New item')
+    await line.click()
+    await expect(line).toBeFocused()
+    await expect(page.locator('[data-input-proxy]')).toHaveAttribute('aria-hidden', 'true')
   })
 })

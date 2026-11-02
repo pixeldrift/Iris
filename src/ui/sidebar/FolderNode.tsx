@@ -206,6 +206,7 @@ export function FolderNode(props: NodeProps) {
           <input
             ref={inputRef}
             autoFocus
+            data-no-proxy
             defaultValue={folder.name}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}

@@ -37,6 +37,7 @@ export function Popover({
     const down = (e: PointerEvent) => {
       const t = e.target as Node
       if (box.current?.contains(t) || anchor.current?.contains(t)) return
+      if ((t as Element).closest?.('[data-input-proxy]')) return // the typing bar for a sideways phone belongs to whatever is open
       onClose()
     }
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
