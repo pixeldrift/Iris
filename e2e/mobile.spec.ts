@@ -57,6 +57,47 @@ test.describe('on a phone', () => {
   })
 })
 
+test.describe('on a phone: the week of days', () => {
+  test.use({ viewport: { width: 390, height: 800 }, hasTouch: true, isMobile: true })
+
+  const week = async (page: import('@playwright/test').Page) => {
+    await open(page)
+    await page.getByRole('button', { name: 'Menu', exact: true }).click()
+    await goto(page, 'Calendar')
+    await page.getByRole('button', { name: 'week', exact: true }).click()
+    const chip = page.locator('main [data-lift-id^="task:"]').first()
+    await chip.scrollIntoViewIfNeeded()
+    const b = (await chip.boundingBox())!
+    const cdp = await page.context().newCDPSession(page)
+    const x = b.x + b.width / 2
+    const y = b.y + b.height / 2
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', py = y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y: py }] })
+    return { y, touch }
+  }
+
+  test('swiping along the days picks nothing up', async ({ page }) => {
+    const { y, touch } = await week(page)
+    await touch('touchStart')
+    for (let i = 1; i <= 6; i++) {
+      await touch('touchMove', y - i * 12)
+      await page.waitForTimeout(20)
+    }
+    await expect(page.locator('.grabbed')).toHaveCount(0)
+    await expect(page.locator('body.dragging')).toHaveCount(0)
+    await touch('touchEnd')
+  })
+
+  test('resting a finger on an item raises it off the page with a shadow', async ({ page }) => {
+    const { touch } = await week(page)
+    await touch('touchStart')
+    await page.waitForTimeout(500)
+    await expect(page.locator('.grabbed')).toHaveCount(1)
+    expect(await page.locator('.grabbed').evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe('none')
+    await touch('touchEnd')
+    await expect(page.locator('.grabbed')).toHaveCount(0)
+  })
+})
+
 test.describe('a phone turned sideways', () => {
   test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })
 
