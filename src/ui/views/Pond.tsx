@@ -6,7 +6,7 @@ import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL } from '../../core/flock'
 import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
-import { bubbleRadius } from '../../core/tasks'
+import { bubbleRadius, effectiveUrgency } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
 import { openCompose, type ComposePreset } from '../NewTask'
@@ -763,7 +763,7 @@ export function Pond() {
                 const t = byId.get(id)
                 const pad = els.current.get(id)?.outer.querySelector('.pad')?.getBoundingClientRect()
                 const hue = t ? bubbleHue(t, folders) : 285
-                const u = Math.max(0.5, t?.urgency ?? 0.5)
+                const u = Math.max(0.5, t ? effectiveUrgency(t) : 0.5)
                 if (!pad || !box || pad.width === 0) return { x: n.sim.x, y: n.sim.y, r: n.sim.r, hue, u }
                 return { x: (pad.left + pad.width / 2 - box.left - v.tx) / v.scale, y: (pad.top + pad.height / 2 - box.top - v.ty) / v.scale, r: pad.width / 2 / v.scale, hue, u }
               })

@@ -817,3 +817,27 @@ describe('a reminder for the day and another for the deadline', () => {
     expect(new Date(b).getDate()).toBe(19)
   })
 })
+
+import { effectiveUrgency, setAutoUrgency, urgencyRamp } from './tasks'
+describe('auto urgency', () => {
+  it('rises as the deadline nears, never lowers your own value, and can be switched off', () => {
+    const now = '2026-10-26'
+    expect(urgencyRamp(null, now)).toBe(0)
+    expect(urgencyRamp('2026-12-01', now)).toBe(0)
+    expect(urgencyRamp('2026-10-26', now)).toBeCloseTo(0.9, 5)
+    expect(urgencyRamp('2026-10-25', now)).toBe(0.95)
+    // always more as it gets closer
+    let prev = 0
+    for (let d = 14; d >= 0; d--) {
+      const u = urgencyRamp(`2026-10-${26 + d}`.replace(/-(\d+)$/, (_, n) => '-' + String(Math.min(31, Number(n))).padStart(2, '0')), now)
+      expect(u).toBeGreaterThanOrEqual(prev)
+      prev = u
+    }
+    expect(effectiveUrgency({ urgency: 0.2, due: '2026-10-27', status: 'todo' }, now)).toBeGreaterThan(0.7)
+    expect(effectiveUrgency({ urgency: 0.95, due: '2026-10-27', status: 'todo' }, now)).toBe(0.95)
+    expect(effectiveUrgency({ urgency: 0.2, due: '2026-10-27', status: 'done' }, now)).toBe(0.2)
+    setAutoUrgency(false)
+    expect(effectiveUrgency({ urgency: 0.2, due: '2026-10-27', status: 'todo' }, now)).toBe(0.2)
+    setAutoUrgency(true)
+  })
+})

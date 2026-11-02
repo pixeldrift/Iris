@@ -1,3 +1,4 @@
+import { effectiveUrgency } from '../core/tasks'
 import type { Task } from '../core/types'
 import { SegmentedToggle } from './SegmentedToggle'
 import { ListEditor } from './ListEditor'
@@ -14,11 +15,26 @@ import { DoneButton, KindHint, KINDS, STATUSES } from './shared'
 import { TagInput } from './TagInput'
 import { Tip } from './Tip'
 
-function SoftSlider({ label, left, right, value, onChange }: { label: string; left: string; right: string; value: number; onChange: (v: number) => void }) {
+function SoftSlider({ label, left, right, value, onChange, actual, actualNote }: { label: string; left: string; right: string; value: number; onChange: (v: number) => void; actual?: number; actualNote?: string }) {
   return (
     <label className="block">
       <span className="mb-0.5 block text-xs font-medium text-ink-soft">{label}</span>
-      <input type="range" min={0} max={1} step="any" value={value} onChange={(e) => onChange(Number(e.target.value))} className="soft" aria-label={label} />
+      <span className="relative block">
+        <input type="range" min={0} max={1} step="any" value={value} onChange={(e) => onChange(Number(e.target.value))} className="soft" aria-label={label} />
+        {/* a small dot under the slider where the value really in use sits, when it is not where the slider has been left */}
+        {actual !== undefined && Math.abs(actual - value) > 0.02 && (
+          <span
+            role="img"
+            aria-label={`In use: ${Math.round(actual * 100)} percent. ${actualNote ?? ''}`}
+            title={`In use: ${Math.round(actual * 100)}%${actualNote ? ` (${actualNote})` : ''}`}
+            data-actual
+            className="absolute bottom-[-0.15rem] z-20 grid h-3.5 w-3.5 -translate-x-1/2 place-items-center"
+            style={{ left: `calc(0.55rem + (100% - 1.1rem) * ${Math.min(1, Math.max(0, actual))})` }}
+          >
+            <span className="block h-1.5 w-1.5 rounded-full bg-lilac-700" />
+          </span>
+        )}
+      </span>
       <span className="-mt-1.5 flex justify-between text-[0.68rem] leading-none text-ink-faint">
         <span>{left}</span>
         <span>{right}</span>
@@ -133,7 +149,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
 
       <div className="space-y-3">
         <SoftSlider label="How much it matters" left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
-        <SoftSlider label="How urgent it is" left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} />
+        <SoftSlider label="How urgent it is" left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
       </div>
 
       {task.kind !== 'event' && task.kind !== 'habit' && <WhenFields task={task} />}

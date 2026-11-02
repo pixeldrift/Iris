@@ -34,6 +34,8 @@ export interface Settings {
   popStats: PopStats
   /** Keep playing (fun mode and the pop game) to three minutes at a time, with breaks between. Deleting is never limited. */
   limitPlay: boolean
+  /** Urgency rises by itself as a deadline nears (the slider keeps your own value). */
+  autoUrgency: boolean
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */

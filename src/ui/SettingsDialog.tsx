@@ -216,6 +216,9 @@ export function SettingsDialog() {
         <Group title="Views &amp; filters">
           <Row k="viewsClearFilters" label="Switching views clears filters" hint="start every view from Everything" />
         </Group>
+        <Group title="Priority">
+          <Row k="autoUrgency" label="Raise urgency near deadlines" hint="used instead of the slider when the deadline calls for more" />
+        </Group>
         <Group title="Play">
           <Row k="limitPlay" label="Limit play time" hint="three minutes of bubble play at a time, with breaks between" />
         </Group>

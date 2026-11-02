@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { satOf } from '../../core/color'
-import { plannedDate } from '../../core/tasks'
+import { plannedDate, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { BubbleChrome } from '../BubbleChrome'
@@ -105,7 +105,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
-              style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency } as React.CSSProperties}
+              style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task) } as React.CSSProperties}
             >
               <TitleFit text={task.title || 'Untitled'} font={`${font}px`} lineHeight={1.15} done={done} watch={r} />
               {r >= 58 && plannedDate(task) && (

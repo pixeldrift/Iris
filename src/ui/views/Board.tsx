@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { orderInStage, patchForStage, stageIndex, stagesOf, topRank, type Stage } from '../../core/progress'
-import { sortTasks } from '../../core/tasks'
+import { sortTasks, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useBoardSlot } from '../boardSlot'
@@ -38,7 +38,7 @@ function Card({ task }: { task: Task }) {
         ref={el}
         data-lift-id={`task:${task.id}`}
         onPointerDown={(e) => onPointerDown(e)}
-        style={colorVars(hue, task.urgency)}
+        style={colorVars(hue, effectiveUrgency(task))}
         className={`tint lift-on-press rise-in group relative cursor-pointer rounded-2xl px-2.5 py-2 shadow-[0_6px_20px_-10px_rgb(var(--lr-700)/0.3)] transition hover:-translate-y-0.5 ${leave}`}
       >
         <div className="flex items-start gap-2 pr-5">

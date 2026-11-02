@@ -10,7 +10,7 @@ import { SPRING } from '../lift'
 import { colorVars, useTaskHue } from '../taskColor'
 import { DoneButton, useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
-import { formatTime, plannedDate } from '../../core/tasks'
+import { formatTime, plannedDate, effectiveUrgency } from '../../core/tasks'
 import { spanOnDay } from '../../core/schedule'
 import { useIsMobile, useLandscapePhone } from '../useMedia'
 import { DaySchedule } from './DaySchedule'
@@ -76,7 +76,7 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
           else select(task.id)
         }
       }}
-      style={{ touchAction: 'pan-y', ...colorVars(hue, task.urgency) }}
+      style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
       className={`tint lift-on-press relative flex cursor-pointer select-none items-center gap-2.5 rounded-2xl px-3 py-2.5 ${missed ? 'opacity-60' : ''}`}
       title={deadline ? `${task.title} (due)` : task.title}
     >
@@ -120,7 +120,7 @@ function UnscheduledBubble({ task }: { task: Task }) {
       ref={el}
       data-lift-id={`task:${task.id}`}
       onPointerDown={(e) => onPointerDown(e)}
-      style={{ touchAction: 'pan-y', ...colorVars(hue, task.urgency) }}
+      style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
       title={task.title}
       className={`tint lift-on-press max-w-[14rem] cursor-pointer select-none truncate rounded-full px-3 py-1 text-xs [-webkit-touch-callout:none] ${leave}`}
     >

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { satOf, tint } from '../../core/color'
 import { stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
-import { clamp01, weightOf } from '../../core/tasks'
+import { clamp01, weightOf, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useFloatDrag } from '../useFloatDrag'
@@ -62,7 +62,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
           onPointerDown={(e) => onPointerDown(e, true)}
           onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
           className={`pad relative grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
-          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': task.urgency, padding: r >= 26 ? 'calc(var(--r) * 0.34 * 1px) calc(var(--r) * 0.14 * 1px) calc(var(--r) * 0.46 * 1px)' : 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
+          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), padding: r >= 26 ? 'calc(var(--r) * 0.34 * 1px) calc(var(--r) * 0.14 * 1px) calc(var(--r) * 0.46 * 1px)' : 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
           title={task.title}
         >
           {r >= 14 && (

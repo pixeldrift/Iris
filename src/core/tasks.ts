@@ -6,9 +6,33 @@ import type { Folder, Scope, SortKey, Task } from './types'
 
 export const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
 
+let autoUrgency = true
+/** Whether urgency rises by itself as a deadline nears (a setting; kept here so the pure code can see it). */
+export const setAutoUrgency = (on: boolean) => {
+  autoUrgency = on
+}
+
+/** What a deadline calls for, 0 when it is far off: 0.9 on the day, 0.71 two days before, about 0.3 a week before, none beyond two weeks; overdue is 0.95. */
+export function urgencyRamp(due: string | null, now = today()): number {
+  if (!due) return 0
+  const d = diffDays(now, due)
+  if (d < 0) return 0.95
+  if (d >= 14) return 0
+  return 0.9 * Math.pow(1 - d / 14, 1.5)
+}
+
+/**
+ * The urgency actually used: the higher of what you set and what the deadline calls for (unless that is switched off, or the
+ * item is finished). Your own value is never lowered or changed.
+ */
+export function effectiveUrgency(t: Pick<Task, 'urgency'> & Partial<Pick<Task, 'due' | 'status'>>, now = today()): number {
+  if (!autoUrgency || t.status === 'done') return t.urgency
+  return Math.max(t.urgency, urgencyRamp(t.due ?? null, now))
+}
+
 /** One soft number for "how much this wants your attention". */
-export function weightOf(t: Pick<Task, 'importance' | 'urgency'>): number {
-  return clamp01(t.importance * 0.6 + t.urgency * 0.4)
+export function weightOf(t: Pick<Task, 'importance' | 'urgency'> & Partial<Pick<Task, 'due' | 'status'>>): number {
+  return clamp01(t.importance * 0.6 + effectiveUrgency(t) * 0.4)
 }
 
 /** Dropping a task on a near date makes it a little more pressing, never less. */
@@ -64,7 +88,7 @@ export function sortTasks(tasks: Task[], key: SortKey, desc: boolean): Task[] {
     created: (a, b) => a.createdAt - b.createdAt,
     title: (a, b) => a.title.localeCompare(b.title),
     importance: (a, b) => b.importance - a.importance,
-    urgency: (a, b) => b.urgency - a.urgency,
+    urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
   }
   return [...tasks].sort((a, b) => cmp[key](a, b) * dir || a.createdAt - b.createdAt)
 }
