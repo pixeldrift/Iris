@@ -409,6 +409,7 @@ input[type='range'].hue::-moz-range-track {
 /* fun mode: the whole field popped */
 @keyframes all-cleared { 0% { opacity: 0; transform: scale(0.96); } 22% { opacity: 1; transform: scale(1); } 70% { opacity: 1; } 100% { opacity: 0; } }
 .all-cleared { animation: all-cleared 1.9s ease both; }
+.your-turn { animation: all-cleared 1.7s ease both; }
 
 /* pop mode's spare bubbles */
 @keyframes stray-in { 0% { transform: scale(0); opacity: 0; } 65% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }

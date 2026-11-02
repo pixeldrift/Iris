@@ -44,26 +44,35 @@ export function PopGameBar({ game, palette }: { game: { g: GameState; start: (me
 
   if (playing) {
     return (
-      <div data-ui data-game-bar className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[min(26rem,calc(100%-19rem))] flex-col items-start gap-2" role="status" aria-live="polite">
-        <div className={`${panel} px-3 py-1.5 text-xs text-ink-soft`}>
-          <Line items={[['score', g.score], ['round', g.round], ['best', Math.max(best, g.score)]]} />
+      <>
+        <div data-ui data-game-bar className="pointer-events-none absolute left-3 top-3 z-10 flex w-[min(26rem,calc(100%-19rem))] flex-col items-stretch gap-2" role="status" aria-live="polite">
+          <div className={`${panel} px-3 py-1.5 text-xs text-ink-soft`}>
+            <Line items={[['score', g.score], ['round', g.round], ['best', Math.max(best, g.score)]]} />
+          </div>
+          {/* the box is always the full width, however short the pattern is */}
+          <div className={`${panel} flex min-h-[2.75rem] flex-wrap items-center gap-1.5 px-3 py-2`} aria-label="The pattern">
+            {g.seq.map((c, i) => {
+              if (g.phase === 'show') return i < g.progress ? dot(i, c, 'seen') : dot(i, c, 'hidden')
+              if (g.memory) return dot(i, c, i < g.progress ? 'done' : 'hidden')
+              return dot(i, c, i < g.progress ? 'done' : i === g.progress ? 'next' : 'seen')
+            })}
+          </div>
+          <span className="sr-only">{g.phase === 'show' ? 'Watch' : 'Your turn'}</span>
         </div>
-        <div className={`${panel} flex min-h-[2.25rem] flex-wrap items-center gap-1.5 px-3 py-2`} aria-label="The pattern">
-          {g.seq.map((c, i) => {
-            if (g.phase === 'show') return i < g.progress ? dot(i, c, 'seen') : dot(i, c, 'hidden')
-            if (g.memory) return dot(i, c, i < g.progress ? 'done' : 'hidden')
-            return dot(i, c, i < g.progress ? 'done' : i === g.progress ? 'next' : 'seen')
-          })}
-        </div>
-        <div className="pl-1 text-base font-semibold text-lilac-600">{g.phase === 'show' ? 'Watch…' : 'Your turn'}</div>
-      </div>
+        {/* when it becomes your turn: a soft word in the middle of the water, over the bubbles, that fades away */}
+        {g.phase === 'play' && (
+          <p key={g.round} aria-hidden className="your-turn pointer-events-none absolute inset-0 z-10 grid place-items-center font-display text-4xl italic text-lilac-700/70">
+            Your turn
+          </p>
+        )}
+      </>
     )
   }
 
   return (
-    <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
-      <div className={`${panel} flex w-fit max-w-[min(100%,24rem)] flex-col items-center gap-2 px-5 py-3 text-center`} role="status" aria-live="polite">
-        <div className="font-display text-lg leading-tight">{g.phase === 'over' ? 'Game over' : 'Pop game'}</div>
+    <div data-ui className="pointer-events-none absolute inset-0 z-10 grid place-items-center px-4">
+      <div className={`${panel} flex w-fit max-w-[min(100%,24rem)] flex-col items-center gap-4 px-6 py-4 text-center`} role="status" aria-live="polite">
+        <div className="font-display text-xl leading-tight">{g.phase === 'over' ? 'Game over!' : 'Pop game'}</div>
         {g.phase === 'over' ? (
           <div className="flex items-start justify-center gap-7">
             {(

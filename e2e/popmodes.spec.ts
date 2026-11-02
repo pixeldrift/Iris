@@ -117,6 +117,7 @@ test.describe('pop modes', () => {
     await page.getByRole('button', { name: 'Play', exact: true }).click()
     const status = page.getByRole('status')
     await expect(status).toContainText('Your turn', { timeout: 6000 })
+    await expect(page.locator('.your-turn')).toHaveText('Your turn') // (a soft word in the middle that fades away)
     const want = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')
     const bubble = (hue: string, same: boolean) => (same ? page.locator(`[data-stray] .pad[data-hue="${hue}"]:not([disabled])`) : page.locator(`[data-stray] .pad:not([data-hue="${hue}"]):not([disabled])`))
     const pop = async (loc: ReturnType<typeof bubble>) => {
