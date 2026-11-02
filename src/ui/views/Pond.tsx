@@ -138,9 +138,15 @@ export function Pond() {
   const palette = useMemo(() => paletteOf(hues), [hues])
   const colourOf = (id: string) => {
     const t = visible.find((x) => x.id === id)
-    return t ? palette.indexOf(bubbleHue(t, folders)) : -1
+    return t ? gamePalette.indexOf(bubbleHue(t, folders)) : -1
   }
-  const game = usePopGame(palette.length)
+  // the game's colours: the commonest among the bubbles, topped up so there are always at least four to play with
+  const gamePalette = useMemo(() => {
+    const out = [...palette]
+    for (const h of [285, 200, 150, 40, 340, 10]) if (out.length < 4 && !out.includes(h)) out.push(h)
+    return out
+  }, [palette])
+  const game = usePopGame(gamePalette.length)
   const [funReturn, setFunReturn] = useState(false)
   const wasPlayful = useRef(false)
   useEffect(() => {
@@ -169,6 +175,7 @@ export function Pond() {
       bank()
     }
   }, [playful, addPopStats])
+  const rippleRef = useRef<(id: string) => void>(() => {})
   const gameRef = useRef(game)
   gameRef.current = game
   const live = useRef({ rel, group })
@@ -376,6 +383,7 @@ export function Pond() {
       },
       isFree: () => live.current.group === 'free',
       popMode: () => popRef.current,
+      ripple: (id) => rippleRef.current(id),
       funPop: (id) => {
         if (funRef.current[id]) return
         const mode = popRef.current
@@ -387,6 +395,7 @@ export function Pond() {
           gm.tap(c)
         }
         sound.pop()
+        rippleRef.current(id)
         addPopStats({ popped: 1 })
         setFun((f) => ({ ...f, [id]: 'gone' }))
         window.setTimeout(() => setFun((f) => ({ ...f, [id]: 'back' })), 1500)
@@ -572,6 +581,36 @@ export function Pond() {
     [wave],
   )
 
+  /** A ripple around a bubble, with the others bobbing as the wave passes. */
+  const rippleFrom = useCallback(
+    (id: string) => {
+      const n = nodes.current.get(id)
+      if (!n) return
+      const cv = view.current
+      const d = 2 * n.sim.r * cv.scale
+      spawnRipple('circle', n.sim.x * cv.scale + cv.tx, n.sim.y * cv.scale + cv.ty, d, d)
+    },
+    [spawnRipple],
+  )
+  rippleRef.current = rippleFrom
+  /** The same, from a spot on the water (a spare bubble that was popped). */
+  const rippleAt = useCallback(
+    (x: number, y: number, r: number) => {
+      const cv = view.current
+      spawnRipple('circle', x * cv.scale + cv.tx, y * cv.scale + cv.ty, 2 * r * cv.scale, 2 * r * cv.scale)
+    },
+    [spawnRipple],
+  )
+  // checking an item off (here or from anywhere) sends a ripple out from its bubble
+  const doneNow = useRef<Map<string, number> | null>(null)
+  useEffect(() => {
+    const cur = new Map(visible.map((t) => [t.id, (t.status === 'done' ? 1 : 0) + t.log.length]))
+    const prev = doneNow.current
+    doneNow.current = cur
+    if (!prev) return
+    for (const [id, v] of cur) if ((prev.get(id) ?? v) < v) rippleFrom(id)
+  }, [visible, rippleFrom])
+
   // a new item (from the quick-add box) lands: ripple from where its bubble really is
   useEffect(() => {
     const onAdded = (e: Event) => {
@@ -590,7 +629,21 @@ export function Pond() {
     return () => window.removeEventListener('lilac:added', onAdded)
   }, [spawnRipple])
 
-  usePondGestures({ ref, view, dims, applyView, zoomAbout, select, checkOffscreen })
+  usePondGestures({
+    ref,
+    view,
+    dims,
+    applyView,
+    zoomAbout,
+    select,
+    checkOffscreen,
+    // in pop mode a tap on the water only ripples: it never starts a new item
+    onTap: (p) => {
+      if (popRef.current === 'off') return false
+      spawnRipple('circle', p.x, p.y)
+      return true
+    },
+  })
 
   return (
     <div
@@ -664,10 +717,25 @@ export function Pond() {
 
         {w > 0 &&
           visible.map((t) => {
-            const c = popMode === 'game' ? palette.indexOf(bubbleHue(t, folders)) : -1
+            const c = popMode === 'game' ? gamePalette.indexOf(bubbleHue(t, folders)) : -1
             return <Lily key={t.id} task={t} r={radius(t)} api={api} start={{ x: t.x * w, y: t.y * h }} match={matcher ? matcher(t) : null} fun={fun[t.id]} lit={popMode === 'game' && game.g.lit !== null && c === game.g.lit} dim={popMode === 'game' && c < 0} />
           })}
-        {w > 0 && <Strays active={pop && popMode !== 'game'} onPop={() => addPopStats({ popped: 1 })} hues={palette} w={w} h={h} getAvoid={() => [...nodes.current.values()].map((n) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r }))} />}
+        {w > 0 && (
+          <Strays
+            active={pop}
+            w={w}
+            h={h}
+            hues={popMode === 'game' ? gamePalette : undefined}
+            litHue={popMode === 'game' && game.g.lit !== null ? gamePalette[game.g.lit] : null}
+            canPop={(hue) => popRef.current !== 'game' || (gameRef.current.g.phase === 'play' && gamePalette.includes(hue))}
+            onPop={(hue, x, y, r) => {
+              addPopStats({ popped: 1 })
+              rippleAt(x, y, r)
+              if (popRef.current === 'game') gameRef.current.tap(gamePalette.indexOf(hue))
+            }}
+            getAvoid={() => [...nodes.current.values()].map((n) => ({ x: n.sim.x, y: n.sim.y, r: n.sim.r }))}
+          />
+        )}
       </div>
 
       <WaterRipples ref={water} className="z-10" />
@@ -707,7 +775,7 @@ export function Pond() {
           </button>
         </Tip>
       </div>
-      {popMode === 'game' && <PopGameBar game={game} palette={palette} />}
+      {popMode === 'game' && <PopGameBar game={game} palette={gamePalette} />}
       {popMode === 'delete' && (
         <div data-ui className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-10 flex justify-center px-4">
           <div role="alert" className="flex items-center gap-2 rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/40">

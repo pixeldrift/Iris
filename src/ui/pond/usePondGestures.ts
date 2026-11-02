@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { openCompose } from '../NewTask'
 import { MAX_SCALE, MIN_SCALE, type View } from './types'
 
@@ -11,8 +11,12 @@ export function usePondGestures(o: {
   zoomAbout: (factor: number, px: number, py: number) => void
   select: (id: string | null) => void
   checkOffscreen: () => void
+  /** A tap on empty water, in screen terms: return true if it was dealt with (so no new item starts). */
+  onTap?: (p: { x: number; y: number }) => boolean
 }) {
   const { ref, view, dims, applyView, zoomAbout, select, checkOffscreen } = o
+  const tap = useRef(o.onTap)
+  tap.current = o.onTap
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -68,7 +72,7 @@ export function usePondGestures(o: {
           select(null)
           const v = view.current
           const { w: W, h: H } = dims.current
-          openCompose({ x: (p.x - v.tx) / v.scale / W, y: (p.y - v.ty) / v.scale / H })
+          if (!tap.current?.(p)) openCompose({ x: (p.x - v.tx) / v.scale / W, y: (p.y - v.ty) / v.scale / H })
         }
         mode = 'none'
         el.style.cursor = ''
