@@ -10,7 +10,7 @@ test.describe('pop modes', () => {
   test('fun mode is the default: bubbles lose their words, pop, come back, and nothing is deleted', async ({ page }) => {
     const before = (await saved(page))!.tasks.length
     await page.getByRole('button', { name: 'Pop mode' }).click()
-    await expect(page.getByRole('button', { name: 'Fun', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('alert')).toHaveCount(0) // no warning: nothing here deletes
     const first = page.locator('[data-node] [role=button]').first()
     // the words and marks fade away: only size and colour are left
     await expect.poll(() => first.evaluate((e) => getComputedStyle(e.firstElementChild!).opacity)).toBe('0')
