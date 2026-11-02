@@ -88,17 +88,19 @@ export const Lily = memo(function Lily({ task, r, api, start, match, fun, lit = 
               role="button"
               data-hue={hue}
               tabIndex={0}
-              onPointerDown={(e) => {
-                // pop mode: no dragging, no opening; the bubble goes the moment it is touched
+              // pop mode takes every touch on a bubble before anything inside it can (its checkbox, even when it has faded away)
+              onPointerDownCapture={(e) => {
                 const mode = api.popMode()
-                if (mode !== 'off') {
-                  e.stopPropagation()
-                  if (mode === 'delete') useStore.getState().deleteTask(task.id)
-                  else api.funPop(task.id) // for fun: it pops and floats back
-                  return
-                }
-                onPointerDown(e, true)
+                if (mode === 'off') return
+                e.stopPropagation()
+                if (mode === 'delete') {
+                  api.ripple(task.id)
+                  useStore.getState().deleteTask(task.id)
+                } else api.funPop(task.id) // for fun: it pops and floats back
               }}
+              onClickCapture={(e) => api.popMode() !== 'off' && e.stopPropagation()}
+              onKeyDownCapture={(e) => api.popMode() !== 'off' && e.stopPropagation()}
+              onPointerDown={(e) => api.popMode() === 'off' && onPointerDown(e, true)}
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
               className={`pad group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''

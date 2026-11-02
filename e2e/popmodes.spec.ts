@@ -26,6 +26,34 @@ test.describe('pop modes', () => {
     await page.screenshot({ path: 'test-results/popfun.png' })
   })
 
+  test('in pop mode the checkbox cannot be used, fun pops are not undoable, and a tap on the water adds nothing', async ({ page }) => {
+    const before = await saved(page)
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await page.waitForTimeout(1000)
+    const check = page.locator('[data-node] .pad button[aria-label*="done" i], [data-node] .pad button[aria-label*="Mark"]').first()
+    const c = (await check.boundingBox())!
+    await page.mouse.click(c.x + c.width / 2, c.y + c.height / 2)
+    await page.waitForTimeout(700)
+    const after = await saved(page)
+    expect(after!.tasks.map((t) => t.status)).toEqual(before!.tasks.map((t) => t.status))
+    expect(after!.tasks.map((t) => t.log.length)).toEqual(before!.tasks.map((t) => t.log.length))
+    // nothing was logged to undo
+    await expect(page.getByRole('button', { name: 'Undo' })).toHaveAttribute('aria-disabled', 'true')
+    // the water: a tap in a clear corner makes no new item
+    const pond = (await page.locator('[aria-label^="Pond canvas"]').boundingBox())!
+    await page.mouse.click(pond.x + 5, pond.y + pond.height / 2)
+    await page.waitForTimeout(400)
+    await expect(page.getByLabel('New item')).toHaveCount(0)
+  })
+
+  test('checking an item off sends a ripple out, and the other bubbles bob', async ({ page }) => {
+    const waves = () => page.evaluate(() => document.getAnimations().filter((a) => (a.effect as KeyframeEffect | null)?.getTiming().duration === 2400).length)
+    expect(await waves()).toBe(0)
+    const c = (await page.locator('[data-node] .pad button[aria-label*="done" i], [data-node] .pad button[aria-label*="Mark"]').first().boundingBox())!
+    await page.mouse.click(c.x + c.width / 2, c.y + c.height / 2) // (the bubbles drift, so no waiting for them to hold still)
+    await expect.poll(waves).toBeGreaterThan(0)
+  })
+
   test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept', async ({ page }) => {
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
@@ -33,7 +61,7 @@ test.describe('pop modes', () => {
     const status = page.getByRole('status')
     await expect(status).toContainText('Your turn', { timeout: 6000 })
     const want = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')
-    const bubble = (hue: string, same: boolean) => page.locator(`[data-node] [role=button]${same ? `[data-hue="${hue}"]` : `:not([data-hue="${hue}"])`}`)
+    const bubble = (hue: string, same: boolean) => (same ? page.locator(`.pad[data-hue="${hue}"]:not([disabled])`) : page.locator(`[data-stray] .pad:not([data-hue="${hue}"]):not([disabled])`))
     const pop = async (loc: ReturnType<typeof bubble>) => {
       const box = (await loc.first().boundingBox())!
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)

@@ -27,6 +27,8 @@ export interface PondApi {
   popMode: () => PopMode
   /** A bubble popped for fun or in the game: nothing is deleted. */
   funPop: (id: string) => void
+  /** A ripple from a bubble, and the others bob as the wave passes (popping, checking off). */
+  ripple: (id: string) => void
 }
 
 export interface Rec {
