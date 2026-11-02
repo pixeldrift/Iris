@@ -1,7 +1,7 @@
 import { addDays, today } from '../../core/dates'
 import { descendantIds, pathOf } from '../../core/folders'
 import { detectContactIntent, matchPerson } from '../../core/people'
-import { patchForStage, stageIndex, stagesForTask, stagesOf } from '../../core/progress'
+import { patchForStage, planRank, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { remindFromRule } from '../../core/reminders'
 import { rolloverDay, urgencyForDue } from '../../core/tasks'
@@ -218,7 +218,8 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         set({ contactPrompt: null })
       },
 
-      dropTask: (taskId, target) => {
+      applyRanks: (ranks) => set((s) => ({ tasks: s.tasks.map((t) => (t.id in ranks ? { ...t, rank: ranks[t.id] } : t)) })),
+      dropTask: (taskId, target, hint) => {
         const [kind, ...rest] = target.split(':')
         const value = rest.join(':')
         const s = get()
@@ -250,7 +251,20 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
             // stage:<group id or ->:<stage id>: the columns of the Progress view it was dropped in
             const [fid, ...sid] = value.split(':')
             const folder = fid === '-' ? null : s.folders.find((f) => f.id === fid)
-            s.setStage(taskId, sid.join(':'), stagesOf(folder))
+            const stages = stagesOf(folder)
+            const stageId = sid.join(':')
+            s.setStage(taskId, stageId, stages)
+            // where it lands in the column: the spot it was dropped on, or at the top
+            const now = get().tasks
+            let plan: { rank: number; patches: Record<string, number> }
+            if (hint) {
+              const col = hint.ids.map((id) => now.find((x) => x.id === id)).filter((x): x is Task => !!x && x.id !== taskId)
+              plan = planRank(col, hint.index)
+            } else {
+              const i = stages.findIndex((st) => st.id === stageId)
+              plan = { rank: topRank(now.filter((x) => x.id !== taskId && stageIndex(x, stages) === i)), patches: {} }
+            }
+            get().applyRanks({ ...plan.patches, [taskId]: plan.rank })
             return true
           }
           default:

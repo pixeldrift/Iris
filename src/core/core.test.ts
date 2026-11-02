@@ -751,3 +751,27 @@ describe('pop game keeps the pattern playable', () => {
     expect(planRound([0, 1], [3, 3, 3], 2).add).toHaveLength(2)
   })
 })
+
+import { orderInStage, planRank, topRank } from './progress'
+describe('placing an item in a Progress column', () => {
+  const col = (...r: (number | null)[]) => r.map((rank, i) => ({ id: 't' + i, rank }))
+  it('orders by hand first, then the rest as given', () => {
+    expect(orderInStage([{ rank: null }, { rank: 5 }, { rank: 1 }, { rank: null }]).map((t) => t.rank)).toEqual([1, 5, null, null])
+  })
+  it('the top is above everything, and the default', () => {
+    expect(topRank([])).toBe(0)
+    expect(topRank(col(null, null))).toBe(0)
+    expect(topRank(col(10, 20, null))).toBeLessThan(10)
+    expect(planRank(col(10, 20), 0).rank).toBeLessThan(10)
+  })
+  it('lands between its neighbours, or after the last', () => {
+    expect(planRank(col(10, 20), 1).rank).toBe(15)
+    expect(planRank(col(10, 20), 2).rank).toBeGreaterThan(20)
+    expect(planRank(col(10, 20, null), 2).rank).toBeGreaterThan(20)
+  })
+  it('gives the items above the spot ranks when none were placed yet, so they keep their order', () => {
+    const p = planRank(col(null, null, null), 2)
+    expect(p.patches).toEqual({ t0: 0, t1: 1024 })
+    expect(p.rank).toBe(2048)
+  })
+})

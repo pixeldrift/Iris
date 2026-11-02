@@ -123,7 +123,10 @@ export interface TasksSlice {
   checkContact: (taskId: string) => void
   resolveContact: (personId: string | null) => void
   /** Single entry point for every drag & drop in the app. */
-  dropTask: (taskId: string, target: string) => boolean
+  /** `hint` is where in a Progress column it was dropped: the column's items in order (without it) and the position. No hint puts it at the top. */
+  dropTask: (taskId: string, target: string, hint?: { index: number; ids: string[] }) => boolean
+  /** Set the by-hand rank of several items at once. */
+  applyRanks: (ranks: Record<string, number>) => void
 }
 
 export interface FoldersSlice {
