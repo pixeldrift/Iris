@@ -15,6 +15,12 @@ export interface Recurrence {
   /** Chosen with the Custom option (so the full controls stay open). */
   custom?: boolean
   from: string
+  /** The last day the series can fall on (inclusive). */
+  until?: string
+  /** Or: how many times in all (the skipped ones still count). */
+  count?: number
+  /** Single occurrences that are skipped (`YYYY-MM-DD`). */
+  skip?: string[]
 }
 
 export type TaskKind = 'task' | 'idea' | 'list' | 'event' | 'habit'

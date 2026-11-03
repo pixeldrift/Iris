@@ -9,7 +9,7 @@ import { IconTrash } from '../icons'
 import { BatchEditor } from '../BatchEditor'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, QuickAdd, WeightDot, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, WeightDot, useTaskDrag } from '../shared'
 
 const SORTS: { id: SortKey; label: string }[] = [
   { id: 'flow', label: 'Priority' },
@@ -112,6 +112,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
           <WeightDot task={task} />
           <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
           <span data-lift-extra className="hidden items-center gap-1 sm:flex">
+            <PlaceChip task={task} />
             <FolderChips task={task} max={2} />
           </span>
           <span data-lift-extra className="flex items-center">

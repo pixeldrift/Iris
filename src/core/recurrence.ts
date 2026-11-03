@@ -1,4 +1,5 @@
 import { addDays, diffDays, fromISO, ordinalSuffix, toISO, WEEKDAYS } from './dates'
+import { formatDate } from './locale'
 import type { Recurrence, Task } from './types'
 
 const daysIn = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
@@ -15,8 +16,8 @@ export function nthWeekdayOfMonth(year: number, month: number, weekday: number, 
 
 const weekStart = (s: string) => addDays(s, -fromISO(s).getDay())
 
-/** Does the series fall on `date`? `anchor` is where it starts (never before it). */
-export function occursOn(r: Recurrence, date: string, anchor: string = r.from): boolean {
+/** Does the pattern itself fall on `date`, ignoring where the series ends and what is skipped? */
+function occursBase(r: Recurrence, date: string, anchor: string): boolean {
   if (date < anchor) return false
   const d = fromISO(date)
   const a = fromISO(anchor)
@@ -40,6 +41,37 @@ export function occursOn(r: Recurrence, date: string, anchor: string = r.from): 
       return d.getDate() === Math.min(a.getDate(), daysIn(d.getFullYear(), d.getMonth()))
     }
   }
+}
+
+const endCache = new Map<string, string | null>()
+/** The last day the series can fall on (inclusive): its end date, or the date of its last counted occurrence; null when it never ends. */
+export function seriesEnd(r: Recurrence, anchor: string = r.from): string | null {
+  let end = r.until ?? null
+  if (r.count && r.count > 0) {
+    const key = JSON.stringify([r.freq, r.interval, r.byDay, r.monthDay, r.nth, anchor, r.count])
+    let last = endCache.get(key)
+    if (last === undefined) {
+      last = null
+      let n = 0
+      for (let d = anchor, i = 0; i < 36_500; i++, d = addDays(d, 1))
+        if (occursBase(r, d, anchor) && ++n >= r.count) {
+          last = d
+          break
+        }
+      endCache.set(key, last)
+    }
+    if (last && (!end || last < end)) end = last
+  }
+  return end
+}
+
+/** Does the series fall on `date`? `anchor` is where it starts (never before it); it stops at its end and passes over skipped days. */
+export function occursOn(r: Recurrence, date: string, anchor: string = r.from): boolean {
+  if (date < anchor) return false
+  const end = seriesEnd(r, anchor)
+  if (end && date > end) return false
+  if (r.skip?.includes(date)) return false
+  return occursBase(r, date, anchor)
 }
 
 /** First occurrence on or after `from` (null if none within about 8 years). */
@@ -93,7 +125,14 @@ export function repeatStreak(t: Task, now: string): number {
   return n
 }
 
+/** "Every week on Tue, until Dec 1" / ", 10 times". */
 export function describeRecurrence(r: Recurrence): string {
+  const base = describeBase(r)
+  const end = r.until ? `, until ${formatDate(r.until)}` : r.count ? `, ${r.count} ${r.count === 1 ? 'time' : 'times'}` : ''
+  return base + end
+}
+
+function describeBase(r: Recurrence): string {
   const n = Math.max(1, r.interval)
   const dom = r.monthDay ?? fromISO(r.from).getDate()
   switch (r.freq) {

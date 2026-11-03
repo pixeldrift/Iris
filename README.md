@@ -9,19 +9,32 @@ future native iPhone app.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # core logic tests
+npm test           # core logic tests (fast)
+npm run test:e2e   # browser tests (slow: run the ones for what you touched, e.g. `npx playwright test e2e/board.spec.ts`)
 npm run build      # type-check + production build to dist/
 ```
 
 Deploy: import the repo in Vercel (framework preset Vite). Add to Home Screen on
-iPhone to install it as an app. Data lives in `localStorage` for now.
+iPhone to install it as an app. Data lives on the device, and syncs to your account when you are signed in
+(see [docs/ACCOUNTS.md](docs/ACCOUNTS.md)). CI runs the types and unit tests on what lands on `main`; the slow browser
+tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TESTING.md)).
 
 ## What's in the prototype
 
-**Views** (the purple card in the left sidebar): Pond (free canvas), List
-(sortable), Board (kanban), Priority (Eisenhower), Calendar (month/week/day) and
-Timeline (gantt). Every view respects the selected filter (a group, person or
-day). Fold the card with its arrow and the views become a row of icons.
+**Views** (the purple card in the left sidebar):
+- **Pond**: the free canvas, bubbles floating on water. Click the water to add a thought.
+- **List**: sortable rows, swipe a row to delete it, drag to tag or schedule. Each shows its group, its day and where it is.
+- **Progress**: stages side by side (Pending, In Progress, Completed, or your own per group, with the pencil at the top).
+  Drag a card to another stage and drop it anywhere in the list, with a purple line showing where it lands (no spot given
+  puts it at the top); the purple + in a stage's header opens a box to add one at the top.
+- **Priority**: the Eisenhower plot; drag a task around to set how much it matters and how urgent it is.
+- **Calendar**: month (an endless grid: drag it to scroll, the arrows slide a whole month), week, and day (a list, or a
+  schedule by the clock with events as tall as they last, drag to move or stretch). Items with no day wait under the days.
+- **Timeline**: a Gantt of dated items; drag bars to shift them, drag the ends to stretch, pinch to zoom in to hours.
+- **Overview**: what got finished, streaks, where the effort went, and your pop stats.
+
+Every view respects the selected filter (a group, person, day, or several). Fold the card with its arrow and the views become
+a row of icons.
 
 ## House rules
 
@@ -70,10 +83,24 @@ every bubble back. *Gather by* chips (groups, when, weight, kind, people, stage)
 float together; in *Free* mode related bubbles lean toward each other. On a phone a sliver of the sidebar
 stays beside the pond: tap it, or drag a bubble onto it, to open the drawer and drop the bubble into a group.
 
-**Planning days.** *Do on* (the day you plan it) is separate from *Due by* (the deadline); dropping a task on a
-weekday sets *Do on*. Unfinished tasks carry forward to the next day automatically (switch it off per task).
-If a task can only happen on certain weekdays (a class that meets Mon/Wed/Fri), pick them under *Only on
-these days*: a missed one moves to the next of those days, unless that is after its due date.
+**Planning days.** *Plan for* (the day you'll do it) is separate from *Deadline* (when it has to be done), and each has a
+reminder of its own; both show on the calendar. Dropping a task on a weekday sets *Plan for*. Unfinished tasks carry forward
+to the next day automatically (under *More options*, switch it off per task, or set a timeline start). If a task can only
+happen on certain weekdays (a class that meets Mon/Wed/Fri), pick them under *Only on these days*: a missed one moves to the
+next of those days, unless that is after its deadline.
+
+**Where.** Any item can have a place, a room or a link: it shows as a pin chip on rows and cards, a pin on the bubble, and the
+button beside it opens a map (or the link).
+
+**Repeats.** Any task, event or habit can repeat (daily, weekly on chosen days, monthly by date or "third Tuesday", yearly,
+every n). A repeat can end on a date or after a number of times, and a single day can be skipped and put back; each
+occurrence is ticked off in turn with a streak.
+
+**Reminders.** In-app cards and system notifications while the app is open. Events have as many reminders as you like before
+they start; other items one for the day and one for the deadline. (Delivery with the app closed is on the roadmap.)
+
+**Quick add.** Type naturally ("Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am", "remind me to call mom at 5pm");
+the preview shows what it understood.
 
 **Moving clusters.** In a *Gather by* view, drag a bubble slowly and its whole cluster follows on a rubber
 band, nudging others aside. Flick it fast to snap it free, then drop it on another cluster to re-tag it
@@ -81,10 +108,20 @@ band, nudging others aside. Flick it fast to snap it free, then drop it on anoth
 
 **Sound.** Tap the speaker to mute/unmute; hold it (or right-click) for individual sounds and volume.
 
-**Soft priority.** Two sliders ("how much it matters", "how pressing it feels")
-with no numbers; on the Priority view you drag a task around the plot to set both.
+**Soft priority.** Two sliders ("how much it matters", "how pressing it feels") with no numbers; on the Priority view you drag
+a task around the plot to set both. With *Raise urgency near deadlines* on (the default), the urgency actually used is
+the higher of your slider and what the deadline calls for; a small dot under the slider shows the value in use, and your own
+setting is never changed.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for what's next (collaboration, themes…),
+**Popping.** The pop button in the pond has three modes: *Fun* (the real bubbles are put away and plain ones take their place,
+nothing is deleted), *Game* (a Simon-style game: watch the colours, pop them back in order, it speeds up) and *Delete* (popping
+a bubble deletes its task, with a red warning). Fun and Game are limited to three minutes at a time with breaks that grow longer
+(settings: *Limit play time*); delete is never limited. Stats are kept on the device and shown in Overview.
+
+**Settings** (the gear in the sidebar header): theme, date and clock style, sidebar spacing, sound, filters (*Switching views clears
+filters*), urgency, play limit, your account, connections and the danger zone.
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for what's next (push reminders, attachments, themes…),
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the stack, the Swift
 porting plan and next steps, and [db/schema.sql](db/schema.sql) for the Neon
 schema.
