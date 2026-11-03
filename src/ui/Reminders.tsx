@@ -7,6 +7,7 @@ import { alertLabel, dueAlerts, dueReminders, eventStartsFor, formatReminder, re
 import { useStore } from '../state/store'
 import { IconBell, IconChevron, IconClose } from './icons'
 import { dismissAlert as dismiss, openNotices, useAlerts } from './notices'
+import { enablePush } from '../sync/push'
 import { showSystem } from './notify'
 
 const note = (minutes: number) => (minutes <= 0 ? 'Starting now' : `Starts in ${alertLabel(minutes).replace(' before', '')}`)
@@ -59,6 +60,7 @@ export function ReminderHost() {
       alertSound()
       for (const c of cards) void showSystem(c.id, st.tasks.find((t) => t.id === c.id)?.title || 'Reminder', c.note)
     }
+    if (useStore.getState().settings.systemNotifications) void enablePush() // (keeps the server's copy of this device's push address fresh)
     check()
     const timer = window.setInterval(check, 10_000)
     const wake = () => document.visibilityState === 'visible' && check()

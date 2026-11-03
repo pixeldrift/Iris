@@ -1,3 +1,4 @@
+import { disablePush, enablePush } from '../sync/push'
 import { create } from 'zustand'
 import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
@@ -58,10 +59,14 @@ function NotificationsRow() {
     if (perm === 'default') {
       const next = await askNotify()
       setPerm(next)
-      if (next === 'granted') set('systemNotifications', true)
+      if (next === 'granted') {
+        set('systemNotifications', true)
+        void enablePush()
+      }
       return
     }
     set('systemNotifications', !wanted)
+    void (wanted ? disablePush() : enablePush())
   }
   const hint = on
     ? 'On: reminders can appear even when Lilac is in the background'

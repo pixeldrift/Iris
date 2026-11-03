@@ -40,7 +40,7 @@ the pop game with Fun / Game / Delete modes, stats and a play limit. (The README
   and password reset (needs an email provider), passkeys / social sign-in, syncing settings, shared rate limiting,
   and server-assigned versions before collaboration.
 - **Reminders & push.** In-app reminders and system notifications (while the app is open) have shipped.
-  Still to do: delivery when the app is closed: Web Push (VAPID) for the PWA, APNs for native.
+  Web Push (VAPID) delivery for the PWA is built (see README, "Notifications when the app is closed"); untested on real devices. Still to do: APNs for native.
   iOS only delivers web push to PWAs added to the Home Screen (16.4+).
 - **Calendar sync (Google, Apple, others).** Connect external calendars so Lilac and they share
   information, two ways: events created or changed in Lilac show up in the calendar app, and the other
@@ -58,7 +58,7 @@ the pop game with Fun / Game / Delete modes, stats and a play limit. (The README
   pond, every occurrence on the calendar, each ticked off in turn with a streak. End dates and counts, and skipping a single
   occurrence, have shipped. Still to do: "after completion" repeats, and RRULE import/export for calendar sync.
 - **Location. (Shipped.)** A place, room or link on any item: a pin chip on rows and cards, a pin on the bubble, and a button
-  that opens a map (or the link). Still to do: "at <place>" in quick add, remembering places you use, and travel time.
+  that opens a map (or the link). Quick add understands "at <place>". Still to do: remembering places you use, and travel time.
 - **Natural-language quick add. (Shipped.)** "Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am",
   "remind me to call mom at 5pm", "idea: ..." (`src/core/quickadd.ts`, with a live preview and "Keep as typed").
   Still to do: more phrasings, other languages, and the same parser for the title field in the detail panel.
@@ -130,6 +130,5 @@ material, the ambient sound bed and the particles, and nothing else.
 
 ## Polish ideas
 - Folder-specific bubble colors and icons.
-- Manual ordering inside the list view (Progress columns already have it).
 - Custom date picker with times; natural-language dates ("call Sarah next Thursday").
 - Haptics on the native app for pops and blooms.
