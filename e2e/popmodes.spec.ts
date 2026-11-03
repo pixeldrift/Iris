@@ -96,6 +96,22 @@ test.describe('pop modes', () => {
     await expect.poll(waves).toBeGreaterThan(0)
   })
 
+  test('in the game every bubble is at full strength like the pattern; in fun mode they vary', async ({ page }) => {
+    const us = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-stray] .pad')].map((e) => Number(e.style.getPropertyValue('--u'))))
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await expect.poll(async () => (await us()).length).toBeGreaterThan(5)
+    const fun = await us()
+    expect(new Set(fun.map((u) => u.toFixed(2))).size).toBeGreaterThan(2) // varied, but never pale (50% or more)
+    expect(Math.min(...fun)).toBeGreaterThanOrEqual(0.5)
+    await page.getByRole('radio', { name: 'Game' }).click()
+    await expect.poll(async () => (await us()).length).toBeGreaterThan(5)
+    expect((await us()).every((u) => u === 1)).toBe(true)
+    // and the pattern's own bubbles are made at full strength too
+    await page.getByRole('button', { name: 'Play', exact: true }).click()
+    await expect(page.locator('[aria-label="The pattern"] [data-hue]').first()).toBeVisible({ timeout: 6000 })
+    await expect.poll(() => page.locator('[aria-label="The pattern"] [data-hue]').first().evaluate((e) => (e as HTMLElement).style.getPropertyValue('--u')), { timeout: 6000 }).toBe('1')
+  })
+
   test('the pop game always has a bubble for every colour the pattern asks for, over several rounds', async ({ page }) => {
     test.setTimeout(90_000) // (the early rounds are slow on purpose)
     await page.getByRole('button', { name: 'Pop mode' }).click()

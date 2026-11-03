@@ -7,6 +7,9 @@ type Stray = { id: number; fade?: boolean; enter?: number; hue: number; u: numbe
 /** How vivid a plain bubble is: some variety, but never so pale that two colours look alike (50% at the least). */
 const vivid = () => 0.5 + Math.random() * 0.5
 
+/** In the pop game every bubble is at full strength, the same as the bubbles of the pattern shown at the top, so no colour is hard to tell from another. */
+const GAME_VIVID = 1
+
 /** What the pop game needs from the field: how many bubbles there are of each of its colours, and a way to add more. */
 export interface StrayField {
   counts: (pool: number[]) => number[]
@@ -76,7 +79,7 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
       if (avoid.some((a) => Math.hypot(a.x - x, a.y - y) < a.r + r + 6 / A.scale)) continue
       if (others.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 6 / A.scale)) continue
       const hu = hue ?? (pool && pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * 360))
-      return { id: next.current++, hue: hu, u: vivid(), x, y, r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 }
+      return { id: next.current++, hue: hu, u: pool && pool.length ? GAME_VIVID : vivid(), x, y, r, dur: 5 + Math.random() * 4, delay: -Math.random() * 6 }
     }
     return null
   }
@@ -133,7 +136,7 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
         // the real bubbles' places, sizes and colours (in the game, the nearest of the game's colours), as plain ones
         const pool = live.current.hues
         const near = (hue: number) => (pool && pool.length ? pool.reduce((best, c) => (Math.abs(((c - hue + 540) % 360) - 180) < Math.abs(((best - hue + 540) % 360) - 180) ? c : best), pool[0]) : hue)
-        setList(seed.map((b) => ({ id: next.current++, fade: true, hue: near(b.hue), u: b.u ?? vivid(), x: b.x, y: b.y, r: b.r, dur: 5 + Math.random() * 4, delay: 0 })))
+        setList(seed.map((b) => ({ id: next.current++, fade: true, hue: near(b.hue), u: pool && pool.length ? GAME_VIVID : (b.u ?? vivid()), x: b.x, y: b.y, r: b.r, dur: 5 + Math.random() * 4, delay: 0 })))
       } else setList(fill())
       return
     }
