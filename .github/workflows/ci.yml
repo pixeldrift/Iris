@@ -1,12 +1,15 @@
 name: CI
 
-# Runs on what lands on main, and on pull requests (not on every push to features, which sent an email each time),
-# or by hand from the Actions tab. A newer run of the same branch cancels the one still going.
+# The quick checks (types and unit tests, about a minute) run on what lands on main and on pull requests. The browser tests are slow
+# (about ten minutes), so they run once a week and whenever started by hand from the Actions tab, not on every change.
+# A newer run of the same branch cancels the one still going.
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -25,11 +28,13 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npx playwright install --with-deps chromium
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
       - run: npm run test:e2e
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         env:
           CI: 'true'
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         with:
           name: playwright-traces
           path: test-results
