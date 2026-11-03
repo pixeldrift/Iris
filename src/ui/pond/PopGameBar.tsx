@@ -35,6 +35,18 @@ export function PopGameBar({ game, palette, breakText = null }: { game: { g: Gam
   // the pattern box shows two rows; a longer pattern scrolls: back to the first row as a round begins, then after the bubble being shown
   // (or the one to pop next), so a new row slides up from below and the first row out of sight
   const box = useRef<HTMLDivElement>(null)
+  // "Your turn" stays up for a good few seconds, then fades; a tap clears it at once (progress moves on)
+  const [turn, setTurn] = useState<'in' | 'fading' | 'gone'>('in')
+  useEffect(() => {
+    if (g.phase !== 'play') return setTurn('in')
+    setTurn('in')
+    const t1 = window.setTimeout(() => setTurn('fading'), 6000)
+    const t2 = window.setTimeout(() => setTurn('gone'), 6700)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+    }
+  }, [g.phase, g.round])
   useEffect(() => {
     const el = box.current
     if (!el || !playing) return
@@ -72,14 +84,23 @@ export function PopGameBar({ game, palette, breakText = null }: { game: { g: Gam
               return dot(i, c, i < g.progress ? 'done' : i === g.progress ? 'next' : 'seen')
             })}
           </div>
+          {/* under the pattern, always the same height so the bubbles' room never changes: "Watch and learn" while it is shown, then "Your turn"
+              with a hint that goes as soon as you tap (or after a while if you don't) */}
+          <div aria-hidden className="relative min-h-[3.1rem] pl-1">
+            {g.phase === 'show' && (
+              <div key="watch" className="rise-in font-display text-xl italic text-lilac-700">
+                Watch and learn
+              </div>
+            )}
+            {turn !== 'gone' && g.phase === 'play' && g.progress === 0 && (
+              <div key={`turn${g.round}`} data-turn-msg className={`rise-in transition-opacity duration-700 ${turn === 'fading' ? 'opacity-0' : ''}`}>
+                <div className="font-display text-xl italic text-lilac-700">Your turn</div>
+                <p className="text-xs text-ink-soft">Tap the colors in order to match the sequence.</p>
+              </div>
+            )}
+          </div>
           <span className="sr-only">{g.phase === 'show' ? 'Watch' : 'Your turn'}</span>
         </div>
-        {/* when it becomes your turn: a soft word in the middle of the water, over the bubbles, that fades away */}
-        {g.phase === 'play' && (
-          <p key={g.round} aria-hidden className="your-turn pointer-events-none absolute inset-0 z-10 grid place-items-center font-display text-4xl italic text-lilac-700/70">
-            Your turn
-          </p>
-        )}
       </>
     )
   }

@@ -141,9 +141,12 @@ test.describe('pop modes', () => {
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
     await page.getByRole('button', { name: 'Play', exact: true }).click()
+    await expect(page.getByText('Watch and learn')).toBeVisible() // while the pattern is shown
     const status = page.getByRole('status')
     await expect(status).toContainText('Your turn', { timeout: 6000 })
-    await expect(page.locator('.your-turn')).toHaveText('Your turn') // (a soft word in the middle that fades away)
+    // under the pattern: "Your turn" with its hint
+    await expect(page.locator('[data-turn-msg]')).toContainText('Your turn')
+    await expect(page.locator('[data-turn-msg]')).toContainText('Tap the colors in order to match the sequence.')
     const want = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')
     const bubble = (hue: string, same: boolean) => (same ? page.locator(`[data-stray] .pad[data-hue="${hue}"]:not([disabled])`) : page.locator(`[data-stray] .pad:not([data-hue="${hue}"]):not([disabled])`))
     const pop = async (loc: ReturnType<typeof bubble>) => {
@@ -152,6 +155,7 @@ test.describe('pop modes', () => {
     }
     await page.screenshot({ path: 'test-results/popgame.png' })
     await pop(bubble(want!, true))
+    await expect(page.locator('[data-turn-msg]')).toHaveCount(0) // gone as soon as there was a tap
     await expect(status).toContainText(/round 2/, { timeout: 4000 })
     await expect(status).toContainText('Your turn', { timeout: 8000 })
     // a colour that is not in the pattern's first place: game over (the pattern's first is `want` again or not; pick a colour in play that differs from the first of the sequence)
