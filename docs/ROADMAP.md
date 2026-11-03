@@ -1,5 +1,18 @@
 # Lilac roadmap
 
+## Recently shipped
+Progress view with stages you can edit and drop-anywhere ordering; the calendar's endless month grid and day schedule (durations,
+fit to the gap); separate Plan for / Deadline dates with their own reminders; a place on every item (pin, map link); repeats
+that end or skip a day; multi-select filters and the views/filters split in the sidebar; auto urgency; the timeline restyle;
+the pop game with Fun / Game / Delete modes, stats and a play limit. (The README describes each.)
+
+## Next, in order
+1. **Reminders when the app is closed** (Web Push), the biggest practical gap for a to-do app. See *Reminders & push* below.
+2. **Blended bubbles** (a gradient of a bubble's groups) and a quick "at <place>" in natural-language quick add.
+3. **Attachments and dropping things onto the pond**, then **Overview goals**.
+4. **Calendar sync**, once accounts and sync are live on your Neon database.
+5. **Themes**, then the **native Swift port** of `src/core`.
+
 ## Near term
 - **Connections. (First version built.)** People who use Lilac can link their address-book entries so details fill in and
   stay current without re-typing. Adding someone with an email offers "Send an invitation to connect?"; the other person
@@ -42,8 +55,10 @@
     sync worker runs in Vercel functions or cron, never in the browser.
 - **Recurring tasks. (Shipped.)** Any task, event or habit can repeat: daily, weekly (chosen weekdays), monthly
   (day of month, clamped to short months) or yearly, every n units (`src/core/recurrence.ts`). One bubble in the
-  pond, every occurrence on the calendar, each ticked off in turn with a streak. Still to do: end dates / counts,
-  skipping a single occurrence, "after completion" repeats, and RRULE import/export for calendar sync.
+  pond, every occurrence on the calendar, each ticked off in turn with a streak. End dates and counts, and skipping a single
+  occurrence, have shipped. Still to do: "after completion" repeats, and RRULE import/export for calendar sync.
+- **Location. (Shipped.)** A place, room or link on any item: a pin chip on rows and cards, a pin on the bubble, and a button
+  that opens a map (or the link). Still to do: "at <place>" in quick add, remembering places you use, and travel time.
 - **Natural-language quick add. (Shipped.)** "Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am",
   "remind me to call mom at 5pm", "idea: ..." (`src/core/quickadd.ts`, with a live preview and "Keep as typed").
   Still to do: more phrasings, other languages, and the same parser for the title field in the detail panel.
@@ -115,6 +130,6 @@ material, the ambient sound bed and the particles, and nothing else.
 
 ## Polish ideas
 - Folder-specific bubble colors and icons.
-- Manual ordering inside list and board columns.
+- Manual ordering inside the list view (Progress columns already have it).
 - Custom date picker with times; natural-language dates ("call Sarah next Thursday").
 - Haptics on the native app for pops and blooms.
