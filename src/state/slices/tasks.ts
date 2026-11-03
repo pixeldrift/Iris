@@ -257,6 +257,17 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           case 'status':
             s.setStatus(taskId, value as TaskStatus)
             return true
+          case 'list': {
+            // dropped in the list view: where it lands among the others, as the new order (the list then follows "My order")
+            if (!hint) return false
+            const order = hint.ids.filter((id) => id !== taskId)
+            const at = Math.max(0, Math.min(order.length, hint.index))
+            const merged = [...order.slice(0, at), taskId, ...order.slice(at)]
+            get().applyRanks(Object.fromEntries(merged.map((id, i) => [id, i * 1024])))
+            get().setSetting('sortKey', 'manual')
+            get().setSetting('sortDesc', false)
+            return true
+          }
           case 'stage': {
             // stage:<group id or ->:<stage id>: the columns of the Progress view it was dropped in
             const [fid, ...sid] = value.split(':')

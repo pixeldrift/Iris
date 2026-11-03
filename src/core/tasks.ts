@@ -81,6 +81,13 @@ export function filterTasks(tasks: Task[], scope: Scope, folders: Folder[], show
 const byDue = (a: Task, b: Task) => (a.due ?? a.day ?? '9999').localeCompare(b.due ?? b.day ?? '9999')
 
 export function sortTasks(tasks: Task[], key: SortKey, desc: boolean): Task[] {
+  if (key === 'manual') {
+    // the order you gave them (by rank), then anything not placed yet by priority
+    const by = sortTasks(tasks, 'flow', false)
+    const placed = by.filter((t) => t.rank != null).sort((a, b) => a.rank! - b.rank!)
+    const out = [...placed, ...by.filter((t) => t.rank == null)]
+    return desc ? out.reverse() : out
+  }
   const dir = desc ? -1 : 1
   const cmp: Record<SortKey, (a: Task, b: Task) => number> = {
     flow: (a, b) => weightOf(b) - weightOf(a), // heaviest first by default
@@ -89,6 +96,7 @@ export function sortTasks(tasks: Task[], key: SortKey, desc: boolean): Task[] {
     title: (a, b) => a.title.localeCompare(b.title),
     importance: (a, b) => b.importance - a.importance,
     urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
+    manual: () => 0,
   }
   return [...tasks].sort((a, b) => cmp[key](a, b) * dir || a.createdAt - b.createdAt)
 }

@@ -9,7 +9,8 @@ import { IconTrash } from '../icons'
 import { BatchEditor } from '../BatchEditor'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, WeightDot, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, WeightDot, useTaskDrag } from '../shared'
+import { useDropSlot } from '../dropSlot'
 
 const SORTS: { id: SortKey; label: string }[] = [
   { id: 'flow', label: 'Priority' },
@@ -18,6 +19,7 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'due', label: 'Due date' },
   { id: 'created', label: 'Newest' },
   { id: 'title', label: 'A → Z' },
+  { id: 'manual', label: 'My order' },
 ]
 
 /**
@@ -148,6 +150,8 @@ export function ListView() {
   const [menu, setMenu] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   useFlip(listRef)
+  // carry a row to where it should go: a line shows the spot, and dropping puts it there (and the list follows "My order")
+  const { slot, props: dropProps } = useDropSlot('list', listRef, [rows])
   const anchor = useRef<HTMLButtonElement>(null)
 
   // several at once: Shift-click on a computer, the Select button on a phone
@@ -222,9 +226,13 @@ export function ListView() {
       <QuickAdd examples onAdd={(title) => addTask({ title })} />
       <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">
       <ScrollFade className="pr-2">
-      <div ref={listRef} className="space-y-2 py-1">
-        {rows.map((t) => (
-          <Row key={t.id} task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} />
+      <div ref={listRef} {...dropProps} className="space-y-2 py-1">
+        {rows.map((t, i) => (
+          <div key={t.id} data-card-id={t.id} className="relative">
+            {slot && slot.before === t.id && <SlotLine at="top" />}
+            <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} />
+            {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
+          </div>
         ))}
         {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">Nothing here yet. Still water.</p>}
       </div>

@@ -235,7 +235,7 @@ test.describe('a phone turned sideways', () => {
     await page.getByRole('button', { name: 'Add a person' }).last().click()
     const notes = page.getByRole('dialog').getByPlaceholder('Notes') // (the typing bar's own box shares the placeholder, but is not in the dialog)
     await notes.scrollIntoViewIfNeeded()
-    await notes.focus()
+    await notes.click() // (a real tap: the bar only opens for a focus that follows a gesture)
     // the bar appears at the top, named for the box
     const bar = page.locator('[data-input-proxy]')
     await expect(bar).toContainText('Notes')

@@ -897,3 +897,28 @@ describe('repeats that end, and skipped days', () => {
     expect(describeR({ ...daily, until: '2026-10-05' })).toMatch(/^Every day, until /)
   })
 })
+
+describe('quick add: where it happens', () => {
+  const ctx = { folders: [], people: [] }
+  const now = new Date(2026, 9, 27, 10, 0)
+  const q = (s: string) => parseQuickAdd(s, now, ctx)
+  it('takes a trailing "at <place>"', () => {
+    const a = q('Dentist friday 2pm at Main St')
+    expect(a.place).toBe('Main St')
+    expect(a.title).toBe('Dentist')
+    expect(a.time).toBe('14:00')
+    expect(a.chips).toContain('At Main St')
+    expect(q("Lunch at Joe's Cafe").place).toBe("Joe's Cafe")
+    expect(q('Meet at the office tomorrow').place).toBe('the office')
+    expect(q('Study at home').place).toBe('home')
+    expect(q('Concert at Madison Square Garden friday 8pm').place).toBe('Madison Square Garden')
+  })
+  it('leaves a time, or an ordinary phrase, alone', () => {
+    const a = q('Pick up milk at 5pm')
+    expect(a.place).toBeUndefined()
+    expect(a.time).toBe('17:00')
+    expect(q('Look at the budget').place).toBeUndefined()
+    expect(q('Look at the budget').title).toBe('Look at the budget')
+    expect(q('At Main St').place).toBeUndefined() // nothing left for a title
+  })
+})
