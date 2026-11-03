@@ -42,6 +42,8 @@ export default function App() {
 
   useEffect(() => {
     applyAudio(useStore.getState().settings)
+    // save the starting state at once: a first visit would otherwise store nothing until something changed (nothing else changes by this)
+    useStore.setState({})
     // Browsers only allow audio after a gesture, and iOS only counts a finished tap (touchend / click), not the touch starting.
     // So keep trying on every tap until audio is really running, and wake it again whenever the app comes back.
     const events = ['touchend', 'pointerup', 'click', 'keydown'] as const

@@ -1,13 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import { goto, open, saved } from './helpers'
 
-/** Start with the allowance almost used up, so the limit comes within a second. */
-async function almostOut(page: Page) {
-  await page.evaluate(() => {
+/** Start with the allowance almost used up (`left` ms to go), so the limit comes soon. */
+async function almostOut(page: Page, left = 400) {
+  await page.evaluate((left) => {
     const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
-    raw.state.settings.playGate = { usedMs: 179_600, lockUntil: 0, level: 0, lastLockAt: 0 }
+    raw.state.settings.playGate = { usedMs: 180_000 - left, lockUntil: 0, level: 0, lastLockAt: 0 }
     localStorage.setItem('lilac-v1', JSON.stringify(raw))
-  })
+  }, left)
   await page.reload()
   await page.locator('[data-node]').first().waitFor()
   await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
@@ -50,11 +50,11 @@ test.describe('limiting play', () => {
 
   test('the pop game: the game in progress is played out, and the break begins when it ends', async ({ page }) => {
     test.setTimeout(60_000)
-    await almostOut(page)
+    await almostOut(page, 6000) // (a few seconds, so a game is under way when the limit comes)
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
     await page.getByRole('button', { name: 'Play', exact: true }).click()
-    await expect(page.getByRole('timer')).toContainText('Last game', { timeout: 6000 })
+    await expect(page.getByRole('timer')).toContainText('Last game', { timeout: 12000 })
     const status = page.getByRole('status').first()
     await expect(status).toContainText('Your turn', { timeout: 15000 })
     const want = await page.locator('[aria-label="The pattern"] [data-hue]').first().getAttribute('data-hue')

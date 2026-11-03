@@ -1,9 +1,16 @@
 name: CI
 
+# Runs on what lands on main, and on pull requests (not on every push to features, which sent an email each time),
+# or by hand from the Actions tab. A newer run of the same branch cancels the one still going.
 on:
   push:
-    branches: [main, features]
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
