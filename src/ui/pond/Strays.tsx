@@ -184,7 +184,7 @@ export const Strays = forwardRef<StrayField, StraysProps>(function Strays({ acti
       {list.map((s) => {
         const gone = popped.has(s.id)
         return (
-          <div key={s.id} data-ui data-stray className="absolute left-0 top-0" style={{ width: s.r * 2, height: s.r * 2, transform: `translate(${s.x - s.r}px, ${s.y - s.r}px)` }}>
+          <div key={s.id} data-ui data-stray className={`absolute left-0 top-0 ${leaving ? 'pointer-events-none' : ''}`} style={{ width: s.r * 2, height: s.r * 2, transform: `translate(${s.x - s.r}px, ${s.y - s.r}px)` }}>
             <div className={leaving ? 'stray-out' : s.fade ? 'stray-fade' : 'stray-in'} style={{ animationDelay: leaving || s.fade ? '0s' : `${s.enter ?? (s.id % 7) * 40}ms` }}>
               <div className={gone ? 'burst' : 'stray-bob'} style={{ '--dur': `${s.dur}s`, '--delay': `${s.delay}s` } as React.CSSProperties}>
                 <button

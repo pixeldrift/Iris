@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { dayLabel, weekdayName } from '../core/dates'
 import { formatDate } from '../core/locale'
+import { tint } from '../core/color'
 import { pathOf } from '../core/folders'
-import type { Folder, PondGroup, Scope } from '../core/types'
+import type { PondGroup, Scope } from '../core/types'
 import { useStore } from '../state/store'
-import { IconCalendar, IconClose, IconDrift, IconFolder, IconList, IconMenu, IconPerson, IconPlus, IconSearch, IconUndo } from './icons'
+import { IconAll, IconCalendar, IconClose, IconDrift, IconFolder, IconList, IconMenu, IconPerson, IconPlus, IconSearch, IconUndo } from './icons'
 import { undo, useHistory } from '../state/history'
 import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { VIEWS } from './Sidebar'
@@ -37,28 +38,82 @@ function UndoRedo() {
   )
 }
 
-/** School › English 101: the folders above are links (lighter, italic, underlined) that move up a level. */
-function Crumbs({ path, go }: { path: Folder[]; go: (id: string) => void; small?: boolean }) {
+/**
+ * The filter as a path (Everything › School › English 101): the steps above are purple links, the level you are at is a tag chip
+ * (the same soft tinted chip as a group's tag on an item), and when you go up a level the chip slides back along the path to it (the
+ * way the highlight in the toggles glides). Sideways, "Everything" is the globe.
+ */
+function FilterPath({ items, vertical = false }: { items: { key: string; label: string; go?: () => void; hue?: number }[]; vertical?: boolean }) {
+  const box = useRef<HTMLSpanElement>(null)
+  const refs = useRef(new Map<string, HTMLElement>())
+  const [pill, setPill] = useState<{ x: number; w: number } | null>(null)
+  const settled = useRef(false)
+  const active = items[items.length - 1].key
+  const sig = items.map((i) => i.key + i.label).join('|')
+  useLayoutEffect(() => {
+    if (vertical) return
+    const measure = () => {
+      const el = refs.current.get(active)
+      const b = box.current
+      if (!el || !b) return
+      const r = el.getBoundingClientRect()
+      const br = b.getBoundingClientRect()
+      setPill((p) => (p && Math.abs(p.x - (r.left - br.left)) < 0.5 && Math.abs(p.w - r.width) < 0.5 ? p : { x: r.left - br.left, w: r.width }))
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' && box.current ? new ResizeObserver(measure) : null
+    if (ro && box.current) ro.observe(box.current)
+    return () => ro?.disconnect()
+  }, [active, sig, vertical])
+  useEffect(() => {
+    // no glide on the very first placement
+    const id = requestAnimationFrame(() => (settled.current = true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+  // the chip hugs the text (just below the baseline) with 10px of room at its front and tail; the links need less
+  const padLink = vertical ? 'px-0.5 py-1' : 'px-1.5 py-px'
+  const padCur = vertical ? 'px-0.5 py-[10px]' : 'px-[10px] py-px'
+  const cur = items[items.length - 1]
+  // a tag chip: the group's soft tint behind its name (the plain lilac chip when it is not a group)
+  const chip = cur.hue !== undefined ? { background: tint(cur.hue, 70, 88, 0.85), color: tint(cur.hue, 35, 32) } : { background: 'rgb(var(--lr-200) / 0.8)', color: 'var(--color-lilac-700)' }
+  const label = (it: { key: string; label: string }, i: number) => (vertical && i === 0 ? <IconAll size={13} /> : it.label)
   return (
-    <>
-      {path.map((f, i) =>
-        i < path.length - 1 ? (
-          <Fragment key={f.id}>
-            <button
-              onClick={() => go(f.id)}
-              className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
-            >
-              {f.name}
-            </button>
-            <span className="mx-1.5 text-ink-faint" aria-hidden>
-              ›
-            </span>
-          </Fragment>
-        ) : (
-          <span key={f.id}>{f.name}</span>
-        ),
+    <span ref={box} className="relative inline-flex items-center align-middle">
+      {!vertical && pill && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 rounded-full"
+          style={{ ...chip, left: pill.x, width: pill.w, transition: settled.current ? 'left 0.34s cubic-bezier(0.34, 1.35, 0.55, 1), width 0.34s cubic-bezier(0.34, 1.35, 0.55, 1)' : 'none' }}
+        />
       )}
-    </>
+      {items.map((it, i) => {
+        const last = i === items.length - 1
+        return (
+          <Fragment key={it.key}>
+            {i > 0 && (
+              <span className="relative text-ink-faint" aria-hidden>
+                ›
+              </span>
+            )}
+            {last ? (
+              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`relative inline-flex items-center rounded-full text-[0.72rem] font-medium leading-[1.2] ${padCur}`} style={vertical ? chip : { color: chip.color }}>
+                {label(it, i)}
+              </span>
+            ) : (
+              <button
+                ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))}
+                onClick={it.go}
+                title={i === 0 ? 'Clear all filters' : `Back to ${it.label}`}
+                aria-label={it.label}
+                className={`relative inline-flex items-center rounded-full leading-[1.2] text-lilac-600 transition hover:text-lilac-700 hover:underline ${padLink}`}
+              >
+                {label(it, i)}
+              </button>
+            )}
+          </Fragment>
+        )
+      })}
+    </span>
   )
 }
 
@@ -197,9 +252,10 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     <button
       onClick={() => setScope({ type: 'all' })}
       title="Clear all filters"
-      className="italic underline decoration-ink-faint/70 decoration-1 underline-offset-2 transition hover:text-lilac-700 hover:decoration-lilac-500"
+      aria-label="Everything"
+      className="text-lilac-600 transition hover:text-lilac-700 hover:underline"
     >
-      Everything
+      {land ? <IconAll size={13} /> : 'Everything'}
     </button>
   )
   const sep = (
@@ -213,9 +269,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       sub
     ) : (
       <>
-        <span className="font-medium text-lilac-600">Filter:</span>{' '}
+        {!land && <><span className="font-display font-bold text-lilac-700">Filter:</span>{' '}</>}
         {scope.type === 'all' ? (
-          'Everything'
+          <FilterPath vertical={land} items={[{ key: 'all', label: 'Everything' }]} />
         ) : scope.type === 'multi' ? (
           <>
             {first}
@@ -231,9 +287,15 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           </>
         ) : (
           <>
-            {first}
-            {sep}
-            {scope.type === 'folder' ? <Crumbs path={pathOf(folders, scope.id)} go={(id) => setScope({ type: 'folder', id })} small /> : title}
+            <FilterPath
+              vertical={land}
+              items={[
+                { key: 'all', label: 'Everything', go: () => setScope({ type: 'all' }) },
+                ...(scope.type === 'folder'
+                  ? pathOf(folders, scope.id).map((f) => ({ key: f.id, label: f.name, hue: f.hue, go: () => setScope({ type: 'folder', id: f.id }) }))
+                  : [{ key: 'cur', label: title }]),
+              ]}
+            />
             {sub ? ` · ${sub}` : ''}
           </>
         )}
@@ -254,14 +316,15 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" // the bottom button lines up with the zoom buttons in the pond (the content's bottom margin, plus the pond's own 0.75rem)
           style={{ width: 'var(--rail)', paddingTop: '2.75rem', paddingBottom: 'calc(max(0.75rem, env(safe-area-inset-bottom)) + 0.75rem)' }}>
           {/* turned clockwise, like the title on a book's spine; started well down so the curve of the screen's corner never clips it */}
-          {/* two lines, like the title and its filter line above the content when upright, turned the same way: the title, then the filter to its left */}
-          <div className="pointer-events-auto flex min-h-0 max-h-[70%] flex-col" style={{ writingMode: 'vertical-rl' }}>
-            <h2 className="truncate font-display text-xl leading-tight">{heading}</h2>
+          {/* two lines, like the title and its filter line above the content when upright, turned the same way: the title, then the filter to its
+              left. Each has the whole height above the buttons to itself, so a long path never runs into the search, undo and add buttons. */}
+          <div className="pointer-events-auto flex min-h-0 flex-1 flex-col" style={{ writingMode: 'vertical-rl' }}>
+            <h2 className="truncate font-display text-2xl leading-tight">{heading}</h2>
             <p className="mt-0.5 min-h-0 truncate font-sans text-[0.7rem] font-normal leading-tight text-ink-soft" style={{ marginInlineEnd: '0.1rem' }}>
               {filterLine}
             </p>
           </div>
-          <div className="pointer-events-auto mt-auto flex flex-col items-center gap-2">
+          <div className="pointer-events-auto mt-2 flex shrink-0 flex-col items-center gap-2">
             {tools}
             {scope.type !== 'contacts' && newBtn}
           </div>

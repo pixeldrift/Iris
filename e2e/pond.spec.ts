@@ -46,9 +46,11 @@ test.describe('the pond', () => {
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Delete' }).click() // (popping is for fun until deleting is asked for)
     await expect(page.getByRole('alert')).toContainText('Pop to delete!')
-    const bubble = page.locator('[data-node] [role=button]').first()
-    const box = (await bubble.boundingBox())!
-    await page.mouse.click(box.x + box.width / 2, box.y + 12)
+    // a bubble clear of the buttons along the top of the pond
+    const pondTop = (await page.locator('[aria-label^="Pond canvas"]').boundingBox())!.y
+    const boxes = await page.locator('[data-node] [role=button]').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } }))
+    const box = boxes.find((b) => b.y > pondTop + 80)!
+    await page.mouse.click(box.x + box.w / 2, box.y + box.h / 2)
     await expect.poll(count).toBe(n - 1)
     await page.keyboard.press('Control+z')
     await expect.poll(count).toBe(n)

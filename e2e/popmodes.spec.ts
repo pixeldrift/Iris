@@ -169,3 +169,34 @@ test.describe('pop modes', () => {
     await expect(page.getByLabel('Popping')).toContainText('bubbles popped')
   })
 })
+
+test.describe('pop modes: group names and the pattern box', () => {
+  test('the group names fade away in fun mode like the bubbles, and come back', async ({ page }) => {
+    await open(page)
+    await goto(page, 'Pond')
+    await page.getByRole('radio', { name: 'Group' }).click() // gather by group: the names appear
+    await page.waitForTimeout(900)
+    const label = page.locator('.pond-label').first()
+    await expect(label).toBeVisible()
+    expect(await label.evaluate((e) => getComputedStyle(e).opacity)).not.toBe('0')
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await expect.poll(() => label.evaluate((e) => getComputedStyle(e).opacity), { timeout: 3000 }).toBe('0')
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await expect.poll(() => label.evaluate((e) => getComputedStyle(e).opacity), { timeout: 4000 }).toBe('1')
+  })
+
+  test('the pattern box shows two rows and scrolls', async ({ page }) => {
+    test.setTimeout(60_000)
+    await open(page)
+    await goto(page, 'Pond')
+    await page.getByRole('button', { name: 'Pop mode' }).click()
+    await page.getByRole('radio', { name: 'Game' }).click()
+    await page.getByRole('button', { name: 'Play', exact: true }).click()
+    const box = page.locator('[aria-label="The pattern"]')
+    await expect(box).toBeVisible()
+    const st = await box.evaluate((e) => ({ max: getComputedStyle(e).maxHeight, oy: getComputedStyle(e).overflowY }))
+    expect(parseFloat(st.max)).toBeGreaterThan(60)
+    expect(parseFloat(st.max)).toBeLessThan(80) // two rows of bubbles, no more
+    expect(st.oy).toBe('auto')
+  })
+})

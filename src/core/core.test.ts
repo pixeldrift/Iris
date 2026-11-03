@@ -841,3 +841,15 @@ describe('auto urgency', () => {
     setAutoUrgency(true)
   })
 })
+
+import { scrollFor } from '../ui/pond/patternScroll'
+describe('the pattern box follows the bubble being shown', () => {
+  it('stays put while the bubble is in view, scrolls just far enough to bring it in, and goes back up', () => {
+    // two rows showing (70px), bubbles 24px tall and rows 30px apart, 8px of padding above the first
+    expect(scrollFor(0, 70, 8, 24)).toBe(0) // first row: in view
+    expect(scrollFor(0, 70, 38, 24)).toBe(0) // second row: in view
+    expect(scrollFor(0, 70, 68, 24)).toBe(30) // a third row: the first row slides out of sight, rows 2 and 3 show
+    expect(scrollFor(30, 70, 68, 24)).toBe(30) // already there
+    expect(scrollFor(30, 70, 8, 24)).toBe(0) // back to the first row
+  })
+})

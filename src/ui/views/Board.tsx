@@ -190,7 +190,7 @@ function Column({ id, target, name, tasks, onAdd }: { id: string; target: string
           </div>
         ) : (
           <div className="-mx-2 flex min-h-0 flex-1 flex-col">
-            <ScrollFade className="px-2">
+            <ScrollFade panX className="px-2">
               <div ref={list} className="space-y-2 py-2">
                 {items}
               </div>
@@ -223,6 +223,7 @@ function NewItem({ name, onAdd, onDone }: { name: string; onAdd: (title: string)
         onBlur={() => !v.trim() && onDone()}
         placeholder="Add a task…"
         aria-label={`Add a task to ${name}`}
+        data-proxy-commit
         className="well w-full rounded-2xl px-3 py-2 text-sm"
       />
     </form>

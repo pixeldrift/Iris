@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { satOf } from '../../core/color'
 import { useStore } from '../../state/store'
 import { IconStopwatch } from '../icons'
+import { scrollFor } from './patternScroll'
 import type { GameState } from './usePopGame'
 
 /** "score 40 • round 3", the numbers in bold purple serif (the compact line shown while playing). */
@@ -31,6 +32,17 @@ export function PopGameBar({ game, palette, breakText = null }: { game: { g: Gam
   const [memory, setMemory] = useState(false)
   const tooFew = palette.length < 3
   const playing = g.phase === 'show' || g.phase === 'play'
+  // the pattern box shows two rows; a longer pattern scrolls: back to the first row as a round begins, then after the bubble being shown
+  // (or the one to pop next), so a new row slides up from below and the first row out of sight
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = box.current
+    if (!el || !playing) return
+    const at = g.phase === 'show' ? g.progress - 1 : g.progress
+    const dot = at >= 0 ? el.querySelector<HTMLElement>(`[data-i="${Math.min(at, g.seq.length - 1)}"]`) : null
+    const top = dot ? scrollFor(el.scrollTop, el.clientHeight, dot.offsetTop, dot.offsetHeight) : 0
+    if (Math.abs(top - el.scrollTop) > 1) el.scrollTo({ top, behavior: 'smooth' })
+  }, [playing, g.phase, g.progress, g.seq.length])
 
   // the pattern's bubbles look like the real ones (same gradient, outline and glow), at the strongest colour
   const dot = (i: number, c: number, state: 'hidden' | 'seen' | 'done' | 'next') => (
@@ -38,7 +50,8 @@ export function PopGameBar({ game, palette, breakText = null }: { game: { g: Gam
       key={i}
       aria-hidden
       data-hue={palette[c]}
-      className={`block h-6 w-6 rounded-full transition ${state === 'hidden' ? 'bg-ink-faint/25' : 'pad'} ${state === 'next' ? 'scale-125 ring-2 ring-white' : ''} ${state === 'done' ? 'opacity-40' : ''}`}
+      data-i={i}
+      className={`block h-6 w-6 shrink-0 rounded-full transition ${state === 'hidden' ? 'bg-ink-faint/25' : 'pad'} ${state === 'next' ? 'scale-125 ring-2 ring-white' : ''} ${state === 'done' ? 'opacity-40' : ''}`}
       style={state === 'hidden' ? undefined : ({ '--h': Math.max(0, palette[c] ?? 285), '--s': satOf(palette[c] ?? 285), '--u': 1 } as React.CSSProperties)}
     />
   )
@@ -52,7 +65,7 @@ export function PopGameBar({ game, palette, breakText = null }: { game: { g: Gam
             <Line items={[['score', g.score], ['round', g.round]]} />
           </div>
           {/* the box is always the full width, however short the pattern is */}
-          <div className={`${panel} flex min-h-[2.75rem] w-full flex-wrap items-center gap-1.5 px-3 py-2`} aria-label="The pattern">
+          <div ref={box} className={`${panel} no-scrollbar relative flex min-h-[2.75rem] w-full flex-wrap content-start items-center gap-1.5 overflow-y-auto px-3 py-2`} style={{ maxHeight: '4.4rem' }} aria-label="The pattern">
             {g.seq.map((c, i) => {
               if (g.phase === 'show') return i < g.progress ? dot(i, c, 'seen') : dot(i, c, 'hidden')
               if (g.memory) return dot(i, c, i < g.progress ? 'done' : 'hidden')

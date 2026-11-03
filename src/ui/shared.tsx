@@ -223,6 +223,7 @@ export function QuickAdd({
           onChange={(e) => setV(e.target.value)}
           placeholder={examples ? '' : placeholder}
           aria-label={label}
+          data-proxy-commit
           className="well w-full rounded-2xl px-4 py-2.5 text-sm"
         />
         {examples && !v && <ExampleHint index={hint} className="left-4 right-3 text-sm" />}

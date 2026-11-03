@@ -687,7 +687,7 @@ export function Pond() {
               const st = labelSt.current.get(l.key)
               el.style.transform = st ? `translate(${st.x}px, ${st.y}px)` : ''
             }}
-            className="absolute"
+            className="pond-label absolute"
             style={{ left: l.x, top: l.y }}
           >
             <div
