@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   popStats: { popped: 0, points: 0, best: 0, games: 0, ms: 0 },
   limitPlay: true,
   autoUrgency: true,
+  systemNotifications: true,
   playGate: { usedMs: 0, lockUntil: 0, level: 0, lastLockAt: 0 },
   dateFormat: 'us',
   clockFormat: '12',

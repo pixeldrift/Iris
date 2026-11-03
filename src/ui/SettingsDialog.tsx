@@ -43,6 +43,55 @@ function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; la
   )
 }
 
+/**
+ * System notifications for reminders, as a switch that can be turned off again. The browser's permission can only be granted from
+ * here (not taken back), so "off" is Lilac's own choice not to send them; turning it on asks the browser first if it has not been asked.
+ */
+function NotificationsRow() {
+  const [perm, setPerm] = useState(notifyState())
+  const wanted = useStore((s) => s.settings.systemNotifications)
+  const set = useStore((s) => s.setSetting)
+  const blocked = perm === 'denied' || perm === 'unsupported'
+  const on = perm === 'granted' && wanted
+  const toggle = async () => {
+    if (blocked) return
+    if (perm === 'default') {
+      const next = await askNotify()
+      setPerm(next)
+      if (next === 'granted') set('systemNotifications', true)
+      return
+    }
+    set('systemNotifications', !wanted)
+  }
+  const hint = on
+    ? 'On: reminders can appear even when Lilac is in the background'
+    : perm === 'granted'
+      ? 'Off: reminders only appear inside Lilac'
+      : perm === 'denied'
+        ? 'Blocked in this browser: allow them in its site settings'
+        : perm === 'unsupported'
+          ? 'Not supported here: reminders show inside the app'
+          : 'Off: turn on to be reminded outside the app'
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-disabled={blocked}
+      onClick={toggle}
+      className={`flex w-full items-center gap-3 rounded-xl py-1.5 pl-2 pr-2 text-left transition hover:bg-white/50 ${blocked ? 'opacity-60' : ''}`}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm">Notifications</span>
+        <span className="block text-[0.7rem] text-ink-faint">{hint}</span>
+      </span>
+      <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
+        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? 'left-[1.1rem]' : 'left-0.5'}`} />
+      </span>
+    </button>
+  )
+}
+
 /** A small dot under a slider marking its default; tapping it puts the slider back there. */
 function DefaultDot({ at, onReset, color, label }: { at: number; onReset: () => void; color: string; label: string }) {
   return (
@@ -119,7 +168,6 @@ function LiveRange({ value, preview, commit, ...rest }: { value: number; preview
 /** One place for the display, sound and notification options (also reachable from the icons at the top). */
 export function SettingsDialog() {
   const { open } = useSettingsDialog()
-  const [perm, setPerm] = useState(notifyState())
   const [crop, setCrop] = useState<{ top: number; right: number; bottom: number; left: number } | null>(null)
   // Holding a slider shrinks the dialog to just that control, so what it changes can be watched behind it.
   const peekProps = {
@@ -254,19 +302,7 @@ export function SettingsDialog() {
           <Row k="showDone" label="Show bloomed tasks" hint="finished tasks stay visible" />
         </Group>
         <Group title="Reminders">
-          <div className="flex items-center gap-3 px-2 py-2">
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm">Notifications</span>
-              <span className="block text-[0.7rem] text-ink-faint">
-                {perm === 'granted' ? 'On: reminders can appear even when Lilac is in the background' : perm === 'denied' ? 'Blocked in this browser: allow them in its site settings' : perm === 'unsupported' ? 'Not supported here: reminders show inside the app' : 'Off: allow them to be reminded outside the app'}
-              </span>
-            </span>
-            {perm === 'default' && (
-              <button type="button" onClick={async () => setPerm(await askNotify())} className="shrink-0 rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30">
-                Allow
-              </button>
-            )}
-          </div>
+          <NotificationsRow />
         </Group>
         <Group title="Demo data">
           <p className="px-2 pb-1 text-[0.7rem] text-ink-faint">A small made-up life that shows off the app: every item type, repeats, lists, events, stages, people.</p>

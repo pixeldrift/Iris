@@ -36,6 +36,8 @@ export interface Settings {
   limitPlay: boolean
   /** Urgency rises by itself as a deadline nears (the slider keeps your own value). */
   autoUrgency: boolean
+  /** Reminders may also appear as system notifications (once the browser allows them); off keeps them inside Lilac. */
+  systemNotifications: boolean
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */
