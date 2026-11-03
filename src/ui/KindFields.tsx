@@ -1,6 +1,7 @@
 import { addDays, fromISO, ordinalSuffix, today, WEEKDAYS } from '../core/dates'
 import { SegmentedToggle } from './SegmentedToggle'
-import { anchorOf, describeRecurrence, repeatOf, taskOnDate } from '../core/recurrence'
+import { anchorOf, describeRecurrence, nextOccurrence, repeatOf, taskOnDate } from '../core/recurrence'
+import { formatDate } from '../core/locale'
 import { habitStreak } from '../core/tasks'
 import type { Recurrence, Task } from '../core/types'
 import { useRef, useState } from 'react'
@@ -254,12 +255,88 @@ export function RepeatField({ task }: { task: Task }) {
           )}
         </div>
       )}
+      {r && <RepeatEnds r={{ ...r, from }} set={set} />}
       {r && (
         <p className="mt-2 text-xs text-lilac-700">
           {describeRecurrence({ ...r, from })}
           {habitStreak(task) > 0 && <span className="ml-2 text-ink-soft">· {habitStreak(task)} in a row</span>}
         </p>
       )}
+    </div>
+  )
+}
+
+/** When a repeat stops (never, on a date, after some number of times), and skipping a single day of it. */
+function RepeatEnds({ r, set }: { r: Recurrence; set: (next: Recurrence | null) => void }) {
+  const anchor = r.from
+  const ends = r.until ? 'on' : r.count ? 'after' : 'never'
+  const now = today()
+  const next = nextOccurrence(r, now, anchor)
+  const ended = !next
+  const skipped = [...(r.skip ?? [])].sort()
+  const setEnd = (v: string) => {
+    const { until: _u, count: _c, ...rest } = r
+    if (v === 'on') set({ ...rest, until: addDays(next ?? now, 28) })
+    else if (v === 'after') set({ ...rest, count: 10 })
+    else set(rest)
+  }
+  return (
+    <div className="mt-2.5 space-y-2.5">
+      <div>
+        <span className="mb-1 block text-xs font-medium text-ink-soft">Ends</span>
+        <SegmentedToggle
+          label="Ends"
+          value={ends}
+          options={[
+            { id: 'never', label: 'Never' },
+            { id: 'on', label: 'On a date' },
+            { id: 'after', label: 'After' },
+          ]}
+          onChange={setEnd}
+        />
+        {ends === 'on' && (
+          <div className="mt-2">
+            <DatePicker label="Last day" value={r.until ?? null} onChange={(v) => set({ ...r, until: v ?? undefined })} />
+          </div>
+        )}
+        {ends === 'after' && (
+          <div className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
+            <button type="button" onClick={() => set({ ...r, count: Math.max(1, (r.count ?? 10) - 1) })} aria-label="Fewer times" className="grid h-7 w-7 place-items-center rounded-full bg-white/60 hover:bg-white">
+              −
+            </button>
+            <span className="min-w-[3.5rem] text-center tabular-nums text-ink">{r.count ?? 10} {(r.count ?? 10) === 1 ? 'time' : 'times'}</span>
+            <button type="button" onClick={() => set({ ...r, count: Math.min(999, (r.count ?? 10) + 1) })} aria-label="More times" className="grid h-7 w-7 place-items-center rounded-full bg-white/60 hover:bg-white">
+              +
+            </button>
+          </div>
+        )}
+      </div>
+      <div>
+        <span className="mb-1 block text-xs font-medium text-ink-soft">Skip one</span>
+        {ended ? (
+          <p className="text-xs text-ink-faint">This repeat has ended.</p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => set({ ...r, skip: [...skipped, next].sort() })}
+            className="rounded-full bg-white/60 px-3 py-1.5 text-xs text-ink-soft transition hover:bg-white/90"
+          >
+            Skip {formatDate(next, { weekday: true })}
+          </button>
+        )}
+        {skipped.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Skipped days">
+            {skipped.map((d) => (
+              <span key={d} className="inline-flex items-center gap-1 rounded-full bg-lilac-100/80 py-0.5 pl-2.5 pr-1 text-[0.7rem] text-lilac-700">
+                Skipped {formatDate(d)}
+                <button type="button" onClick={() => set({ ...r, skip: skipped.filter((x) => x !== d) })} aria-label={`Don't skip ${formatDate(d)}`} title="Put it back" className="grid h-4 w-4 place-items-center rounded-full text-lilac-500 hover:bg-white/80">
+                  <IconClose size={9} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

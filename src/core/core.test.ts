@@ -865,3 +865,35 @@ describe('where an item is', () => {
     expect(mapsUrl('12 Oak St, Springfield')).toBe('https://www.google.com/maps/search/?api=1&query=12%20Oak%20St%2C%20Springfield')
   })
 })
+
+import type { Recurrence } from './types'
+import { describeRecurrence as describeR, occursOn as occurs, seriesEnd } from './recurrence'
+describe('repeats that end, and skipped days', () => {
+  const daily = { freq: 'daily', interval: 1, from: '2026-10-01' } as const
+  it('stop on their end date', () => {
+    const r = { ...daily, until: '2026-10-05' }
+    expect(occurs(r, '2026-10-05')).toBe(true)
+    expect(occurs(r, '2026-10-06')).toBe(false)
+    expect(seriesEnd(r)).toBe('2026-10-05')
+  })
+  it('stop after a number of times (every other day, 3 times)', () => {
+    const r = { freq: 'daily', interval: 2, from: '2026-10-01', count: 3 } as const
+    expect([1, 3, 5, 7].map((d) => occurs(r, `2026-10-0${d}`))).toEqual([true, true, true, false])
+    expect(seriesEnd(r)).toBe('2026-10-05')
+    // weekly, on Tuesdays and Thursdays, 4 times
+    const w: Recurrence = { freq: 'weekly', interval: 1, byDay: [2, 4], from: '2026-10-05', count: 4 }
+    expect(seriesEnd(w)).toBe('2026-10-15')
+  })
+  it('the earlier of the date and the count wins', () => {
+    expect(seriesEnd({ ...daily, count: 10, until: '2026-10-03' })).toBe('2026-10-03')
+    expect(seriesEnd({ ...daily, count: 2, until: '2026-12-31' })).toBe('2026-10-02')
+  })
+  it('pass over a skipped day, which still counts toward the total', () => {
+    const r = { ...daily, count: 3, skip: ['2026-10-02'] }
+    expect([1, 2, 3, 4].map((d) => occurs(r, `2026-10-0${d}`))).toEqual([true, false, true, false])
+  })
+  it('say so', () => {
+    expect(describeR({ ...daily, count: 10 })).toBe('Every day, 10 times')
+    expect(describeR({ ...daily, until: '2026-10-05' })).toMatch(/^Every day, until /)
+  })
+})
