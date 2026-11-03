@@ -192,6 +192,7 @@ test.describe('a phone turned sideways', () => {
     await page.getByRole('button', { name: 'New task' }).click()
     const box = page.locator('#new-form')
     await expect(box).toBeVisible()
+    await page.waitForTimeout(700) // (the box is still growing into place just after it opens)
     const input = (await page.getByLabel('New item').boundingBox())!
     const type = (await page.getByRole('button', { name: /^Type:/ }).boundingBox())!
     const add = (await page.getByRole('button', { name: '+ Add' }).boundingBox())!
@@ -284,5 +285,36 @@ test.describe('the typing bar, sideways: Enter commits', () => {
     await page.keyboard.press('Enter')
     await expect(page.getByText('Buy oat milk', { exact: true }).first()).toBeVisible({ timeout: 4000 })
     await expect(rows).toHaveCount(n + 1)
+  })
+})
+
+test.describe('Progress on a phone', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })
+
+  test('swiping on a card scrolls the view (sideways to the other stages) and a card is only picked up after a short hold', async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(window, 'orientation', { get: () => 90 }))
+    await open(page)
+    await goto(page, 'Progress')
+    const cdp = await page.context().newCDPSession(page)
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] })
+    const columns = page.locator('[data-stage]').first().locator('xpath=..')
+    expect(await columns.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true) // more stages than fit: a sideways swipe should reach them
+    const card = page.locator('[data-card-id]').nth(1)
+    const b = (await card.boundingBox())!
+    const x = b.x + b.width / 2
+    const y = b.y + b.height / 2
+    await touch('touchStart', x, y)
+    // not lifted at the instant of touching: a finger has to rest a moment first
+    await page.waitForTimeout(120)
+    expect(await card.evaluate((e) => new DOMMatrix(getComputedStyle(e.querySelector('.lift-on-press') ?? e).transform).a)).toBeCloseTo(1, 2)
+    expect(await page.evaluate(() => document.body.classList.contains('dragging'))).toBe(false)
+    for (let i = 1; i <= 10; i++) {
+      await touch('touchMove', x - i * 30, y)
+      await page.waitForTimeout(16)
+    }
+    await touch('touchEnd')
+    await page.waitForTimeout(400)
+    expect(await columns.evaluate((e) => e.scrollLeft)).toBeGreaterThan(40)
+    expect(await page.evaluate(() => document.body.classList.contains('dragging'))).toBe(false)
   })
 })

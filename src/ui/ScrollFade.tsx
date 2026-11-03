@@ -3,9 +3,10 @@ import { IconChevron } from './icons'
 
 /**
  * A scroll area that softly fades its content out at an edge when more lies
- * beyond it, with a small bobbing arrow (tap to scroll) to say so.
+ * beyond it, with a small bobbing arrow (tap to scroll) to say so. `panX` lets a sideways swipe through to whatever scrolls
+ * around it (the columns of the Progress view).
  */
-export function ScrollFade({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+export function ScrollFade({ children, className = '', panX = false }: { children: React.ReactNode; className?: string; panX?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [edge, setEdge] = useState({ top: false, bottom: false })
 
@@ -37,7 +38,7 @@ export function ScrollFade({ children, className = '' }: { children: React.React
     <div className="relative min-h-0 flex-1">
       <div
         ref={ref}
-        className={`scroll-soft fade-mask h-full touch-pan-y overflow-y-auto ${className}`}
+        className={`scroll-soft fade-mask h-full overflow-y-auto ${panX ? 'touch-pan-x touch-pan-y' : 'touch-pan-y'} ${className}`}
         data-top={edge.top || undefined}
         data-bottom={edge.bottom || undefined}
       >

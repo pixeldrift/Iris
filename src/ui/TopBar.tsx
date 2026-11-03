@@ -316,14 +316,15 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         <header className="pointer-events-none absolute inset-y-0 right-0 z-20 flex flex-col items-center" // the bottom button lines up with the zoom buttons in the pond (the content's bottom margin, plus the pond's own 0.75rem)
           style={{ width: 'var(--rail)', paddingTop: '2.75rem', paddingBottom: 'calc(max(0.75rem, env(safe-area-inset-bottom)) + 0.75rem)' }}>
           {/* turned clockwise, like the title on a book's spine; started well down so the curve of the screen's corner never clips it */}
-          {/* two lines, like the title and its filter line above the content when upright, turned the same way: the title, then the filter to its left */}
-          <div className="pointer-events-auto flex min-h-0 max-h-[70%] flex-col" style={{ writingMode: 'vertical-rl' }}>
-            <h2 className="truncate font-display text-xl leading-tight">{heading}</h2>
+          {/* two lines, like the title and its filter line above the content when upright, turned the same way: the title, then the filter to its
+              left. Each has the whole height above the buttons to itself, so a long path never runs into the search, undo and add buttons. */}
+          <div className="pointer-events-auto flex min-h-0 flex-1 flex-col" style={{ writingMode: 'vertical-rl' }}>
+            <h2 className="truncate font-display text-2xl leading-tight">{heading}</h2>
             <p className="mt-0.5 min-h-0 truncate font-sans text-[0.7rem] font-normal leading-tight text-ink-soft" style={{ marginInlineEnd: '0.1rem' }}>
               {filterLine}
             </p>
           </div>
-          <div className="pointer-events-auto mt-auto flex flex-col items-center gap-2">
+          <div className="pointer-events-auto mt-2 flex shrink-0 flex-col items-center gap-2">
             {tools}
             {scope.type !== 'contacts' && newBtn}
           </div>

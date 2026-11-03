@@ -90,5 +90,10 @@ test('turned sideways: no "Filter:" word, and the globe stands for Everything', 
   await expect(globe).toBeVisible()
   await expect(globe.locator('svg')).toHaveCount(1)
   expect((await globe.innerText()).trim()).toBe('') // an icon, no word
+  // the title is the size it is upright, and the filter line has its own run of the rail, stopping short of the buttons below
+  expect(await rail.locator('h2').evaluate((e) => getComputedStyle(e).fontSize)).toBe('24px')
+  const line = (await rail.locator('p').boundingBox())!
+  const search = (await page.getByRole('button', { name: 'Search', exact: true }).boundingBox())!
+  expect(line.y + line.height).toBeLessThanOrEqual(search.y)
   await ctx.close()
 })

@@ -487,7 +487,10 @@ body.scrubbing .glow-breathe {
 .tint:hover { filter: brightness(1.03); }
 /* pressed: the item lifts away from the page right away, before it has moved at all */
 .lift-on-press { transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.55, 1), box-shadow 0.18s ease; }
+/* (with a mouse or pen the item lifts at once; a finger has to rest on it first, which raises it as .grabbed, so a swipe is only ever a scroll) */
+@media (hover: hover) and (pointer: fine) {
 .lift-on-press:active { transform: scale(1.02); box-shadow: 0 14px 28px -10px rgb(var(--lr-700)/0.45), 0 4px 10px -4px rgb(var(--lr-700)/0.3); }
+}
 
 /* clearance around a notch (set from script: only the notch's side gets any), and the width of the menu's sliver on a phone */
 :root {
@@ -495,7 +498,7 @@ body.scrubbing .glow-breathe {
   --safe-r: 0px;
   --sliver: 1.2rem;
   /* the column of title and buttons down the right-hand side of a phone turned sideways */
-  --rail: 3.6rem;
+  --rail: 4rem;
 }
 
 /* an item picked up by press-and-hold: raised off the page with a shadow, so it is plain that it is now being carried, not scrolled */

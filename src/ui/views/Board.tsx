@@ -190,7 +190,7 @@ function Column({ id, target, name, tasks, onAdd }: { id: string; target: string
           </div>
         ) : (
           <div className="-mx-2 flex min-h-0 flex-1 flex-col">
-            <ScrollFade className="px-2">
+            <ScrollFade panX className="px-2">
               <div ref={list} className="space-y-2 py-2">
                 {items}
               </div>
