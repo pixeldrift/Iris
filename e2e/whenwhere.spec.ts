@@ -61,6 +61,26 @@ test.describe('dates, reminders and a place on the details card', () => {
   })
 })
 
+test('a place shows on the list row and the bubble, and opens in a map (or as a link)', async ({ page }) => {
+  await open(page)
+  await goto(page, 'List')
+  await page.keyboard.press('n')
+  await page.keyboard.type('Water the beans')
+  await page.keyboard.press('Enter')
+  await page.getByLabel('Where').fill('12 Oak St, Springfield')
+  const map = page.getByRole('link', { name: 'Show on a map' })
+  await expect(map).toHaveAttribute('href', /google\.com\/maps\/search\/\?api=1&query=12%20Oak%20St/)
+  await expect(map).toHaveAttribute('target', '_blank')
+  // on its row in the list
+  await expect(page.locator('[data-lift-id^="task:"]', { hasText: 'Water the beans' }).getByText('12 Oak St, Springfield')).toBeVisible()
+  // a link opens as itself
+  await page.getByLabel('Where').fill('https://meet.example.com/room-9')
+  await expect(page.getByRole('link', { name: 'Open the link' })).toHaveAttribute('href', 'https://meet.example.com/room-9')
+  // and the pond's bubble carries a pin
+  await goto(page, 'Pond')
+  await expect(page.getByRole('img', { name: 'At https://meet.example.com/room-9' })).toBeVisible()
+})
+
 test('the timeline shows only dated items, in the usual gradient-and-outline style, in tighter rows', async ({ page }) => {
   await open(page)
   await goto(page, 'Timeline')

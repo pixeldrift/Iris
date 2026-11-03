@@ -853,3 +853,15 @@ describe('the pattern box follows the bubble being shown', () => {
     expect(scrollFor(30, 70, 8, 24)).toBe(0) // back to the first row
   })
 })
+
+import { isLink, mapsUrl } from './place'
+describe('where an item is', () => {
+  it('opens a link as it is and a place as a map search', () => {
+    expect(isLink('https://meet.example.com/abc')).toBe(true)
+    expect(isLink('www.zoom.us/j/123')).toBe(true)
+    expect(isLink('Room 4B')).toBe(false)
+    expect(mapsUrl('https://meet.example.com/abc')).toBe('https://meet.example.com/abc')
+    expect(mapsUrl('www.zoom.us/j/123')).toBe('https://www.zoom.us/j/123')
+    expect(mapsUrl('12 Oak St, Springfield')).toBe('https://www.google.com/maps/search/?api=1&query=12%20Oak%20St%2C%20Springfield')
+  })
+})

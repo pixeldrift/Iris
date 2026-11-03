@@ -7,6 +7,7 @@ import { useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { DatePicker } from './DatePicker'
 import { DurationPicker, TimePicker } from './TimePicker'
+import { OpenPlace } from './shared'
 import { durationOf, gapAround, hhmm, patchDuration, patchStart, spanOnDay } from '../core/schedule'
 import { IconBell, IconClose, IconPlus, IconRepeat } from './icons'
 import { MenuItem, Popover } from './Popover'
@@ -61,12 +62,15 @@ export function EventFields({ task }: { task: Task }) {
       </div>
       <label className="block text-xs font-medium text-ink-soft">
         Where
-        <input
-          value={task.place}
-          onChange={(e) => update(task.id, { place: e.target.value })}
-          placeholder="A place, a room, a link…"
-          className="well mt-1 w-full rounded-xl px-3 py-2 text-sm font-normal text-ink placeholder:text-ink-faint"
-        />
+        <span className="mt-1 flex items-center gap-1.5">
+          <input
+            value={task.place}
+            onChange={(e) => update(task.id, { place: e.target.value })}
+            placeholder="A place, a room, a link…"
+            className="well min-w-0 flex-1 rounded-xl px-3 py-2 text-sm font-normal text-ink placeholder:text-ink-faint"
+          />
+          <OpenPlace place={task.place} />
+        </span>
       </label>
       <EventAlerts task={task} />
     </div>

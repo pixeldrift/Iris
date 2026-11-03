@@ -86,7 +86,9 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
           {deadline ? '⚑ ' : ''}
           {task.title || 'Untitled'}
         </span>
-        {task.kind === 'event' && task.time && <span className="block text-xs text-ink-faint">{formatTime(task.time)}</span>}
+        {((task.kind === 'event' && task.time) || task.place.trim()) && (
+          <span className="block truncate text-xs text-ink-faint">{[task.kind === 'event' && task.time ? formatTime(task.time) : '', task.place.trim()].filter(Boolean).join(' · ')}</span>
+        )}
       </span>
       <span className="shrink-0 text-lilac-600/70" aria-hidden title={task.kind}>
         <KindIcon kind={task.kind} size={16} />

@@ -2,7 +2,7 @@ import { contactLink, detectContactIntent } from '../core/people'
 import { habitStreak } from '../core/tasks'
 import type { Task } from '../core/types'
 import { useStore } from '../state/store'
-import { IconBell, IconChat, IconMail, IconPhone, KindIcon } from './icons'
+import { IconBell, IconChat, IconMail, IconPhone, IconPin, KindIcon } from './icons'
 import { DoneButton } from './shared'
 
 /**
@@ -43,6 +43,8 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { t
     })
   if ((task.remindAt !== null && !task.reminded) || (task.dueRemindAt != null && !task.dueReminded) || (task.alerts?.length ?? 0) > 0)
     extras.push({ key: 'bell', w: 13, node: <span title="Reminder set" role="img" aria-label="Reminder set" className="text-lilac-500"><IconBell size={13} /></span> })
+  if (task.place.trim())
+    extras.push({ key: 'pin', w: 13, node: <span title={task.place} role="img" aria-label={`At ${task.place}`} className="text-lilac-500"><IconPin size={13} /></span> })
   if ((!!task.repeat || task.kind === 'habit') && habitStreak(task) > 0)
     extras.push({ key: 'streak', w: 24, node: <span title={`${habitStreak(task)}-day streak`} className="flex items-center gap-0.5 text-[0.6rem] tabular-nums text-lilac-600">↻ {habitStreak(task)}</span> })
   if (task.kind === 'list')

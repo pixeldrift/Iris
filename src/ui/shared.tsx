@@ -7,7 +7,8 @@ import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useBoardSlot } from './boardSlot'
 import { useDnd, usePointerDrag } from './dnd'
-import { IconCheck, IconCheckHint } from './icons'
+import { IconCheck, IconCheckHint, IconLink, IconPin } from './icons'
+import { isLink, mapsUrl } from '../core/place'
 import { checkVars, useTaskHue } from './taskColor'
 import { ExampleHint, useExampleIndex } from './ExampleHint'
 
@@ -92,6 +93,35 @@ export function FolderChips({ task, max = 3 }: { task: Task; max?: number }) {
       ))}
       {mine.length > max && <span className="text-[0.7rem] text-ink-faint">+{mine.length - max}</span>}
     </>
+  )
+}
+
+/** A small button next to the place that opens it: a map for a place, the page itself for a link. */
+export function OpenPlace({ place }: { place: string }) {
+  if (!place.trim()) return null
+  const link = isLink(place)
+  return (
+    <a
+      href={mapsUrl(place)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={link ? 'Open the link' : 'Show on a map'}
+      title={link ? 'Open the link' : 'Show on a map'}
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-100 text-lilac-600 transition hover:bg-lilac-200"
+    >
+      {link ? <IconLink size={15} /> : <IconPin size={15} />}
+    </a>
+  )
+}
+
+/** Where the item is, as a small chip with a pin (nothing when it has no place). */
+export function PlaceChip({ task }: { task: Task }) {
+  if (!task.place.trim()) return null
+  return (
+    <span title={task.place} className="inline-flex max-w-[10rem] items-center gap-1 rounded-full bg-white/55 px-2 py-0.5 text-[0.7rem] leading-none text-ink-soft">
+      <IconPin size={10} />
+      <span className="truncate">{task.place}</span>
+    </span>
   )
 }
 
