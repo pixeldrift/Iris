@@ -403,6 +403,10 @@ input[type='range'].hue::-moz-range-track {
 .fun-mode [data-node] * { pointer-events: none !important; }
 @keyframes fun-return { from { opacity: 0; } to { opacity: 1; } }
 .fun-return [data-node] { animation: fun-return 0.8s ease both; }
+/* the group names go with the bubbles (and come back with them) */
+.fun-mode .pond-label { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.8s ease; }
+.fun-mode .pond-label * { pointer-events: none !important; }
+.fun-return .pond-label { animation: fun-return 0.8s ease both; }
 /* the pop game: the colour being shown lights up */
 .game-lit { transform: scale(1.14) !important; filter: brightness(1.18) saturate(1.7) !important; box-shadow: 0 0 0 5px rgba(255,255,255,0.95), 0 0 34px 12px hsl(var(--h) 90% 68% / 0.85) !important; }
 
