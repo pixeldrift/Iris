@@ -61,3 +61,24 @@ test.describe('settings', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 })
+
+test.describe('notifications switch', () => {
+  test('once allowed, the switch stays and can be turned off and on again', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 } })
+    // (headless Chromium does not report a grant, so the browser's answer is set by hand: allowed)
+    await ctx.addInitScript(() => Object.defineProperty(Notification, 'permission', { get: () => 'granted' }))
+    const page = await ctx.newPage()
+    await page.goto('http://localhost:4173')
+    await page.locator('[data-node]').first().waitFor()
+    await page.getByRole('button', { name: 'My settings' }).click()
+    const sw = page.getByRole('switch', { name: /Notifications/ })
+    await expect(sw).toHaveAttribute('aria-checked', 'true') // allowed by the browser: on, and still a switch
+    await expect(sw).toContainText('On: reminders can appear even when Lilac is in the background')
+    await sw.click()
+    await expect(sw).toHaveAttribute('aria-checked', 'false')
+    await expect(sw).toContainText('Off: reminders only appear inside Lilac')
+    await sw.click()
+    await expect(sw).toHaveAttribute('aria-checked', 'true')
+    await ctx.close()
+  })
+})

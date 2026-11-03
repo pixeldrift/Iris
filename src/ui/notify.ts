@@ -1,3 +1,5 @@
+import { useStore } from '../state/store'
+
 /** System notifications for reminders. They work while Lilac is open (or running in the background as an installed app). */
 export type NotifyState = NotificationPermission | 'unsupported'
 
@@ -15,7 +17,7 @@ export async function askNotify(): Promise<NotifyState> {
 }
 
 export async function showSystem(id: string, title: string, body: string) {
-  if (notifyState() !== 'granted') return
+  if (notifyState() !== 'granted' || !useStore.getState().settings.systemNotifications) return // (switched off in the settings: they stay inside Lilac)
   const opts: NotificationOptions = { body, tag: `lilac-${id}`, icon: '/icon.svg', data: { id } }
   try {
     const reg = await navigator.serviceWorker?.ready
