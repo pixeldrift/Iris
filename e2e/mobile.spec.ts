@@ -266,3 +266,23 @@ test.describe('a phone turned sideways', () => {
     await expect(page.locator('[data-input-proxy]')).toHaveAttribute('aria-hidden', 'true')
   })
 })
+
+test.describe('the typing bar, sideways: Enter commits', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })
+
+  test('pressing Enter in the bar flies the text to the list\'s add line and presses Enter there: a new item', async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(window, 'orientation', { get: () => 90 }))
+    await open(page)
+    await goto(page, 'List')
+    const rows = page.locator('[data-lift-id^="task:"]')
+    const n = await rows.count()
+    await page.getByLabel('Add a task', { exact: true }).click()
+    const bar = page.locator('[data-input-proxy]')
+    const typing = bar.getByLabel(/type here/i)
+    await expect(typing).toBeFocused()
+    await typing.fill('Buy oat milk')
+    await page.keyboard.press('Enter')
+    await expect(page.getByText('Buy oat milk', { exact: true }).first()).toBeVisible({ timeout: 4000 })
+    await expect(rows).toHaveCount(n + 1)
+  })
+})

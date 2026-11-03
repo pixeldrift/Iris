@@ -27,10 +27,10 @@ const EASE_OUT = (t: number) => 1 - Math.pow(1 - t, 3)
  * way, and gives one small bounce of scale as it lands (no hop): so you can see where it went. The box is followed as it
  * moves (the keyboard leaving shifts the page), and its own text stays hidden until the flying copy has landed.
  */
-function fly(el: Field, from: DOMRect, text: string) {
-  if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return
+function fly(el: Field, from: DOMRect, text: string, onLanded?: () => void): boolean {
+  if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return false
   const first = el.getBoundingClientRect()
-  if (first.width === 0 || first.bottom < 0 || first.top > window.innerHeight) return
+  if (first.width === 0 || first.bottom < 0 || first.top > window.innerHeight) return false
   const cs = getComputedStyle(el)
   const ghost = document.createElement('div')
   ghost.className = 'well'
@@ -73,6 +73,7 @@ function fly(el: Field, from: DOMRect, text: string) {
     const done = () => {
       el.style.color = hide
       ghost.remove()
+      onLanded?.()
     }
     ghost.style.boxShadow = 'none'
     const bounce = ghost.animate([{ transform: `${ghost.style.transform} scale(1)` }, { transform: `${ghost.style.transform} scale(1.06)`, offset: 0.4 }, { transform: `${ghost.style.transform} scale(1)` }], { duration: 260, easing: 'ease-out' })
@@ -80,6 +81,16 @@ function fly(el: Field, from: DOMRect, text: string) {
     bounce.oncancel = done
   }
   requestAnimationFrame(step)
+  return true
+}
+
+/** Press Return in a box the way a keyboard would: key events, and if nothing took it, submit the form the box is in (a quick-add line, say). */
+function pressEnter(el: Field) {
+  if (!el.isConnected) return
+  const init = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }
+  const free = el.dispatchEvent(new KeyboardEvent('keydown', init))
+  el.dispatchEvent(new KeyboardEvent('keyup', init))
+  if (free && el instanceof HTMLInputElement && el.form) el.form.requestSubmit()
 }
 
 export function LandscapeInput() {
@@ -95,7 +106,8 @@ export function LandscapeInput() {
     setShown(null)
     ;(document.activeElement as HTMLElement | null)?.blur?.()
   }
-  const apply = (el: Field | null = target.current) => {
+  /** `commit`: Return was pressed in the bar, so once the text has landed Return is pressed in the box too (making the new item, say). */
+  const apply = (el: Field | null = target.current, commit = false) => {
     const src = el instanceof HTMLTextAreaElement ? area.current : line.current
     if (!el || !src) return close()
     if (el !== target.current) return // a different box has been opened since: nothing to hand back here
@@ -109,7 +121,8 @@ export function LandscapeInput() {
     if (el.hasAttribute('data-proxy-enter')) el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
     // boxes that settle their value when they lose focus (a birthday, say) are told they have
     el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    if (text) fly(el, from, text)
+    const press = () => commit && !el.hasAttribute('data-proxy-enter') && pressEnter(el)
+    if (!(text && fly(el, from, text, press))) press()
     close()
   }
 
@@ -186,7 +199,7 @@ export function LandscapeInput() {
             if (e.key === 'Enter') {
               e.preventDefault()
               done.current = true
-              apply()
+              apply(target.current, true)
             } else if (e.key === 'Escape') {
               e.preventDefault()
               done.current = true

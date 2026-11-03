@@ -70,7 +70,9 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
     const id = requestAnimationFrame(() => (settled.current = true))
     return () => cancelAnimationFrame(id)
   }, [])
-  const pad = vertical ? 'px-0.5 py-1.5' : 'px-2 py-0.5'
+  // the chip hugs the text (just below the baseline) with a little more room at its front and tail; the links need less
+  const padLink = vertical ? 'px-0.5 py-1' : 'px-1.5 py-px'
+  const padCur = vertical ? 'px-0.5 py-2' : 'px-3 py-px'
   const cur = items[items.length - 1]
   // a tag chip: the group's soft tint behind its name (the plain lilac chip when it is not a group)
   const chip = cur.hue !== undefined ? { background: tint(cur.hue, 70, 88, 0.85), color: tint(cur.hue, 35, 32) } : { background: 'rgb(var(--lr-200) / 0.8)', color: 'var(--color-lilac-700)' }
@@ -94,7 +96,7 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
               </span>
             )}
             {last ? (
-              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`relative inline-flex items-center rounded-full text-[0.72rem] font-medium leading-snug ${pad}`} style={vertical ? chip : { color: chip.color }}>
+              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`relative inline-flex items-center rounded-full text-[0.72rem] font-medium leading-[1.2] ${padCur}`} style={vertical ? chip : { color: chip.color }}>
                 {label(it, i)}
               </span>
             ) : (
@@ -103,7 +105,7 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
                 onClick={it.go}
                 title={i === 0 ? 'Clear all filters' : `Back to ${it.label}`}
                 aria-label={it.label}
-                className={`relative inline-flex items-center rounded-full text-lilac-600 transition hover:text-lilac-700 hover:underline ${pad}`}
+                className={`relative inline-flex items-center rounded-full leading-[1.2] text-lilac-600 transition hover:text-lilac-700 hover:underline ${padLink}`}
               >
                 {label(it, i)}
               </button>
