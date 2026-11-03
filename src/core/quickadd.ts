@@ -22,6 +22,8 @@ export interface QuickAdd {
   folderIds: string[]
   personIds: string[]
   /** Short readable pieces for a live preview ("Thu, Oct 29", "3 pm", "Every week on Mon"). */
+  /** Where it happens: "at Main St", "at home". */
+  place?: string
   chips: string[]
 }
 
@@ -337,6 +339,19 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     const at = remindFromRule({ day: out.day ?? null, due: out.due ?? null, time: out.time ?? null }, before, now.getTime())
     if (at) out.remindAt = at
     out.chips.push(`Remind ${before === 1 ? 'a day' : before === 7 ? 'a week' : `${before} days`} before`)
+  }
+
+  // "at Main St", "at Joe's Cafe", "at home": a trailing "at" that is not a time is a place. Only a name starting with a capital letter (as typed) or a
+  // common place word counts, so "look at the budget" stays a title.
+  if (!remindMode) {
+    const left = (rest: string) => rest.replace(/\s+/g, ' ').trim()
+    let pl = take(t, /\s+at\s+(?!\d)((?:[A-Z][\w'’&.-]*)(?:\s+(?:[A-Z][\w'’&.-]*|\d+[A-Za-z]?|the|of|and|&))*)\s*$/)
+    if (!pl.m) pl = take(t, /\s+at\s+(home|work|school|campus|church|the (?:office|gym|park|store|library|doctor'?s?|dentist'?s?))\s*$/i)
+    if (pl.m && left(pl.rest)) {
+      out.place = pl.m[1].trim()
+      out.chips.push(`At ${out.place}`)
+      t = pl.rest
+    }
   }
 
   out.title = t

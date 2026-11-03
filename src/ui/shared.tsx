@@ -114,6 +114,17 @@ export function OpenPlace({ place }: { place: string }) {
   )
 }
 
+/** A line between two items, in the colour of the drop marker in the sidebar: where the carried item would land. */
+export function SlotLine({ at }: { at: 'top' | 'bottom' }) {
+  return (
+    <div
+      aria-hidden
+      data-slot-line
+      className={`pointer-events-none absolute inset-x-0 z-10 h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgb(var(--lr-500)/0.55)] ${at === 'top' ? '-top-[0.31rem]' : '-bottom-[0.31rem]'}`}
+    />
+  )
+}
+
 /** Where the item is, as a small chip with a pin (nothing when it has no place). */
 export function PlaceChip({ task }: { task: Task }) {
   if (!task.place.trim()) return null

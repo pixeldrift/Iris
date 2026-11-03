@@ -91,3 +91,13 @@ test('the timeline shows only dated items, in the usual gradient-and-outline sty
   expect(Math.max(...rows)).toBeLessThanOrEqual(34)
   await page.screenshot({ path: 'test-results/timeline.png' })
 })
+
+test('quick add reads "at <place>" into the place', async ({ page }) => {
+  await open(page)
+  await goto(page, 'List')
+  await page.keyboard.press('n')
+  await page.keyboard.type('Haircut at Main Street Salon')
+  await expect(page.getByText('At Main Street Salon')).toBeVisible() // the preview says what it understood
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await taskNamed(page, 'Haircut'))?.place).toBe('Main Street Salon')
+})

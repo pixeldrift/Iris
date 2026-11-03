@@ -99,3 +99,32 @@ test.describe('Progress view', () => {
     await expect(page.getByRole('button', { name: 'Restore defaults' })).toHaveCount(0)
   })
 })
+
+test.describe('list ordering', () => {
+  test('carrying a row to a spot puts it there and the list follows "My order"', async ({ page }) => {
+    await open(page)
+    await goto(page, 'List')
+    const rows = page.locator('[data-lift-id^="task:"]')
+    const titles = async () => rows.evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText.split('\n')[0].trim()))
+    const before = await titles()
+    const third = (await rows.nth(2).boundingBox())!
+    const first = (await rows.nth(0).boundingBox())!
+    // pick up the third row and carry it above the first
+    await page.mouse.move(third.x + third.width / 2, third.y + third.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(third.x + third.width / 2 + 10, third.y + third.height / 2 - 10, { steps: 4 })
+    await page.mouse.move(first.x + first.width / 2, first.y + 4, { steps: 10 })
+    await expect(page.locator('[data-slot-line]')).toHaveCount(1)
+    await page.mouse.up()
+    await expect.poll(async () => (await titles())[0]).toBe(before[2])
+    const after = await titles()
+    expect(after.slice(1, 3)).toEqual([before[0], before[1]]) // the others keep their order, just shifted down
+    await expect(page.getByRole('button', { name: /My order/ })).toBeVisible()
+    // it stays that way
+    await page.reload()
+    await page.locator('aside nav button').first().waitFor()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
+    await goto(page, 'List')
+    await expect.poll(async () => (await titles())[0]).toBe(before[2])
+  })
+})

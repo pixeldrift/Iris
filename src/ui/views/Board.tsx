@@ -12,20 +12,9 @@ import { ScrollFade } from '../ScrollFade'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GripDots, GripHandle, PlaceChip, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GripDots, GripHandle, PlaceChip, SlotLine, useTaskDrag } from '../shared'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
-
-/** A line between two items, in the colour of the drop marker in the sidebar: where the carried item would land. */
-function SlotLine({ at }: { at: 'top' | 'bottom' }) {
-  return (
-    <div
-      aria-hidden
-      data-slot-line
-      className={`pointer-events-none absolute inset-x-0 z-10 h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgb(var(--lr-500)/0.55)] ${at === 'top' ? '-top-[0.31rem]' : '-bottom-[0.31rem]'}`}
-    />
-  )
-}
 
 function Card({ task }: { task: Task }) {
   const el = useRef<HTMLDivElement>(null)
