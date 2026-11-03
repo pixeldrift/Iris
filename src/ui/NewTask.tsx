@@ -227,6 +227,7 @@ export function NewTask() {
                     if (draftId) update(draftId, { title: e.target.value })
                   }}
                   aria-label="New item"
+                  data-proxy-commit
                   className="well w-full rounded-2xl px-3.5 py-1.5 font-display text-lg"
                 />
                 {!title && <ExampleHint index={hint} className="left-3.5 right-3 font-display text-lg" />}
@@ -268,6 +269,7 @@ export function NewTask() {
                 if (draftId) update(draftId, { title: e.target.value })
               }}
               aria-label="New item"
+                  data-proxy-commit
               className="well w-full rounded-2xl px-3.5 py-2 font-display text-xl"
             />
             {!title && (

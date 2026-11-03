@@ -24,7 +24,7 @@ const EASE_OUT = (t: number) => 1 - Math.pow(1 - t, 3)
 
 /**
  * What was just typed flies down from the bar to the box it belongs in, growing or shrinking to the box's width on the
- * way, and gives one small bounce of scale as it lands (no hop): so you can see where it went. The box is followed as it
+ * way and settles into place (no hop, no bounce): so you can see where it went. The box is followed as it
  * moves (the keyboard leaving shifts the page), and its own text stays hidden until the flying copy has landed.
  */
 function fly(el: Field, from: DOMRect, text: string, onLanded?: () => void): boolean {
@@ -69,16 +69,10 @@ function fly(el: Field, from: DOMRect, text: string, onLanded?: () => void): boo
     // lifted while it travels, set down as it lands
     ghost.style.boxShadow = `0 ${14 * (1 - p)}px ${28 * (1 - p)}px -10px rgb(var(--lr-700) / ${0.45 * (1 - p)})`
     if (t < 1) return void requestAnimationFrame(step)
-    // landed: one bounce of scale, then the box shows its own text
-    const done = () => {
-      el.style.color = hide
-      ghost.remove()
-      onLanded?.()
-    }
-    ghost.style.boxShadow = 'none'
-    const bounce = ghost.animate([{ transform: `${ghost.style.transform} scale(1)` }, { transform: `${ghost.style.transform} scale(1.06)`, offset: 0.4 }, { transform: `${ghost.style.transform} scale(1)` }], { duration: 260, easing: 'ease-out' })
-    bounce.onfinish = done
-    bounce.oncancel = done
+    // landed: the box shows its own text (no bounce)
+    el.style.color = hide
+    ghost.remove()
+    onLanded?.()
   }
   requestAnimationFrame(step)
   return true
@@ -106,7 +100,7 @@ export function LandscapeInput() {
     setShown(null)
     ;(document.activeElement as HTMLElement | null)?.blur?.()
   }
-  /** `commit`: Return was pressed in the bar, so once the text has landed Return is pressed in the box too (making the new item, say). */
+  /** `commit`: Return was pressed in the bar, so once the text has landed Return is pressed in the box too, if it is one that needs it (an add line making its new item, say). */
   const apply = (el: Field | null = target.current, commit = false) => {
     const src = el instanceof HTMLTextAreaElement ? area.current : line.current
     if (!el || !src) return close()
@@ -121,7 +115,8 @@ export function LandscapeInput() {
     if (el.hasAttribute('data-proxy-enter')) el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
     // boxes that settle their value when they lose focus (a birthday, say) are told they have
     el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    const press = () => commit && !el.hasAttribute('data-proxy-enter') && pressEnter(el)
+    // (only boxes that need Return for anything to happen: an add line, not a field whose text is already kept as it is typed)
+    const press = () => commit && el.hasAttribute('data-proxy-commit') && !el.hasAttribute('data-proxy-enter') && pressEnter(el)
     if (!(text && fly(el, from, text, press))) press()
     close()
   }

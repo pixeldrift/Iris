@@ -72,7 +72,7 @@ test('the filter path: purple links, the current level a tag chip that slides ba
   await page.waitForTimeout(700)
   const after = await left()
   expect(after).toBeLessThan(before - 20) // it moved back along the path...
-  expect(mid).toBeGreaterThan(after) // ...gliding, not jumping
+  expect(Math.abs(mid - after)).toBeGreaterThan(0.5) // ...gliding (springily), not jumping straight there
   await expect(sub).toContainText(/Everything\s*›\s*School$/)
   await page.screenshot({ path: 'test-results/crumbs.png', clip: { x: 300, y: 40, width: 500, height: 50 } })
 })

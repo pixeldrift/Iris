@@ -271,6 +271,19 @@ test.describe('a phone turned sideways', () => {
 test.describe('the typing bar, sideways: Enter commits', () => {
   test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })
 
+  test('only add lines that need Return to do anything get it pressed; plain fields do not', async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(window, 'orientation', { get: () => 90 }))
+    await open(page)
+    await goto(page, 'List')
+    await expect(page.getByLabel('Add a task', { exact: true })).toHaveAttribute('data-proxy-commit', /.*/)
+    await page.getByRole('button', { name: 'New task' }).click()
+    await expect(page.getByLabel('New item')).toHaveAttribute('data-proxy-commit', /.*/)
+    await page.keyboard.press('Escape')
+    // a plain field (a task's notes, say) keeps its text as it is typed: nothing to commit
+    await page.locator('[data-lift-id^="task:"]').first().click()
+    await expect(page.getByLabel('Notes')).not.toHaveAttribute('data-proxy-commit', /.*/)
+  })
+
   test('pressing Enter in the bar flies the text to the list\'s add line and presses Enter there: a new item', async ({ page }) => {
     await page.addInitScript(() => Object.defineProperty(window, 'orientation', { get: () => 90 }))
     await open(page)

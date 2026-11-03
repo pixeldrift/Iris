@@ -223,6 +223,7 @@ function NewItem({ name, onAdd, onDone }: { name: string; onAdd: (title: string)
         onBlur={() => !v.trim() && onDone()}
         placeholder="Add a task…"
         aria-label={`Add a task to ${name}`}
+        data-proxy-commit
         className="well w-full rounded-2xl px-3 py-2 text-sm"
       />
     </form>
