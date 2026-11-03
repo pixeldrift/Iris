@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { goto } from './helpers'
+import { goto, savedReady } from './helpers'
 
 const iso = (plus: number) => {
   const d = new Date()
@@ -11,6 +11,7 @@ const iso = (plus: number) => {
 async function setUp(page: Page, auto: boolean) {
   await page.goto('/')
   await page.locator('[data-node]').first().waitFor()
+  await savedReady(page)
   await page.evaluate(([due, auto]) => {
     const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
     const t = raw.state.tasks.find((x: { title: string }) => x.title === 'Pay rent')

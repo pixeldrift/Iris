@@ -1,9 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
+import { savedReady } from './helpers'
 
 /** Reload with `n` reminders that have already gone off, as if they fired while the app was shut. */
 async function withReminders(page: Page, n: number) {
   await page.goto('/')
   await page.locator('[data-node]').first().waitFor()
+  await savedReady(page)
   await page.evaluate((count) => {
     const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
     const base = raw.state.tasks.find((t: { title: string }) => !t.title.includes('Study'))

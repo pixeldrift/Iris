@@ -9,10 +9,14 @@ export const saved = (page: Page) =>
 
 export const taskNamed = async (page: Page, title: string) => (await saved(page))?.tasks.find((t) => t.title === title)
 
+/** The app writes its saved state shortly after it starts; wait for that before a test reads or edits it. */
+export const savedReady = (page: Page) => page.waitForFunction(() => !!localStorage.getItem('lilac-v1'), null, { timeout: 8000 })
+
 /** Open the app and wait for it to settle. */
 export async function open(page: Page) {
   await page.goto('/')
   await page.locator('[data-node]').first().waitFor()
+  await savedReady(page).catch(() => {})
   // the demo data's "Study group" reminder pops up over the top of the page and would catch clicks meant for buttons below it
   await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
   await page.waitForTimeout(500)
