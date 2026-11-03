@@ -36,6 +36,21 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
 Every view respects the selected filter (a group, person, day, or several). Fold the card with its arrow and the views become
 a row of icons.
 
+## Notifications when the app is closed (Web Push)
+
+Reminders and event alerts also arrive as phone/computer notifications while Lilac is closed. One-time setup:
+
+1. `npm run bundle:core` is only needed if you change `src/core/reminders.ts` (a test tells you); the result is committed.
+2. Run `node scripts/vapid.mjs` and copy its four lines into Vercel > Settings > Environment Variables:
+   `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (use your own `mailto:`), `CRON_SECRET`. Redeploy.
+3. Run `db/schema.sql` again in the Neon SQL editor (adds `push_subscriptions` and `push_sent`).
+4. Something has to call `GET /api/remind` about once a minute with the header `Authorization: Bearer <CRON_SECRET>`.
+   Vercel's free plan only runs cron jobs daily, so use a free pinger such as cron-job.org (every minute, add that header).
+5. On each device: sign in, open Settings and switch Notifications on. On iPhone, first Share > Add to Home Screen
+   and open Lilac from there (iOS 16.4+ only delivers push to installed apps).
+
+The server never changes your tasks: it only reads them, sends what is due, and remembers what it sent (`push_sent`).
+
 ## House rules
 
 - **Buttons are one line.** A button's text never wraps onto a second line: keep labels short

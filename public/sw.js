@@ -1,5 +1,5 @@
 // Minimal offline shell: network-first for pages, cache-first for hashed assets.
-const CACHE = 'lilac-v7'
+const CACHE = 'lilac-v8'
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/sounds/drop-wet.wav', '/sounds/bubbles-wet.wav', '/sounds/bubble-trio.wav', '/sounds/drip-double.wav', '/sounds/drip-down.wav', '/sounds/pop-high.wav', '/sounds/pop-low.wav']
 
 self.addEventListener('install', (e) => {
@@ -48,5 +48,15 @@ self.addEventListener('notificationclick', (e) => {
       }
       return self.clients.openWindow('/')
     }),
+  )
+})
+
+// A reminder pushed by the server while Lilac is closed (see api/remind.ts).
+self.addEventListener('push', (e) => {
+  let d = {}
+  try { d = e.data ? e.data.json() : {} } catch { /* not JSON */ }
+  const id = d.id || ''
+  e.waitUntil(
+    self.registration.showNotification(d.title || 'Reminder', { body: d.body || '', tag: 'lilac-' + id, icon: '/icon.svg', data: { id } }),
   )
 })

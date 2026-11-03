@@ -146,3 +146,25 @@ create table if not exists invite_attempts (
   at       timestamptz not null default now()
 );
 create index if not exists invite_attempts_idx on invite_attempts (user_id, at);
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- Web Push: reminders that reach a phone or computer when Lilac is closed.
+--   * push_subscriptions: one row per browser/phone that switched notifications on (its push address and keys).
+--   * push_sent: what has already been pushed, so a reminder is never sent twice.
+create table if not exists push_subscriptions (
+  endpoint    text primary key,
+  user_id     text not null,
+  p256dh      text not null,
+  auth        text not null,
+  -- the person's time zone (IANA), so an event at "9:00" is 9:00 where they are
+  tz          text not null default 'UTC',
+  created_at  timestamptz not null default now()
+);
+create index if not exists push_subscriptions_user_idx on push_subscriptions (user_id);
+
+create table if not exists push_sent (
+  user_id  text not null,
+  key      text not null,
+  sent_at  timestamptz not null default now(),
+  primary key (user_id, key)
+);
