@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { dayLabel, weekdayName } from '../core/dates'
 import { formatDate } from '../core/locale'
+import { tint } from '../core/color'
 import { pathOf } from '../core/folders'
 import type { PondGroup, Scope } from '../core/types'
 import { useStore } from '../state/store'
-import { IconCalendar, IconClose, IconDrift, IconFolder, IconList, IconMenu, IconPerson, IconPlus, IconSearch, IconUndo } from './icons'
+import { IconAll, IconCalendar, IconClose, IconDrift, IconFolder, IconList, IconMenu, IconPerson, IconPlus, IconSearch, IconUndo } from './icons'
 import { undo, useHistory } from '../state/history'
 import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { VIEWS } from './Sidebar'
@@ -38,10 +39,11 @@ function UndoRedo() {
 }
 
 /**
- * The filter as a path (Everything › School › English 101): the steps above are purple links, the level you are at is a purple
- * pill, and when you go up a level the pill slides back along the path to it (the way the highlight in the toggles glides).
+ * The filter as a path (Everything › School › English 101): the steps above are purple links, the level you are at is a tag chip
+ * (the same soft tinted chip as a group's tag on an item), and when you go up a level the chip slides back along the path to it (the
+ * way the highlight in the toggles glides). Sideways, "Everything" is the globe.
  */
-function FilterPath({ items, vertical = false }: { items: { key: string; label: string; go?: () => void }[]; vertical?: boolean }) {
+function FilterPath({ items, vertical = false }: { items: { key: string; label: string; go?: () => void; hue?: number }[]; vertical?: boolean }) {
   const box = useRef<HTMLSpanElement>(null)
   const refs = useRef(new Map<string, HTMLElement>())
   const [pill, setPill] = useState<{ x: number; w: number } | null>(null)
@@ -68,14 +70,18 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
     const id = requestAnimationFrame(() => (settled.current = true))
     return () => cancelAnimationFrame(id)
   }, [])
-  const pad = vertical ? 'px-0.5 py-1.5' : 'px-2.5 py-0.5'
+  const pad = vertical ? 'px-0.5 py-1.5' : 'px-2 py-0.5'
+  const cur = items[items.length - 1]
+  // a tag chip: the group's soft tint behind its name (the plain lilac chip when it is not a group)
+  const chip = cur.hue !== undefined ? { background: tint(cur.hue, 70, 88, 0.85), color: tint(cur.hue, 35, 32) } : { background: 'rgb(var(--lr-200) / 0.8)', color: 'var(--color-lilac-700)' }
+  const label = (it: { key: string; label: string }, i: number) => (vertical && i === 0 ? <IconAll size={13} /> : it.label)
   return (
     <span ref={box} className="relative inline-flex items-center align-middle">
       {!vertical && pill && (
         <span
           aria-hidden
-          className="absolute inset-y-0 rounded-full bg-lilac-500 shadow shadow-lilac-500/30"
-          style={{ left: pill.x, width: pill.w, transition: settled.current ? 'left 0.34s cubic-bezier(0.34, 1.35, 0.55, 1), width 0.34s cubic-bezier(0.34, 1.35, 0.55, 1)' : 'none' }}
+          className="absolute inset-y-0 rounded-full"
+          style={{ ...chip, left: pill.x, width: pill.w, transition: settled.current ? 'left 0.34s cubic-bezier(0.34, 1.35, 0.55, 1), width 0.34s cubic-bezier(0.34, 1.35, 0.55, 1)' : 'none' }}
         />
       )}
       {items.map((it, i) => {
@@ -88,17 +94,18 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
               </span>
             )}
             {last ? (
-              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" className={`relative rounded-full font-medium text-white ${pad} ${vertical ? 'bg-lilac-500' : ''}`}>
-                {it.label}
+              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`relative inline-flex items-center rounded-full text-[0.72rem] font-medium leading-snug ${pad}`} style={vertical ? chip : { color: chip.color }}>
+                {label(it, i)}
               </span>
             ) : (
               <button
                 ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))}
                 onClick={it.go}
                 title={i === 0 ? 'Clear all filters' : `Back to ${it.label}`}
-                className={`relative rounded-full text-lilac-600 transition hover:text-lilac-700 hover:underline ${pad}`}
+                aria-label={it.label}
+                className={`relative inline-flex items-center rounded-full text-lilac-600 transition hover:text-lilac-700 hover:underline ${pad}`}
               >
-                {it.label}
+                {label(it, i)}
               </button>
             )}
           </Fragment>
@@ -243,9 +250,10 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     <button
       onClick={() => setScope({ type: 'all' })}
       title="Clear all filters"
+      aria-label="Everything"
       className="text-lilac-600 transition hover:text-lilac-700 hover:underline"
     >
-      Everything
+      {land ? <IconAll size={13} /> : 'Everything'}
     </button>
   )
   const sep = (
@@ -259,7 +267,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       sub
     ) : (
       <>
-        <span className="font-display font-bold text-lilac-700">Filter:</span>{' '}
+        {!land && <><span className="font-display font-bold text-lilac-700">Filter:</span>{' '}</>}
         {scope.type === 'all' ? (
           <FilterPath vertical={land} items={[{ key: 'all', label: 'Everything' }]} />
         ) : scope.type === 'multi' ? (
@@ -282,7 +290,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
               items={[
                 { key: 'all', label: 'Everything', go: () => setScope({ type: 'all' }) },
                 ...(scope.type === 'folder'
-                  ? pathOf(folders, scope.id).map((f) => ({ key: f.id, label: f.name, go: () => setScope({ type: 'folder', id: f.id }) }))
+                  ? pathOf(folders, scope.id).map((f) => ({ key: f.id, label: f.name, hue: f.hue, go: () => setScope({ type: 'folder', id: f.id }) }))
                   : [{ key: 'cur', label: title }]),
               ]}
             />
