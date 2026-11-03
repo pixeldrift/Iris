@@ -84,18 +84,17 @@ export function PopGameBar({ game, palette, breakText = null }: { game: { g: Gam
               return dot(i, c, i < g.progress ? 'done' : i === g.progress ? 'next' : 'seen')
             })}
           </div>
-          {/* under the pattern, always the same height so the bubbles' room never changes: "Watch and learn" while it is shown, then "Your turn"
-              with a hint that goes as soon as you tap (or after a while if you don't) */}
-          <div aria-hidden className="relative min-h-[3.1rem] pl-1">
+          {/* centred under the pattern, always the same height so the bubbles' room never changes: "Watch and learn" while it is shown, then
+              "Your turn", which goes as soon as you tap (or after a while if you don't). The size and style of "All cleared!". */}
+          <div aria-hidden className="relative min-h-[2.75rem] w-full text-center">
             {g.phase === 'show' && (
-              <div key="watch" className="rise-in font-display text-xl italic text-lilac-700">
+              <div key="watch" className="rise-in font-display text-4xl italic leading-tight text-lilac-700/70">
                 Watch and learn
               </div>
             )}
             {turn !== 'gone' && g.phase === 'play' && g.progress === 0 && (
-              <div key={`turn${g.round}`} data-turn-msg className={`rise-in transition-opacity duration-700 ${turn === 'fading' ? 'opacity-0' : ''}`}>
-                <div className="font-display text-xl italic text-lilac-700">Your turn</div>
-                <p className="text-xs text-ink-soft">Tap the colors in order to match the sequence.</p>
+              <div key={`turn${g.round}`} data-turn-msg className={`rise-in font-display text-4xl italic leading-tight text-lilac-700/70 transition-opacity duration-700 ${turn === 'fading' ? 'opacity-0' : ''}`}>
+                Your turn
               </div>
             )}
           </div>
