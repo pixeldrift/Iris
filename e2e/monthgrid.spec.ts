@@ -167,28 +167,3 @@ test.describe('the month as an endless grid', () => {
     await expect(toggle.locator('span')).toHaveClass(/rotate-90/)
   })
 })
-
-test('the preview of tight rows: only the week a month starts in is taller, the old month’s days at its top, the new month’s lower', async ({ browser }) => {
-    const ctx = await browser.newContext({ viewport: { width: 1000, height: 640 } })
-    await ctx.addInitScript(() => localStorage.setItem('lilac-tight-rows', '1'))
-    const page = await ctx.newPage()
-    await open(page)
-    await goto(page, 'Calendar')
-    await page.setViewportSize({ width: 390, height: 780 })
-    await page.waitForTimeout(800)
-    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const now = new Date()
-    let first = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-    if (first.getDay() === 0) first = new Date(now.getFullYear(), now.getMonth() + 2, 1) // (a month that starts on a Sunday has no old days beside it)
-    const prev = new Date(first.getFullYear(), first.getMonth(), 0)
-    const top = async (d: Date) => (await page.locator(`[data-month-scroll] [data-drop="day:${iso(d)}"]`).boundingBox())!.y
-    const t1 = await top(first)
-    const t0 = await top(prev)
-    expect(t1 - t0).toBeGreaterThan(8)
-    // and the weeks around it are as close as any others
-    const week = async (d: Date, n: number) => top(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n))
-    const gapA = (await week(prev, 7)) - t1 // the week after, from the new month's boxes
-    const gapB = (await week(prev, -7)) - t0 // the week before, from the old month's boxes
-    expect(Math.abs(gapA + gapB)).toBeLessThan(12) // (the same distance each way: just the box and the usual space)
-    await ctx.close()
-})

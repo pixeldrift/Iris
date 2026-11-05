@@ -9,8 +9,6 @@ const GAP = 6
 const ROW_GAP = 20
 /** how far the top fade reaches */
 const FADE = 24
-/** the space a month's name takes above its first day, when the rows are kept tight */
-const LABEL_SPACE = 14
 /** the divider between months stops this far short of each end of the boxes (a touch under full height looks full height) */
 const INSET = 3
 /** how far above its box the month's name begins (the divider rises that far) */
@@ -38,8 +36,8 @@ export interface MonthView {
  * The month as an endless grid of weeks: drag it (or scroll it) to look further down or back; the title says which months are
  * showing. A window of weeks around `base` is drawn, and it moves along when the edge is neared.
  */
-export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: number; /** room between week rows for the month's name above its first day (otherwise the rows sit close) */ labelGap: boolean; /** keep the rows tight; only the week a month starts in has room for the name (a preview) */ tightRows?: boolean; show: (d: string) => boolean; render: (d: string, info: { alt: boolean; monthLabel: string | null }) => React.ReactNode; onView: (v: MonthView) => void; onRebase: (d: string) => void }>(function MonthScroller(
-  { base, cols, labelGap, tightRows = false, show, render, onView, onRebase },
+export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: number; /** room between week rows for the month's name above its first day (otherwise the rows sit close) */ labelGap: boolean; show: (d: string) => boolean; render: (d: string, info: { alt: boolean; monthLabel: string | null }) => React.ReactNode; onView: (v: MonthView) => void; onRebase: (d: string) => void }>(function MonthScroller(
+  { base, cols, labelGap, show, render, onView, onRebase },
   ref,
 ) {
   const box = useRef<HTMLDivElement>(null)
@@ -48,31 +46,20 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   const days = useMemo(() => Array.from({ length: WEEKS * 7 }, (_, i) => addDays(origin, i)), [origin])
   const colW = (size.w - GAP * (cols - 1)) / cols
   // five rows fit the box on a wide screen; on a phone the days are kept squarish rather than long and thin
-  const tight = labelGap && tightRows
-  const rowGap = labelGap && !tight ? ROW_GAP : GAP
+  const rowGap = labelGap ? ROW_GAP : GAP
   // where the first week of a month sits below the top: clear of the fade (and, upright, with room for the name above it)
   const off = FADE + (labelGap ? 16 : 4)
-  const rowH = Math.max(62, Math.min(Math.floor((size.h - off - (tight ? LABEL_SPACE : 0) - rowGap * 4) / 5), Math.round(colW * 1.38)))
+  const rowH = Math.max(62, Math.min(Math.floor((size.h - off - rowGap * 4) / 5), Math.round(colW * 1.38)))
   const pitch = rowH + rowGap
   const weekOf = useCallback((d: string) => Math.round(diffDays(origin, startOfWeek(d)) / 7), [origin])
   // after the arrows (or Today) slide the grid, its title names one month; the first touch by hand frees it to name two
   const programmatic = useRef(false)
   const cells = useMemo(() => days.filter(show), [days, show]) // eslint-disable-line react-hooks/exhaustive-deps
-  // where each week row starts (all the same distance apart, except that a week a month starts in is taller when the rows are tight)
+  // where each week row starts (all the same distance apart)
   const rowInfo = useMemo(() => {
     const n = Math.ceil(cells.length / cols)
-    const tops: number[] = []
-    const extra: boolean[] = []
-    let y = 0
-    for (let r = 0; r < n; r++) {
-      const changes = tight && cells.slice(r * cols, (r + 1) * cols).some((d) => fromISO(d).getDate() === 1)
-      tops.push(y)
-      extra.push(changes)
-      y += rowH + (changes ? LABEL_SPACE : 0) + rowGap
-    }
-    tops.push(y)
-    return { tops, extra }
-  }, [cells, cols, rowH, rowGap, tight])
+    return { tops: Array.from({ length: n + 1 }, (_, r) => r * (rowH + rowGap)) }
+  }, [cells.length, cols, rowH, rowGap])
   const nearest = (tops: number[], y: number) => {
     let best = 0
     for (let i = 1; i < tops.length - 1; i++) if (Math.abs(tops[i] - y) < Math.abs(tops[best] - y)) best = i
@@ -139,7 +126,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     }
     started.current = true
     report()
-  }, [origin, pitch, tight]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [origin, pitch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useImperativeHandle(ref, () => ({
     goTo: (date, smooth = true) => {
@@ -252,28 +239,19 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
       const x = (Math.round(((i % cols) * (colW + GAP) - GAP / 2) * dpr - wd / 2) + wd / 2) / dpr
       // from the top of the month's name (or just inside the boxes) to just short of the bottom of the new month's box
       const r = Math.floor(i / cols)
-      const top = rowInfo.tops[r] + (labelGap && !tight ? -LABEL_TOP : tight ? 0 : INSET)
-      path += `M${x} ${top}V${rowInfo.tops[r] + rowH + (tight ? LABEL_SPACE : 0) - INSET}`
+      const top = rowInfo.tops[r] + (labelGap ? -LABEL_TOP : INSET)
+      path += `M${x} ${top}V${rowInfo.tops[r] + rowH - INSET}`
     }
     return path
-  }, [cells, cols, colW, rowInfo, rowH, labelGap, tight])
+  }, [cells, cols, colW, rowInfo, rowH, labelGap])
   const rows = Math.ceil(cells.length / cols)
   return (
     <div ref={box} onScroll={onScroll} onPointerDown={down} onWheel={() => (programmatic.current = false)} onTouchStart={() => (programmatic.current = false)} data-month-scroll style={{ ['--fade-t' as string]: `${FADE}px` }} className="scroll-soft fade-mask min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">
       <div className="relative">
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: tight ? rowInfo.tops.slice(0, -1).map((_, r) => `${rowH + (rowInfo.extra[r] ? LABEL_SPACE : 0)}px`).join(' ') : undefined, gridAutoRows: tight ? undefined : rowH, columnGap: GAP, rowGap }}>
-        {cells.map((d, i) => {
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, columnGap: GAP, rowGap }}>
+        {cells.map((d) => {
           const dt = fromISO(d)
-          const node = render(d, { alt: dt.getMonth() % 2 === 1, monthLabel: dt.getDate() === 1 ? MONTHS[dt.getMonth()].slice(0, 3) : null })
-          if (!tight) return <Fragment key={d}>{node}</Fragment>
-          // a week a month starts in is taller: the old month's days stay at its top, the new month's sit lower, under the name
-          const r = Math.floor(i / cols)
-          const newMonth = rowInfo.extra[r] && cells.slice(r * cols, i + 1).some((x) => fromISO(x).getDate() === 1)
-          return (
-            <div key={d} className="min-w-0 [&>*]:h-full" style={{ alignSelf: rowInfo.extra[r] ? (newMonth ? 'end' : 'start') : 'stretch', height: rowInfo.extra[r] ? rowH : undefined }}>
-              {node}
-            </div>
-          )
+          return <Fragment key={d}>{render(d, { alt: dt.getMonth() % 2 === 1, monthLabel: dt.getDate() === 1 ? MONTHS[dt.getMonth()].slice(0, 3) : null })}</Fragment>
         })}
       </div>
       <svg aria-hidden className="pointer-events-none absolute left-0 top-0 overflow-visible" width={size.w} height={rowInfo.tops[rows]}>

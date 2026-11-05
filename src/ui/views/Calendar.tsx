@@ -525,14 +525,6 @@ export function CalendarView() {
     }
   }
   const [weekends, setWeekends] = useState(readWeekends)
-  // a preview of keeping the week rows tight upright, with room for a month's name only where one starts (?rows=tight, or localStorage lilac-tight-rows=1)
-  const tightRows = useMemo(() => {
-    try {
-      return new URLSearchParams(location.search).get('rows') === 'tight' || localStorage.getItem('lilac-tight-rows') === '1'
-    } catch {
-      return false
-    }
-  }, [])
   const [undatedOpen, setUndatedOpen] = useState(false)
   // whether the unscheduled items need more than two rows (only then is there anything to open)
   const [moreUnscheduled, setMoreUnscheduled] = useState(false)
@@ -720,7 +712,6 @@ export function CalendarView() {
           base={monthBase}
           cols={cols}
           labelGap={mobile}
-          tightRows={tightRows}
           show={show}
           onView={setMonthView}
           onRebase={setMonthBase}
