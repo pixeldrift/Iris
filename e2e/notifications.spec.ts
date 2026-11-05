@@ -27,6 +27,7 @@ test.describe('reminder cards', () => {
     await more.click()
     const list = page.getByRole('dialog', { name: 'Notifications' })
     await expect(list.getByRole('listitem')).toHaveCount(4)
+    await expect(list.getByRole('switch', { name: /Allow notifications/ })).toBeVisible() // the same switch as in Settings, kept out of the list
     // dismissing one from the list leaves the rest
     await list.getByRole('button', { name: /^Dismiss/ }).first().click()
     await expect(list.getByRole('listitem')).toHaveCount(3)

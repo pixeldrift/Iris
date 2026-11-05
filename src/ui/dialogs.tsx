@@ -1,3 +1,4 @@
+import { ScrollFade } from './ScrollFade'
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useExit } from './anim'
@@ -48,6 +49,7 @@ export function Modal({
   label,
   wide,
   footer,
+  header,
   crop = null,
 }: {
   open: boolean
@@ -57,6 +59,8 @@ export function Modal({
   wide?: boolean
   /** Save / Cancel / Delete and the like: pinned to the bottom of the dialog, so they never scroll away with the content. */
   footer?: React.ReactNode
+  /** A title row pinned to the top while the content scrolls beneath it (fading out, with an arrow hint). */
+  header?: React.ReactNode
   /** Shrink the dialog to just this box (insets from its own edges, px) so what a control changes behind it can be watched; null grows it back out. */
   crop?: { top: number; right: number; bottom: number; left: number } | null
 }) {
@@ -92,10 +96,15 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full rounded-[2rem] ${footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-5'} ${closing ? 'pop-out' : 'pop-in'}`}
+        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full rounded-[2rem] ${header ? 'flex h-full flex-col overflow-hidden' : footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-5'} ${closing ? 'pop-out' : 'pop-in'}`}
         style={clipping ? { clipPath: live ? `inset(${live.top}px ${live.right}px ${live.bottom}px ${live.left}px round 1.25rem)` : 'inset(0px 0px 0px 0px round 2rem)', transition: 'clip-path 0.4s cubic-bezier(0.34, 1.2, 0.5, 1)' } : undefined}
       >
-        {footer ? (
+        {header ? (
+          <>
+            <div className="shrink-0 px-5 pb-1 pt-5">{header}</div>
+            <ScrollFade className="px-5 pb-5 pt-1">{children}</ScrollFade>
+          </>
+        ) : footer ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-3 pt-5">{children}</div>
             <div className="shrink-0 border-t border-white/60 px-5 py-3">{footer}</div>
