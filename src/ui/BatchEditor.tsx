@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DEFAULT_STAGES } from '../core/progress'
 import type { TaskKind, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
-import { DatePicker } from './DatePicker'
+import { DateMark, DatePicker } from './DatePicker'
 import { Modal } from './dialogs'
 import { Flower } from './Flower'
 import { SegmentedToggle } from './SegmentedToggle'
@@ -93,10 +93,10 @@ export function BatchEditor({ ids, open, onClose }: { ids: string[]; open: boole
           <input type="range" min={0} max={1} step={0.01} value={urgency} onChange={(e) => setUrgency(Number(e.target.value))} className="soft" aria-label="Urgency" />
         </Field>
         <Field on={!!on.day} setOn={flag('day')} label="Planned day">
-          <DatePicker label="Planned day" value={day} onChange={setDay} />
+          <DatePicker label={<><DateMark kind="scheduled" />Scheduled for</>} value={day} onChange={setDay} />
         </Field>
         <Field on={!!on.due} setOn={flag('due')} label="Due date">
-          <DatePicker label="Due by" value={due} onChange={setDue} />
+          <DatePicker label={<><DateMark kind="deadline" />Deadline</>} value={due} onChange={setDue} />
         </Field>
         {folders.length > 0 && (
           <Field on={!!on.groups} setOn={flag('groups')} label="Add to groups">

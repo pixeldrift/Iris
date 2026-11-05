@@ -6,7 +6,7 @@ import { IconChevron } from './icons'
  * beyond it, with a small bobbing arrow (tap to scroll) to say so. `panX` lets a sideways swipe through to whatever scrolls
  * around it (the columns of the Progress view).
  */
-export function ScrollFade({ children, className = '', panX = false }: { children: React.ReactNode; className?: string; panX?: boolean }) {
+export function ScrollFade({ children, className = '', panX = false, maxH }: { children: React.ReactNode; className?: string; panX?: boolean; /** Size to the content up to this height (a CSS length), instead of filling the space it is given. */ maxH?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [edge, setEdge] = useState({ top: false, bottom: false })
 
@@ -35,10 +35,11 @@ export function ScrollFade({ children, className = '', panX = false }: { childre
   const by = (dir: 1 | -1) => ref.current?.scrollBy({ top: dir * Math.max(140, (ref.current?.clientHeight ?? 0) * 0.6), behavior: 'smooth' })
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className={maxH ? 'relative' : 'relative min-h-0 flex-1'}>
       <div
         ref={ref}
-        className={`scroll-soft fade-mask h-full overflow-y-auto ${panX ? 'touch-pan-x touch-pan-y' : 'touch-pan-y'} ${className}`}
+        style={maxH ? { maxHeight: maxH } : undefined}
+        className={`scroll-soft fade-mask ${maxH ? '' : 'h-full'} overflow-y-auto ${panX ? 'touch-pan-x touch-pan-y' : 'touch-pan-y'} ${className}`}
         data-top={edge.top || undefined}
         data-bottom={edge.bottom || undefined}
       >

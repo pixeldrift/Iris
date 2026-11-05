@@ -3,7 +3,7 @@ import { completionsByDay, completionsByMonth, groupTotals, streakStats, summari
 import { seedData } from './seed'
 import type { Task } from './types'
 
-const base = seedData().tasks[0]
+const base = { ...seedData().tasks[0], day: null, due: null, start: null } as Task // (a plain item, whatever dates the demo data gives its first one)
 const habit = (log: string[], from = '2026-10-01'): Task => ({ ...base, id: 'h', kind: 'habit', repeat: { freq: 'daily', interval: 1, from }, log, status: 'todo', folderIds: [] })
 const done = (id: string, at: string, folder?: string): Task => ({ ...base, id, kind: 'task', repeat: null, status: 'done', completedAt: new Date(`${at}T12:00:00`).getTime(), folderIds: folder ? [folder] : [] })
 

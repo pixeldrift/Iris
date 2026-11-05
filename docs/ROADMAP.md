@@ -2,7 +2,7 @@
 
 ## Recently shipped
 Progress view with stages you can edit and drop-anywhere ordering; the calendar's endless month grid and day schedule (durations,
-fit to the gap); separate Plan for / Deadline dates with their own reminders; a place on every item (pin, map link); repeats
+fit to the gap); separate Scheduled for / Deadline dates (○ and ● on the calendar) with their own reminders; a place on every item (pin, map link); repeats
 that end or skip a day; multi-select filters and the views/filters split in the sidebar; auto urgency; the timeline restyle;
 the pop game with Fun / Game / Delete modes, stats and a play limit. (The README describes each.)
 

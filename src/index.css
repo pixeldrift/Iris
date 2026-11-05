@@ -508,3 +508,14 @@ body.scrubbing .glow-breathe {
   z-index: 5;
   transition: transform 0.22s cubic-bezier(0.34, 1.5, 0.5, 1), box-shadow 0.22s !important;
 }
+
+/* the calendar's month title: the old name slides out as the new one comes in (up going forward, down going back) */
+@keyframes title-out-up { to { transform: translateY(-110%); opacity: 0; } }
+@keyframes title-out-down { to { transform: translateY(110%); opacity: 0; } }
+@keyframes title-in-up { from { transform: translateY(110%); opacity: 0; } }
+@keyframes title-in-down { from { transform: translateY(-110%); opacity: 0; } }
+.title-out-up { animation: title-out-up 0.38s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.title-out-down { animation: title-out-down 0.38s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.title-in-up { animation: title-in-up 0.38s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.title-in-down { animation: title-in-down 0.38s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .title-out-up, .title-out-down, .title-in-up, .title-in-down { animation: none; } }

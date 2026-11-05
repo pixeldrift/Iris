@@ -98,19 +98,21 @@ test.describe('the address book', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 
-  test('the calendar has the view toggle first, and a briefcase for business days (none on a single day)', async ({ page }) => {
+  test('the calendar has the view toggle first, then a hide-weekends link (none on a single day); wide, hidden weekends stay but fade', async ({ page }) => {
     await page.locator('button', { hasText: /^Calendar/ }).first().click()
     const mode = page.getByRole('button', { name: 'month', exact: true })
-    const business = page.getByRole('button', { name: 'Business days only' })
-    expect((await mode.boundingBox())!.x).toBeLessThan((await business.boundingBox())!.x)
-    // business days only: the weekend columns go
-    const heads = () => page.locator('main').getByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/).count()
-    expect(await heads()).toBe(7)
-    await business.click()
-    expect(await heads()).toBe(5)
-    await business.click()
+    const link = page.getByRole('button', { name: 'Hide weekends' })
+    expect((await mode.boundingBox())!.x).toBeLessThan((await link.boundingBox())!.x)
+    const heads = page.locator('main').getByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/)
+    expect(await heads.count()).toBe(7)
+    await link.click()
+    // (not removed on a wide screen, so the days never stretch: the weekend columns just fade)
+    expect(await heads.count()).toBe(7)
+    await expect(heads.first()).toHaveClass(/opacity-50/)
+    await page.getByRole('button', { name: 'Show weekends' }).click()
+    await expect(heads.first()).not.toHaveClass(/opacity-50/)
     await page.getByRole('button', { name: 'day', exact: true }).click()
-    await expect(business).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /weekends/ })).toHaveCount(0)
   })
 
   test('closing an item opened from a day popup brings the day back, and today, tomorrow and yesterday are named', async ({ page }) => {

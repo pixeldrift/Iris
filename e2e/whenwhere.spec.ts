@@ -11,7 +11,7 @@ test.describe('dates, reminders and a place on the details card', () => {
     await page.keyboard.press('n')
     await page.keyboard.type('Plan the garden')
     await page.keyboard.press('Enter')
-    await expect(page.getByText(/^Plan for/).first()).toBeAttached()
+    await expect(page.getByText(/^Scheduled for/).first()).toBeAttached()
     await expect(page.getByText(/^Deadline/).first()).toBeAttached()
     await expect(page.getByText(/^Do on/)).toHaveCount(0)
     await expect(page.getByText(/^Due by/)).toHaveCount(0)
