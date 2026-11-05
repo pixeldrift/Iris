@@ -158,6 +158,13 @@ mode is for easily removing multiple tasks in bulk. Popping a bubble deletes its
 minutes at a time, with breaks that grow longer if you play too often.
 (Settings: *Limit play time*). Play stats are kept on the device and shown in Overview.
 
+**Sharing a group.** Open a group's menu (tap its flower) and choose *Share*. Invite someone you're connected with by name, or copy a
+one-use invite link; each person *can edit* or *can view*. Everyone sees and changes the group's tasks (and the groups under it) and
+can give a task to another member with *Assigned to* (they're told in the bell). When sharing ends, the owner chooses whether the
+others may keep a copy, and they choose whether to: the group is copied into their own space, or let go. Technically each shared
+group is a workspace (`api/_lib/share.ts`, `/api/share`; tasks sync through the usual `/api/sync`). **Run `db/schema.sql` again** to
+add the sharing tables and columns.
+
 **Settings** Accessed under your user account menu (the title stays put while the options scroll): *Soundscape* (audio, volume,
 drops, task sounds, pops, ambient chimes); *Look & Feel* (colour, menu spacing, and the Pond's bubble scaling, drifting and
 bloomed tasks); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips,

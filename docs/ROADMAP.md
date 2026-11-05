@@ -1,7 +1,8 @@
 # Lilac roadmap
 
 ## Recently shipped
-Web Push reminders that reach you when the app is closed (working in a first real test; still to check on an iPhone Home Screen);
+Web Push reminders that reach you when the app is closed (tested on two real phones, both installed to the Home Screen, with the app closed);
+sharing a group (first cut: see *Collaboration*);
 list ordering ("My order") and "at <place>" in quick add; Progress view with stages you can edit and drop-anywhere ordering; the
 calendar's endless month grid (dotted outline/solid bubbles for scheduled/deadline, month dividers, an unscheduled tray) and day
 schedule; separate Scheduled for / Deadline dates with their own reminders; a place on every item; repeats that end or skip a day;
@@ -20,8 +21,7 @@ Delete modes, stats and a play limit; a tidier Settings. (The README describes e
 5. **Calendar sync** (CalDAV, Google), now that accounts and sync are live.
 6. **Themes**, then the **native Swift port** of `src/core`.
 
-Also worth a pass on real devices: Web Push on an iPhone Home Screen, and the recent calendar touch behaviour (drag-scrolling,
-the unscheduled tray, sideways phone).
+Also worth a pass on real devices: the recent calendar touch behaviour (drag-scrolling, the unscheduled tray, sideways phone), and sharing between two real accounts.
 
 ## Near term
 - **Connections. (First version built.)** People who use Lilac can link their address-book entries so details fill in and
@@ -50,7 +50,7 @@ the unscheduled tray, sideways phone).
   and password reset (needs an email provider), passkeys / social sign-in, syncing settings, shared rate limiting,
   and server-assigned versions before collaboration.
 - **Reminders & push.** In-app reminders and system notifications (while the app is open) have shipped.
-  Web Push (VAPID) delivery for the PWA is built and working in a first real test (see README, "Notifications"); still to check on an iPhone Home Screen. Still to do: APNs for native, and notifications for assignments (see *Collaboration*).
+  Web Push (VAPID) delivery for the PWA is built and tested on two real phones (see README, "Notifications"). Still to do: APNs for native, and Web Push for sharing news and assignments (they appear in the bell for now; see *Collaboration*).
   iOS only delivers web push to PWAs added to the Home Screen (16.4+).
 - **Calendar sync (Google, Apple, others).** Connect external calendars so Lilac and they share
   information, two ways: events created or changed in Lilac show up in the calendar app, and the other
@@ -104,7 +104,24 @@ the unscheduled tray, sideways phone).
   `POST /api/account` removes the person's workspace, devices and sign-in after they re-enter their email and
   password; "Clear everything" and the demo data switches are in My settings.)
 
-## Collaboration (next up)
+## Collaboration (first cut built; see below for what is left)
+**Built:** share a group from its menu (Share / Sharing): invite a connection by name or by a one-use link (14 days), choose
+*can edit* or *can view* per person, remove someone, stop sharing, or leave. Invitations and news (joined, left, stopped
+sharing, a task given to you) are in the bell. A shared group shows a small person mark in the sidebar, and a task in one has an
+*Assigned to* field (the person is notified). Each shared group is its own workspace; moving a group in or out of sharing moves
+its tasks too, through ordinary sync. Tested with two browsers against the local backend; not yet with two real accounts.
+
+**When sharing ends, the owner and the other person each decide.** The owner (removing someone, or stopping sharing)
+chooses *they may keep a copy* or *no copy*. With no copy, access ends at once and the group disappears for them. With a copy,
+they are told, keep read-only access, and choose *Keep a copy* (the group is copied into their own space, nothing shared) or
+*Let it go*. When everyone has decided, a group the owner stopped sharing comes back to them on its own. Someone who simply
+leaves chooses for themselves whether to keep a copy.
+
+**Still to do:** an *Assigned to me* filter and an avatar on assigned tasks; Web Push for invitations and assignments;
+*added by* / *completed by* and a recent-activity line; conflict handling for two people editing one task (server-assigned versions,
+then field-level merge); comments and @mentions; presence; an expiring link that can be used by several people.
+
+**The goal, in full:** shared lists, like a shared note in iOS.
 **The goal: shared lists, like a shared note in iOS.** Two or more people open the same group and see and edit the same tasks,
 see what the other added, and can **assign tasks to each other**.
 
