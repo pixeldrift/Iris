@@ -74,7 +74,7 @@ test('sharing a group: invite a connection, they join and are given a task, then
   await expect(bob.getByText('Book flights').first()).toBeVisible({ timeout: 20_000 })
 
   // Bob is given the task (any member can be picked), and Ann is told nothing here but Bob is told when Ann gives it
-  await bob.getByText('Book flights').first().click()
+  await bob.getByText('Book flights').first().click({ force: true }) // (a drifting bubble is never still)
   await expect(bob.getByLabel('Assigned to')).toBeVisible()
   await bob.getByLabel('Assigned to').selectOption({ label: 'Me' })
   await expect(bob.getByLabel('Assigned to')).not.toHaveValue('')
