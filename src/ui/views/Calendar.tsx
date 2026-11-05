@@ -5,7 +5,7 @@ import { addDays, dayHint, fromISO, MONTHS, startOfWeek, toISO, today, WEEKDAYS 
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDropTarget } from '../dnd'
-import { IconChevron, IconChevronDown, IconClose, IconPlus, KindIcon } from '../icons'
+import { IconCheck, IconChevron, IconChevronDown, IconClose, IconPlus, KindIcon } from '../icons'
 import { ScrollFade } from '../ScrollFade'
 import { SPRING } from '../lift'
 import { colorVars, useTaskHue } from '../taskColor'
@@ -98,17 +98,22 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
   )
 }
 
-/** One item as a coloured dot (its group's colour): in the month view that is all there is room for. */
+/**
+ * One item as a small bubble in its group's colour: an outline for something to do, solid for a deadline (the more serious one).
+ * A finished one is faded, with a tiny tick inside.
+ */
 function Dot({ task, deadline, loggedOn }: { task: Task; deadline: boolean; loggedOn?: string }) {
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
   const done = loggedOn ? task.log.includes(loggedOn) : task.status === 'done'
   return (
     <span
-      title={`${task.title}${deadline ? ' (due)' : ''}`}
-      className={`h-2 w-2 shrink-0 rounded-full ${done ? 'opacity-40' : ''}`}
-      style={deadline ? { boxShadow: `inset 0 0 0 1.5px ${tint(hue, 55, 55)}` } : { background: tint(hue, 62, 62) }}
-    />
+      title={`${task.title}${deadline ? ' (due)' : ''}${done ? ' (done)' : ''}`}
+      className={`grid h-2.5 w-2.5 shrink-0 place-items-center rounded-full ${done ? 'opacity-45' : ''}`}
+      style={deadline ? { background: tint(hue, 62, 62), color: '#fff' } : { boxShadow: `inset 0 0 0 1.5px ${tint(hue, 55, 55)}`, background: tint(hue, 70, 87, 0.35), color: tint(hue, 55, 40) }}
+    >
+      {done && <IconCheck size={7} />}
+    </span>
   )
 }
 
