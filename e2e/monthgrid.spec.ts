@@ -133,7 +133,7 @@ test.describe('the month as an endless grid', () => {
     const first = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
     const grid = (await page.locator('[data-month-scroll]').boundingBox())!
     const cell = (await page.locator(`[data-month-scroll] [data-drop="day:${first}"]`).boundingBox())!
-    expect(cell.y - grid.y).toBeGreaterThan(36)
+    expect(cell.y - grid.y).toBeGreaterThan(22) // (the fade is 24px: this week starts clear of it)
   })
 
   test('the month is spelled out unless there is not room; on a narrow phone it still fits', async ({ page }) => {
