@@ -115,6 +115,14 @@ export function CalendarPopover({
   )
 }
 
+/**
+ * The two kinds of date, as the calendar draws them: a small outlined circle for the day something is scheduled for,
+ * a filled one for its deadline. Beside the labels they teach what the dots on the calendar mean.
+ */
+export function DateMark({ kind }: { kind: 'scheduled' | 'deadline' }) {
+  return <span aria-hidden className={`mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-[-1px] ${kind === 'deadline' ? 'bg-lilac-500' : 'border-[1.5px] border-lilac-500'}`} />
+}
+
 /** Styled date field: a button that opens a small calendar popover. */
 export function DatePicker({
   label,
@@ -123,7 +131,7 @@ export function DatePicker({
   max,
   min,
 }: {
-  label: string
+  label: React.ReactNode
   value: string | null
   onChange: (v: string | null) => void
   max?: string | null

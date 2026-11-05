@@ -125,8 +125,9 @@ every bubble back. *Gather by* chips (groups, when, weight, kind, people, stage)
 float together. In *Free* mode, related bubbles lean toward each other. On mobile, a sliver of the sidebar
 stays beside the pond. Tap it, or drag a bubble onto it, to open the drawer and drop the bubble into a group.
 
-**Planning days.** *Plan for* (the day you'll do it) is separate from *Deadline* (when it has to be done), and each has a
-reminder of its own. Both show on the calendar. Dropping a task on a weekday sets the *Plan for* date. Unfinished tasks carry forward
+**Planning days.** *Scheduled for* (the day you'll do it, an outlined circle ○) is separate from *Deadline* (when it has to be done,
+a filled circle ●), and each has a reminder of its own. Both show on the calendar with those same circles (a finished task is
+faded with a tiny tick, and leaves the calendar with its other date unless *Show completed tasks* is on). Dropping a task on a weekday sets the *Scheduled for* date. Unfinished tasks carry forward
 to the next day automatically (under *More options*, switch it off per task, or set a timeline start).
 
 **Where.** Any item can have a place, a room or a link: it shows as a pin chip on rows and cards, a pin on the bubble, and the

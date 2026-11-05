@@ -42,7 +42,6 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
     >
       {rich && <DoneButton task={task} size={16} />}
       <span className={`min-w-0 flex-1 truncate ${isDone ? 'line-through' : ''}`}>
-        {deadline ? '⚑ ' : ''}
         {task.kind === 'event' && task.time ? `${formatTime(task.time)} ` : ''}
         {task.title}
       </span>
@@ -84,7 +83,6 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
       <DoneButton task={task} />
       <span className="min-w-0 flex-1">
         <span className={`block truncate ${isDone ? 'text-ink-faint line-through' : ''}`}>
-          {deadline ? '⚑ ' : ''}
           {task.title || 'Untitled'}
         </span>
         {((task.kind === 'event' && task.time) || task.place.trim()) && (

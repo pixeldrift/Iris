@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
-import { DatePicker } from './DatePicker'
+import { DateMark, DatePicker } from './DatePicker'
 import { askConfirm } from './dialogs'
 import { IconCheck, IconClose, IconPencil, IconTrash } from './icons'
 import { DoneButton, KindHint, KINDS, OpenPlace, STATUSES } from './shared'
@@ -69,14 +69,14 @@ function WhenFields({ task }: { task: Task }) {
     <div className="space-y-3 rounded-2xl bg-white/35 p-3">
       <div>
         <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">When</h4>
-        <p className="text-[0.7rem] text-ink-faint">Plan for is the day you’ll do it; the deadline is when it has to be done. Both show on the calendar.</p>
+        <p className="text-[0.7rem] text-ink-faint"><DateMark kind="scheduled" />Scheduled for is the day you’ll do it; <DateMark kind="deadline" />Deadline is when it has to be done. On the calendar the outlined circle is the first, the filled one the second.</p>
       </div>
       <div className="space-y-1.5">
-        <DatePicker label="Plan for" value={task.day} onChange={(v) => update(task.id, { day: v })} />
+        <DatePicker label={<><DateMark kind="scheduled" />Scheduled for</>} value={task.day} onChange={(v) => update(task.id, { day: v })} />
         <ReminderField task={task} which="do" label="Remind me on the day" />
       </div>
       <div className="space-y-1.5">
-        <DatePicker label="Deadline" value={task.due} onChange={(v) => setDue(task.id, v)} />
+        <DatePicker label={<><DateMark kind="deadline" />Deadline</>} value={task.due} onChange={(v) => setDue(task.id, v)} />
         <ReminderField task={task} which="due" label="Remind me before the deadline" />
       </div>
       <div>
