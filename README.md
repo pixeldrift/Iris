@@ -64,7 +64,7 @@ Overview). Everything below it, under *Filter*, chooses *what* you look at. Each
 works on its own: any filter shows in any view, and the line under the view's
 name always says which one is on ("Filter: Everything › School › English"; its
 first step, *Everything*, clears every filter). The setting *Switching views
-clears filters* starts each view from Everything instead of keeping the filter.
+resets filters* starts each view from Everything instead of keeping the filter.
 
 **Groups are tags, not folders.** A group does not contain anything. It is a
 filter: choosing it shows the tasks carrying that tag, in whichever view you are
@@ -124,7 +124,7 @@ band, nudging others aside. Flick it fast to snap it free, then drop it on anoth
 **Sound.** Tap the speaker to mute/unmute; hold it (or right-click) for individual sounds and volume.
 
 **Soft priority.** Two sliders ("how much it matters", "how pressing it feels") with no numbers; on the Priority view you drag
-a task around the plot to set both. With *Raise urgency near deadlines* on (the default), the urgency actually used is
+a task around the plot to set both. With *Automatic urgency* on (the default), the urgency actually used is
 the higher of your slider and what the deadline calls for; a small dot under the slider shows the value in use, and your own
 setting is never changed.
 

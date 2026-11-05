@@ -19,7 +19,7 @@ const close = () => useSettingsDialog.setState({ open: false })
 
 type BoolKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings]
 
-function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; label: string; hint?: string; indent?: boolean; faded?: boolean }) {
+function Row({ k, label, hint, indent = false, faded = false, inline = false }: { k: BoolKey; label: string; hint?: string; indent?: boolean; faded?: boolean; inline?: boolean }) {
   const on = useStore((s) => s.settings[k])
   const set = useStore((s) => s.setSetting)
   return (
@@ -34,8 +34,8 @@ function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; la
       className={`flex w-full items-center gap-3 rounded-xl py-1.5 pr-2 text-left transition hover:bg-white/50 ${indent ? 'pl-7' : 'pl-2'} ${faded ? 'opacity-45' : ''}`}
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-sm">{label}</span>
-        {hint && <span className="block text-[0.7rem] text-ink-faint">{hint}</span>}
+        <span className="text-sm">{label}</span>
+        {hint && <span className={inline ? 'ml-2 text-[0.7rem] text-ink-faint' : 'block text-[0.7rem] text-ink-faint'}>{hint}</span>}
       </span>
       <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? 'left-[1.1rem]' : 'left-0.5'}`} />
@@ -87,7 +87,7 @@ export function NotificationsRow({ compact = false }: { compact?: boolean }) {
       className={`flex w-full items-center gap-3 rounded-xl py-1.5 pl-2 pr-2 text-left transition hover:bg-white/50 ${blocked ? 'opacity-60' : ''} ${compact ? 'opacity-70' : ''}`}
     >
       <span className="min-w-0 flex-1">
-        <span className={`block ${compact ? 'text-xs text-ink-soft' : 'text-sm'}`}>{compact ? 'Allow notifications' : 'Notifications'}</span>
+        <span className={`block ${compact ? 'text-xs text-ink-soft' : 'text-sm'}`}>{compact ? 'Allow notifications' : 'Push Notifications'}</span>
         <span className="block text-[0.65rem] text-ink-faint">{hint}</span>
       </span>
       <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
@@ -218,7 +218,7 @@ export function SettingsDialog() {
     >
       <div className="space-y-1">
         <Group title="Soundscape">
-          <Row k="sound" label="Audio" hint="master control for all sounds" />
+          <Row k="sound" label="Audio" hint="master control for all sounds" inline />
           <div className={`mx-2 mb-1 ml-7 transition ${sound ? '' : 'opacity-45'}`}>
             <input
               type="range"
@@ -232,9 +232,9 @@ export function SettingsDialog() {
               aria-label="Volume"
             />
           </div>
-          <Row k="sfxDrops" label="Water drops" hint="when you add" indent faded={!sound} />
-          <Row k="sfxChimes" label="Task sounds" hint="finish, tag, move" indent faded={!sound} />
-          <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />
+          <Row k="sfxDrops" label="Water drops" hint="when you add" indent inline faded={!sound} />
+          <Row k="sfxChimes" label="Task sounds" hint="finish, tag, move" indent inline faded={!sound} />
+          <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent inline faded={!sound} />
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
         </Group>
         <Group title="Look & Feel">
@@ -273,34 +273,46 @@ export function SettingsDialog() {
             </div>
           </div>
           <div className="mt-1 border-t border-white/50" />
-          <Row k="sizeByPriority" label="Scale by importance" hint="bubble size" />
+          <Row k="sizeByPriority" label="Bubbles scale by importance" hint="bubble size in Pond and Priority views" />
           <Row k="drift" label="Gentle drifting" hint="floating on the water" />
           <Row k="showDone" label="Show bloomed tasks" hint="finished tasks stay visible" />
         </Group>
         <Group title="App options">
-          <Row k="viewsClearFilters" label="Switching views clears filters" hint="start every view from Everything" />
-          <Row k="autoUrgency" label="Raise urgency near deadlines" hint="overrides the slider as a deadline nears" />
+          <Row k="viewsClearFilters" label="Switching views resets filters" hint="start every view from Everything" />
+          <Row k="autoUrgency" label="Automatic urgency" hint="increase urgency as deadline nears" />
           <Row k="limitPlay" label="Limit play time" hint="3 minutes of play at a time, then a break" />
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
           <NotificationsRow />
         </Group>
         <Group title="Region">
           <div className="space-y-2 px-2 py-1.5">
-            <div>
-              <div className="mb-1 text-sm">Dates</div>
-              <SegmentedToggle label="Date format" value={dateFormat} options={DATE_STYLES} onChange={(v) => setSetting('dateFormat', v)} />
-            </div>
-            <div>
-              <div className="mb-1 text-sm">Clock</div>
-              <SegmentedToggle
-                label="Clock"
-                value={clockFormat}
-                options={[
-                  { id: '12', label: '12-hour' },
-                  { id: '24', label: '24-hour' },
-                ]}
-                onChange={(v) => setSetting('clockFormat', v)}
-              />
+            <div className="flex flex-wrap items-start gap-3">
+              <label className="block">
+                <span className="mb-1 block text-sm">Date format</span>
+                <select
+                  value={dateFormat}
+                  onChange={(e) => setSetting('dateFormat', e.target.value as typeof dateFormat)}
+                  className="glass-soft h-9 rounded-full px-3 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-lilac-400"
+                >
+                  {DATE_STYLES.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div>
+                <div className="mb-1 text-sm">Time format</div>
+                <SegmentedToggle
+                  label="Time format"
+                  value={clockFormat}
+                  options={[
+                    { id: '12', label: '12-hour' },
+                    { id: '24', label: '24-hour' },
+                  ]}
+                  onChange={(v) => setSetting('clockFormat', v)}
+                />
+              </div>
             </div>
             <div className="text-sm">
               Time zone <span className="ml-1 text-[0.7rem] text-ink-faint">{deviceTimeZone().replace(/_/g, ' ')} · follows this device</span>
