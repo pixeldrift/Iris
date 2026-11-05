@@ -5,8 +5,14 @@ import { useDnd, targetAt } from '../dnd'
 const WEEKS = 60
 const BEFORE = 20
 const GAP = 6
+/** the space between week rows: enough that the name of a month fits above its first day */
+const ROW_GAP = 20
 /** how far the top fade reaches: the week a month starts in is scrolled this far down from the top, so its days are clear of it */
-const FADE = 40
+const FADE = 52
+/** the divider between months stops this far short of each end of the boxes (a touch under full height looks full height) */
+const INSET = 3
+/** how far above its box the month's name begins (the divider rises that far) */
+const LABEL_TOP = 15
 
 export interface MonthHandle {
   /** Slide so the week the month starts in is at the top. */
@@ -14,8 +20,10 @@ export interface MonthHandle {
 }
 
 export interface MonthView {
-  /** "September 2026", or "Sep–Oct 2026" while two months are on screen */
+  /** "Sep 2026", or "Sep–Oct 2026" while two months are on screen */
   title: string
+  /** the same with the month spelled out ("September 2026"); a split stays short */
+  full: string
   /** the first of the month that has most of the screen */
   month: string
   /** The grid is being looked at by hand (dragged or scrolled). Only then is the title allowed to name two months; after the arrows it names one. */
@@ -26,8 +34,8 @@ export interface MonthView {
  * The month as an endless grid of weeks: drag it (or scroll it) to look further down or back; the title says which months are
  * showing. A window of weeks around `base` is drawn, and it moves along when the edge is neared.
  */
-export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: number; show: (d: string) => boolean; render: (d: string, info: { alt: boolean; monthLabel: string | null }) => React.ReactNode; onView: (v: MonthView) => void; onRebase: (d: string) => void }>(function MonthScroller(
-  { base, cols, show, render, onView, onRebase },
+export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: number; /** room between week rows for the month's name above its first day (otherwise the rows sit close) */ labelGap: boolean; show: (d: string) => boolean; render: (d: string, info: { alt: boolean; monthLabel: string | null }) => React.ReactNode; onView: (v: MonthView) => void; onRebase: (d: string) => void }>(function MonthScroller(
+  { base, cols, labelGap, show, render, onView, onRebase },
   ref,
 ) {
   const box = useRef<HTMLDivElement>(null)
@@ -36,8 +44,9 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   const days = useMemo(() => Array.from({ length: WEEKS * 7 }, (_, i) => addDays(origin, i)), [origin])
   const colW = (size.w - GAP * (cols - 1)) / cols
   // five rows fit the box on a wide screen; on a phone the days are kept squarish rather than long and thin
-  const rowH = Math.max(64, Math.min(Math.floor((size.h - GAP * 4) / 5), Math.round(colW * 1.45)))
-  const pitch = rowH + GAP
+  const rowGap = labelGap ? ROW_GAP : GAP
+  const rowH = Math.max(62, Math.min(Math.floor((size.h - rowGap * 4) / 5), Math.round(colW * 1.38)))
+  const pitch = rowH + rowGap
   const weekOf = useCallback((d: string) => Math.round(diffDays(origin, startOfWeek(d)) / 7), [origin])
   // after the arrows (or Today) slide the grid, its title names one month; the first touch by hand frees it to name two
   const programmatic = useRef(false)
@@ -80,7 +89,8 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     const y1 = parts[parts.length - 1][0]
     const name = (m: number) => MONTHS[m].slice(0, 3)
     const title = parts.length === 1 ? `${name(parts[0][1])} ${y0}` : `${name(parts[0][1])}${y0 !== y1 ? ` ${y0}` : ''}–${name(parts[parts.length - 1][1])} ${y1}`
-    live.current.onView({ title, month: toISO(new Date(major[0], major[1], 1)), manual })
+    const full = parts.length === 1 ? `${MONTHS[parts[0][1]]} ${y0}` : title
+    live.current.onView({ title, full, month: toISO(new Date(major[0], major[1], 1)), manual })
     // the top edge fades out instead of cutting rows off (the bottom has the undated items under a line)
     el.toggleAttribute('data-top', el.scrollTop > 6)
   }, [])
@@ -208,24 +218,29 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     let path = ''
     for (let i = 1; i < cells.length; i++) {
       if (i % cols === 0 || key[i - 1] === key[i]) continue
-      const x = (i % cols) * (colW + GAP) - GAP / 2
-      const y = Math.floor(i / cols) * pitch
-      path += `M${x} ${y}V${y + rowH}`
+      // centred in the gap, on a whole device pixel (a half CSS pixel on a retina screen) so it is a crisp 1px line with even space either side
+      const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
+      const wd = Math.max(1, Math.round(dpr))
+      const x = (Math.round(((i % cols) * (colW + GAP) - GAP / 2) * dpr - wd / 2) + wd / 2) / dpr
+      // only along the straight sides of the two days' boxes, centred on them
+      // (with the month's name above its box, the line rises to the top of the name)
+      const top = Math.floor(i / cols) * pitch + (labelGap ? -LABEL_TOP : INSET)
+      path += `M${x} ${top}V${Math.floor(i / cols) * pitch + rowH - INSET}`
     }
     return path
-  }, [cells, cols, colW, pitch, rowH])
+  }, [cells, cols, colW, pitch, rowH, labelGap])
   const rows = Math.ceil(cells.length / cols)
   return (
     <div ref={box} onScroll={onScroll} onPointerDown={down} onWheel={() => (programmatic.current = false)} onTouchStart={() => (programmatic.current = false)} data-month-scroll className="scroll-soft fade-mask min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">
       <div className="relative">
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, gap: GAP }}>
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, columnGap: GAP, rowGap }}>
         {cells.map((d) => {
           const dt = fromISO(d)
           return <Fragment key={d}>{render(d, { alt: dt.getMonth() % 2 === 1, monthLabel: dt.getDate() === 1 ? MONTHS[dt.getMonth()].slice(0, 3) : null })}</Fragment>
         })}
       </div>
       <svg aria-hidden className="pointer-events-none absolute left-0 top-0 overflow-visible" width={size.w} height={rows * pitch}>
-        <path d={divider} fill="none" strokeWidth={2} strokeLinecap="round" className="stroke-lilac-500" />
+        <path d={divider} fill="none" strokeWidth={1} strokeLinecap="round" className="stroke-lilac-500" />
       </svg>
       </div>
     </div>

@@ -71,12 +71,21 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
     return () => cancelAnimationFrame(id)
   }, [])
   // the chip hugs the text (just below the baseline) with 10px of room at its front and tail; the links need less
-  const padLink = vertical ? 'px-0.5 py-1' : 'px-1.5 py-px'
-  const padCur = vertical ? 'px-0.5 py-[10px]' : 'px-[10px] py-px'
+  // (sideways, Tailwind's px/py are the logical axes, along and across the turned text; p- is the same all round)
+  const padLink = vertical ? 'px-1 py-0.5' : 'px-1.5 py-px'
+  const padCur = vertical ? 'p-[5px]' : 'px-[10px] py-px'
   const cur = items[items.length - 1]
   // a tag chip: the group's soft tint behind its name (the plain lilac chip when it is not a group)
   const chip = cur.hue !== undefined ? { background: tint(cur.hue, 70, 88, 0.85), color: tint(cur.hue, 35, 32) } : { background: 'rgb(var(--lr-200) / 0.8)', color: 'var(--color-lilac-700)' }
-  const label = (it: { key: string; label: string }, i: number) => (vertical && i === 0 ? <IconAll size={13} /> : it.label)
+  // (the globe is turned with the text, like the words beside it, and its chip is a circle)
+  const label = (it: { key: string; label: string }, i: number) =>
+    vertical && i === 0 ? (
+      <span className="inline-grid rotate-90 place-items-center">
+        <IconAll size={13} />
+      </span>
+    ) : (
+      it.label
+    )
   return (
     <span ref={box} className="relative inline-flex items-center align-middle">
       {!vertical && pill && (
@@ -96,7 +105,7 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
               </span>
             )}
             {last ? (
-              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`relative inline-flex items-center rounded-full text-[0.72rem] font-medium leading-[1.2] ${padCur}`} style={vertical ? chip : { color: chip.color }}>
+              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`relative inline-flex items-center rounded-full text-[0.72rem] font-medium leading-[1.2] ${vertical && i === 0 ? 'h-[1.4rem] w-[1.4rem] justify-center p-0' : padCur}`} style={vertical ? chip : { color: chip.color }}>
                 {label(it, i)}
               </span>
             ) : (
@@ -255,7 +264,13 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       aria-label="Everything"
       className="text-lilac-600 transition hover:text-lilac-700 hover:underline"
     >
-      {land ? <IconAll size={13} /> : 'Everything'}
+      {land ? (
+        <span className="inline-grid rotate-90 place-items-center">
+          <IconAll size={13} />
+        </span>
+      ) : (
+        'Everything'
+      )}
     </button>
   )
   const sep = (

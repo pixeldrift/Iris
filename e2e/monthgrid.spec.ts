@@ -72,11 +72,12 @@ test.describe('the month as an endless grid', () => {
     expect((await link.boundingBox())!.x).toBeGreaterThan((await today.boundingBox())!.x)
   })
 
-  test('a violet line sits between a month’s last and first days; the month name on a first day is serif and grey', async ({ page }) => {
+  test('a violet line sits between a month’s last and first days; the month name on a first day is serif, bold and purple', async ({ page }) => {
     await expect(page.locator('[data-month-scroll] svg.pointer-events-none path')).toHaveAttribute('d', /M/)
     const label = page.locator('[data-month-scroll]').getByText(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/).first()
     await expect(label).toHaveClass(/font-display/)
-    await expect(label).toHaveClass(/text-ink-faint/)
+    await expect(label).toHaveClass(/text-lilac-500/)
+    await expect(label).toHaveClass(/font-bold/)
   })
 
   test('arrows name one month (never a split) while sliding; the top edge fades once scrolled', async ({ page }) => {
@@ -133,5 +134,36 @@ test.describe('the month as an endless grid', () => {
     const grid = (await page.locator('[data-month-scroll]').boundingBox())!
     const cell = (await page.locator(`[data-month-scroll] [data-drop="day:${first}"]`).boundingBox())!
     expect(cell.y - grid.y).toBeGreaterThan(36)
+  })
+
+  test('the month is spelled out unless there is not room; on a narrow phone it still fits', async ({ page }) => {
+    const title = page.locator('main h3').first()
+    await expect(title).toHaveText(/^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/)
+    await page.setViewportSize({ width: 340, height: 700 })
+    await page.waitForTimeout(500)
+    expect(await title.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true)
+  })
+
+  test('the month name sits in the space above the first day’s box, so the number stays in line; days hold two rows of dots, then a plus', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 780 })
+    const name = page.locator('[data-month-scroll]').locator('span.font-display').first()
+    await expect(name).toHaveClass(/absolute/)
+    const cell = name.locator('xpath=ancestor::*[@data-drop][1]')
+    const nb = (await name.boundingBox())!
+    const cb = (await cell.boundingBox())!
+    expect(nb.y + nb.height).toBeLessThanOrEqual(cb.y + 1) // above the box, not over it
+    // no day shows more than two rows of dots; a crowded one ends in a plus
+    const rows = await page.locator('[data-month-scroll] [role=img]').evaluateAll((els) => Math.max(...els.map((e) => new Set([...e.children].map((k) => Math.round(k.getBoundingClientRect().top))).size)))
+    expect(rows).toBeLessThanOrEqual(2)
+    expect(await page.locator('[data-month-scroll] [role=img] > span[title$=" more"]').count()).toBeGreaterThan(0)
+  })
+
+  test('the unscheduled arrow points right when closed and down when open, and is only there when there is more to see', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 780 })
+    const toggle = page.getByRole('button', { name: 'Unscheduled' })
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(toggle.locator('span')).not.toHaveClass(/rotate-90/)
+    await toggle.click()
+    await expect(toggle.locator('span')).toHaveClass(/rotate-90/)
   })
 })
