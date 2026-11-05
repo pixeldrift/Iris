@@ -159,7 +159,7 @@ function Cell({
   /** the day view as a schedule laid out by the clock, not a list */
   plan?: boolean
   dimmed?: boolean
-  /** the month grid: every other month is tinted, and a month's first day carries the month's name */
+  /** the month grid: months other than the present one are tinted (so having scrolled away shows), and a month's first day carries its name */
   alt?: boolean
   monthLabel?: string | null
   /** the month view: tapping the day opens it */
@@ -180,8 +180,8 @@ function Cell({
       {...props}
       ref={box}
       onClick={onOpen ? open : undefined}
-      className={`group relative flex flex-col ${dots ? 'gap-0.5 p-1' : 'gap-1 p-1.5'} overflow-hidden rounded-2xl border transition ${onOpen ? 'cursor-pointer hover:bg-white/60' : ''} ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
-        over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? 'border-lilac-300 bg-white/70' : alt ? 'border-ink-faint/30 bg-lilac-100/55 shadow-[0_1px_4px_rgba(90,70,120,0.12)]' : 'border-ink-faint/30 bg-white/40 shadow-[0_1px_4px_rgba(90,70,120,0.12)]'
+      className={`group relative flex flex-col ${dots ? 'gap-0.5 rounded-xl p-1' : 'gap-1 rounded-2xl p-1.5'} overflow-hidden border transition ${onOpen ? 'cursor-pointer hover:bg-white/60' : ''} ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
+        over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? 'border-lilac-300 bg-white/70' : alt ? 'border-ink-faint/30 bg-lilac-100/55 shadow-[0_1px_4px_rgba(90,70,120,0.12)]' : 'border-ink-faint/30 bg-white/75 shadow-[0_1px_4px_rgba(90,70,120,0.12)]'
       } ${dim ? 'opacity-50' : ''} ${active && !over ? 'border-dotted border-lilac-300' : ''}`}
     >
       <div className="flex items-center">
@@ -193,7 +193,7 @@ function Cell({
           }}
           className={`inline-flex ${dots ? 'h-5 min-w-5 text-[0.7rem]' : 'h-6 min-w-6 text-xs'} items-center justify-center gap-1 rounded-full ${monthLabel ? 'px-1.5' : 'px-1'} tabular-nums ${isToday ? 'bg-lilac-500 text-white' : 'text-ink-soft hover:bg-white/70'}`}
         >
-          {monthLabel && <span className={`font-display text-[0.8rem] leading-none ${isToday ? 'text-white' : 'text-lilac-600'}`}>{monthLabel}</span>}
+          {monthLabel && <span className={`font-display text-[0.8rem] leading-none ${isToday ? 'text-white' : 'text-ink-soft'}`}>{monthLabel}</span>}
           {d.getDate()}
         </button>
         {named && (
@@ -541,48 +541,44 @@ export function CalendarView() {
 
   return (
     <div className="glass flex h-full flex-col rounded-[2rem] p-3 md:p-4">
-      <div className="mb-2 flex items-start gap-x-2 px-1 md:items-center md:whitespace-nowrap">
-        {/* upright on a phone the arrows and Today sit right under the month; wider, everything is on one line */}
-        <div className="flex min-w-0 flex-col md:flex-row md:items-center md:gap-2.5">
+      {/* upright on a phone: the month and the view toggle on one line, the arrows and Today under the month with the weekends link opposite; wider: all on one line */}
+      <div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-1 md:flex md:gap-x-2.5 md:whitespace-nowrap">
+        <div className="self-end md:order-1 md:self-auto">
           <AnimatedTitle text={title} order={monthView.month} animate={mode === 'month' && !monthView.manual} />
-          <div className="-mt-0.5 flex items-center text-lilac-600 md:mt-0">
-            <button onClick={() => step(-1)} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-lilac-100/80" aria-label="Previous">
-              <span className="grid rotate-180 place-items-center">
-                <IconChevron />
-              </span>
-            </button>
-            <button onClick={() => (mode === 'month' ? goMonth(today()) : setAnchor(today()))} className="whitespace-nowrap rounded-full bg-lilac-100 px-3 py-0.5 text-xs font-medium text-lilac-700 transition hover:bg-lilac-200/80">
-              Today
-            </button>
-            <button onClick={() => step(1)} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-lilac-100/80" aria-label="Next">
-              <IconChevron />
-            </button>
-          </div>
         </div>
-        {/* how you look at it first (month, week, day); then the details of that view */}
-        <div className="ml-auto flex shrink-0 items-center gap-1 md:gap-3">
-          <div className="glass-soft flex h-8 items-center rounded-full p-0.5 text-xs">
-            {(['month', 'week', 'day'] as const).map((m) => (
-              <button key={m} onClick={() => setMode(m)} className={`h-full rounded-full px-1.5 capitalize transition md:px-3 ${mode === m ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
-                {m}
+        <div className="glass-soft flex h-7 items-center justify-self-end rounded-full p-0.5 text-xs md:order-3 md:ml-auto md:h-8">
+          {(['month', 'week', 'day'] as const).map((m) => (
+            <button key={m} onClick={() => setMode(m)} className={`h-full rounded-full px-1.5 capitalize transition md:px-3 ${mode === m ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
+              {m}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center text-lilac-600 md:order-2">
+          <button onClick={() => step(-1)} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-lilac-100/80" aria-label="Previous">
+            <span className="grid rotate-180 place-items-center">
+              <IconChevron />
+            </span>
+          </button>
+          <button onClick={() => (mode === 'month' ? goMonth(today()) : setAnchor(today()))} className="whitespace-nowrap rounded-full bg-lilac-100 px-3 py-0.5 text-xs font-medium text-lilac-700 transition hover:bg-lilac-200/80">
+            Today
+          </button>
+          <button onClick={() => step(1)} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-lilac-100/80" aria-label="Next">
+            <IconChevron />
+          </button>
+        </div>
+        {mode === 'day' ? (
+          <div className="glass-soft flex h-7 items-center justify-self-end rounded-full p-0.5 text-xs md:order-4 md:h-8" role="group" aria-label="Day layout">
+            {([[false, 'List'], [true, 'Schedule']] as const).map(([v, name]) => (
+              <button key={name} onClick={() => togglePlan(v)} aria-pressed={plan === v} className={`h-full rounded-full px-2 transition md:px-3 ${plan === v ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
+                {name}
               </button>
             ))}
           </div>
-          {mode === 'day' && (
-            <div className="glass-soft flex h-8 items-center rounded-full p-0.5 text-xs" role="group" aria-label="Day layout">
-              {([[false, 'List'], [true, 'Schedule']] as const).map(([v, name]) => (
-                <button key={name} onClick={() => togglePlan(v)} aria-pressed={plan === v} className={`h-full rounded-full px-2.5 transition md:px-3 ${plan === v ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
-                  {name}
-                </button>
-              ))}
-            </div>
-          )}
-          {mode !== 'day' && (
-            <button onClick={toggleWeekends} aria-pressed={!weekends} className="whitespace-nowrap rounded-full px-0.5 py-1 text-[0.7rem] text-lilac-600 md:px-1.5 md:text-xs transition hover:bg-lilac-100/80">
-              {weekends ? 'Hide weekends' : 'Show weekends'}
-            </button>
-          )}
-        </div>
+        ) : (
+          <button onClick={toggleWeekends} aria-pressed={!weekends} className="justify-self-end whitespace-nowrap rounded-full px-1 py-1 text-[0.7rem] text-lilac-600 transition hover:bg-lilac-100/80 md:order-4 md:px-1.5 md:text-xs">
+            {weekends ? 'Hide weekends' : 'Show weekends'}
+          </button>
+        )}
       </div>
 
       {mode !== 'day' && !stacked && (
@@ -609,7 +605,7 @@ export function CalendarView() {
           show={show}
           onView={setMonthView}
           onRebase={setMonthBase}
-          render={(d, info) => <Cell date={d} tasks={tasksOn(d)} month={null} tall={false} dots dimmed={faded(d)} alt={info.alt} monthLabel={info.monthLabel} onOpen={(date, from) => setPop({ date, from })} />}
+          render={(d, info) => <Cell date={d} tasks={tasksOn(d)} month={null} tall={false} dots dimmed={faded(d)} alt={d.slice(0, 7) !== today().slice(0, 7)} monthLabel={info.monthLabel} onOpen={(date, from) => setPop({ date, from })} />}
         />
       ) : (
         <div

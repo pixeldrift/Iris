@@ -60,7 +60,11 @@ test.describe('the month as an endless grid', () => {
     await expect(today).toHaveClass(/bg-lilac-100/) // a pill
     await page.setViewportSize({ width: 390, height: 780 })
     await expect.poll(async () => (await mid(today)) - (await mid(title))).toBeGreaterThan(14)
-    await expect.poll(async () => Math.abs((await mid(link)) - (await mid(title)))).toBeLessThan(14)
+    // the weekends link is on the second line, opposite Today and under the view toggle (which stays on the month's line)
+    await expect.poll(async () => Math.abs((await mid(link)) - (await mid(today)))).toBeLessThan(8)
+    const toggle = page.getByRole('button', { name: 'month', exact: true })
+    await expect.poll(async () => Math.abs((await mid(toggle)) - (await mid(title)))).toBeLessThan(14)
+    expect((await link.boundingBox())!.x).toBeGreaterThan((await today.boundingBox())!.x)
   })
 
   test('a purple line follows where one month ends and the next begins; the month name on a first day is serif', async ({ page }) => {
