@@ -525,13 +525,21 @@ export function CalendarView() {
     }
   }
   const [weekends, setWeekends] = useState(readWeekends)
+  // a preview of keeping the week rows tight upright, with room for a month's name only where one starts (?rows=tight, or localStorage lilac-tight-rows=1)
+  const tightRows = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).get('rows') === 'tight' || localStorage.getItem('lilac-tight-rows') === '1'
+    } catch {
+      return false
+    }
+  }, [])
   const [undatedOpen, setUndatedOpen] = useState(false)
   // whether the unscheduled items need more than two rows (only then is there anything to open)
   const [moreUnscheduled, setMoreUnscheduled] = useState(false)
   // the month is an endless grid you can drag: where it is drawn from, and what is showing now
   const monthRef = useRef<MonthHandle>(null)
   const [monthBase, setMonthBase] = useState(today())
-  const [monthView, setMonthView] = useState<MonthView>({ title: '', full: '', month: today(), manual: true })
+  const [monthView, setMonthView] = useState<MonthView>({ title: '', full: '', tiny: '', month: today(), manual: true })
   const land = useLandscapePhone()
   const selectedId = useStore((s) => s.selectedId)
   const [pop, setPop] = useState<{ date: string; from: DOMRect | null } | null>(null)
@@ -599,18 +607,21 @@ export function CalendarView() {
   const mon = (d: Date, full: boolean) => (full ? MONTHS[d.getMonth()] : MONTHS[d.getMonth()].slice(0, 3))
   const titles =
     mode === 'month'
-      ? { full: monthView.full, abbr: monthView.title }
+      ? { full: monthView.full, abbr: monthView.title, tiny: monthView.tiny }
       : mode === 'week'
-        ? { full: `Week of ${mon(first, true)} ${first.getDate()}`, abbr: `Week of ${mon(first, false)} ${first.getDate()}` }
-        : { full: `${WEEKDAYS[first.getDay()]}, ${mon(first, true)} ${first.getDate()}`, abbr: `${WEEKDAYS[first.getDay()].slice(0, 3)}, ${mon(first, false)} ${first.getDate()}` }
+        ? { full: `Week of ${mon(first, true)} ${first.getDate()}`, abbr: `Week of ${mon(first, false)} ${first.getDate()}`, tiny: `Week of ${mon(first, false)} ${first.getDate()}` }
+        : { full: `${WEEKDAYS[first.getDay()]}, ${mon(first, true)} ${first.getDate()}`, abbr: `${WEEKDAYS[first.getDay()].slice(0, 3)}, ${mon(first, false)} ${first.getDate()}`, tiny: `${WEEKDAYS[first.getDay()].slice(0, 3)}, ${mon(first, false)} ${first.getDate()}` }
   // the month is spelled out unless there is not room for it beside the controls
   const head = useRef<HTMLDivElement>(null)
   const probe = useRef<HTMLSpanElement>(null)
-  const [abbreviate, setAbbreviate] = useState(false)
+  const probeAbbr = useRef<HTMLSpanElement>(null)
+  // 0: spelled out; 1: the month abbreviated; 2: the year shortened too ("Dec ’29 – Jan ’30")
+  const [level, setLevel] = useState(0)
   useLayoutEffect(() => {
     const el = head.current
     const pr = probe.current
-    if (!el || !pr) return
+    const pa = probeAbbr.current
+    if (!el || !pr || !pa) return
     const check = () => {
       const cs = getComputedStyle(el)
       const inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
@@ -618,15 +629,16 @@ export function CalendarView() {
       const kids = [...el.querySelectorAll<HTMLElement>('[data-hd]')].filter((k) => k.offsetWidth > 0)
       // upright: the controls on the right share one column; wide: everything shares one line with the title
       const used = cs.display === 'grid' ? Math.max(0, ...kids.filter((k) => k.dataset.hd === 'right').map((k) => k.offsetWidth)) + gap : kids.reduce((n, k) => n + k.offsetWidth + gap, 0)
-      const next = pr.offsetWidth > inner - used
-      setAbbreviate((a) => (a === next ? a : next))
+      const room = inner - used
+      const next = pr.offsetWidth <= room ? 0 : pa.offsetWidth <= room ? 1 : 2
+      setLevel((a) => (a === next ? a : next))
     }
     check()
     const ro = new ResizeObserver(check)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [titles.full, mode, mobile, land, weekends])
-  const title = abbreviate ? titles.abbr : titles.full
+  }, [titles.full, titles.abbr, mode, mobile, land, weekends])
+  const title = level === 0 ? titles.full : level === 1 ? titles.abbr : titles.tiny
   const heads = (mode === 'month' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(today()), i)).filter(show) : cells).slice(0, cols).map((d) => ({ name: WEEKDAYS[fromISO(d).getDay()], hint: dayHint(d), key: d, muted: muted(d) }))
 
   // tapping a day in the month view opens it; its arrows step to the neighbouring days
@@ -644,6 +656,9 @@ export function CalendarView() {
       <div ref={head} className="relative mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-1 md:flex md:gap-x-2.5 md:whitespace-nowrap">
         <span ref={probe} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap font-display text-xl md:text-2xl">
           {titles.full}
+        </span>
+        <span ref={probeAbbr} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap font-display text-xl md:text-2xl">
+          {titles.abbr}
         </span>
         <div className="min-w-0 self-end md:order-1 md:min-w-[10rem] md:self-auto">
           <AnimatedTitle text={title} order={monthView.month} animate={mode === 'month' && !monthView.manual} />
@@ -705,6 +720,7 @@ export function CalendarView() {
           base={monthBase}
           cols={cols}
           labelGap={mobile}
+          tightRows={tightRows}
           show={show}
           onView={setMonthView}
           onRebase={setMonthBase}
