@@ -610,7 +610,7 @@ export function CalendarView() {
   const probe = useRef<HTMLSpanElement>(null)
   const probeAbbr = useRef<HTMLSpanElement>(null)
   const probeTiny = useRef<HTMLSpanElement>(null)
-  // 0: spelled out; 1: the month abbreviated; 2: the year shortened too ("Dec – Jan ‘27"); 3: that, in smaller type
+  // 0: spelled out; 1: the month abbreviated; 2: the year shortened too ("Dec – Jan '27"); 3: that, in smaller type
   const [level, setLevel] = useState(0)
   useLayoutEffect(() => {
     const el = head.current

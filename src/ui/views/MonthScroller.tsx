@@ -24,7 +24,7 @@ export interface MonthView {
   title: string
   /** the same with the month spelled out ("September 2026"); a split stays short */
   full: string
-  /** the shortest: the year as an apostrophe and two digits, said once ("Dec – Jan ‘30") */
+  /** the shortest: the year as an apostrophe and two digits, said once ("Dec – Jan '30") */
   tiny: string
   /** the first of the month that has most of the screen */
   month: string
@@ -106,7 +106,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     // (two months: the year is said once, at the end, even when the months are either side of New Year)
     const title = parts.length === 1 ? `${name(parts[0][1])} ${y0}` : `${name(parts[0][1])}–${name(parts[parts.length - 1][1])} ${y1}`
     const full = parts.length === 1 ? `${MONTHS[parts[0][1]]} ${y0}` : title
-    const yy = (y: number) => `‘${String(y % 100).padStart(2, '0')}` // (the opening quote, which curls toward the number)
+    const yy = (y: number) => `'${String(y % 100).padStart(2, '0')}` // (a straight quote: no curl either way)
     const tiny = parts.length === 1 ? `${name(parts[0][1])} ${yy(y0)}` : `${name(parts[0][1])} – ${name(parts[parts.length - 1][1])} ${yy(y1)}`
     live.current.onView({ title, full, tiny, month: toISO(new Date(major[0], major[1], 1)), manual })
     // the top edge fades out instead of cutting rows off (the bottom has the undated items under a line)
