@@ -34,6 +34,7 @@ process.env.NEON_AUTH_JWKS_URL ??= `http://localhost:${PORT}/api/auth/.well-know
 const sync = await import('../api/sync.ts')
 const account = await import('../api/account.ts')
 const connect = await import('../api/connect.ts')
+const share = await import('../api/share.ts')
 
 // ---------- mock Neon Auth ----------
 interface User {
@@ -135,6 +136,7 @@ createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/auth/')) response = await mockAuth(request, url.pathname.slice('/api/auth'.length))
     else if (url.pathname === '/api/sync' && req.method === 'POST') response = await sync.POST(request)
     else if (url.pathname === '/api/connect' && req.method === 'POST') response = await connect.POST(request)
+    else if (url.pathname === '/api/share' && req.method === 'POST') response = await share.POST(request)
     else if (url.pathname === '/api/account' && req.method === 'POST') {
       response = await account.POST(request)
       // the real service removes the login with the data; the mock does too

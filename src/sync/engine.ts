@@ -125,6 +125,8 @@ interface Reply {
   /** The deployed build's id, when the server knows it. */
   build?: string | null
   rejected?: { kind: string; id: string; workspaceId: string }[]
+  /** The workspaces this person is in now (a group that stopped being shared with them is no longer listed). */
+  workspaces?: { id: string; personal: boolean }[]
 }
 
 async function post(body: { cursors: Record<string, number>; changes: Change[]; device?: { id: string; label: string }; active?: boolean; light?: boolean; beat?: boolean }, retried = false): Promise<Reply> {
@@ -203,9 +205,14 @@ async function syncOnce(userId: string) {
         // (a refused change is dropped quietly for now: there is no way to share yet, so it cannot really happen)
         if (c.data === null) delete mem.known[key]
         else mem.known[key] = pushed.get(key) ?? hashOf(c.data)
-        if (c.workspaceId && !rejected.has(key)) mem.wsOf[key] = c.workspaceId
+        if (c.data === null) delete mem.wsOf[key]
+        else if (c.workspaceId && !rejected.has(key)) mem.wsOf[key] = c.workspaceId
+        else delete mem.wsOf[key] // (back in the personal workspace)
       }
-      const apply = remoteToApply(resp.changes, hashes(), pushed)
+      // a deletion left behind in the workspace something was moved out of is not a deletion of the thing itself
+      const here = new Map<string, string | undefined>([...useStore.getState().tasks, ...useStore.getState().folders].map((x) => [x.id, x.workspaceId]))
+      const incoming = resp.changes.filter((c) => !(c.data === null && here.has(c.id) && here.get(c.id) !== (c.workspaceId && c.workspaceId !== userId ? c.workspaceId : undefined)))
+      const apply = remoteToApply(incoming, hashes(), pushed)
       // things another device just added: they arrive with a drop and a ripple, like something you placed yourself
       const have = new Set(useStore.getState().tasks.map((t) => t.id))
       const arrived = returning ? apply.filter((c) => c.kind === 'task' && c.data && !have.has(c.id)).map((c) => c.id) : []
@@ -216,6 +223,16 @@ async function syncOnce(userId: string) {
         else mem.known[key] = hashOf(stored.get(key))
         if (c.workspaceId && c.workspaceId !== userId) mem.wsOf[key] = c.workspaceId
         stamps[key] = c.updatedAt
+      }
+      // a group that is no longer shared with this person (they left, or were removed) goes from this device
+      if (resp.workspaces) {
+        const inNow = new Set(resp.workspaces.map((w) => w.id))
+        const gone = (x: { workspaceId?: string }) => !!x.workspaceId && !inNow.has(x.workspaceId)
+        const st = useStore.getState()
+        if ([...st.tasks, ...st.folders].some(gone)) {
+          suppressHistory(() => useStore.setState((s) => ({ tasks: s.tasks.filter((x) => !gone(x)), folders: s.folders.filter((x) => !gone(x)), scope: s.scope.type === 'folder' && s.folders.some((f) => f.id === (s.scope as { id: string }).id && gone(f)) ? { type: 'all' } : s.scope })))
+          for (const key of Object.keys(mem.wsOf)) if (!inNow.has(mem.wsOf[key])) { delete mem.wsOf[key]; delete mem.known[key] }
+        }
       }
       mem = { ...mem, cursors: { ...mem.cursors, ...resp.cursors }, stamps }
       saveMemory(mem)

@@ -12,7 +12,7 @@ import { lifter } from '../lift'
 import { openCompose } from '../NewTask'
 import { CountBubble, GripHandle } from '../shared'
 import { Tip } from '../Tip'
-import { IconPencil, IconPlus, IconTrash } from '../icons'
+import { IconPencil, IconPerson, IconPlus, IconTrash } from '../icons'
 
 import { Disclosure, Gap, rowBase } from './parts'
 import { slotFor, useFolderSlot } from './folderSlot'
@@ -241,6 +241,11 @@ export function FolderNode(props: NodeProps) {
             }}
           >
             {folder.name}
+          </span>
+        )}
+        {folder.workspaceId && editing !== folder.id && (
+          <span title="Shared" aria-label="Shared group" role="img" className="shrink-0 text-lilac-500">
+            <IconPerson size={11} />
           </span>
         )}
         {/* the name takes what it needs; the disclosure floats right, just before the count, so every level's sit in one column */}

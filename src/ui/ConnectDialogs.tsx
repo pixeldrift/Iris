@@ -6,6 +6,7 @@ import { acceptRequest, declineRequest, deleteNotices, disconnectFrom, markNotic
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
 import { NotificationsRow } from './SettingsDialog'
+import { acceptInvite, declineInvite, leaveGroup, markShareRead, useShare } from '../sync/share'
 import { IconBell, IconClose, IconLink } from './icons'
 import { closeNotices, dismissAlert, dismissAllAlerts, useAlerts, useNoticesOpen } from './notices'
 
@@ -266,12 +267,15 @@ export function NoticesHost() {
     if (!open) return
     const ids = notices.filter((n) => !n.read && n.kind === 'accepted').map((n) => n.id)
     if (ids.length) void markNoticesRead(ids).catch(() => undefined)
+    if (useShare.getState().news.some((n) => !n.read)) void markShareRead().catch(() => undefined)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const reminders = alerts.flatMap((a) => {
     const t = tasks.find((x) => x.id === a.id)
     return t ? [{ t, note: a.note }] : []
   })
   const waiting = connections.filter((c) => c.status === 'pending-in')
+  const { invites, news: shareNews, shares } = useShare()
+  const shareLines = shareNews.filter((n) => !n.read || Date.now() - new Date(n.at).getTime() < 3 * 86_400_000)
   const news = notices.filter((n) => n.kind === 'accepted')
   const remove = (ids?: string[]) => deleteNotices(ids).catch((e) => showToast((e as Error).message))
   const pill = 'rounded-full bg-white/70 px-3 py-1 text-xs text-ink-soft transition hover:bg-white'
@@ -320,6 +324,56 @@ export function NoticesHost() {
             </div>
           </li>
         ))}
+        {invites.map((i) => (
+          <li key={i.id} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{i.from} invited you to share “{i.name}”</div>
+              <div className="text-xs text-ink-faint">{i.role === 'viewer' ? 'You’d be able to view it' : 'You’d be able to view and change it'}</div>
+            </div>
+            <button type="button" className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30" onClick={() => void acceptInvite(i.id).then((r) => showToast(`You joined “${r.name}”.`), (e) => showToast((e as Error).message))}>
+              Join
+            </button>
+            <button type="button" className={pill} onClick={() => void declineInvite(i.id).catch((e) => showToast((e as Error).message))}>
+              Decline
+            </button>
+          </li>
+        ))}
+        {shareLines
+          .filter((n) => n.kind !== 'share-invite')
+          .map((n) => {
+            const leaving = n.kind === 'share-removed' ? shares.find((x) => x.workspaceId === n.workspaceId && x.status === 'leaving') : undefined
+            const text =
+              n.kind === 'share-removed' ? `${n.from} stopped sharing “${n.info}” with you${n.extra === 'copy' ? '. You can keep a copy.' : '.'}`
+              : n.kind === 'share-joined' ? `${n.from} joined “${n.info}”`
+              : n.kind === 'share-left' ? `${n.from} left “${n.info}”`
+              : n.kind === 'assigned' ? `${n.from} gave you “${n.info}”`
+              : n.info
+            return (
+              <li key={n.id} className="flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-ink">{text}</div>
+                  <div className="text-xs text-ink-faint">{when(n.at)}</div>
+                </div>
+                {n.kind === 'assigned' && (
+                  <button type="button" className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30" onClick={() => (select(n.extra), close())}>
+                    Open
+                  </button>
+                )}
+                {leaving && (
+                  <>
+                    {leaving.canCopy && (
+                      <button type="button" className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30" onClick={() => void leaveGroup(leaving, true).then(() => showToast('Kept a copy.'), (e) => showToast((e as Error).message))}>
+                        Keep a copy
+                      </button>
+                    )}
+                    <button type="button" className={pill} onClick={() => void leaveGroup(leaving, false).catch((e) => showToast((e as Error).message))}>
+                      Let it go
+                    </button>
+                  </>
+                )}
+              </li>
+            )
+          })}
         {waiting.map((c) => (
           <li key={c.id} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
             <div className="min-w-0 flex-1">
@@ -352,7 +406,7 @@ export function NoticesHost() {
           </li>
         ))}
       </ul>
-      {reminders.length === 0 && waiting.length === 0 && news.length === 0 && <p className="py-5 text-center text-sm text-ink-faint">Nothing new.</p>}
+      {reminders.length === 0 && waiting.length === 0 && news.length === 0 && invites.length === 0 && shareLines.length === 0 && <p className="py-5 text-center text-sm text-ink-faint">Nothing new.</p>}
       <div className="mt-4 border-t border-white/50 pt-1">
         <NotificationsRow compact />
       </div>

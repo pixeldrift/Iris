@@ -5,7 +5,9 @@ import { useStore } from '../../state/store'
 import { confirmDeleteFolder } from './confirmDelete'
 import { FLOWER_SHAPES, Flower } from '../Flower'
 import { Popover } from '../Popover'
-import { IconCheck, IconPlus, IconTrash } from '../icons'
+import { IconCheck, IconPerson, IconPlus, IconTrash } from '../icons'
+import { openShareDialog } from '../ShareDialog'
+import { accountsConfigured } from '../../sync/auth'
 
 
 export const SWATCHES = [285, 320, 345, 20, 40, 90, 150, 175, 200, 230, 255, GRAY]
@@ -50,12 +52,23 @@ export function FolderOptions({
           >
             <IconTrash size={14} /> Delete
           </button>
+          {accountsConfigured && (
+            <button
+              onClick={() => {
+                onClose()
+                openShareDialog(folder.id)
+              }}
+              className="ml-2 flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
+            >
+              <IconPerson size={14} /> {folder.workspaceId ? 'Sharing' : 'Share'}
+            </button>
+          )}
           <button
             onClick={() => {
               onClose()
               onAdd(folder.id)
             }}
-            className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
+            className="ml-auto flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm text-lilac-700 transition hover:bg-lilac-100/80"
           >
             <IconPlus size={14} /> Add subgroup
           </button>

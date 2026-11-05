@@ -39,8 +39,10 @@ export interface Task {
   id: string
   /** Being set up in the quick-add box: kept out of every view, count and sync until placed. */
   draft?: boolean
-  /** The shared workspace it lives in; absent = the person's own. (Sharing has no UI yet.) */
+  /** The shared workspace it lives in; absent = the person's own. */
   workspaceId?: string
+  /** In a shared group: the member (a user id) it is given to. */
+  assigneeId?: string
   title: string
   notes: string
   kind: TaskKind

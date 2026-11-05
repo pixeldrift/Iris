@@ -4,6 +4,8 @@ import { accountsConfigured, authClient } from '../sync/auth'
 import { startConnect, useConnect } from '../sync/connect'
 import { forgetAccountData, startSync, syncNow, useSync } from '../sync/engine'
 import { ConnectHost } from './ConnectDialogs'
+import { ShareDialog } from './ShareDialog'
+import { acceptToken, startShare, useShare } from '../sync/share'
 import { openNotices, useAlerts } from './notices'
 import { openVerify, sendCode, VerifyDialog } from './VerifyDialog'
 import { askConfirm, Modal } from './dialogs'
@@ -33,10 +35,21 @@ function AccountSync() {
   useEffect(() => (userId ? startSync(userId) : undefined), [userId])
   // connections: requests and acceptances arrive on a regular check, and your own details are offered to your connections
   useEffect(() => (userId ? startConnect() : undefined), [userId])
+  // shared groups: who is in them, invitations, and news (including a link someone sent you: /?join=...)
+  useEffect(() => (userId ? startShare() : undefined), [userId])
+  const showToast = useStore((s) => s.showToast)
+  useEffect(() => {
+    if (!userId) return
+    const token = new URLSearchParams(location.search).get('join')
+    if (!token) return
+    history.replaceState(null, '', location.pathname)
+    acceptToken(token).then((r) => showToast(`You joined “${r.name}”.`), (e) => showToast((e as Error).message))
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <AuthDialog />
       <ConnectHost />
+      <ShareDialog />
       <VerifyDialog onSignIn={() => openAuth('in')} />
     </>
   )
@@ -170,7 +183,7 @@ function AccountMenu() {
   const { data } = authClient.useSession()
   const sync = useSync()
   const waiting = useAlerts((s) => s.items.length) // reminders that have gone off and are still waiting
-  const unread = useConnect((s) => s.connections.filter((c) => c.status === 'pending-in').length + s.notices.filter((n) => !n.read && n.kind === 'accepted').length) + waiting
+  const unread = useConnect((s) => s.connections.filter((c) => c.status === 'pending-in').length + s.notices.filter((n) => !n.read && n.kind === 'accepted').length) + waiting + useShare((s) => s.invites.length + s.news.filter((n) => !n.read).length)
   const people = useStore((s) => s.people)
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)

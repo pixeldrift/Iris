@@ -9,6 +9,7 @@ import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
 import { DateMark, DatePicker } from './DatePicker'
+import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { IconCheck, IconClose, IconPencil, IconTrash } from './icons'
 import { DoneButton, KindHint, KINDS, OpenPlace, STATUSES } from './shared'
@@ -61,6 +62,33 @@ function PlaceField({ task }: { task: Task }) {
  * The dates of a task, in two plain steps: the day you plan to do it, and its deadline. Each has a reminder of its own right
  * under it. The timeline start and what happens if the day passes live under "More", out of the way.
  */
+/** In a shared group: who the task is given to (a member of the group), and they are told. */
+function AssignField({ task }: { task: Task }) {
+  const share = useShare((s) => s.shares.find((x) => x.workspaceId === task.workspaceId))
+  const me = useShare((s) => s.me)
+  if (!task.workspaceId || !share) return null
+  const members = share.members.filter((m) => m.status === 'active')
+  return (
+    <label className="block rounded-2xl bg-white/35 p-3 text-xs font-medium text-ink-soft">
+      Assigned to
+      <select
+        aria-label="Assigned to"
+        value={task.assigneeId && members.some((m) => m.userId === task.assigneeId) ? task.assigneeId : ''}
+        disabled={share.role === 'viewer'}
+        onChange={(e) => assignTask(task, e.target.value || undefined)}
+        className="well mt-1 block w-full rounded-xl px-2.5 py-1.5 text-sm font-normal text-ink"
+      >
+        <option value="">Nobody</option>
+        {members.map((m) => (
+          <option key={m.userId} value={m.userId}>
+            {m.userId === me ? 'Me' : m.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 function WhenFields({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const setDue = useStore((s) => s.setDue)
@@ -155,6 +183,7 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
         <SoftSlider label="How urgent it is" left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
       </div>
 
+      <AssignField task={task} />
       {task.kind !== 'event' && task.kind !== 'habit' && <WhenFields task={task} />}
 
       {task.kind !== 'habit' && (
