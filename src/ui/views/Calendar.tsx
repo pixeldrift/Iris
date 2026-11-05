@@ -478,7 +478,7 @@ function TwoRows({ children, onOverflow }: { children: React.ReactNode; onOverfl
 }
 
 /** The month's name as the title: when it changes by the arrows the old one slides up and out as the new one comes in from below (or the reverse going back). */
-function AnimatedTitle({ text, order, animate }: { text: string; order: string; animate: boolean }) {
+function AnimatedTitle({ text, order, animate, small = false }: { text: string; order: string; animate: boolean; small?: boolean }) {
   const [t, setT] = useState({ text, order, out: null as string | null, dir: 1, n: 0 })
   useEffect(() => {
     // (spelling the month out or abbreviating it as the room changes is not a change of month: no slide)
@@ -490,7 +490,7 @@ function AnimatedTitle({ text, order, animate }: { text: string; order: string; 
     return () => window.clearTimeout(id)
   }, [t.n, t.out])
   return (
-    <h3 className="relative grid min-w-0 overflow-hidden whitespace-nowrap font-display text-xl leading-tight md:text-2xl">
+    <h3 className={`relative grid min-w-0 overflow-hidden whitespace-nowrap font-display leading-tight ${small ? 'text-base' : 'text-xl md:text-2xl'}`}>
       {t.out !== null && (
         <span key={`o${t.n}`} aria-hidden className={`col-start-1 row-start-1 ${t.dir > 0 ? 'title-out-up' : 'title-out-down'}`}>
           {t.out}
@@ -575,6 +575,8 @@ export function CalendarView() {
   const tasksOn = (d: string) => [...(byDate.get(d) ?? []), ...series.filter((t) => taskOnDate(t, d)).map((task) => ({ task, deadline: false }))]
   const unscheduled = visible.filter((t) => !plannedDate(t) && t.status !== 'done')
 
+  // with nothing under the days (no unscheduled items, or a phone turned sideways) the grid runs right down to the panel's edge
+  const flushBottom = mode === 'month' && !(unscheduled.length > 0 && !land)
   // keep the anchor on a visible day when weekends are hidden
   const dayAnchor = show(anchor) ? anchor : addDays(anchor, fromISO(anchor).getDay() === 6 ? -1 : 1)
   const cells = mode === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i)).filter(show) : [dayAnchor]
@@ -607,13 +609,15 @@ export function CalendarView() {
   const head = useRef<HTMLDivElement>(null)
   const probe = useRef<HTMLSpanElement>(null)
   const probeAbbr = useRef<HTMLSpanElement>(null)
-  // 0: spelled out; 1: the month abbreviated; 2: the year shortened too ("Dec ’29 – Jan ’30")
+  const probeTiny = useRef<HTMLSpanElement>(null)
+  // 0: spelled out; 1: the month abbreviated; 2: the year shortened too ("Dec – Jan ‘27"); 3: that, in smaller type
   const [level, setLevel] = useState(0)
   useLayoutEffect(() => {
     const el = head.current
     const pr = probe.current
     const pa = probeAbbr.current
-    if (!el || !pr || !pa) return
+    const pt = probeTiny.current
+    if (!el || !pr || !pa || !pt) return
     const check = () => {
       const cs = getComputedStyle(el)
       const inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
@@ -622,14 +626,14 @@ export function CalendarView() {
       // upright: the controls on the right share one column; wide: everything shares one line with the title
       const used = cs.display === 'grid' ? Math.max(0, ...kids.filter((k) => k.dataset.hd === 'right').map((k) => k.offsetWidth)) + gap : kids.reduce((n, k) => n + k.offsetWidth + gap, 0)
       const room = inner - used
-      const next = pr.offsetWidth <= room ? 0 : pa.offsetWidth <= room ? 1 : 2
+      const next = pr.offsetWidth <= room ? 0 : pa.offsetWidth <= room ? 1 : pt.offsetWidth <= room ? 2 : 3
       setLevel((a) => (a === next ? a : next))
     }
     check()
     const ro = new ResizeObserver(check)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [titles.full, titles.abbr, mode, mobile, land, weekends])
+  }, [titles.full, titles.abbr, titles.tiny, mode, mobile, land, weekends])
   const title = level === 0 ? titles.full : level === 1 ? titles.abbr : titles.tiny
   const heads = (mode === 'month' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(today()), i)).filter(show) : cells).slice(0, cols).map((d) => ({ name: WEEKDAYS[fromISO(d).getDay()], hint: dayHint(d), key: d, muted: muted(d) }))
 
@@ -643,7 +647,7 @@ export function CalendarView() {
     })
 
   return (
-    <div className="glass flex h-full flex-col rounded-[2rem] p-3 md:p-4">
+    <div className={`glass flex h-full flex-col rounded-[2rem] p-3 md:p-4 ${flushBottom ? 'overflow-hidden pb-0 md:pb-0' : ''}`}>
       {/* upright on a phone: the month and the view toggle on one line, the arrows and Today under the month with the weekends link opposite; wider: all on one line */}
       <div ref={head} className="relative mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-1 md:flex md:gap-x-2.5 md:whitespace-nowrap">
         <span ref={probe} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap font-display text-xl md:text-2xl">
@@ -652,8 +656,11 @@ export function CalendarView() {
         <span ref={probeAbbr} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap font-display text-xl md:text-2xl">
           {titles.abbr}
         </span>
+        <span ref={probeTiny} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap font-display text-xl md:text-2xl">
+          {titles.tiny}
+        </span>
         <div className="min-w-0 self-end md:order-1 md:min-w-[10rem] md:self-auto">
-          <AnimatedTitle text={title} order={monthView.month} animate={mode === 'month' && !monthView.manual} />
+          <AnimatedTitle text={title} order={monthView.month} animate={mode === 'month' && !monthView.manual} small={level === 3} />
         </div>
         <div data-hd="right" className="glass-soft flex h-7 items-center justify-self-end rounded-full p-0.5 text-xs md:order-3 md:ml-auto md:h-8">
           {(['month', 'week', 'day'] as const).map((m) => (
