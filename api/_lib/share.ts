@@ -230,6 +230,7 @@ export async function shareState(db: Db, who: Caller) {
     pending: r.role === 'owner' ? Number(pending.rows.find((p) => p.workspace_id === r.id)?.n ?? 0) : 0,
   }))
   return {
+    me: who.userId,
     shares,
     invites: inv.rows.map((i) => ({ id: i.id, workspaceId: i.workspace_id, name: i.name, from: nameOf(i.created_by), role: i.role })),
     news: news.rows.map((n) => ({ id: n.id, kind: n.kind, workspaceId: n.workspace_id, from: n.from_user ? nameOf(n.from_user) : '', info: n.info ?? '', extra: n.extra ?? '', read: n.read, at: n.created_at })),

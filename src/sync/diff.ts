@@ -60,6 +60,9 @@ export function localChanges(entities: Entity[], memory: SyncMemory, now: number
     seen.add(key)
     if (memory.known[key] === hashOf(e.data)) continue
     stamps[key] = now
+    // moved between workspaces (a group being shared, or taken back): it is gone from the old one and new in the other
+    const was = memory.wsOf[key]
+    if (memory.known[key] !== undefined && was !== e.workspaceId) changes.push({ kind: e.kind, id: e.id, data: null, updatedAt: now, ...(was ? { workspaceId: was } : {}) })
     changes.push({ kind: e.kind, id: e.id, data: e.data, updatedAt: now, ...(e.workspaceId ? { workspaceId: e.workspaceId } : {}) })
   }
   for (const key of Object.keys(memory.known)) {

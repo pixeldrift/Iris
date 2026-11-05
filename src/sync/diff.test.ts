@@ -50,4 +50,21 @@ describe('workspaces', () => {
     const mem = { ...emptyMemory(), known: { [keyOf('task', 's')]: 'x' }, wsOf: { [keyOf('task', 's')]: 'team' } }
     expect(localChanges([], mem, 6).changes).toEqual([{ kind: 'task', id: 's', data: null, updatedAt: 6, workspaceId: 'team' }])
   })
+
+  it('a move between workspaces is a deletion in the old one and a new entity in the other', () => {
+    const k = keyOf('task', 'm')
+    const mem = { ...emptyMemory(), known: { [k]: 'old' }, wsOf: {} } // it was in the personal workspace
+    const moved: Entity = { kind: 'task', id: 'm', data: { id: 'm', title: 'M', workspaceId: 'team' }, workspaceId: 'team' }
+    expect(localChanges([moved], mem, 7).changes).toEqual([
+      { kind: 'task', id: 'm', data: null, updatedAt: 7 },
+      { kind: 'task', id: 'm', data: moved.data, updatedAt: 7, workspaceId: 'team' },
+    ])
+    // and back to the personal workspace
+    const back = { ...emptyMemory(), known: { [k]: 'old' }, wsOf: { [k]: 'team' } }
+    const home: Entity = { kind: 'task', id: 'm', data: { id: 'm', title: 'M' } }
+    expect(localChanges([home], back, 8).changes).toEqual([
+      { kind: 'task', id: 'm', data: null, updatedAt: 8, workspaceId: 'team' },
+      { kind: 'task', id: 'm', data: home.data, updatedAt: 8 },
+    ])
+  })
 })
