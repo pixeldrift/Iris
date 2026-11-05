@@ -166,9 +166,12 @@ test.describe('the month as an endless grid', () => {
     await toggle.click()
     await expect(toggle.locator('span')).toHaveClass(/rotate-90/)
   })
+})
 
-  test('the preview of tight rows: only the week a month starts in is taller, the old month’s days at its top, the new month’s lower', async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('lilac-tight-rows', '1'))
+test('the preview of tight rows: only the week a month starts in is taller, the old month’s days at its top, the new month’s lower', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 1000, height: 640 } })
+    await ctx.addInitScript(() => localStorage.setItem('lilac-tight-rows', '1'))
+    const page = await ctx.newPage()
     await open(page)
     await goto(page, 'Calendar')
     await page.setViewportSize({ width: 390, height: 780 })
@@ -187,5 +190,5 @@ test.describe('the month as an endless grid', () => {
     const gapA = (await week(prev, 7)) - t1 // the week after, from the new month's boxes
     const gapB = (await week(prev, -7)) - t0 // the week before, from the old month's boxes
     expect(Math.abs(gapA + gapB)).toBeLessThan(12) // (the same distance each way: just the box and the usual space)
-  })
+    await ctx.close()
 })
