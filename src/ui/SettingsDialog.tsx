@@ -4,6 +4,7 @@ import { unlock } from '../audio/engine'
 import { useStore } from '../state/store'
 import type { Settings } from '../state/store'
 import { Modal } from './dialogs'
+import { MenuItem, Popover } from './Popover'
 import { applySpace, applyTheme, BASE_HUE, setScrubbing } from './theme'
 import { DATE_STYLES, deviceTimeZone } from '../core/locale'
 import { accountsConfigured } from '../sync/auth'
@@ -69,7 +70,7 @@ export function NotificationsRow({ compact = false }: { compact?: boolean }) {
     void (wanted ? disablePush() : enablePush())
   }
   const hint = on
-    ? 'On: reminders can appear even when Lilac is in the background'
+    ? 'Alerts arrive even when Lilac is closed'
     : perm === 'granted'
       ? 'Off: reminders only appear inside Lilac'
       : perm === 'denied'
@@ -110,6 +111,29 @@ function DefaultDot({ at, onReset, color, label }: { at: number; onReset: () => 
     >
       <span className="block h-1.5 w-1.5 rounded-full transition-transform hover:scale-150" style={{ background: color }} />
     </button>
+  )
+}
+
+/** The date style as a drop-down in the app's own look (a field that opens a small list), not the browser's. */
+function DateFormatPick({ value, onChange }: { value: Settings['dateFormat']; onChange: (v: Settings['dateFormat']) => void }) {
+  const [open, setOpen] = useState(false)
+  const btn = useRef<HTMLButtonElement>(null)
+  return (
+    <>
+      <button ref={btn} type="button" aria-haspopup="listbox" aria-expanded={open} aria-label="Date format" onClick={() => setOpen((o) => !o)} className="well flex items-center gap-2 whitespace-nowrap rounded-xl px-2.5 py-1 text-left text-xs text-ink">
+        <span>{DATE_STYLES.find((d) => d.id === value)?.label}</span>
+        <span className="ml-auto text-ink-faint">▾</span>
+      </button>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} matchAnchor className="p-1">
+        <div role="listbox" aria-label="Date format">
+          {DATE_STYLES.map((d) => (
+            <MenuItem key={d.id} active={d.id === value} onClick={() => (onChange(d.id), setOpen(false))}>
+              {d.label}
+            </MenuItem>
+          ))}
+        </div>
+      </Popover>
+    </>
   )
 }
 
@@ -275,7 +299,7 @@ export function SettingsDialog() {
           <div className="mt-1 border-t border-white/50" />
           <Row k="sizeByPriority" label="Bubbles scale by importance" hint="bubble size in Pond and Priority views" />
           <Row k="drift" label="Gentle drifting" hint="floating on the water" />
-          <Row k="showDone" label="Show bloomed tasks" hint="finished tasks stay visible" />
+          <Row k="showDone" label="Show completed tasks" hint="finished tasks stay visible" />
         </Group>
         <Group title="App options">
           <Row k="viewsClearFilters" label="Switching views resets filters" hint="start every view from Everything" />
@@ -284,23 +308,13 @@ export function SettingsDialog() {
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
           <NotificationsRow />
         </Group>
-        <Group title="Region">
+        <Group title="Date &amp; Time">
           <div className="space-y-2 px-2 py-1.5">
             <div className="flex flex-wrap items-start gap-3">
-              <label className="block">
+              <div>
                 <span className="mb-1 block text-sm">Date format</span>
-                <select
-                  value={dateFormat}
-                  onChange={(e) => setSetting('dateFormat', e.target.value as typeof dateFormat)}
-                  className="h-7 rounded-full bg-white/50 px-2.5 text-xs text-ink-soft shadow-[inset_0_1px_2px_rgb(var(--lr-700)/0.12)] outline-none focus-visible:ring-2 focus-visible:ring-lilac-400"
-                >
-                  {DATE_STYLES.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <DateFormatPick value={dateFormat} onChange={(v) => setSetting('dateFormat', v)} />
+              </div>
               <div>
                 <div className="mb-1 text-sm">Time format</div>
                 <SegmentedToggle
@@ -320,7 +334,7 @@ export function SettingsDialog() {
           </div>
         </Group>
         <Group title="Demo data">
-          <p className="px-2 pb-1 text-[0.7rem] text-ink-faint">A small made-up life that shows off the app: every item type, repeats, lists, events, stages, people.</p>
+          <p className="px-2 pb-1 text-[0.7rem] text-ink-faint">A default sampling of imaginary tasks that demonstrate all the apps features.</p>
           <div className="flex flex-wrap gap-2 px-2 pb-1">
             <button type="button" onClick={() => useStore.getState().importDemo()} className="glass-soft rounded-full px-3.5 py-1.5 text-sm text-lilac-700 hover:bg-white/80">
               Add demo data
@@ -342,7 +356,7 @@ export function SettingsDialog() {
               </button>
             )}
           </div>
-          <p className="px-2 text-[0.7rem] text-ink-faint">Both ask for your email and password again first.</p>
+          <p className="px-2 text-[0.7rem] text-ink-faint">Requires password confirmation</p>
         </Group>
       </div>
     </Modal>

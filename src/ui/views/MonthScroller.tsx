@@ -1,5 +1,6 @@
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { addDays, diffDays, fromISO, MONTHS, startOfWeek, toISO } from '../../core/dates'
+import { useDnd, targetAt } from '../dnd'
 
 const WEEKS = 60
 const BEFORE = 20
@@ -15,6 +16,8 @@ export interface MonthView {
   title: string
   /** the first of the month that has most of the screen */
   month: string
+  /** The grid is being looked at by hand (dragged or scrolled). Only then is the title allowed to name two months; after the arrows it names one. */
+  manual: boolean
 }
 
 /**
@@ -34,6 +37,8 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   const rowH = Math.max(64, Math.min(Math.floor((size.h - GAP * 4) / 5), Math.round(colW * 1.45)))
   const pitch = rowH + GAP
   const weekOf = useCallback((d: string) => Math.round(diffDays(origin, startOfWeek(d)) / 7), [origin])
+  // after the arrows (or Today) slide the grid, its title names one month; the first touch by hand frees it to name two
+  const programmatic = useRef(false)
   const live = useRef({ pitch, weekOf, onView, onRebase, origin })
   live.current = { pitch, weekOf, onView, onRebase, origin }
 
@@ -64,16 +69,18 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
       }
     // a month counts once a full week's worth of its days is showing
     const months = [...count.entries()].filter(([, n]) => n >= 7).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-    const list = months.length ? months : [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 1)
+    const manual = !programmatic.current
+    const majorKey = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    const list = manual && months.length ? months : [...count.entries()].filter(([k]) => k === majorKey)
     const parts = list.map(([k]) => k.split('-').map(Number) as [number, number])
-    const major = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0].split('-').map(Number)
+    const major = majorKey.split('-').map(Number)
     const y0 = parts[0][0]
     const y1 = parts[parts.length - 1][0]
-    const title =
-      parts.length === 1
-        ? `${MONTHS[parts[0][1]]} ${y0}`
-        : `${MONTHS[parts[0][1]].slice(0, 3)}${y0 !== y1 ? ` ${y0}` : ''}–${MONTHS[parts[parts.length - 1][1]].slice(0, 3)} ${y1}`
-    live.current.onView({ title, month: toISO(new Date(major[0], major[1], 1)) })
+    const name = (m: number) => MONTHS[m].slice(0, 3)
+    const title = parts.length === 1 ? `${name(parts[0][1])} ${y0}` : `${name(parts[0][1])}${y0 !== y1 ? ` ${y0}` : ''}–${name(parts[parts.length - 1][1])} ${y1}`
+    live.current.onView({ title, month: toISO(new Date(major[0], major[1], 1)), manual })
+    // the top edge fades out instead of cutting rows off (the bottom has the undated items under a line)
+    el.toggleAttribute('data-top', el.scrollTop > 6)
   }, [])
 
   // where to put the scroll when the window of weeks changes (kept the same place, or the starting month)
@@ -96,6 +103,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     goTo: (date, smooth = true) => {
       const el = box.current
       if (!el) return
+      programmatic.current = true
       const first = toISO(new Date(fromISO(date).getFullYear(), fromISO(date).getMonth(), 1))
       const i = weekOf(first)
       if (i < 3 || i > WEEKS - 10) return void live.current.onRebase(first) // too far from what is drawn: draw around it instead
@@ -123,6 +131,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   // with a mouse the grid can be dragged like a sheet (a touch scrolls it as it always does); a click that ends a drag is not a click
   const drag = useRef<{ y: number; top: number; moved: boolean } | null>(null)
   const down = (e: React.PointerEvent) => {
+    programmatic.current = false
     if (e.pointerType === 'touch' || e.button !== 0) return
     if ((e.target as HTMLElement).closest('button, input, a, [data-lift-id]')) return
     drag.current = { y: e.clientY, top: box.current!.scrollTop, moved: false }
@@ -158,14 +167,65 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     }
   }, [])
 
-  const cells = days.filter(show)
+  // an item being dragged that is pulled up past the top of the days (or down past the bottom) carries the grid along with it
+  useEffect(() => {
+    let raf = 0
+    let entered = false
+    const tick = () => {
+      const el = box.current
+      const d = useDnd.getState().drag
+      if (!d) entered = false
+      else if (el && d.payload.type === 'task') {
+        const r = el.getBoundingClientRect()
+        const edge = 56
+        // an item picked up from below the grid (an undated one) does not scroll it until it has been over the days
+        if (d.y > r.top && d.y < r.bottom) entered = true
+        let v = 0
+        if (entered) {
+          if (d.y < r.top + edge) v = -Math.min(1.6, (r.top + edge - d.y) / edge)
+          else if (d.y > r.bottom - edge) v = Math.min(1.6, (d.y - (r.bottom - edge)) / edge)
+        }
+        if (v) {
+          el.scrollTop += v * 12
+          useDnd.setState({ over: targetAt(d.x, d.y) }) // (what is under the pointer changes as the days slide past)
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const cells = useMemo(() => days.filter(show), [days, show]) // eslint-disable-line react-hooks/exhaustive-deps
+  // a thin purple line along where one month ends and the next begins (it steps with the days)
+  const divider = useMemo(() => {
+    const key = cells.map((d) => {
+      const dt = fromISO(d)
+      return dt.getFullYear() * 12 + dt.getMonth()
+    })
+    const half = GAP / 2
+    let path = ''
+    for (let i = 0; i < cells.length; i++) {
+      const x = (i % cols) * (colW + GAP)
+      const y = Math.floor(i / cols) * pitch
+      if (i >= cols && key[i - cols] !== key[i]) path += `M${x - half} ${y - half}H${x + colW + half}`
+      if (i % cols !== 0 && key[i - 1] !== key[i]) path += `M${x - half} ${y - half}V${y + rowH + half}`
+    }
+    return path
+  }, [cells, cols, colW, pitch, rowH])
+  const rows = Math.ceil(cells.length / cols)
   return (
-    <div ref={box} onScroll={onScroll} onPointerDown={down} data-month-scroll className="scroll-soft min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">
+    <div ref={box} onScroll={onScroll} onPointerDown={down} onWheel={() => (programmatic.current = false)} onTouchStart={() => (programmatic.current = false)} data-month-scroll className="scroll-soft fade-mask min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">
+      <div className="relative">
       <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, gap: GAP }}>
         {cells.map((d) => {
           const dt = fromISO(d)
           return <Fragment key={d}>{render(d, { alt: dt.getMonth() % 2 === 1, monthLabel: dt.getDate() === 1 ? MONTHS[dt.getMonth()].slice(0, 3) : null })}</Fragment>
         })}
+      </div>
+      <svg aria-hidden className="pointer-events-none absolute left-0 top-0 overflow-visible" width={size.w} height={rows * pitch}>
+        <path d={divider} fill="none" strokeWidth={1.5} strokeLinecap="round" className="stroke-lilac-400/70" />
+      </svg>
       </div>
     </div>
   )
