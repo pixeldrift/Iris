@@ -330,14 +330,15 @@ export function SettingsDialog() {
             </button>
           </div>
         </Group>
-        <Group title="Your data">
-          <div className="flex flex-wrap gap-2 px-2 pb-1">
-            <button type="button" onClick={() => openDanger('clear')} className="rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
-              Clear everything…
+        <div className="!mt-4 border-t border-[#c4577e]/25" role="separator" />
+        <Group title="Danger zone">
+          <div className="flex gap-2 px-2 pb-1">
+            <button type="button" onClick={() => openDanger('clear')} className="whitespace-nowrap rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+              Clear all data
             </button>
             {accountsConfigured && (
-              <button type="button" onClick={() => openDanger('delete')} className="rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
-                Delete my account…
+              <button type="button" onClick={() => openDanger('delete')} className="whitespace-nowrap rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+                Delete account
               </button>
             )}
           </div>

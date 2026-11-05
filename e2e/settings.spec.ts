@@ -47,7 +47,7 @@ test.describe('settings', () => {
     await expect.poll(count).toBe(0)
     await page.getByRole('button', { name: 'Add demo data' }).click()
     await expect.poll(count).toBeGreaterThan(20)
-    await page.getByRole('button', { name: 'Clear everything…' }).click()
+    await page.getByRole('button', { name: 'Clear all data' }).click()
     const confirm = page.getByRole('button', { name: 'Clear everything', exact: true })
     await expect(confirm).toBeDisabled()
     await page.getByLabel('Confirmation word').fill('DELETE')
