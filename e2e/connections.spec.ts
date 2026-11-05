@@ -80,7 +80,7 @@ test('inviting someone fills in their details once they accept, and nothing leak
   // when Bob deletes his account, Ann keeps the entry as an ordinary contact of hers
   await bob.locator('[aria-label^="Account"]').click()
   await bob.getByRole('button', { name: /My settings/ }).click()
-  await bob.getByRole('button', { name: 'Delete my account…' }).click()
+  await bob.getByRole('button', { name: 'Delete account' }).click()
   await bob.getByLabel('Email').fill(bobEmail)
   await bob.getByLabel('Password').fill(password)
   await bob.getByRole('button', { name: 'Delete my account', exact: true }).click()

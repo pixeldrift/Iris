@@ -5,6 +5,7 @@ import type { Person } from '../core/types'
 import { acceptRequest, declineRequest, deleteNotices, disconnectFrom, markNoticesRead, sendInvite, setMyShares, useConnect, type Connection } from '../sync/connect'
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
+import { NotificationsRow } from './SettingsDialog'
 import { IconBell, IconClose, IconLink } from './icons'
 import { closeNotices, dismissAlert, dismissAllAlerts, useAlerts, useNoticesOpen } from './notices'
 
@@ -352,7 +353,10 @@ export function NoticesHost() {
         ))}
       </ul>
       {reminders.length === 0 && waiting.length === 0 && news.length === 0 && <p className="py-5 text-center text-sm text-ink-faint">Nothing new.</p>}
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 border-t border-white/50 pt-1">
+        <NotificationsRow compact />
+      </div>
+      <div className="mt-2 flex justify-end">
         <button type="button" className={btnGhost} onClick={close}>
           Close
         </button>

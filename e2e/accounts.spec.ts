@@ -23,7 +23,7 @@ test.describe('accounts', () => {
     // clear: refused with a wrong password, allowed with the right one
     await page.locator('[aria-label^="Account"]').click()
     await page.getByRole('button', { name: /My settings/ }).click()
-    await page.getByRole('button', { name: 'Clear everything…' }).click()
+    await page.getByRole('button', { name: 'Clear all data' }).click()
     const confirm = page.getByRole('button', { name: 'Clear everything', exact: true })
     await expect(confirm).toBeDisabled()
     await page.getByLabel('Email').fill(email)
@@ -36,7 +36,7 @@ test.describe('accounts', () => {
     await expect.poll(async () => (await state())[0]).toBe(0)
 
     // delete the account
-    await page.getByRole('button', { name: 'Delete my account…' }).click()
+    await page.getByRole('button', { name: 'Delete account' }).click()
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password').fill(password)
     await page.getByRole('button', { name: 'Delete my account', exact: true }).click()

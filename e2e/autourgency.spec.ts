@@ -50,6 +50,6 @@ test.describe('auto urgency', () => {
     await page.goto('/')
     await page.locator('[data-node]').first().waitFor()
     await page.getByRole('button', { name: 'My settings' }).click()
-    await expect(page.getByRole('switch', { name: /Raise urgency near deadlines/ })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('switch', { name: /Automatic urgency/ })).toHaveAttribute('aria-checked', 'true')
   })
 })

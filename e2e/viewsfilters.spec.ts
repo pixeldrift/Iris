@@ -30,7 +30,7 @@ test.describe('views and filters are two different things', () => {
     await goto(page, 'Progress')
     await expect(page.locator('header p').first()).toContainText('English 101') // kept, by default
     await page.getByRole('button', { name: 'My settings' }).click()
-    await page.getByRole('switch', { name: /Switching views clears filters/ }).click()
+    await page.getByRole('switch', { name: /Switching views resets filters/ }).click()
     await page.getByRole('button', { name: 'Close settings' }).click()
     await goto(page, 'Priority')
     await expect(page.locator('header p').first()).toHaveText(/^Filter: Everything$/)

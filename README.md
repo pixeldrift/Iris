@@ -24,6 +24,7 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
 **Views** (the purple card in the left sidebar):
 - **Pond**: the free canvas, bubbles floating on water. Click the water to add a thought.
 - **List**: sortable rows, swipe a row to delete it, drag to tag or schedule. Each shows its group, its day and where it is.
+  *My order* lets you drag a row to any spot, with a purple line showing where it lands.
 - **Progress**: stages side by side (Pending, In Progress, Completed, or your own per group, with the pencil at the top).
   Drag a card to another stage and drop it anywhere in the list, with a purple line showing where it lands (no spot given
   puts it at the top); the purple + in a stage's header opens a box to add one at the top.
@@ -36,20 +37,51 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
 Every view respects the selected filter (a group, person, day, or several). Fold the card with its arrow and the views become
 a row of icons.
 
-## Notifications when the app is closed (Web Push)
+## Notifications (reminders that reach you when the app is closed)
 
-Reminders and event alerts also arrive as phone/computer notifications while Lilac is closed. One-time setup:
+Reminders show as cards inside Lilac while it is open, and as phone/computer notifications even when it is closed. Events can have
+several alerts before they start; other items have one reminder for the day and one for the deadline. Tapping a notification
+opens that task. The *Push Notifications* switch is in Settings (and a small copy sits at the bottom of the bell's notifications
+list); it needs you to be signed in, and the browser's permission.
 
-1. `npm run bundle:core` is only needed if you change `src/core/reminders.ts` (a test tells you); the result is committed.
-2. Run `node scripts/vapid.mjs` and copy its four lines into Vercel > Settings > Environment Variables:
+### How it works (technical note)
+
+- **Two delivery paths.** While the app is open, `ReminderHost` (`src/ui/Reminders.tsx`) checks the clock every 10 seconds and
+  shows the card, sound and a system notification through the service worker. While it is closed, the server pushes the same
+  reminders using standard Web Push (VAPID), so there is no third-party push service to sign up for.
+- **Subscribing.** Turning the switch on asks the browser for permission, subscribes with the service worker's `PushManager`
+  using the public key from `POST /api/push` (`action: 'config'`), and saves the subscription (its address and keys, plus the
+  device's time zone) in the `push_subscriptions` table. Turning it off, or opening the app, unsubscribes or refreshes it
+  (`src/sync/push.ts`). A dead address (the browser answers 404/410) is deleted on the next send.
+- **Sending.** `GET /api/remind` (`api/remind.ts`, guarded by `Authorization: Bearer $CRON_SECRET`) runs one sweep
+  (`api/_lib/push.ts`): for each subscribed person it reads their tasks (from every workspace they belong to), works out which
+  reminders and event alerts have come due, and sends one push per device with the `web-push` library. It only reads tasks, never
+  changes them. The app's own `reminded` / `alertsDone` flags (synced like any other field) stop a reminder being pushed after
+  the open app already showed it, and a 30-second grace gives it a moment to do so.
+- **Never twice.** Each reminder has a key (`do|due:<task>:<time>` or `a:<task>:<start>:<minutes>`); the sweep claims it with
+  an insert into `push_sent` before sending, so overlapping sweeps cannot both send it. Anything more than 2 hours overdue is
+  skipped (not worth a buzz), and `push_sent` rows are pruned after 3 days.
+- **Time zones.** Event times are wall-clock times ("9:00"), so the server converts them in each device's own zone (`rezone`).
+- **Shared logic.** The reminder rules live in `src/core/reminders.ts` and are used by both the app and the server. The server
+  runs a bundled copy, `api/_lib/core.gen.js` (made by `npm run bundle:core`, committed), because Vercel's Node runtime does not
+  load the app's extensionless TypeScript imports; a unit test fails if the copy is out of date.
+- **Service worker.** `public/sw.js` has the `push` handler (shows the notification, tagged per task so duplicates collapse) and
+  the `notificationclick` handler (focuses the app and opens the task).
+- **Caveats.** The sweep runs once a minute at best, so a push can arrive up to about a minute late. iPhone only delivers push to
+  a Lilac that was added to the Home Screen (iOS 16.4+). Delivery has been tested here only with the server logic and a local
+  database, not on real phones.
+
+### Setting it up (once)
+
+1. Run `node scripts/vapid.mjs` (after `npm install`) and copy its four lines into Vercel > Settings > Environment Variables:
    `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (use your own `mailto:`), `CRON_SECRET`. Redeploy.
-3. Run `db/schema.sql` again in the Neon SQL editor (adds `push_subscriptions` and `push_sent`).
-4. Something has to call `GET /api/remind` about once a minute with the header `Authorization: Bearer <CRON_SECRET>`.
-   Vercel's free plan only runs cron jobs daily, so use a free pinger such as cron-job.org (every minute, add that header).
-5. On each device: sign in, open Settings and switch Notifications on. On iPhone, first Share > Add to Home Screen
-   and open Lilac from there (iOS 16.4+ only delivers push to installed apps).
-
-The server never changes your tasks: it only reads them, sends what is due, and remembers what it sent (`push_sent`).
+2. Run `db/schema.sql` in the Neon SQL editor (adds `push_subscriptions` and `push_sent`; run each statement whole).
+3. Something has to call `GET /api/remind` about once a minute with the header `Authorization: Bearer <CRON_SECRET>`.
+   Vercel's free plan only runs cron jobs daily, so use a free pinger such as cron-job.org (every minute, with that header).
+   A 401 means the header is wrong, 503 the keys are missing, 500 usually the tables are missing.
+4. On each device: sign in, open Settings and switch *Push Notifications* on. On iPhone, first Share > Add to Home Screen and
+   open Lilac from there.
+5. Only if you change `src/core/reminders.ts`: run `npm run bundle:core` and commit the result.
 
 ## House rules
 
@@ -64,7 +96,7 @@ Overview). Everything below it, under *Filter*, chooses *what* you look at. Each
 works on its own: any filter shows in any view, and the line under the view's
 name always says which one is on ("Filter: Everything › School › English"; its
 first step, *Everything*, clears every filter). The setting *Switching views
-clears filters* starts each view from Everything instead of keeping the filter.
+resets filters* starts each view from Everything instead of keeping the filter.
 
 **Groups are tags, not folders.** A group does not contain anything. It is a
 filter: choosing it shows the tasks carrying that tag, in whichever view you are
@@ -111,11 +143,10 @@ button beside it opens a map (or the link).
 every n). A repeat can end on a date or after a number of times, and a single day can be skipped and put back; each
 occurrence is ticked off in turn with a streak.
 
-**Reminders.** In-app cards and system notifications while the app is open. Events have as many reminders as you like before
-they start; other items one for the day and one for the deadline. (Delivery with the app closed is on the roadmap.)
+**Reminders.** Cards and sound inside the app, and push notifications when it is closed (see *Notifications* above).
 
 **Quick add.** Type naturally ("Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am", "remind me to call mom at 5pm");
-the preview shows what it understood.
+"Lunch with Sam at Panera" adds a place; the preview shows what it understood.
 
 **Moving clusters.** In a *Gather by* view, drag a bubble slowly and its whole cluster follows on a rubber
 band, nudging others aside. Flick it fast to snap it free, then drop it on another cluster to re-tag it
@@ -124,7 +155,7 @@ band, nudging others aside. Flick it fast to snap it free, then drop it on anoth
 **Sound.** Tap the speaker to mute/unmute; hold it (or right-click) for individual sounds and volume.
 
 **Soft priority.** Two sliders ("how much it matters", "how pressing it feels") with no numbers; on the Priority view you drag
-a task around the plot to set both. With *Raise urgency near deadlines* on (the default), the urgency actually used is
+a task around the plot to set both. With *Automatic urgency* on (the default), the urgency actually used is
 the higher of your slider and what the deadline calls for; a small dot under the slider shows the value in use, and your own
 setting is never changed.
 
@@ -133,10 +164,12 @@ nothing is deleted), *Game* (a Simon-style game: watch the colours, pop them bac
 a bubble deletes its task, with a red warning). Fun and Game are limited to three minutes at a time with breaks that grow longer
 (settings: *Limit play time*); delete is never limited. Stats are kept on the device and shown in Overview.
 
-**Settings** (the gear in the sidebar header): theme, date and clock style, sidebar spacing, sound, filters (*Switching views clears
-filters*), urgency, play limit, your account, connections and the danger zone.
+**Settings** (the gear in the sidebar header; the title stays put while the options scroll): *Soundscape* (audio, volume, drops,
+task sounds, pops, ambient chimes); *Look & Feel* (colour, menu spacing, and the Pond's bubble scaling, drifting and bloomed
+tasks); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips, *Push Notifications*);
+*Region* (date format, time format, time zone); demo data; and your data, account and connections.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for what's next (push reminders, attachments, themes…),
+See [docs/ROADMAP.md](docs/ROADMAP.md) for what's next (blended bubbles, attachments, calendar sync, themes…),
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the stack, the Swift
 porting plan and next steps, and [db/schema.sql](db/schema.sql) for the Neon
 schema.

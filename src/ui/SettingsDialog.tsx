@@ -19,7 +19,7 @@ const close = () => useSettingsDialog.setState({ open: false })
 
 type BoolKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings]
 
-function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; label: string; hint?: string; indent?: boolean; faded?: boolean }) {
+function Row({ k, label, hint, indent = false, faded = false, inline = false }: { k: BoolKey; label: string; hint?: string; indent?: boolean; faded?: boolean; inline?: boolean }) {
   const on = useStore((s) => s.settings[k])
   const set = useStore((s) => s.setSetting)
   return (
@@ -33,9 +33,9 @@ function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; la
       }}
       className={`flex w-full items-center gap-3 rounded-xl py-1.5 pr-2 text-left transition hover:bg-white/50 ${indent ? 'pl-7' : 'pl-2'} ${faded ? 'opacity-45' : ''}`}
     >
-      <span className="min-w-0 flex-1 text-sm">
-        {label}
-        {hint && <span className="ml-2 text-[0.7rem] text-ink-faint">{hint}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="text-sm">{label}</span>
+        {hint && <span className={inline ? 'ml-2 text-[0.7rem] text-ink-faint' : 'block text-[0.7rem] text-ink-faint'}>{hint}</span>}
       </span>
       <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? 'left-[1.1rem]' : 'left-0.5'}`} />
@@ -48,7 +48,7 @@ function Row({ k, label, hint, indent = false, faded = false }: { k: BoolKey; la
  * System notifications for reminders, as a switch that can be turned off again. The browser's permission can only be granted from
  * here (not taken back), so "off" is Lilac's own choice not to send them; turning it on asks the browser first if it has not been asked.
  */
-function NotificationsRow() {
+export function NotificationsRow({ compact = false }: { compact?: boolean }) {
   const [perm, setPerm] = useState(notifyState())
   const wanted = useStore((s) => s.settings.systemNotifications)
   const set = useStore((s) => s.setSetting)
@@ -84,11 +84,11 @@ function NotificationsRow() {
       aria-checked={on}
       aria-disabled={blocked}
       onClick={toggle}
-      className={`flex w-full items-center gap-3 rounded-xl py-1.5 pl-2 pr-2 text-left transition hover:bg-white/50 ${blocked ? 'opacity-60' : ''}`}
+      className={`flex w-full items-center gap-3 rounded-xl py-1.5 pl-2 pr-2 text-left transition hover:bg-white/50 ${blocked ? 'opacity-60' : ''} ${compact ? 'opacity-70' : ''}`}
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-sm">Notifications</span>
-        <span className="block text-[0.7rem] text-ink-faint">{hint}</span>
+        <span className={`block ${compact ? 'text-xs text-ink-soft' : 'text-sm'}`}>{compact ? 'Allow notifications' : 'Push Notifications'}</span>
+        <span className="block text-[0.65rem] text-ink-faint">{hint}</span>
       </span>
       <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? 'left-[1.1rem]' : 'left-0.5'}`} />
@@ -201,8 +201,12 @@ export function SettingsDialog() {
   const volume = useStore((s) => s.settings.volume)
   const setSetting = useStore((s) => s.setSetting)
   return (
-    <Modal open={open} onClose={close} label="My settings" crop={crop}>
-      <div className="space-y-1">
+    <Modal
+      open={open}
+      onClose={close}
+      label="My settings"
+      crop={crop}
+      header={
         <div className="flex items-center">
           <h3 className="font-display text-xl">My settings</h3>
           {/* options save the moment they change, so there is nothing to confirm: just close */}
@@ -210,8 +214,11 @@ export function SettingsDialog() {
             <IconClose size={16} />
           </button>
         </div>
+      }
+    >
+      <div className="space-y-1">
         <Group title="Soundscape">
-          <Row k="sound" label="Audio" hint="master control for all sounds" />
+          <Row k="sound" label="Audio" hint="master control for all sounds" inline />
           <div className={`mx-2 mb-1 ml-7 transition ${sound ? '' : 'opacity-45'}`}>
             <input
               type="range"
@@ -225,9 +232,9 @@ export function SettingsDialog() {
               aria-label="Volume"
             />
           </div>
-          <Row k="sfxDrops" label="Water drops" hint="when you add" indent faded={!sound} />
-          <Row k="sfxChimes" label="Task sounds" hint="finish, tag, move" indent faded={!sound} />
-          <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent faded={!sound} />
+          <Row k="sfxDrops" label="Water drops" hint="when you add" indent inline faded={!sound} />
+          <Row k="sfxChimes" label="Task sounds" hint="finish, tag, move" indent inline faded={!sound} />
+          <Row k="sfxPops" label="Bubble pops" hint="when you delete" indent inline faded={!sound} />
           <Row k="ambient" label="Ambient wind chimes" indent faded={!sound} />
         </Group>
         <Group title="Look & Feel">
@@ -243,7 +250,7 @@ export function SettingsDialog() {
           </div>
           <div className="px-2 py-1.5" data-slider-block>
             <div className="flex items-baseline justify-between text-sm">
-              <span>Spacing</span>
+              <span>Menu spacing</span>
               <span className="text-[0.7rem] text-ink-faint">{Math.abs(space - 0.5) < 0.005 ? 'Default' : space < 0.2 ? 'compact' : space > 0.8 ? 'relaxed' : ''}</span>
             </div>
             <div className="relative mt-1 pb-1">
@@ -265,49 +272,52 @@ export function SettingsDialog() {
               <span>Relaxed</span>
             </div>
           </div>
+          <div className="mt-1 border-t border-white/50" />
+          <Row k="sizeByPriority" label="Bubbles scale by importance" hint="bubble size in Pond and Priority views" />
+          <Row k="drift" label="Gentle drifting" hint="floating on the water" />
+          <Row k="showDone" label="Show bloomed tasks" hint="finished tasks stay visible" />
         </Group>
-        <Group title="Views &amp; filters">
-          <Row k="viewsClearFilters" label="Switching views clears filters" hint="start every view from Everything" />
-        </Group>
-        <Group title="Priority">
-          <Row k="autoUrgency" label="Raise urgency near deadlines" hint="used instead of the slider when the deadline calls for more" />
-        </Group>
-        <Group title="Play">
-          <Row k="limitPlay" label="Limit play time" hint="three minutes of bubble play at a time, with breaks between" />
-        </Group>
-        <Group title="Help">
+        <Group title="App options">
+          <Row k="viewsClearFilters" label="Switching views resets filters" hint="start every view from Everything" />
+          <Row k="autoUrgency" label="Automatic urgency" hint="increase urgency as deadline nears" />
+          <Row k="limitPlay" label="Limit play time" hint="3 minutes of play at a time, then a break" />
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
+          <NotificationsRow />
         </Group>
         <Group title="Region">
           <div className="space-y-2 px-2 py-1.5">
-            <div>
-              <div className="mb-1 text-sm">Dates</div>
-              <SegmentedToggle label="Date format" value={dateFormat} options={DATE_STYLES} onChange={(v) => setSetting('dateFormat', v)} />
-            </div>
-            <div>
-              <div className="mb-1 text-sm">Clock</div>
-              <SegmentedToggle
-                label="Clock"
-                value={clockFormat}
-                options={[
-                  { id: '12', label: '12-hour' },
-                  { id: '24', label: '24-hour' },
-                ]}
-                onChange={(v) => setSetting('clockFormat', v)}
-              />
+            <div className="flex flex-wrap items-start gap-3">
+              <label className="block">
+                <span className="mb-1 block text-sm">Date format</span>
+                <select
+                  value={dateFormat}
+                  onChange={(e) => setSetting('dateFormat', e.target.value as typeof dateFormat)}
+                  className="h-7 rounded-full bg-white/50 px-2.5 text-xs text-ink-soft shadow-[inset_0_1px_2px_rgb(var(--lr-700)/0.12)] outline-none focus-visible:ring-2 focus-visible:ring-lilac-400"
+                >
+                  {DATE_STYLES.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div>
+                <div className="mb-1 text-sm">Time format</div>
+                <SegmentedToggle
+                  label="Time format"
+                  value={clockFormat}
+                  options={[
+                    { id: '12', label: '12-hour' },
+                    { id: '24', label: '24-hour' },
+                  ]}
+                  onChange={(v) => setSetting('clockFormat', v)}
+                />
+              </div>
             </div>
             <div className="text-sm">
               Time zone <span className="ml-1 text-[0.7rem] text-ink-faint">{deviceTimeZone().replace(/_/g, ' ')} · follows this device</span>
             </div>
           </div>
-        </Group>
-        <Group title="Pond">
-          <Row k="sizeByPriority" label="Scale by importance" hint="bubble size" />
-          <Row k="drift" label="Gentle drifting" hint="floating on the water" />
-          <Row k="showDone" label="Show bloomed tasks" hint="finished tasks stay visible" />
-        </Group>
-        <Group title="Reminders">
-          <NotificationsRow />
         </Group>
         <Group title="Demo data">
           <p className="px-2 pb-1 text-[0.7rem] text-ink-faint">A small made-up life that shows off the app: every item type, repeats, lists, events, stages, people.</p>
@@ -320,14 +330,15 @@ export function SettingsDialog() {
             </button>
           </div>
         </Group>
-        <Group title="Your data">
-          <div className="flex flex-wrap gap-2 px-2 pb-1">
-            <button type="button" onClick={() => openDanger('clear')} className="rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
-              Clear everything…
+        <div className="!mt-4 border-t border-[#c4577e]/25" role="separator" />
+        <Group title="Danger zone">
+          <div className="flex gap-2 px-2 pb-1">
+            <button type="button" onClick={() => openDanger('clear')} className="whitespace-nowrap rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+              Clear all data
             </button>
             {accountsConfigured && (
-              <button type="button" onClick={() => openDanger('delete')} className="rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
-                Delete my account…
+              <button type="button" onClick={() => openDanger('delete')} className="whitespace-nowrap rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+                Delete account
               </button>
             )}
           </div>
