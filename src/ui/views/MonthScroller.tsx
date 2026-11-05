@@ -11,6 +11,8 @@ const ROW_GAP = 20
 const FADE = 52
 /** the divider between months stops this far short of each end of the boxes (a touch under full height looks full height) */
 const INSET = 3
+/** how far above its box the month's name begins (the divider rises that far) */
+const LABEL_TOP = 15
 
 export interface MonthHandle {
   /** Slide so the week the month starts in is at the top. */
@@ -221,11 +223,12 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
       const wd = Math.max(1, Math.round(dpr))
       const x = (Math.round(((i % cols) * (colW + GAP) - GAP / 2) * dpr - wd / 2) + wd / 2) / dpr
       // only along the straight sides of the two days' boxes, centred on them
-      const y = Math.floor(i / cols) * pitch + INSET
-      path += `M${x} ${y}V${y + rowH - 2 * INSET}`
+      // (with the month's name above its box, the line rises to the top of the name)
+      const top = Math.floor(i / cols) * pitch + (labelGap ? -LABEL_TOP : INSET)
+      path += `M${x} ${top}V${Math.floor(i / cols) * pitch + rowH - INSET}`
     }
     return path
-  }, [cells, cols, colW, pitch, rowH])
+  }, [cells, cols, colW, pitch, rowH, labelGap])
   const rows = Math.ceil(cells.length / cols)
   return (
     <div ref={box} onScroll={onScroll} onPointerDown={down} onWheel={() => (programmatic.current = false)} onTouchStart={() => (programmatic.current = false)} data-month-scroll className="scroll-soft fade-mask min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">

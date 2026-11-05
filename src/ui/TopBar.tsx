@@ -71,8 +71,9 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
     return () => cancelAnimationFrame(id)
   }, [])
   // the chip hugs the text (just below the baseline) with 10px of room at its front and tail; the links need less
-  const padLink = vertical ? 'px-0.5 py-1' : 'px-1.5 py-px'
-  const padCur = vertical ? 'px-0.5 py-[10px]' : 'px-[10px] py-px'
+  // (sideways, Tailwind's px/py are the logical axes, along and across the turned text; p- is the same all round)
+  const padLink = vertical ? 'px-1 py-0.5' : 'px-1.5 py-px'
+  const padCur = vertical ? 'p-[5px]' : 'px-[10px] py-px'
   const cur = items[items.length - 1]
   // a tag chip: the group's soft tint behind its name (the plain lilac chip when it is not a group)
   const chip = cur.hue !== undefined ? { background: tint(cur.hue, 70, 88, 0.85), color: tint(cur.hue, 35, 32) } : { background: 'rgb(var(--lr-200) / 0.8)', color: 'var(--color-lilac-700)' }

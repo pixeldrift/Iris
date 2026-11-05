@@ -109,7 +109,7 @@ function Dot({ task, deadline, loggedOn }: { task: Task; deadline: boolean; logg
     <span
       title={`${task.title}${deadline ? ' (due)' : ''}${done ? ' (done)' : ''}`}
       className={`grid h-2.5 w-2.5 shrink-0 place-items-center rounded-full ${done ? 'opacity-45' : ''}`}
-      style={deadline ? { background: tint(hue, 62, 62), color: '#fff' } : { boxShadow: `inset 0 0 0 1.5px ${tint(hue, 55, 55)}`, background: tint(hue, 70, 87, 0.35), color: tint(hue, 55, 40) }}
+      style={deadline ? { background: tint(hue, 62, 62), color: '#fff' } : { boxShadow: `inset 0 0 0 1px ${tint(hue, 55, 55)}`, background: tint(hue, 70, 87, 0.35), color: tint(hue, 55, 40) }}
     >
       {done && <IconCheck size={7} />}
     </span>
@@ -247,7 +247,7 @@ function Cell({
     >
       {monthLabel && dots && labelAbove && (
         // the month's name, in the space above the box of its first day
-        <span aria-hidden className="pointer-events-none absolute -top-[16px] left-1 font-display text-[0.82rem] font-bold leading-none text-lilac-500">
+        <span aria-hidden className="pointer-events-none absolute -top-[15px] left-1 font-display text-[0.82rem] font-bold leading-none text-lilac-500">
           {monthLabel}
         </span>
       )}
@@ -269,16 +269,19 @@ function Cell({
             {dayHint(date) && <span className="ml-1.5 font-normal italic text-ink-faint">({dayHint(date)})</span>}
           </span>
         )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            select(addTask({ title: 'New task', due: date }))
-          }}
-          className="ml-auto rounded-full p-0.5 text-ink-faint opacity-0 transition hover:bg-white/70 hover:text-lilac-600 group-hover:opacity-100"
-          aria-label={`Add task on ${date}`}
-        >
-          <IconPlus size={14} />
-        </button>
+        {!onOpen && (
+          // (in the month view the whole day opens, and has its own "Add an item")
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              select(addTask({ title: 'New task', due: date }))
+            }}
+            className="ml-auto rounded-full p-0.5 text-ink-faint opacity-0 transition hover:bg-white/70 hover:text-lilac-600 group-hover:opacity-100"
+            aria-label={`Add task on ${date}`}
+          >
+            <IconPlus size={14} />
+          </button>
+        )}
       </div>
       {dots ? (
         // the month view: at this size words can't be read, so each item is a dot and the day is judged at a glance
