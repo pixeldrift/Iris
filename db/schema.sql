@@ -168,3 +168,34 @@ create table if not exists push_sent (
   sent_at  timestamptz not null default now(),
   primary key (user_id, key)
 );
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- Sharing a group: each shared group is its own workspace (the group and what is in it), with members and roles.
+--   * workspaces.root_folder_id: the group that is shared (the groups under it are shared with it).
+--   * workspace_members.status: 'active', or 'leaving' (the owner stopped sharing, or removed them, and allowed a copy: they
+--     keep read-only access until they decide to keep a copy or let it go).
+--   * workspace_invites: an invitation to a connection (to_user) or by link (a hashed token).
+--   * notifications gain a workspace and a short note, for "invited you to share", "stopped sharing", "assigned you".
+alter table workspaces add column if not exists root_folder_id text;
+alter table workspace_members add column if not exists status text not null default 'active';
+alter table workspace_members add column if not exists can_copy boolean not null default false;
+
+create table if not exists workspace_invites (
+  id            text primary key,
+  workspace_id  text not null references workspaces (id) on delete cascade,
+  role          text not null default 'editor' check (role in ('editor', 'viewer')),
+  created_by    text not null,
+  -- a connection invited by name (they see it as a notification); null for a link
+  to_user       text,
+  -- a link invitation: the SHA-256 of its token (the token itself is shown once, to the person who made it)
+  token_hash    text,
+  expires_at    timestamptz not null,
+  used          boolean not null default false,
+  created_at    timestamptz not null default now()
+);
+create index if not exists workspace_invites_user_idx on workspace_invites (to_user);
+create index if not exists workspace_invites_token_idx on workspace_invites (token_hash);
+
+alter table notifications add column if not exists workspace_id text;
+alter table notifications add column if not exists info text;
+alter table notifications add column if not exists extra text;
