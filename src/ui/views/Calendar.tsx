@@ -142,7 +142,7 @@ function DotGrid({ tasks, date }: { tasks: { task: Task; deadline: boolean }[]; 
       ref={box}
       aria-label={tasks.length ? `${tasks.length} ${tasks.length === 1 ? 'item' : 'items'} on ${date}` : `Nothing on ${date}`}
       role="img"
-      className="flex min-h-0 flex-1 flex-wrap content-start items-start gap-1 overflow-hidden px-0.5 text-left"
+      className="flex min-h-6 flex-1 flex-wrap content-start items-start gap-1 overflow-hidden px-0.5 text-left"
     >
       {shown.map((t) => (
         <Dot key={t.task.id + (t.deadline ? 'd' : '')} task={t.task} deadline={t.deadline} loggedOn={repeatOf(t.task) ? date : undefined} />
@@ -196,6 +196,8 @@ function Cell({
   plan = false,
   dimmed,
   solid = false,
+  snug = false,
+  labelAbove = false,
   alt = false,
   monthLabel = null,
   onOpen,
@@ -212,6 +214,10 @@ function Cell({
   /** the day view as a schedule laid out by the clock, not a list */
   plan?: boolean
   dimmed?: boolean
+  /** a little less rounded (narrow boxes on a phone held upright) */
+  snug?: boolean
+  /** the month's name goes in the space above the box (there is room between the rows) instead of beside the number */
+  labelAbove?: boolean
   /** fully opaque (the work days, when the weekends are shown faded beside them) */
   solid?: boolean
   /** the month grid: every other month is tinted, and a month's first day carries the month's name */
@@ -235,13 +241,13 @@ function Cell({
       {...props}
       ref={box}
       onClick={onOpen ? open : undefined}
-      className={`group relative flex flex-col ${dots ? 'gap-0.5 rounded-xl p-1' : 'gap-1 overflow-hidden rounded-2xl p-1.5'} border transition ${onOpen ? 'cursor-pointer hover:bg-white/60' : ''} ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
+      className={`group relative flex flex-col ${dots ? `gap-0.5 ${snug ? 'rounded-lg' : 'rounded-xl'} p-1` : 'gap-1 overflow-hidden rounded-2xl p-1.5'} border transition ${onOpen ? 'cursor-pointer hover:bg-white/60' : ''} ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
         over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? `border-lilac-300 ${solid ? 'bg-white' : 'bg-white/70'}` : alt ? `border-ink-faint/30 ${solid ? 'bg-[#f1ebf8]' : 'bg-lilac-100/55'} shadow-[0_1px_4px_rgba(90,70,120,0.12)]` : `border-ink-faint/30 ${solid ? 'bg-white' : 'bg-white/40'} shadow-[0_1px_4px_rgba(90,70,120,0.12)]`
       } ${dim ? 'opacity-50' : ''} ${active && !over ? 'border-dotted border-lilac-300' : ''}`}
     >
-      {monthLabel && dots && (
+      {monthLabel && dots && labelAbove && (
         // the month's name, in the space above the box of its first day
-        <span aria-hidden className="pointer-events-none absolute -top-[15px] left-1 font-display text-[0.72rem] leading-none text-ink-faint">
+        <span aria-hidden className="pointer-events-none absolute -top-[16px] left-1 font-display text-[0.82rem] font-bold leading-none text-lilac-500">
           {monthLabel}
         </span>
       )}
@@ -252,8 +258,9 @@ function Cell({
             e.stopPropagation()
             setScope({ type: 'day', date })
           }}
-          className={`inline-flex ${dots ? 'h-5 min-w-5 text-[0.7rem]' : 'h-6 min-w-6 text-xs'} items-center justify-center gap-1 rounded-full px-1 tabular-nums ${isToday ? 'bg-lilac-500 text-white' : 'text-ink-soft hover:bg-white/70'}`}
+          className={`inline-flex ${dots ? 'h-5 min-w-5 text-[0.7rem]' : 'h-6 min-w-6 text-xs'} items-center justify-center gap-1 rounded-full ${monthLabel && !labelAbove ? 'pl-2 pr-1.5' : 'px-1'} tabular-nums ${isToday ? 'bg-lilac-500 text-white' : 'text-ink-soft hover:bg-white/70'}`}
         >
+          {monthLabel && !labelAbove && <span className={`font-display text-[0.85rem] font-bold leading-none ${isToday ? 'text-white' : 'text-lilac-500'}`}>{monthLabel}</span>}
           {d.getDate()}
         </button>
         {named && (
@@ -694,10 +701,11 @@ export function CalendarView() {
           ref={monthRef}
           base={monthBase}
           cols={cols}
+          labelGap={mobile}
           show={show}
           onView={setMonthView}
           onRebase={setMonthBase}
-          render={(d, info) => <Cell date={d} tasks={tasksOn(d)} month={null} tall={false} dots dimmed={muted(d)} solid={solid(d)} alt={info.alt} monthLabel={info.monthLabel} onOpen={(date, from) => setPop({ date, from })} />}
+          render={(d, info) => <Cell date={d} tasks={tasksOn(d)} month={null} tall={false} dots dimmed={muted(d)} solid={solid(d)} snug={mobile} labelAbove={mobile} alt={info.alt} monthLabel={info.monthLabel} onOpen={(date, from) => setPop({ date, from })} />}
         />
       ) : (
         <div

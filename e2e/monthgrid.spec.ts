@@ -72,11 +72,12 @@ test.describe('the month as an endless grid', () => {
     expect((await link.boundingBox())!.x).toBeGreaterThan((await today.boundingBox())!.x)
   })
 
-  test('a violet line sits between a month’s last and first days; the month name on a first day is serif and grey', async ({ page }) => {
+  test('a violet line sits between a month’s last and first days; the month name on a first day is serif, bold and purple', async ({ page }) => {
     await expect(page.locator('[data-month-scroll] svg.pointer-events-none path')).toHaveAttribute('d', /M/)
     const label = page.locator('[data-month-scroll]').getByText(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/).first()
     await expect(label).toHaveClass(/font-display/)
-    await expect(label).toHaveClass(/text-ink-faint/)
+    await expect(label).toHaveClass(/text-lilac-500/)
+    await expect(label).toHaveClass(/font-bold/)
   })
 
   test('arrows name one month (never a split) while sliding; the top edge fades once scrolled', async ({ page }) => {

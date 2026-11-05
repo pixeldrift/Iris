@@ -9,8 +9,8 @@ const GAP = 6
 const ROW_GAP = 20
 /** how far the top fade reaches: the week a month starts in is scrolled this far down from the top, so its days are clear of it */
 const FADE = 52
-/** the corner radius of a day box (rounded-xl): the divider between months stops short of the corners by this much */
-const BOX_R = 12
+/** the divider between months stops this far short of each end of the boxes (a touch under full height looks full height) */
+const INSET = 3
 
 export interface MonthHandle {
   /** Slide so the week the month starts in is at the top. */
@@ -32,8 +32,8 @@ export interface MonthView {
  * The month as an endless grid of weeks: drag it (or scroll it) to look further down or back; the title says which months are
  * showing. A window of weeks around `base` is drawn, and it moves along when the edge is neared.
  */
-export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: number; show: (d: string) => boolean; render: (d: string, info: { alt: boolean; monthLabel: string | null }) => React.ReactNode; onView: (v: MonthView) => void; onRebase: (d: string) => void }>(function MonthScroller(
-  { base, cols, show, render, onView, onRebase },
+export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: number; /** room between week rows for the month's name above its first day (otherwise the rows sit close) */ labelGap: boolean; show: (d: string) => boolean; render: (d: string, info: { alt: boolean; monthLabel: string | null }) => React.ReactNode; onView: (v: MonthView) => void; onRebase: (d: string) => void }>(function MonthScroller(
+  { base, cols, labelGap, show, render, onView, onRebase },
   ref,
 ) {
   const box = useRef<HTMLDivElement>(null)
@@ -42,8 +42,9 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   const days = useMemo(() => Array.from({ length: WEEKS * 7 }, (_, i) => addDays(origin, i)), [origin])
   const colW = (size.w - GAP * (cols - 1)) / cols
   // five rows fit the box on a wide screen; on a phone the days are kept squarish rather than long and thin
-  const rowH = Math.max(54, Math.min(Math.floor((size.h - ROW_GAP * 4) / 5), Math.round(colW * 1.2)))
-  const pitch = rowH + ROW_GAP
+  const rowGap = labelGap ? ROW_GAP : GAP
+  const rowH = Math.max(62, Math.min(Math.floor((size.h - rowGap * 4) / 5), Math.round(colW * 1.38)))
+  const pitch = rowH + rowGap
   const weekOf = useCallback((d: string) => Math.round(diffDays(origin, startOfWeek(d)) / 7), [origin])
   // after the arrows (or Today) slide the grid, its title names one month; the first touch by hand frees it to name two
   const programmatic = useRef(false)
@@ -220,8 +221,8 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
       const wd = Math.max(1, Math.round(dpr))
       const x = (Math.round(((i % cols) * (colW + GAP) - GAP / 2) * dpr - wd / 2) + wd / 2) / dpr
       // only along the straight sides of the two days' boxes, centred on them
-      const y = Math.floor(i / cols) * pitch + BOX_R
-      path += `M${x} ${y}V${y + rowH - 2 * BOX_R}`
+      const y = Math.floor(i / cols) * pitch + INSET
+      path += `M${x} ${y}V${y + rowH - 2 * INSET}`
     }
     return path
   }, [cells, cols, colW, pitch, rowH])
@@ -229,7 +230,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   return (
     <div ref={box} onScroll={onScroll} onPointerDown={down} onWheel={() => (programmatic.current = false)} onTouchStart={() => (programmatic.current = false)} data-month-scroll className="scroll-soft fade-mask min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">
       <div className="relative">
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, columnGap: GAP, rowGap: ROW_GAP }}>
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, columnGap: GAP, rowGap }}>
         {cells.map((d) => {
           const dt = fromISO(d)
           return <Fragment key={d}>{render(d, { alt: dt.getMonth() % 2 === 1, monthLabel: dt.getDate() === 1 ? MONTHS[dt.getMonth()].slice(0, 3) : null })}</Fragment>
