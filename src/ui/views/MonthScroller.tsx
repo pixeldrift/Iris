@@ -5,8 +5,10 @@ import { useDnd, targetAt } from '../dnd'
 const WEEKS = 60
 const BEFORE = 20
 const GAP = 6
+/** the space between week rows: enough that the name of a month fits above its first day */
+const ROW_GAP = 20
 /** how far the top fade reaches: the week a month starts in is scrolled this far down from the top, so its days are clear of it */
-const FADE = 40
+const FADE = 52
 /** the corner radius of a day box (rounded-xl): the divider between months stops short of the corners by this much */
 const BOX_R = 12
 
@@ -40,8 +42,8 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   const days = useMemo(() => Array.from({ length: WEEKS * 7 }, (_, i) => addDays(origin, i)), [origin])
   const colW = (size.w - GAP * (cols - 1)) / cols
   // five rows fit the box on a wide screen; on a phone the days are kept squarish rather than long and thin
-  const rowH = Math.max(64, Math.min(Math.floor((size.h - GAP * 4) / 5), Math.round(colW * 1.45)))
-  const pitch = rowH + GAP
+  const rowH = Math.max(54, Math.min(Math.floor((size.h - ROW_GAP * 4) / 5), Math.round(colW * 1.2)))
+  const pitch = rowH + ROW_GAP
   const weekOf = useCallback((d: string) => Math.round(diffDays(origin, startOfWeek(d)) / 7), [origin])
   // after the arrows (or Today) slide the grid, its title names one month; the first touch by hand frees it to name two
   const programmatic = useRef(false)
@@ -227,7 +229,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   return (
     <div ref={box} onScroll={onScroll} onPointerDown={down} onWheel={() => (programmatic.current = false)} onTouchStart={() => (programmatic.current = false)} data-month-scroll className="scroll-soft fade-mask min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">
       <div className="relative">
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, gap: GAP }}>
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: rowH, columnGap: GAP, rowGap: ROW_GAP }}>
         {cells.map((d) => {
           const dt = fromISO(d)
           return <Fragment key={d}>{render(d, { alt: dt.getMonth() % 2 === 1, monthLabel: dt.getDate() === 1 ? MONTHS[dt.getMonth()].slice(0, 3) : null })}</Fragment>

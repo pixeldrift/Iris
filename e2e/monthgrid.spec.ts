@@ -143,17 +143,26 @@ test.describe('the month as an endless grid', () => {
     expect(await title.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true)
   })
 
-  test('upright, the month name sits as a tab on the first day’s box (so the number stays in line with the others)', async ({ page }) => {
+  test('the month name sits in the space above the first day’s box, so the number stays in line; days hold two rows of dots, then a plus', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 780 })
-    const tab = page.locator('[data-month-scroll]').locator('span.font-display').first()
-    await expect(tab).toHaveClass(/absolute/)
-    const cellOf = (l: ReturnType<typeof page.locator>) => l.locator('xpath=ancestor::*[@data-drop][1]')
-    const offset = async (cell: ReturnType<typeof page.locator>) => {
-      const c = (await cell.boundingBox())!
-      const n = (await cell.locator('button').first().boundingBox())!
-      return { dx: Math.round(n.x - c.x), dy: Math.round(n.y - c.y) }
-    }
-    // the number is in the same place in the box as on any other day
-    expect(await offset(cellOf(tab))).toEqual(await offset(page.locator('[data-month-scroll] [data-drop]').nth(10)))
+    const name = page.locator('[data-month-scroll]').locator('span.font-display').first()
+    await expect(name).toHaveClass(/absolute/)
+    const cell = name.locator('xpath=ancestor::*[@data-drop][1]')
+    const nb = (await name.boundingBox())!
+    const cb = (await cell.boundingBox())!
+    expect(nb.y + nb.height).toBeLessThanOrEqual(cb.y + 1) // above the box, not over it
+    // no day shows more than two rows of dots; a crowded one ends in a plus
+    const rows = await page.locator('[data-month-scroll] [role=img]').evaluateAll((els) => Math.max(...els.map((e) => new Set([...e.children].map((k) => Math.round(k.getBoundingClientRect().top))).size)))
+    expect(rows).toBeLessThanOrEqual(2)
+    expect(await page.locator('[data-month-scroll] [role=img] > span[title$=" more"]').count()).toBeGreaterThan(0)
+  })
+
+  test('the unscheduled arrow points right when closed and down when open, and is only there when there is more to see', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 780 })
+    const toggle = page.getByRole('button', { name: 'Unscheduled' })
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(toggle.locator('span')).not.toHaveClass(/rotate-90/)
+    await toggle.click()
+    await expect(toggle.locator('span')).toHaveClass(/rotate-90/)
   })
 })
