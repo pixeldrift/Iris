@@ -73,7 +73,7 @@ test.describe('notifications switch', () => {
     await page.getByRole('button', { name: 'My settings' }).click()
     const sw = page.getByRole('switch', { name: /Notifications/ })
     await expect(sw).toHaveAttribute('aria-checked', 'true') // allowed by the browser: on, and still a switch
-    await expect(sw).toContainText('On: reminders can appear even when Lilac is in the background')
+    await expect(sw).toContainText('Alerts arrive even when Lilac is closed')
     await sw.click()
     await expect(sw).toHaveAttribute('aria-checked', 'false')
     await expect(sw).toContainText('Off: reminders only appear inside Lilac')
