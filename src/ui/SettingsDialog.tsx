@@ -292,7 +292,7 @@ export function SettingsDialog() {
                 <select
                   value={dateFormat}
                   onChange={(e) => setSetting('dateFormat', e.target.value as typeof dateFormat)}
-                  className="glass-soft h-9 rounded-full px-3 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-lilac-400"
+                  className="h-7 rounded-full bg-white/50 px-2.5 text-xs text-ink-soft shadow-[inset_0_1px_2px_rgb(var(--lr-700)/0.12)] outline-none focus-visible:ring-2 focus-visible:ring-lilac-400"
                 >
                   {DATE_STYLES.map((d) => (
                     <option key={d.id} value={d.id}>
