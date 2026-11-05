@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { tint } from '../../core/color'
 import { addDays, dayHint, fromISO, MONTHS, startOfWeek, toISO, today, WEEKDAYS } from '../../core/dates'
@@ -128,9 +128,10 @@ function UnscheduledBubble({ task }: { task: Task }) {
       onPointerDown={(e) => onPointerDown(e)}
       style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
       title={task.title}
-      className={`tint lift-on-press h-6 max-w-[14rem] cursor-pointer select-none truncate rounded-full px-3 text-xs leading-6 [-webkit-touch-callout:none] ${leave}`}
+      className={`tint lift-on-press flex h-6 max-w-[14rem] cursor-pointer select-none items-center rounded-full px-3 text-xs [-webkit-touch-callout:none] ${leave}`}
     >
-      {task.title || 'Untitled'}
+      {/* the text is centred by its x-height (the body of the letters), not its line box, which sits it a little low; the padding keeps the capitals and tails from being clipped by the ellipsis */}
+      <span className="min-w-0 truncate py-1.5 leading-none [text-box:trim-both_ex_alphabetic]">{task.title || 'Untitled'}</span>
     </div>
   )
 }
@@ -146,6 +147,8 @@ function Cell({
   rich = false,
   plan = false,
   dimmed,
+  muted = false,
+  tab = false,
   alt = false,
   monthLabel = null,
   onOpen,
@@ -162,6 +165,10 @@ function Cell({
   /** the day view as a schedule laid out by the clock, not a list */
   plan?: boolean
   dimmed?: boolean
+  /** a hidden weekend that is shown anyway (wide screens): dimmed to a greyer, darker tone rather than made see-through */
+  muted?: boolean
+  /** the month's name sits as a small tab on the box's top edge, not beside the number (the boxes are too narrow for it) */
+  tab?: boolean
   /** the month grid: every other month is tinted, and a month's first day carries the month's name */
   alt?: boolean
   monthLabel?: string | null
@@ -183,10 +190,15 @@ function Cell({
       {...props}
       ref={box}
       onClick={onOpen ? open : undefined}
-      className={`group relative flex flex-col ${dots ? 'gap-0.5 rounded-xl p-1' : 'gap-1 rounded-2xl p-1.5'} overflow-hidden border transition ${onOpen ? 'cursor-pointer hover:bg-white/60' : ''} ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
-        over ? 'border-lilac-400 bg-lilac-200/70' : isToday ? 'border-lilac-300 bg-white/70' : alt ? 'border-ink-faint/30 bg-lilac-100/55 shadow-[0_1px_4px_rgba(90,70,120,0.12)]' : 'border-ink-faint/30 bg-white/40 shadow-[0_1px_4px_rgba(90,70,120,0.12)]'
+      className={`group relative flex flex-col ${dots ? 'gap-0.5 rounded-xl p-1' : 'gap-1 overflow-hidden rounded-2xl p-1.5'} border transition ${onOpen ? 'cursor-pointer hover:bg-white/60' : ''} ${named && !roomy ? 'min-h-[4.5rem] shrink-0' : 'min-h-0'} ${
+        over ? 'border-lilac-400 bg-lilac-200/70' : muted ? 'border-ink-faint/25 bg-[rgb(105_95_125/0.16)]' : isToday ? 'border-lilac-300 bg-white/70' : alt ? 'border-ink-faint/30 bg-lilac-100/55 shadow-[0_1px_4px_rgba(90,70,120,0.12)]' : 'border-ink-faint/30 bg-white/40 shadow-[0_1px_4px_rgba(90,70,120,0.12)]'
       } ${dim ? 'opacity-50' : ''} ${active && !over ? 'border-dotted border-lilac-300' : ''}`}
     >
+      {monthLabel && tab && (
+        <span aria-hidden className="pointer-events-none absolute -top-[7px] right-0.5 z-10 rounded-full bg-white/90 px-1.5 py-px font-display text-[0.68rem] leading-[0.9rem] text-ink-faint shadow-[0_0_0_1px_rgba(120,100,150,0.12)]">
+          {monthLabel}
+        </span>
+      )}
       <div className="flex items-center">
         <button
           onClick={(e) => {
@@ -194,9 +206,9 @@ function Cell({
             e.stopPropagation()
             setScope({ type: 'day', date })
           }}
-          className={`inline-flex ${dots ? 'h-5 min-w-5 text-[0.7rem]' : 'h-6 min-w-6 text-xs'} items-center justify-center gap-1 rounded-full ${monthLabel ? 'px-1.5' : 'px-1'} tabular-nums ${isToday ? 'bg-lilac-500 text-white' : 'text-ink-soft hover:bg-white/70'}`}
+          className={`inline-flex ${dots ? 'h-5 min-w-5 text-[0.7rem]' : 'h-6 min-w-6 text-xs'} items-center justify-center gap-1 rounded-full ${monthLabel && !tab ? 'px-1.5' : 'px-1'} tabular-nums ${isToday ? 'bg-lilac-500 text-white' : 'text-ink-soft hover:bg-white/70'}`}
         >
-          {monthLabel && <span className={`font-display text-[0.8rem] leading-none ${isToday ? 'text-white' : 'text-ink-faint'}`}>{monthLabel}</span>}
+          {monthLabel && !tab && <span className={`font-display text-[0.8rem] leading-none ${isToday ? 'text-white' : 'text-ink-faint'}`}>{monthLabel}</span>}
           {d.getDate()}
         </button>
         {named && (
@@ -422,7 +434,8 @@ function TwoRows({ children }: { children: React.ReactNode }) {
 function AnimatedTitle({ text, order, animate }: { text: string; order: string; animate: boolean }) {
   const [t, setT] = useState({ text, order, out: null as string | null, dir: 1, n: 0 })
   useEffect(() => {
-    setT((p) => (p.text === text ? p : { text, order, out: animate ? p.text : null, dir: order >= p.order ? 1 : -1, n: p.n + 1 }))
+    // (spelling the month out or abbreviating it as the room changes is not a change of month: no slide)
+    setT((p) => (p.text === text ? p : { text, order, out: animate && order !== p.order ? p.text : null, dir: order >= p.order ? 1 : -1, n: p.n + 1 }))
   }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (t.out === null) return
@@ -430,7 +443,7 @@ function AnimatedTitle({ text, order, animate }: { text: string; order: string; 
     return () => window.clearTimeout(id)
   }, [t.n, t.out])
   return (
-    <h3 className="relative grid min-w-0 overflow-hidden whitespace-nowrap font-display text-lg leading-tight md:text-xl">
+    <h3 className="relative grid min-w-0 overflow-hidden whitespace-nowrap font-display text-xl leading-tight md:text-2xl">
       {t.out !== null && (
         <span key={`o${t.n}`} aria-hidden className={`col-start-1 row-start-1 ${t.dir > 0 ? 'title-out-up' : 'title-out-down'}`}>
           {t.out}
@@ -469,7 +482,7 @@ export function CalendarView() {
   // the month is an endless grid you can drag: where it is drawn from, and what is showing now
   const monthRef = useRef<MonthHandle>(null)
   const [monthBase, setMonthBase] = useState(today())
-  const [monthView, setMonthView] = useState<MonthView>({ title: '', month: today(), manual: true })
+  const [monthView, setMonthView] = useState<MonthView>({ title: '', full: '', month: today(), manual: true })
   const land = useLandscapePhone()
   const selectedId = useStore((s) => s.selectedId)
   const [pop, setPop] = useState<{ date: string; from: DOMRect | null } | null>(null)
@@ -491,9 +504,10 @@ export function CalendarView() {
       return !w
     })
   const isWeekend = (d: string) => [0, 6].includes(fromISO(d).getDay())
-  // hidden weekends are only an option on a phone held upright, where the days would be too narrow; wider, all seven always show
-  const showWeekends = weekends || !mobile
-  const show = (d: string) => showWeekends || !isWeekend(d)
+  // hidden weekends are left out on a phone held upright (the days would be too narrow anyway); wider, they stay but are dimmed
+  const dimWeekends = !mobile && !weekends
+  const show = (d: string) => weekends || dimWeekends || !isWeekend(d)
+  const muted = (d: string) => dimWeekends && isWeekend(d)
 
   const byDate = useMemo(() => {
     // a task sits on the day you planned it; if its deadline is a different day, a faint flag marks that too
@@ -514,7 +528,7 @@ export function CalendarView() {
   // keep the anchor on a visible day when weekends are hidden
   const dayAnchor = show(anchor) ? anchor : addDays(anchor, fromISO(anchor).getDay() === 6 ? -1 : 1)
   const cells = mode === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i)).filter(show) : [dayAnchor]
-  const cols = mode === 'day' ? 1 : showWeekends ? 7 : 5
+  const cols = mode === 'day' ? 1 : weekends || dimWeekends ? 7 : 5
   const stacked = mode === 'week' && mobile // seven slim columns can't show anything on a phone: stack the days
   // the arrows still slide a whole month at a time
   const goMonth = (iso: string) => {
@@ -532,13 +546,38 @@ export function CalendarView() {
     setAnchor(d)
   }
   const first = fromISO(cells[0])
-  const title =
+  const mon = (d: Date, full: boolean) => (full ? MONTHS[d.getMonth()] : MONTHS[d.getMonth()].slice(0, 3))
+  const titles =
     mode === 'month'
-      ? monthView.title
+      ? { full: monthView.full, abbr: monthView.title }
       : mode === 'week'
-        ? `Week of ${MONTHS[first.getMonth()].slice(0, 3)} ${first.getDate()}`
-        : `${WEEKDAYS[first.getDay()]}, ${MONTHS[first.getMonth()].slice(0, 3)} ${first.getDate()}`
-  const heads = (mode === 'month' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(today()), i)).filter(show) : cells).slice(0, cols).map((d) => ({ name: WEEKDAYS[fromISO(d).getDay()], hint: dayHint(d), key: d }))
+        ? { full: `Week of ${mon(first, true)} ${first.getDate()}`, abbr: `Week of ${mon(first, false)} ${first.getDate()}` }
+        : { full: `${WEEKDAYS[first.getDay()]}, ${mon(first, true)} ${first.getDate()}`, abbr: `${WEEKDAYS[first.getDay()].slice(0, 3)}, ${mon(first, false)} ${first.getDate()}` }
+  // the month is spelled out unless there is not room for it beside the controls
+  const head = useRef<HTMLDivElement>(null)
+  const probe = useRef<HTMLSpanElement>(null)
+  const [abbreviate, setAbbreviate] = useState(false)
+  useLayoutEffect(() => {
+    const el = head.current
+    const pr = probe.current
+    if (!el || !pr) return
+    const check = () => {
+      const cs = getComputedStyle(el)
+      const inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      const gap = parseFloat(cs.columnGap) || 0
+      const kids = [...el.querySelectorAll<HTMLElement>('[data-hd]')].filter((k) => k.offsetWidth > 0)
+      // upright: the controls on the right share one column; wide: everything shares one line with the title
+      const used = cs.display === 'grid' ? Math.max(0, ...kids.filter((k) => k.dataset.hd === 'right').map((k) => k.offsetWidth)) + gap : kids.reduce((n, k) => n + k.offsetWidth + gap, 0)
+      const next = pr.offsetWidth > inner - used
+      setAbbreviate((a) => (a === next ? a : next))
+    }
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [titles.full, mode, mobile, land, weekends])
+  const title = abbreviate ? titles.abbr : titles.full
+  const heads = (mode === 'month' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(today()), i)).filter(show) : cells).slice(0, cols).map((d) => ({ name: WEEKDAYS[fromISO(d).getDay()], hint: dayHint(d), key: d, muted: muted(d) }))
 
   // tapping a day in the month view opens it; its arrows step to the neighbouring days
   const popNav = (dir: number) =>
@@ -552,18 +591,21 @@ export function CalendarView() {
   return (
     <div className="glass flex h-full flex-col rounded-[2rem] p-3 md:p-4">
       {/* upright on a phone: the month and the view toggle on one line, the arrows and Today under the month with the weekends link opposite; wider: all on one line */}
-      <div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-1 md:flex md:gap-x-2.5 md:whitespace-nowrap">
-        <div className="self-end md:order-1 md:min-w-[6.5rem] md:self-auto">
+      <div ref={head} className="relative mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-1 md:flex md:gap-x-2.5 md:whitespace-nowrap">
+        <span ref={probe} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap font-display text-xl md:text-2xl">
+          {titles.full}
+        </span>
+        <div className="min-w-0 self-end md:order-1 md:min-w-[10rem] md:self-auto">
           <AnimatedTitle text={title} order={monthView.month} animate={mode === 'month' && !monthView.manual} />
         </div>
-        <div className="glass-soft flex h-7 items-center justify-self-end rounded-full p-0.5 text-xs md:order-3 md:ml-auto md:h-8">
+        <div data-hd="right" className="glass-soft flex h-7 items-center justify-self-end rounded-full p-0.5 text-xs md:order-3 md:ml-auto md:h-8">
           {(['month', 'week', 'day'] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)} className={`h-full rounded-full px-1.5 capitalize transition md:px-3 ${mode === m ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
               {m}
             </button>
           ))}
         </div>
-        <div className="flex items-center text-lilac-600 md:order-2">
+        <div data-hd="nav" className="flex items-center text-lilac-600 md:order-2">
           <button onClick={() => step(-1)} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-lilac-100/80" aria-label="Previous">
             <span className="grid rotate-180 place-items-center">
               <IconChevron />
@@ -577,7 +619,7 @@ export function CalendarView() {
           </button>
         </div>
         {mode === 'day' ? (
-          <div className="glass-soft flex h-7 items-center justify-self-end rounded-full p-0.5 text-xs md:order-4 md:h-8" role="group" aria-label="Day layout">
+          <div data-hd="right" className="glass-soft flex h-7 items-center justify-self-end rounded-full p-0.5 text-xs md:order-4 md:h-8" role="group" aria-label="Day layout">
             {([[false, 'List'], [true, 'Schedule']] as const).map(([v, name]) => (
               <button key={name} onClick={() => togglePlan(v)} aria-pressed={plan === v} className={`h-full rounded-full px-2 transition md:px-3 ${plan === v ? 'bg-lilac-500 text-white shadow' : 'text-ink-soft'}`}>
                 {name}
@@ -585,7 +627,7 @@ export function CalendarView() {
             ))}
           </div>
         ) : (
-          <button onClick={toggleWeekends} aria-pressed={!weekends} className="justify-self-end whitespace-nowrap rounded-full px-1 py-1 text-[0.7rem] text-lilac-600 transition hover:bg-lilac-100/80 md:hidden">
+          <button data-hd="right" onClick={toggleWeekends} aria-pressed={!weekends} className="justify-self-end whitespace-nowrap rounded-full px-1 py-1 text-[0.7rem] text-lilac-600 transition hover:bg-lilac-100/80 md:hidden">
             {weekends ? 'Hide weekends' : 'Show weekends'}
           </button>
         )}
@@ -595,12 +637,12 @@ export function CalendarView() {
         <div className="mb-1 grid gap-1.5 px-0.5 text-center" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {heads.map((h) =>
             mode === 'week' ? (
-              <span key={h.key} className={`truncate text-[0.68rem] uppercase tracking-wider text-ink-faint `}>
+              <span key={h.key} className="truncate text-[0.68rem] uppercase tracking-wider text-ink-faint">
                 {h.name.slice(0, 3)}
                 {h.hint && <span className="ml-1 text-[0.68rem] normal-case italic tracking-normal">({h.hint})</span>}
               </span>
             ) : (
-              <span key={h.key} className={`text-[0.68rem] uppercase tracking-wider text-ink-faint `}>
+              <span key={h.key} className="text-[0.68rem] uppercase tracking-wider text-ink-faint">
                 {h.name.slice(0, 3)}
               </span>
             ),
@@ -615,7 +657,7 @@ export function CalendarView() {
           show={show}
           onView={setMonthView}
           onRebase={setMonthBase}
-          render={(d, info) => <Cell date={d} tasks={tasksOn(d)} month={null} tall={false} dots alt={info.alt} monthLabel={info.monthLabel} onOpen={(date, from) => setPop({ date, from })} />}
+          render={(d, info) => <Cell date={d} tasks={tasksOn(d)} month={null} tall={false} dots muted={muted(d)} tab={mobile} alt={info.alt} monthLabel={info.monthLabel} onOpen={(date, from) => setPop({ date, from })} />}
         />
       ) : (
         <div
@@ -626,7 +668,7 @@ export function CalendarView() {
           }}
         >
           {cells.map((d) => (
-            <Cell key={d} date={d} tasks={tasksOn(d)} month={null} tall named={stacked || mode === 'day'} roomy={mode === 'day'} plan={mode === 'day' && plan} rich={mode === 'week'} />
+            <Cell key={d} date={d} tasks={tasksOn(d)} month={null} muted={muted(d)} tall named={stacked || mode === 'day'} roomy={mode === 'day'} plan={mode === 'day' && plan} rich={mode === 'week'} />
           ))}
         </div>
       )}

@@ -7,6 +7,8 @@ const BEFORE = 20
 const GAP = 6
 /** how far the top fade reaches: the week a month starts in is scrolled this far down from the top, so its days are clear of it */
 const FADE = 40
+/** the corner radius of a day box (rounded-xl): the divider between months stops short of the corners by this much */
+const BOX_R = 12
 
 export interface MonthHandle {
   /** Slide so the week the month starts in is at the top. */
@@ -14,8 +16,10 @@ export interface MonthHandle {
 }
 
 export interface MonthView {
-  /** "September 2026", or "Sep–Oct 2026" while two months are on screen */
+  /** "Sep 2026", or "Sep–Oct 2026" while two months are on screen */
   title: string
+  /** the same with the month spelled out ("September 2026"); a split stays short */
+  full: string
   /** the first of the month that has most of the screen */
   month: string
   /** The grid is being looked at by hand (dragged or scrolled). Only then is the title allowed to name two months; after the arrows it names one. */
@@ -80,7 +84,8 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     const y1 = parts[parts.length - 1][0]
     const name = (m: number) => MONTHS[m].slice(0, 3)
     const title = parts.length === 1 ? `${name(parts[0][1])} ${y0}` : `${name(parts[0][1])}${y0 !== y1 ? ` ${y0}` : ''}–${name(parts[parts.length - 1][1])} ${y1}`
-    live.current.onView({ title, month: toISO(new Date(major[0], major[1], 1)), manual })
+    const full = parts.length === 1 ? `${MONTHS[parts[0][1]]} ${y0}` : title
+    live.current.onView({ title, full, month: toISO(new Date(major[0], major[1], 1)), manual })
     // the top edge fades out instead of cutting rows off (the bottom has the undated items under a line)
     el.toggleAttribute('data-top', el.scrollTop > 6)
   }, [])
@@ -208,9 +213,13 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     let path = ''
     for (let i = 1; i < cells.length; i++) {
       if (i % cols === 0 || key[i - 1] === key[i]) continue
-      const x = (i % cols) * (colW + GAP) - GAP / 2
-      const y = Math.floor(i / cols) * pitch
-      path += `M${x} ${y}V${y + rowH}`
+      // centred in the gap, on a whole device pixel (a half CSS pixel on a retina screen) so it is a crisp 1px line with even space either side
+      const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
+      const wd = Math.max(1, Math.round(dpr))
+      const x = (Math.round(((i % cols) * (colW + GAP) - GAP / 2) * dpr - wd / 2) + wd / 2) / dpr
+      // only along the straight sides of the two days' boxes, centred on them
+      const y = Math.floor(i / cols) * pitch + BOX_R
+      path += `M${x} ${y}V${y + rowH - 2 * BOX_R}`
     }
     return path
   }, [cells, cols, colW, pitch, rowH])
@@ -225,7 +234,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
         })}
       </div>
       <svg aria-hidden className="pointer-events-none absolute left-0 top-0 overflow-visible" width={size.w} height={rows * pitch}>
-        <path d={divider} fill="none" strokeWidth={2} strokeLinecap="round" className="stroke-lilac-500" />
+        <path d={divider} fill="none" strokeWidth={1} strokeLinecap="round" className="stroke-lilac-500" />
       </svg>
       </div>
     </div>

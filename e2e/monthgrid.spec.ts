@@ -134,4 +134,26 @@ test.describe('the month as an endless grid', () => {
     const cell = (await page.locator(`[data-month-scroll] [data-drop="day:${first}"]`).boundingBox())!
     expect(cell.y - grid.y).toBeGreaterThan(36)
   })
+
+  test('the month is spelled out unless there is not room; on a narrow phone it still fits', async ({ page }) => {
+    const title = page.locator('main h3').first()
+    await expect(title).toHaveText(/^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/)
+    await page.setViewportSize({ width: 340, height: 700 })
+    await page.waitForTimeout(500)
+    expect(await title.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true)
+  })
+
+  test('upright, the month name sits as a tab on the first day’s box (so the number stays in line with the others)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 780 })
+    const tab = page.locator('[data-month-scroll]').locator('span.font-display').first()
+    await expect(tab).toHaveClass(/absolute/)
+    const cellOf = (l: ReturnType<typeof page.locator>) => l.locator('xpath=ancestor::*[@data-drop][1]')
+    const offset = async (cell: ReturnType<typeof page.locator>) => {
+      const c = (await cell.boundingBox())!
+      const n = (await cell.locator('button').first().boundingBox())!
+      return { dx: Math.round(n.x - c.x), dy: Math.round(n.y - c.y) }
+    }
+    // the number is in the same place in the box as on any other day
+    expect(await offset(cellOf(tab))).toEqual(await offset(page.locator('[data-month-scroll] [data-drop]').nth(10)))
+  })
 })
