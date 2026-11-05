@@ -51,12 +51,17 @@ test.describe('the month as an endless grid', () => {
     const title = page.locator('main h3').first()
     const today = page.getByRole('button', { name: 'Today', exact: true })
     const link = page.getByRole('button', { name: 'Hide weekends' })
+    const toggleBtn = page.getByRole('button', { name: 'month', exact: true })
     const mid = async (l: ReturnType<typeof page.locator>) => {
       const b = (await l.boundingBox())!
       return b.y + b.height / 2
     }
     expect(Math.abs((await mid(title)) - (await mid(today)))).toBeLessThan(12)
-    expect(Math.abs((await mid(title)) - (await mid(link)))).toBeLessThan(12)
+    await expect(link).toBeHidden() // (only on a phone held upright)
+    const right = (await toggleBtn.boundingBox())!.x
+    await page.getByRole('button', { name: 'Next' }).click() // the toggle does not move when the month name changes
+    await page.waitForTimeout(600)
+    expect(Math.abs((await toggleBtn.boundingBox())!.x - right)).toBeLessThan(1)
     await expect(today).toHaveClass(/bg-lilac-100/) // a pill
     await page.setViewportSize({ width: 390, height: 780 })
     await expect.poll(async () => (await mid(today)) - (await mid(title))).toBeGreaterThan(14)
@@ -67,10 +72,11 @@ test.describe('the month as an endless grid', () => {
     expect((await link.boundingBox())!.x).toBeGreaterThan((await today.boundingBox())!.x)
   })
 
-  test('a purple line follows where one month ends and the next begins; the month name on a first day is serif', async ({ page }) => {
+  test('a violet line sits between a month’s last and first days; the month name on a first day is serif and grey', async ({ page }) => {
     await expect(page.locator('[data-month-scroll] svg.pointer-events-none path')).toHaveAttribute('d', /M/)
     const label = page.locator('[data-month-scroll]').getByText(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/).first()
     await expect(label).toHaveClass(/font-display/)
+    await expect(label).toHaveClass(/text-ink-faint/)
   })
 
   test('arrows name one month (never a split) while sliding; the top edge fades once scrolled', async ({ page }) => {
@@ -85,9 +91,9 @@ test.describe('the month as an endless grid', () => {
     await expect(page.locator('[data-month-scroll]')).toHaveAttribute('data-top', '')
   })
 
-  test('undated items sit under a line: two rows, opened by "Undated:" (up to a third of the screen)', async ({ page }) => {
+  test('unscheduled items sit under a line: two rows, opened by "Unscheduled" (up to a third of the screen)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 780 }) // narrow enough for several rows of them
-    const toggle = page.getByRole('button', { name: 'Undated:' })
+    const toggle = page.getByRole('button', { name: 'Unscheduled' })
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
     const list = page.locator('[aria-label=Unscheduled]')
     const closed = (await list.boundingBox())!.height
@@ -115,5 +121,17 @@ test.describe('the month as an endless grid', () => {
     await page.waitForTimeout(900)
     expect(await grid.evaluate((e) => e.scrollTop)).toBeGreaterThan(up + 20)
     await page.mouse.up()
+  })
+
+  test('Today (and the arrows) leave the first week of the month clear of the top fade', async ({ page }) => {
+    await page.getByRole('button', { name: 'Next' }).click()
+    await page.waitForTimeout(900)
+    await page.getByRole('button', { name: 'Today', exact: true }).click()
+    await page.waitForTimeout(1200)
+    const d = new Date()
+    const first = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+    const grid = (await page.locator('[data-month-scroll]').boundingBox())!
+    const cell = (await page.locator(`[data-month-scroll] [data-drop="day:${first}"]`).boundingBox())!
+    expect(cell.y - grid.y).toBeGreaterThan(36)
   })
 })

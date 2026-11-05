@@ -5,8 +5,8 @@ import { useDnd, targetAt } from '../dnd'
 const WEEKS = 60
 const BEFORE = 20
 const GAP = 6
-/** the corner radius of a day box (rounded-xl): the month divider rounds its turns to match */
-const BOX_R = 12
+/** how far the top fade reaches: the week a month starts in is scrolled this far down from the top, so its days are clear of it */
+const FADE = 40
 
 export interface MonthHandle {
   /** Slide so the week the month starts in is at the top. */
@@ -59,7 +59,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
     const el = box.current
     if (!el) return
     const { pitch: p, origin: o } = live.current
-    const first = Math.max(0, Math.round(el.scrollTop / p))
+    const first = Math.max(0, Math.round((el.scrollTop + FADE) / p))
     // the title goes by the first five weeks showing (a month's worth), however many more fit on a tall screen
     const rows = 5
     const count = new Map<string, number>()
@@ -95,7 +95,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
       el.scrollTop = weekOf(keep.current.date) * pitch + keep.current.offset
       keep.current = null
     } else if (!started.current) {
-      el.scrollTop = weekOf(startOfWeek(base)) * pitch
+      el.scrollTop = weekOf(startOfWeek(base)) * pitch - FADE
     }
     started.current = true
     report()
@@ -109,7 +109,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
       const first = toISO(new Date(fromISO(date).getFullYear(), fromISO(date).getMonth(), 1))
       const i = weekOf(first)
       if (i < 3 || i > WEEKS - 10) return void live.current.onRebase(first) // too far from what is drawn: draw around it instead
-      el.scrollTo({ top: i * pitch, behavior: smooth ? 'smooth' : 'auto' })
+      el.scrollTo({ top: i * pitch - FADE, behavior: smooth ? 'smooth' : 'auto' })
     },
   }))
 
@@ -122,7 +122,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
       const el = box.current
       if (!el) return
       const { pitch: p, origin: o } = live.current
-      const row = el.scrollTop / p
+      const row = (el.scrollTop + FADE) / p
       if (row > 6 && row < WEEKS - 14) return
       const f = Math.round(row)
       keep.current = { date: addDays(o, f * 7), offset: el.scrollTop - f * p }
@@ -199,55 +199,21 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
   }, [])
 
   const cells = useMemo(() => days.filter(show), [days, show]) // eslint-disable-line react-hooks/exhaustive-deps
-  // a thin dotted purple line along where one month ends and the next begins. It runs down the gap between the days, and where it
-  // turns it rounds the corner of the day box it goes around (that box's radius plus the offset of the line from it)
+  // a solid violet line down the gap between a month's last day and the next month's first (on the week the month changes)
   const divider = useMemo(() => {
-    const rows = Math.ceil(cells.length / cols)
-    const key = (r: number, c: number) => {
-      if (r < 0 || c < 0 || c >= cols || r * cols + c >= cells.length) return null
-      const dt = fromISO(cells[r * cols + c])
+    const key = cells.map((d) => {
+      const dt = fromISO(d)
       return dt.getFullYear() * 12 + dt.getMonth()
+    })
+    let path = ''
+    for (let i = 1; i < cells.length; i++) {
+      if (i % cols === 0 || key[i - 1] === key[i]) continue
+      const x = (i % cols) * (colW + GAP) - GAP / 2
+      const y = Math.floor(i / cols) * pitch
+      path += `M${x} ${y}V${y + rowH}`
     }
-    const diff = (a: number | null, b: number | null) => a !== null && b !== null && a !== b
-    const half = GAP / 2
-    const R = BOX_R + half
-    const vx = (j: number) => j * (colW + GAP) - half
-    const vy = (i: number) => i * pitch - half
-    // which lines leave the corner where gap row i meets gap column j
-    const at = (i: number, j: number) => {
-      const tl = key(i - 1, j - 1), tr = key(i - 1, j), bl = key(i, j - 1), br = key(i, j)
-      return { up: diff(tl, tr), down: diff(bl, br), left: diff(tl, bl), right: diff(tr, br) }
-    }
-    const corner = (i: number, j: number) => {
-      const e = at(i, j)
-      const n = +e.up + +e.down + +e.left + +e.right
-      return n === 2 && (e.up || e.down) && (e.left || e.right) ? e : null
-    }
-    let d = ''
-    for (let i = 0; i <= rows; i++) {
-      for (let j = 0; j <= cols; j++) {
-        const here = at(i, j)
-        // the line going right from here (between the days above and below), then the one going down
-        if (here.right) {
-          const x0 = vx(j) + (corner(i, j) ? R : 0)
-          const x1 = vx(j + 1) - (corner(i, j + 1) ? R : 0)
-          d += `M${x0} ${vy(i)}H${x1}`
-        }
-        if (here.down) {
-          const y0 = vy(i) + (corner(i, j) ? R : 0)
-          const y1 = vy(i + 1) - (corner(i + 1, j) ? R : 0)
-          d += `M${vx(j)} ${y0}V${y1}`
-        }
-        const c = corner(i, j)
-        if (c) {
-          const hd = c.right ? 1 : -1
-          const vd = c.down ? 1 : -1
-          d += `M${vx(j) + hd * R} ${vy(i)}A${R} ${R} 0 0 ${hd * vd > 0 ? 0 : 1} ${vx(j)} ${vy(i) + vd * R}`
-        }
-      }
-    }
-    return d
-  }, [cells, cols, colW, pitch])
+    return path
+  }, [cells, cols, colW, pitch, rowH])
   const rows = Math.ceil(cells.length / cols)
   return (
     <div ref={box} onScroll={onScroll} onPointerDown={down} onWheel={() => (programmatic.current = false)} onTouchStart={() => (programmatic.current = false)} data-month-scroll className="scroll-soft fade-mask min-h-0 flex-1 cursor-[inherit] select-none overflow-y-auto overscroll-contain">
@@ -259,7 +225,7 @@ export const MonthScroller = forwardRef<MonthHandle, { base: string; cols: numbe
         })}
       </div>
       <svg aria-hidden className="pointer-events-none absolute left-0 top-0 overflow-visible" width={size.w} height={rows * pitch}>
-        <path d={divider} fill="none" strokeWidth={1} strokeDasharray="1 3" className="stroke-lilac-500" />
+        <path d={divider} fill="none" strokeWidth={2} strokeLinecap="round" className="stroke-lilac-500" />
       </svg>
       </div>
     </div>
