@@ -32,7 +32,7 @@ data model later. What exists now, and what each next step needs.
    fields (title, notes, status, dates, tags), and list items merged by id.
 6. **Server-side guard rails.** Per-workspace size limits, rate limits, audit trail of deletions (the tombstones are
    already kept), and a way to export a workspace.
-7. **Notifications.** Assigned-to-you and mention reminders through the same Web Push work already on the roadmap.
+7. **Notifications.** Assigned-to-you and mention reminders through the Web Push that is now built (`api/remind.ts` would also look at assigned tasks).
 8. **Real push for liveness** (optional): replace the 2 s fast poll with server-sent events or a realtime service
    when many people share one workspace.
 

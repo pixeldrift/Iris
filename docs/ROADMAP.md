@@ -1,17 +1,27 @@
 # Lilac roadmap
 
 ## Recently shipped
-Progress view with stages you can edit and drop-anywhere ordering; the calendar's endless month grid and day schedule (durations,
-fit to the gap); separate Scheduled for / Deadline dates (○ and ● on the calendar) with their own reminders; a place on every item (pin, map link); repeats
-that end or skip a day; multi-select filters and the views/filters split in the sidebar; auto urgency; the timeline restyle;
-the pop game with Fun / Game / Delete modes, stats and a play limit. (The README describes each.)
+Web Push reminders that reach you when the app is closed (working in a first real test; still to check on an iPhone Home Screen);
+list ordering ("My order") and "at <place>" in quick add; Progress view with stages you can edit and drop-anywhere ordering; the
+calendar's endless month grid (dotted outline/solid bubbles for scheduled/deadline, month dividers, an unscheduled tray) and day
+schedule; separate Scheduled for / Deadline dates with their own reminders; a place on every item; repeats that end or skip a day;
+multi-select filters and the views/filters split in the sidebar; auto urgency; the timeline restyle; the pop game with Fun / Game /
+Delete modes, stats and a play limit; a tidier Settings. (The README describes each.)
 
 ## Next, in order
-1. **Reminders when the app is closed** (Web Push), the biggest practical gap for a to-do app. See *Reminders & push* below.
-2. **Blended bubbles** (a gradient of a bubble's groups) and a quick "at <place>" in natural-language quick add.
-3. **Attachments and dropping things onto the pond**, then **Overview goals**.
-4. **Calendar sync**, once accounts and sync are live on your Neon database.
-5. **Themes**, then the **native Swift port** of `src/core`.
+1. **Sharing and assigning, per group. (The headline feature: see *Collaboration* below.)** Share a group with someone, as you
+   would share a note in iOS: you both see and edit its tasks, and you can **assign a task to a person**, who is told and can
+   filter to what is theirs. People asked for this first.
+2. **Blended bubbles** (a gradient of a bubble's groups): a small visual win to slot in alongside.
+3. **Attachments and dropping things onto the pond** (images first; the storage choice is worth a design chat), then
+   **Overview goals**.
+4. **Accounts you can rely on:** email verification and password reset (needs an email provider). Needed before inviting
+   people into shared groups at any scale, and for email invitations.
+5. **Calendar sync** (CalDAV, Google), now that accounts and sync are live.
+6. **Themes**, then the **native Swift port** of `src/core`.
+
+Also worth a pass on real devices: Web Push on an iPhone Home Screen, and the recent calendar touch behaviour (drag-scrolling,
+the unscheduled tray, sideways phone).
 
 ## Near term
 - **Connections. (First version built.)** People who use Lilac can link their address-book entries so details fill in and
@@ -40,7 +50,7 @@ the pop game with Fun / Game / Delete modes, stats and a play limit. (The README
   and password reset (needs an email provider), passkeys / social sign-in, syncing settings, shared rate limiting,
   and server-assigned versions before collaboration.
 - **Reminders & push.** In-app reminders and system notifications (while the app is open) have shipped.
-  Web Push (VAPID) delivery for the PWA is built (see README, "Notifications when the app is closed"); untested on real devices. Still to do: APNs for native.
+  Web Push (VAPID) delivery for the PWA is built and working in a first real test (see README, "Notifications"); still to check on an iPhone Home Screen. Still to do: APNs for native, and notifications for assignments (see *Collaboration*).
   iOS only delivers web push to PWAs added to the Home Screen (16.4+).
 - **Calendar sync (Google, Apple, others).** Connect external calendars so Lilac and they share
   information, two ways: events created or changed in Lilac show up in the calendar app, and the other
@@ -94,14 +104,38 @@ the pop game with Fun / Game / Delete modes, stats and a play limit. (The README
   `POST /api/account` removes the person's workspace, devices and sign-in after they re-enter their email and
   password; "Clear everything" and the demo data switches are in My settings.)
 
-## Collaboration (future)
-- Share a folder or a single bubble with other people; shared folders show up in everyone's sidebar.
-- People you tag can become collaborators: assign a task, see who changed what, gentle presence
-  (their cursor as a drifting petal on a shared pond).
-- Comments on a task, and @mentions that notify.
-- Conflict handling: last-write-wins per field today; move to CRDT/field-level merge when real-time
-  collaboration lands.
-- Permissions: viewer / editor per folder, link sharing with expiry.
+## Collaboration (next up)
+**The goal: shared lists, like a shared note in iOS.** Two or more people open the same group and see and edit the same tasks,
+see what the other added, and can **assign tasks to each other**.
+
+**The unit is the group.** Sharing is per group (a group and the groups under it), not the whole pond; everything else stays
+private. A shared group appears in everyone's sidebar with its members' initials, and its tasks show in every view and filter
+like any other.
+
+What people will be able to do:
+- **Share a group.** From the group's menu: invite by link, or pick someone you are already *connected* with (Connections
+  exists). Roles per person: *editor* (add, change, tick off) or *viewer* (read only); you stay the owner.
+- **Assign a task.** An *Assigned to* field on a task (and `@name` in quick add: "Pick up milk @Sam"). Assignees come from the
+  group's members. Anyone can assign within a shared group; unassigned stays open for whoever gets to it.
+- **Know what is yours.** A new *Assigned to me* filter in the sidebar; a small avatar on assigned tasks; a notification
+  (the bell, and Web Push, which is already built) when something is assigned to you or someone completes your task.
+- **See who did what.** "Added by", "completed by" and a recent-activity line per shared group.
+- **Stay in sync.** Edits from others arrive within seconds (the fast sync pace already switches on when two people have it open).
+
+How it is built (the groundwork exists: see `COLLABORATION.md`):
+- Each shared group becomes its own *workspace*, with its members and roles; the tasks in it are rewritten into that workspace.
+  Sync, role checks on writes and "who last wrote this" are already in place on the server.
+- A task lives in one workspace. Tagging a private task into a shared group moves it there (with a confirmation saying who will
+  see it); tagging a shared task into a private group keeps it in the shared one.
+- Assignment needs the link between an address-book *person* and a Lilac *user* (`person.userId`, which Connections already
+  establishes), so "Sam" in your book is the Sam who can be assigned.
+- Conflicts: two people editing one task at once needs more than last-write-wins: server-assigned versions first, then
+  field-level merge for title, notes, status, dates and tags.
+- Invitations, expiring links, leaving a group, and removing a member (what they keep, what they lose).
+
+Later: comments on a task and @mentions that notify; gentle presence (a drifting petal for each person on a shared pond);
+sharing a single task with someone outside a group; link sharing with expiry; moving to real-time (server-sent events) when many
+people share a group.
 
 ## Themes (future)
 The pond is a canvas, so the whole mood can change. Each theme swaps the background, the bubble
@@ -121,7 +155,7 @@ material, the ambient sound bed and the particles, and nothing else.
   daisy, tulip, lavender…) so they stay distinguishable for color-blind users and read faster at a glance.
   Each new folder cycles through the available shapes and colors by default (preselected), and the folder
   options popover lets you pick any shape and color you like.
-- **Blended bubbles.** A bubble that lives in more than one folder could show a color gradient made of
+- **Blended bubbles (next, see the list at the top).** A bubble that lives in more than one folder could show a color gradient made of
   its folders' colors (or a small ring of their flowers) instead of only its first folder's hue.
 
 - **Petal fill / highlighting.** Fill or highlight a number of a flower's petals to show something at a
