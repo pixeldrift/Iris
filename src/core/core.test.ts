@@ -417,9 +417,9 @@ describe('quick add', () => {
   it('knows deadlines from plans, and next weeks', () => {
     expect(p('Buy milk by friday')).toMatchObject({ title: 'Buy milk', due: '2026-10-30' })
     expect(p('Buy milk by friday').day).toBeUndefined()
-    expect(p('Hand in essay next friday').day).toBe('2026-11-06')
-    expect(p('Submit essay oct 31')).toMatchObject({ title: 'Submit essay', day: '2026-10-31' })
-    expect(p('Party in 3 days').day).toBe('2026-10-30')
+    expect(p('Hand in essay next friday').due).toBe('2026-11-06') // (a date on its own is when it is due)
+    expect(p('Submit essay oct 31')).toMatchObject({ title: 'Submit essay', due: '2026-10-31' })
+    expect(p('Party in 3 days').due).toBe('2026-10-30')
   })
   it('time ranges', () => {
     expect(p('Team meeting 3-4:30pm tomorrow')).toMatchObject({ title: 'Team meeting', time: '15:00', endTime: '16:30', day: '2026-10-28' })
@@ -439,7 +439,7 @@ describe('quick add', () => {
     const tagged = p('Read chapters #English 101 @Rose next monday')
     expect(tagged.folderIds).toEqual(['eng101'])
     expect(tagged.personIds).toEqual(['p-grandma'])
-    expect(tagged.day).toBe('2026-11-02')
+    expect(tagged.due).toBe('2026-11-02')
     expect(tagged.title).toBe('Read chapters')
   })
   it('leaves plain text alone', () => {
@@ -648,7 +648,7 @@ describe('yesterday, today and tomorrow', () => {
   })
   it('can be typed as a date', () => {
     const q = parseQuickAdd('Return the book yesterday', new Date(2026, 10, 2), { folders: [], people: [] })
-    expect(q.day).toBe('2026-11-01')
+    expect(q.due).toBe('2026-11-01')
   })
 })
 
@@ -668,7 +668,8 @@ describe('day schedule maths', () => {
     expect(formatDuration(45)).toBe('45 min')
     expect(formatDuration(120)).toBe('2 hr')
     expect(spanOnDay({ kind: 'event', time: '09:00', endTime: null })).toEqual({ s: 540, e: 600 })
-    expect(spanOnDay({ kind: 'task', time: '09:00', endTime: null })).toBeNull()
+    expect(spanOnDay({ kind: 'task', time: '09:00', endTime: null })).toEqual({ s: 540, e: 600 }) // (the kind is only a layout: anything with a start time is at that time)
+    expect(spanOnDay({ time: null, endTime: null })).toBeNull()
   })
   it('puts overlapping events side by side and finds the free gaps', () => {
     const spans = [{ s: 540, e: 600 }, { s: 570, e: 630 }, { s: 720, e: 780 }]
@@ -942,5 +943,20 @@ describe('a group whose parent is not here', () => {
     const tops = childrenOf([f('shared', 'not-here'), f('own', null, 1), f('kid', 'own')], null).map((x) => x.id)
     expect(tops).toEqual(['shared', 'own'])
     expect(childrenOf([f('shared', 'not-here'), f('own', null, 1), f('kid', 'own')], 'own').map((x) => x.id)).toEqual(['kid'])
+  })
+})
+
+describe('quick add: due dates and times', () => {
+  const now = new Date(2026, 9, 28, 10, 0)
+  const ctx = { folders: [], people: [] }
+  it('a date with "due" and a time is a deadline with a time, not an event', () => {
+    const q = parseQuickAdd('Hand in essay due friday 6pm', now, ctx)
+    expect(q).toMatchObject({ title: 'Hand in essay', due: '2026-10-30', dueTime: '18:00' })
+    expect(q.time).toBeUndefined()
+    expect(q.kind).toBeUndefined()
+  })
+  it('a day with a time is a time to be at it (an event), and a day alone is a due date', () => {
+    expect(parseQuickAdd('Dentist friday 2:30pm', now, ctx)).toMatchObject({ day: '2026-10-30', time: '14:30', kind: 'event' })
+    expect(parseQuickAdd('Buy milk friday', now, ctx)).toMatchObject({ due: '2026-10-30' })
   })
 })

@@ -8,7 +8,6 @@ import { drop } from '../audio/engine'
 import { useExit } from './anim'
 import { IconChevronDown, IconClose, KindIcon } from './icons'
 import { MenuItem, Popover } from './Popover'
-import { TagInput } from './TagInput'
 import { TaskFields } from './TaskDetail'
 import { KindHint, KINDS } from './shared'
 import type { TaskKind } from '../core/types'
@@ -137,6 +136,7 @@ export function NewTask() {
   const fieldsFrom = (q: typeof parsed) => ({
     ...(q?.day ? { day: q.day } : {}),
     ...(q?.due ? { due: q.due } : {}),
+    ...(q?.dueTime ? { dueTime: q.dueTime } : {}),
     ...(q?.time ? { time: q.time } : {}),
     ...(q?.endTime ? { endTime: q.endTime } : {}),
     ...(q?.remindAt ? { remindAt: q.remindAt } : {}),
@@ -332,7 +332,6 @@ export function NewTask() {
         {more && draft && (
           <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2" style={{ paddingBottom: "calc(0.25rem + var(--kb, 0px) * 0.5)" }}>
             <TaskFields task={draft} withKind={false} />
-            {draft.kind !== 'task' && draft.kind !== 'idea' && <TagInput taskId={draft.id} />}
           </div>
         )}
         {more && draft && (

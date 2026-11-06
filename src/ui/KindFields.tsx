@@ -15,8 +15,8 @@ import { MenuItem, Popover } from './Popover'
 import { askNotify } from './notify'
 import { ALERT_CHOICES, alertLabel, nextAlertChoice } from '../core/reminders'
 
-/** An event: the day, a start and end time, and where. */
-export function EventFields({ task }: { task: Task }) {
+/** The day it is scheduled for, optionally with a start and end (or a duration): one fact told three ways. */
+export function ScheduleFields({ task, dateLabel = 'Date' }: { task: Task; dateLabel?: React.ReactNode }) {
   const update = useStore((s) => s.updateTask)
   const tasks = useStore((s) => s.tasks)
   // the free room around this event on its day: out to the events either side of it
@@ -33,7 +33,7 @@ export function EventFields({ task }: { task: Task }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <DatePicker label="Date" value={task.day} onChange={(v) => update(task.id, { day: v })} />
+        <DatePicker label={dateLabel} value={task.day} onChange={(v) => update(task.id, { day: v })} />
         <span />
         {/* start, end and duration are one fact told three ways: moving the start carries the end along, and end and duration follow each other */}
         <TimePicker label="Starts" value={task.time} onChange={(v) => update(task.id, patchStart(task, v))} />
@@ -61,6 +61,16 @@ export function EventFields({ task }: { task: Task }) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/** An event: the schedule, where, and its reminders. */
+export function EventFields({ task }: { task: Task }) {
+  const update = useStore((s) => s.updateTask)
+  return (
+    <div className="space-y-3">
+      <ScheduleFields task={task} />
       <label className="block text-xs font-medium text-ink-soft">
         Where
         <span className="mt-1 flex items-center gap-1.5">
@@ -113,7 +123,7 @@ function AlertRow({ minutes, taken, onChange, onRemove }: { minutes: number; tak
 }
 
 /** Reminders before an event: as many as you like, each its own row. */
-function EventAlerts({ task }: { task: Task }) {
+export function EventAlerts({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const alerts = task.alerts ?? []
   const set = (next: number[]) => update(task.id, { alerts: next, alertsDone: [] })

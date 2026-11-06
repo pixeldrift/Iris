@@ -120,7 +120,7 @@ function alertLabel(minutes) {
 function dueAlerts(tasks, now, startsFor) {
   const out = [];
   for (const t of tasks) {
-    if (t.draft || t.kind !== "event" || !t.alerts?.length || t.status === "done") continue;
+    if (t.draft || !t.alerts?.length || t.status === "done") continue;
     for (const start of startsFor(t)) {
       for (const minutes of t.alerts) {
         const at = start - minutes * 6e4;

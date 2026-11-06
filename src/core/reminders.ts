@@ -62,7 +62,7 @@ export function remindFromRule(t: Pick<Task, 'day' | 'due' | 'time'> & { dueTime
 export function reminderPresets(t: Task, now: number, which: 'do' | 'due' = 'do'): ReminderPreset[] {
   const today = toISO(new Date(now))
   const list: ReminderPreset[] = []
-  const start = t.kind === 'event' && which === 'do' ? eventStart(t) : null
+  const start = which === 'do' ? eventStart(t) : null // (anything with a day and a start time has "before it starts" choices)
   if (start) {
     list.push({ id: 'at', label: 'At start', at: start })
     list.push({ id: '10m', label: '10 min before', at: start - 10 * MIN })
@@ -139,7 +139,7 @@ export interface DueAlert {
 export function dueAlerts(tasks: Task[], now: number, startsFor: (t: Task) => number[]): DueAlert[] {
   const out: DueAlert[] = []
   for (const t of tasks) {
-    if (t.draft || t.kind !== 'event' || !t.alerts?.length || t.status === 'done') continue
+    if (t.draft || !t.alerts?.length || t.status === 'done') continue
     for (const start of startsFor(t)) {
       for (const minutes of t.alerts) {
         const at = start - minutes * 60_000

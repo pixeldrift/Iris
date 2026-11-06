@@ -152,7 +152,7 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
     >
       {relativeLabel(when)}
       {/* tomorrow is just "Tomorrow"; the time only rides along for days further out */}
-      {task.kind === 'event' && task.time && when !== addDays(today(), 1) && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
+      {task.time && when !== addDays(today(), 1) && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
       {!compact && task.day && task.due && task.due !== task.day && <i className="ml-1 font-normal opacity-70">· due {relativeLabel(task.due)}</i>}
     </span>
   )

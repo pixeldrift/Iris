@@ -72,6 +72,11 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
               next.dueRemindAt = remindFromRule(next, next.dueRemindBefore, Date.now(), 'due')
               next.dueReminded = false
             }
+            // the type is only which fields are shown: giving a task a time makes it an event, and taking the time away makes it a task again
+            if ('time' in patch) {
+              if (patch.time && next.kind === 'task') next.kind = 'event'
+              else if (!patch.time && next.kind === 'event') next.kind = 'task'
+            }
             return next
           }),
         })),

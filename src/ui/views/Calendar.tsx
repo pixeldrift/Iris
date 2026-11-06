@@ -43,7 +43,7 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
     >
       {rich && <DoneButton task={task} size={16} />}
       <span className={`min-w-0 flex-1 truncate ${isDone ? 'line-through' : ''}`}>
-        {task.kind === 'event' && task.time ? `${formatTime(task.time)} ` : ''}
+        {task.time ? `${formatTime(task.time)} ` : ''}
         {task.title}
       </span>
       {rich && (
@@ -86,8 +86,8 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
         <span className={`block truncate ${isDone ? 'text-ink-faint line-through' : ''}`}>
           {task.title || 'Untitled'}
         </span>
-        {((task.kind === 'event' && task.time) || task.place.trim()) && (
-          <span className="block truncate text-xs text-ink-faint">{[task.kind === 'event' && task.time ? formatTime(task.time) : '', task.place.trim()].filter(Boolean).join(' · ')}</span>
+        {((task.time && !deadline) || (deadline && task.dueTime) || task.place.trim()) && (
+          <span className="block truncate text-xs text-ink-faint">{[deadline ? (task.dueTime ? `Due ${formatTime(task.dueTime)}` : '') : task.time ? formatTime(task.time) : '', task.place.trim()].filter(Boolean).join(' · ')}</span>
         )}
       </span>
       <span className="shrink-0 text-lilac-600/70" aria-hidden title={task.kind}>

@@ -3,7 +3,8 @@ import type { Task } from '../core/types'
 import { SegmentedToggle } from './SegmentedToggle'
 import { ListEditor } from './ListEditor'
 import { ReminderField } from './ReminderField'
-import { EventFields, RecentStrip, RepeatField } from './KindFields'
+import { EventAlerts, RecentStrip, RepeatField, ScheduleFields } from './KindFields'
+import { formatTime } from '../core/tasks'
 import { useEffect, useRef, useState } from 'react'
 import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
@@ -111,52 +112,6 @@ function AssignField({ task }: { task: Task }) {
   )
 }
 
-function WhenFields({ task }: { task: Task }) {
-  const update = useStore((s) => s.updateTask)
-  const setDue = useStore((s) => s.setDue)
-  const [more, setMore] = useState(() => !!task.start || !task.rollover)
-  return (
-    <div className="space-y-3 rounded-2xl bg-white/35 p-3">
-      <div>
-        <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">When</h4>
-        <p className="text-[0.7rem] text-ink-faint"><DateMark kind="scheduled" />Scheduled for is the day you’ll do it; <DateMark kind="deadline" />Deadline is when it has to be done. On the calendar the outlined circle is the first, the filled one the second.</p>
-      </div>
-      <div className="space-y-1.5">
-        <DatePicker label={<><DateMark kind="scheduled" />Scheduled for</>} value={task.day} onChange={(v) => update(task.id, { day: v })} />
-        <ReminderField task={task} which="do" label="Remind me on the day" />
-      </div>
-      <div className="space-y-1.5">
-        <DatePicker label={<><DateMark kind="deadline" />Deadline</>} value={task.due} onChange={(v) => setDue(task.id, v)} />
-        <ReminderField task={task} which="due" label="Remind me before the deadline" />
-      </div>
-      <div>
-        <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} className="text-xs text-lilac-700 hover:underline">
-          {more ? 'Fewer options' : 'More options'}
-        </button>
-        {more && (
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <DatePicker label="Timeline start" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
-            <div className="text-xs font-medium text-ink-soft">
-              If I don’t finish
-              <button
-                type="button"
-                onClick={() => update(task.id, { rollover: !task.rollover })}
-                aria-pressed={task.rollover}
-                className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
-              >
-                {task.rollover ? 'Carry to next day' : 'Leave it here'}
-                <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
-                  <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 /** A line that folds open: for the things most people leave alone (repeats, a separate day to work on it). */
 function Twirl({ title, summary, open, onToggle, children }: { title: string; summary?: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
@@ -191,17 +146,21 @@ function DueField({ task }: { task: Task }) {
   )
 }
 
-/** A day to work on it, apart from when it is due: optional, so it is folded away until wanted. */
+/**
+ * A day to do it, apart from when it is due: optional, so it is folded away until wanted. Give it a start (and an end, or a duration) and
+ * it is something at a set time, which is all an event is.
+ */
 function PlanField({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
-  const [open, setOpen] = useState(() => !!task.day || !!task.start || !task.rollover)
+  const [open, setOpen] = useState(() => !!task.day || !!task.start || !task.rollover || task.kind === 'event')
+  const summary = task.day ? `${relativeLabel(task.day)}${task.time ? ` · ${formatTime(task.time)}${task.endTime ? `–${formatTime(task.endTime)}` : ''}` : ''}` : undefined
   return (
-    <Twirl title="Plan a day to work on it" summary={task.day ? `Planned for ${relativeLabel(task.day)}` : undefined} open={open} onToggle={() => setOpen((o) => !o)}>
+    <Twirl title={task.kind === 'event' ? 'When' : 'Plan a day to work on it'} summary={summary} open={open} onToggle={() => setOpen((o) => !o)}>
       <p className="text-[0.7rem] text-ink-faint">
-        <DateMark kind="deadline" />Due is when it has to be done. <DateMark kind="scheduled" />The day you plan to do it is separate: it shows on the calendar on that day, with the deadline marked too.
+        <DateMark kind="deadline" />Due is when it has to be done. <DateMark kind="scheduled" />The day you plan to do it is separate, and can have a time too (or a start and end: an hour to work on it); it shows on the calendar then.
       </p>
-      <DatePicker label={<><DateMark kind="scheduled" />Work on it on</>} value={task.day} onChange={(v) => update(task.id, { day: v })} />
-      {task.day && <ReminderField task={task} which="do" label="Remind me that day" />}
+      <ScheduleFields task={task} dateLabel={<><DateMark kind="scheduled" />Work on it on</>} />
+      {task.time ? <EventAlerts task={task} /> : task.day ? <ReminderField task={task} which="do" label="Remind me that day" /> : null}
       <div className="grid grid-cols-2 gap-3">
         <DatePicker label="Timeline start" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
         <div className="text-xs font-medium text-ink-soft">
@@ -223,22 +182,40 @@ function PlanField({ task }: { task: Task }) {
   )
 }
 
-/** Something to do, in the order people reach for things: where it belongs, when it is due, the reminder, then the rest. */
-function TaskLayout({ task }: { task: Task }) {
+/**
+ * Something to do (or be at, or keep doing), in the order people reach for things: where it belongs, when it is due, the reminder, then the
+ * rest. The type only decides which of these show (it is a layout, not a category): a list adds its entries, a habit leaves out the dates
+ * and opens its repeats.
+ */
+function TaskLayout({ task, links }: { task: Task; links: { href: string; label: string; who: string }[] }) {
   const update = useStore((s) => s.updateTask)
   const setStatus = useStore((s) => s.setStatus)
-  const [repeatOpen, setRepeatOpen] = useState(() => !!task.repeat)
+  const habit = task.kind === 'habit'
+  const [repeatOpen, setRepeatOpen] = useState(() => !!task.repeat || habit)
   return (
     <>
       <TagInput taskId={task.id} />
+      {links.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {links.map((l) => (
+            <a key={l.href} href={l.href} className="rounded-full bg-lilac-100 px-3.5 py-1.5 text-sm text-lilac-700 shadow-sm transition hover:bg-lilac-200">
+              {l.label} {l.who}
+            </a>
+          ))}
+        </div>
+      )}
       <AssignField task={task} />
-      <DueField task={task} />
-      <PlanField task={task} />
-      <Twirl title="Repeats" summary={task.repeat ? describeRecurrence(task.repeat) : undefined} open={repeatOpen} onToggle={() => setRepeatOpen((o) => !o)}>
-        <p className="text-[0.7rem] text-ink-faint">For something you want to keep doing, a Habit is usually the better fit.</p>
-        <RepeatField task={task} />
-        {!!task.repeat && <RecentStrip task={task} />}
-      </Twirl>
+      {task.kind === 'list' && <ListEditor task={task} />}
+      {!habit && <DueField task={task} />}
+      {!habit && <PlanField task={task} />}
+      {task.kind !== 'list' && (
+        <Twirl title="Repeats" summary={task.repeat ? describeRecurrence(task.repeat) : undefined} open={repeatOpen} onToggle={() => setRepeatOpen((o) => !o)}>
+          {task.kind === 'task' && <p className="text-[0.7rem] text-ink-faint">For something you want to keep doing, a Habit is usually the better fit.</p>}
+          <RepeatField task={task} />
+          {(!!task.repeat || habit) && <RecentStrip task={task} />}
+        </Twirl>
+      )}
+      {habit && <ReminderField task={task} />}
       <PlaceField task={task} />
       <textarea
         value={task.notes}
@@ -253,21 +230,23 @@ function TaskLayout({ task }: { task: Task }) {
         <SoftSlider label="How much it matters" shown="Importance" compact left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
         <SoftSlider label="How urgent it is" shown="Urgency" compact left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
       </div>
-      <div>
-        <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
-        <div className="flex gap-1.5">
-          {STATUSES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setStatus(task.id, s.id)}
-              title={s.hint}
-              className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
-            >
-              {s.one}
-            </button>
-          ))}
+      {!habit && (
+        <div>
+          <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
+          <div className="flex gap-1.5">
+            {STATUSES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setStatus(task.id, s.id)}
+                title={s.hint}
+                className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
+              >
+                {s.one}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </>
   )
 }
@@ -325,7 +304,6 @@ function NotionFields({ task }: { task: Task }) {
 export function TaskFields({ task, withKind = true }: { task: Task; withKind?: boolean }) {
   const people = useStore((s) => s.people)
   const update = useStore((s) => s.updateTask)
-  const setStatus = useStore((s) => s.setStatus)
   const linked = people.filter((p) => task.personIds.includes(p.id))
   const links = linked.flatMap((p) => allLinks(p).map((l) => ({ ...l, who: p.name.split(' ')[0] })))
   const kindToggle = withKind && (
@@ -334,64 +312,10 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
       <KindHint kind={task.kind} className="px-0.5" />
     </div>
   )
-  if (task.kind === 'idea') return <>{kindToggle}<NotionFields task={task} /></>
-  if (task.kind === 'task') return <>{kindToggle}<TaskLayout task={task} /></>
   return (
     <>
       {kindToggle}
-
-      {task.kind === 'list' && <ListEditor task={task} />}
-      {task.kind === 'event' && <EventFields task={task} />}
-      {task.kind !== 'event' && <PlaceField task={task} />}
-      {task.kind !== 'list' && <RepeatField task={task} />}
-      {(!!task.repeat || task.kind === 'habit') && <RecentStrip task={task} />}
-
-      {links.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {links.map((l) => (
-            <a key={l.href} href={l.href} className="rounded-full bg-lilac-100 px-3.5 py-1.5 text-sm text-lilac-700 shadow-sm transition hover:bg-lilac-200">
-              {l.label} {l.who}
-            </a>
-          ))}
-        </div>
-      )}
-
-      {task.kind === 'habit' && <ReminderField task={task} />}
-
-      <textarea
-        value={task.notes}
-        onChange={(e) => update(task.id, { notes: e.target.value })}
-        placeholder="Notes, thoughts, anything…"
-        aria-label="Notes"
-        rows={3}
-        className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
-      />
-
-      <div className="space-y-3">
-        <SoftSlider label="How much it matters" left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
-        <SoftSlider label="How urgent it is" left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
-      </div>
-
-      <AssignField task={task} />
-      {task.kind !== 'event' && task.kind !== 'habit' && <WhenFields task={task} />}
-
-      {task.kind !== 'habit' && (
-      <div>
-        <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
-        <div className="flex gap-1.5">
-          {STATUSES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setStatus(task.id, s.id)}
-              title={s.hint}
-              className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
-            >
-              {s.one}
-            </button>
-          ))}
-        </div>
-      </div>
-      )}
+      {task.kind === 'idea' ? <NotionFields task={task} /> : <TaskLayout task={task} links={links} />}
     </>
   )
 }
@@ -505,7 +429,7 @@ export function TaskDetail() {
         </div>
 
         <footer className="space-y-3 border-t border-white/60 px-5 pb-4 pt-3">
-          {task.kind !== 'task' && task.kind !== 'idea' && <TagInput taskId={task.id} />}
+          
           <div className="flex items-center gap-2">
             <button
               onClick={async () => {

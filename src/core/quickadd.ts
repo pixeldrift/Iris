@@ -13,6 +13,8 @@ export interface QuickAdd {
   kind?: TaskKind
   day?: string
   due?: string
+  /** The time of day it is due, when one was typed with "due". */
+  dueTime?: string
   time?: string
   endTime?: string
   remindAt?: number
@@ -315,11 +317,15 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     if (out.remindAt) out.chips.push(`Remind ${formatDate(day, { weekday: true })}${start ? ` · ${formatTime(start)}` : ''}`)
   } else {
     if (date) {
-      if (dueMode) out.due = date
+      // a date on its own is when it is due; with a time of day it is a time to be somewhere or do it (a day and a start)
+      const asDue = dueMode || !start
+      if (asDue) out.due = date
       else out.day = date
-      out.chips.push(dueMode ? `Due ${formatDate(date, { weekday: true })}` : formatDate(date, { weekday: true }))
+      out.chips.push(asDue ? `Due ${formatDate(date, { weekday: true })}${dueMode && start ? ` · ${formatTime(start)}` : ''}` : formatDate(date, { weekday: true }))
     }
-    if (start) {
+    if (start && dueMode && date) {
+      out.dueTime = start // "due friday 6pm": the deadline has a time; nothing is scheduled at it
+    } else if (start) {
       out.time = start
       if (end) out.endTime = end
       out.chips.push(end ? `${formatTime(start)} – ${formatTime(end)}` : formatTime(start))
