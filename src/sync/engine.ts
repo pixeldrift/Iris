@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { arrive } from '../audio/engine'
 import { apiToken } from './auth'
 import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normalize'
+import { alignTaskWorkspaces } from './share'
 import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
 import { useStore } from '../state/store'
 import { emptyMemory, hashOf, keyOf, localChanges, remoteToApply, type Change, type Entity, type Kind, type SyncMemory } from './diff'
@@ -195,6 +196,7 @@ async function syncOnce(userId: string) {
       // stray copies of the samples (from older versions) are removed here, on every pass, so the deletion syncs too
       const kept = dropSampleCopies(useStore.getState().tasks)
       if (kept !== useStore.getState().tasks) suppressHistory(() => useStore.setState({ tasks: kept }))
+      alignTaskWorkspaces() // (a task in a shared group is in its workspace)
       const ents = entities()
       const { changes, stamps } = localChanges(ents, mem, Date.now())
       const pushed = hashes()

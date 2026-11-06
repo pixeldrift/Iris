@@ -73,6 +73,12 @@ test('sharing a group: invite a connection, they join and are given a task, then
   await row(bob, 'Trip planning').click()
   await expect(bob.getByText('Book flights').first()).toBeVisible({ timeout: 20_000 })
 
+  // a task Ann adds to the shared group after it was shared reaches Bob too
+  await ann.keyboard.press('n')
+  await ann.keyboard.type('Hotel booked')
+  await ann.keyboard.press('Enter')
+  await expect(bob.getByText('Hotel booked').first()).toBeVisible({ timeout: 25_000 })
+
   // Bob is given the task (any member can be picked), and Ann is told nothing here but Bob is told when Ann gives it
   await bob.getByText('Book flights').first().click({ force: true }) // (a drifting bubble is never still)
   await expect(bob.getByLabel('Assigned to')).toBeVisible()

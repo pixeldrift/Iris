@@ -17,6 +17,8 @@ import { IconPencil, IconPerson, IconPlus, IconTrash } from '../icons'
 import { Disclosure, Gap, rowBase } from './parts'
 import { slotFor, useFolderSlot } from './folderSlot'
 import { FolderOptions } from './FolderOptions'
+import { openShareDialog } from '../ShareDialog'
+import { accountsConfigured } from '../../sync/auth'
 
 export interface NodeProps {
   folder: Folder
@@ -158,6 +160,7 @@ export function FolderNode(props: NodeProps) {
 
   const actions = [
     { label: 'Add', icon: <IconPlus size={14} />, run: () => openCompose(null, { folderIds: [folder.id] }) },
+    ...(accountsConfigured ? [{ label: folder.workspaceId ? 'Sharing' : 'Share', icon: <IconPerson size={14} />, run: () => openShareDialog(folder.id) }] : []),
     { label: 'Rename', icon: <IconPencil size={14} />, run: () => (window.matchMedia('(hover: hover)').matches ? setEditing(folder.id) : setOptions(true)) },
     {
       label: 'Delete',
