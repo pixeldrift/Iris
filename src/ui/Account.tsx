@@ -215,7 +215,7 @@ function AccountMenu() {
         aria-haspopup="menu"
         aria-expanded={menu}
         aria-label={`Account: ${data.user.name || data.user.email}. ${status}${unread ? `. ${unread} to look at` : ''}`}
-        className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
+        className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-lilac-500 bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
       >
         {picture ? <img src={picture} alt="" draggable={false} className="h-full w-full rounded-full object-cover" /> : initial}
         {sync.status === 'error' && <span aria-hidden title="Couldn’t sync" className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#c95b88] ring-2 ring-white/80" />}
@@ -227,7 +227,7 @@ function AccountMenu() {
       </button>
       <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-60 p-1.5">
         <div className="flex items-center gap-2.5 px-2.5 pb-2 pt-1.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-lilac-200 text-base font-semibold text-lilac-700">{picture ? <img src={picture} alt="" draggable={false} className="h-full w-full object-cover" /> : initial}</span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-lilac-500 bg-lilac-200 text-base font-semibold text-lilac-700">{picture ? <img src={picture} alt="" draggable={false} className="h-full w-full object-cover" /> : initial}</span>
           <div className="min-w-0">
             <div className="truncate text-sm font-medium leading-tight">{data.user.name || data.user.email}</div>
             <div className="truncate text-xs text-ink-faint">{data.user.email}</div>

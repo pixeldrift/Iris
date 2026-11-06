@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useFlip } from './flip'
+import { SPRING } from './lift'
 import { formatClock, formatDate } from '../core/locale'
 import { toISO } from '../core/dates'
 import { create } from 'zustand'
@@ -294,18 +296,63 @@ export function NoticesHost() {
   const clearable = reminders.length + news.length + shareLines.filter((n) => n.kind !== 'share-invite').length
   const remove = (ids?: string[]) => deleteNotices(ids).catch((e) => showToast((e as Error).message))
   const pill = 'rounded-full bg-white/70 px-3 py-1 text-xs text-ink-soft transition hover:bg-white'
+  // a notification that is cleared pops, and the ones below glide up
+  const list = useRef<HTMLUListElement>(null)
+  useFlip(list)
+  const [popping, setPopping] = useState<Set<string>>(new Set())
+  const popOut = (keys: string[], then: () => void) => {
+    if (!keys.length) return then()
+    setPopping((l) => new Set([...l, ...keys]))
+    window.setTimeout(() => {
+      then()
+      setPopping((l) => new Set([...l].filter((k) => !keys.includes(k))))
+    }, 230)
+  }
+  // The box keeps the largest height it has had since it was opened (clearing things does not shrink it under your finger); a new
+  // notification that makes it taller grows it with a small springy overshoot. Closing and opening again starts afresh.
+  const wrap = useRef<HTMLDivElement>(null)
+  const inner = useRef<HTMLDivElement>(null)
+  const floor = useRef(0)
+  useLayoutEffect(() => {
+    const box = wrap.current
+    const body = inner.current
+    if (!open || !box || !body) {
+      floor.current = 0
+      if (box) box.style.minHeight = ''
+      return
+    }
+    const natural = body.offsetHeight
+    if (!floor.current) {
+      floor.current = natural
+      box.style.minHeight = `${natural}px`
+    } else if (natural > floor.current) {
+      const from = floor.current
+      floor.current = natural
+      box.style.minHeight = `${from}px`
+      box.style.overflow = 'hidden'
+      const a = box.animate([{ height: `${from}px` }, { height: `${natural}px` }], { duration: 460, easing: SPRING })
+      a.onfinish = a.oncancel = () => {
+        box.style.overflow = ''
+        box.style.minHeight = `${natural}px`
+      }
+    }
+  })
   return (
     <Modal open={open} onClose={close} label="Notifications">
+     <div ref={wrap}>
+      <div ref={inner}>
       <div className="flex items-center">
         <h3 className="font-display text-xl">Notifications</h3>
         {clearable > 0 && (
           <button
             type="button"
-            onClick={() => {
-              dismissAllAlerts()
-              if (news.length) void remove()
-              if (shareLines.some((n) => n.kind !== 'share-invite')) void clearShareNews().catch((e) => showToast((e as Error).message))
-            }}
+            onClick={() =>
+              popOut([...reminders.map(({ t }) => `r:${t.id}`), ...news.map((n) => `a:${n.id}`), ...shareLines.filter((n) => n.kind !== 'share-invite').map((n) => `s:${n.id}`)], () => {
+                dismissAllAlerts()
+                if (news.length) void remove()
+                if (shareLines.some((n) => n.kind !== 'share-invite')) void clearShareNews().catch((e) => showToast((e as Error).message))
+              })
+            }
             className="ml-auto whitespace-nowrap rounded-full px-3 py-1 text-xs text-lilac-600 transition hover:bg-white/70 hover:text-lilac-700"
           >
             Clear all
@@ -315,9 +362,9 @@ export function NoticesHost() {
           <IconClose size={16} />
         </button>
       </div>
-      <ul className="mt-3 space-y-1.5" aria-label="Notifications">
+      <ul ref={list} className="mt-3 space-y-1.5" aria-label="Notifications">
         {reminders.map(({ t, note }) => (
-          <li key={t.id} className="rounded-2xl bg-white/55 py-2.5 pl-3 pr-2">
+          <li key={t.id} data-flip={`r:${t.id}`} className={`rounded-2xl bg-white/55 py-2.5 pl-3 pr-2 ${popping.has(`r:${t.id}`) ? 'notice-pop' : ''}`}>
             <div className="flex items-start gap-2.5">
               <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-lilac-100 text-lilac-600">
                 <IconBell size={14} />
@@ -329,22 +376,22 @@ export function NoticesHost() {
                   <button type="button" className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30" onClick={() => (select(t.id), dismissAlert(t.id), close())}>
                     Open
                   </button>
-                  <button type="button" className={pill} onClick={() => (setReminder(t.id, Date.now() + 10 * 60_000), dismissAlert(t.id))}>
+                  <button type="button" className={pill} onClick={() => popOut([`r:${t.id}`], () => (setReminder(t.id, Date.now() + 10 * 60_000), dismissAlert(t.id)))}>
                     Snooze 10 min
                   </button>
-                  <button type="button" className={pill} onClick={() => (toggleDone(t.id), dismissAlert(t.id))}>
+                  <button type="button" className={pill} onClick={() => popOut([`r:${t.id}`], () => (toggleDone(t.id), dismissAlert(t.id)))}>
                     {t.kind === 'habit' ? 'Done today' : 'Done'}
                   </button>
                 </div>
               </div>
-              <button type="button" onClick={() => dismissAlert(t.id)} aria-label={`Dismiss ${t.title || 'reminder'}`} title="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
+              <button type="button" onClick={() => popOut([`r:${t.id}`], () => dismissAlert(t.id))} aria-label={`Dismiss ${t.title || 'reminder'}`} title="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
                 <IconClose size={12} />
               </button>
             </div>
           </li>
         ))}
         {invites.map((i) => (
-          <li key={i.id} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
+          <li key={i.id} data-flip={`i:${i.id}`} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{i.from} invited you to share “{i.name}”</div>
               <div className="text-xs text-ink-faint">{i.role === 'viewer' ? 'You’d be able to view it' : 'You’d be able to view and change it'}</div>
@@ -368,7 +415,7 @@ export function NoticesHost() {
               : n.kind === 'assigned' ? `${n.from} gave you “${n.info}”`
               : n.info
             return (
-              <li key={n.id} className="flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-2">
+              <li key={n.id} data-flip={`s:${n.id}`} className={`flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-2 ${popping.has(`s:${n.id}`) ? 'notice-pop' : ''}`}>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-ink">{text}</div>
                   <When iso={n.at} />
@@ -390,14 +437,14 @@ export function NoticesHost() {
                     </button>
                   </>
                 )}
-                <button type="button" onClick={() => void clearShareNews(n.id).catch((e) => showToast((e as Error).message))} aria-label="Clear this notification" title="Clear" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-ink">
+                <button type="button" onClick={() => popOut([`s:${n.id}`], () => void clearShareNews(n.id).catch((e) => showToast((e as Error).message)))} aria-label="Clear this notification" title="Clear" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-ink">
                   <IconClose size={12} />
                 </button>
               </li>
             )
           })}
         {waiting.map((c) => (
-          <li key={c.id} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
+          <li key={c.id} data-flip={`c:${c.id}`} className="flex items-center gap-3 rounded-2xl bg-white/55 px-3 py-2.5">
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{c.name} wants to connect</div>
               <div className="truncate text-xs text-ink-faint">{c.email}</div>
@@ -415,14 +462,14 @@ export function NoticesHost() {
           </li>
         ))}
         {news.map((n) => (
-          <li key={n.id} className="flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-1.5">
+          <li key={n.id} data-flip={`a:${n.id}`} className={`flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-1.5 ${popping.has(`a:${n.id}`) ? 'notice-pop' : ''}`}>
             <div className="min-w-0 flex-1">
               <div className="text-sm text-ink">
                 <span className="font-medium">{n.from}</span> accepted your invitation
               </div>
               <When iso={n.at} />
             </div>
-            <button type="button" onClick={() => void remove([n.id])} aria-label={`Delete notification from ${n.from}`} title="Delete" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
+            <button type="button" onClick={() => popOut([`a:${n.id}`], () => void remove([n.id]))} aria-label={`Delete notification from ${n.from}`} title="Delete" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
               <IconClose size={12} />
             </button>
           </li>
@@ -437,6 +484,8 @@ export function NoticesHost() {
           Close
         </button>
       </div>
+      </div>
+     </div>
     </Modal>
   )
 }

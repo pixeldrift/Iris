@@ -78,6 +78,17 @@ export async function refreshShare() {
   settleUnsharing(s.shares)
 }
 
+/** Who is here right now, asked often and cheaply (the rest of the sharing state changes far less). */
+async function refreshPresence() {
+  const { active } = await call<{ active: string[] }>({ action: 'presence' })
+  const live = new Set(active)
+  useShare.setState((s) => {
+    let changed = false
+    const shares = s.shares.map((sh) => ({ ...sh, members: sh.members.map((m) => { const a = live.has(m.userId); if (a !== m.active) changed = true; return a === m.active ? m : { ...m, active: a } }) }))
+    return changed ? { shares } : s
+  })
+}
+
 /** Keep the sharing state fresh while the app is open (people accept, leave, or assign things at any moment). */
 export function startShare(): () => void {
   const tick = () => {
@@ -85,11 +96,16 @@ export function startShare(): () => void {
   }
   tick()
   const timer = window.setInterval(tick, 20_000)
+  // who is here is asked for much more often (every few seconds, and only when the app is showing and there is someone to ask about)
+  const live = window.setInterval(() => {
+    if (document.visibilityState === 'visible' && useShare.getState().shares.some((x) => x.members.length > 1)) void refreshPresence().catch(() => undefined)
+  }, 4000)
   const wake = () => document.visibilityState === 'visible' && tick()
   document.addEventListener('visibilitychange', wake)
   window.addEventListener('focus', wake)
   return () => {
     window.clearInterval(timer)
+    window.clearInterval(live)
     document.removeEventListener('visibilitychange', wake)
     window.removeEventListener('focus', wake)
     useShare.setState(EMPTY)
