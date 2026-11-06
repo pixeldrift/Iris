@@ -220,7 +220,7 @@ export interface ShareView {
   role: Role
   status: 'active' | 'leaving'
   canCopy: boolean
-  members: { userId: string; name: string; role: Role; status: 'active' | 'leaving' }[]
+  members: { userId: string; name: string; role: Role; status: 'active' | 'leaving'; /** has the app open right now (seen in the last minute) */ active: boolean }[]
   /** invitations still waiting (owner only) */
   pending: number
 }
@@ -244,6 +244,10 @@ export async function shareState(db: Db, who: Caller) {
     "select id, kind, workspace_id, from_user, info, extra, read, created_at from notifications where user_id = $1 and kind like any(array['share-%', 'assigned', 'task-added']) order by created_at desc limit 40",
     [who.userId],
   )
+  // who has the app open right now: a device of theirs checked in with the app visible in the last minute
+  const live = new Set(
+    (await db.query<{ user_id: string }>("select distinct user_id from devices where last_seen > now() - interval '60 seconds' and user_id = any($1::text[])", [[...new Set(mem.rows.map((m) => m.user_id))]])).rows.map((r) => r.user_id),
+  )
   const names = await displayNames(db, [...new Set([...mem.rows.map((m) => m.user_id), ...inv.rows.map((i) => i.created_by), ...news.rows.flatMap((n) => (n.from_user ? [n.from_user] : []))])])
   const nameOf = (id: string) => names.get(id) ?? 'Someone'
   const shares: ShareView[] = mine.rows.map((r) => ({
@@ -253,7 +257,7 @@ export async function shareState(db: Db, who: Caller) {
     role: r.role,
     status: r.status,
     canCopy: r.can_copy,
-    members: mem.rows.filter((m) => m.workspace_id === r.id).map((m) => ({ userId: m.user_id, name: m.user_id === who.userId ? 'You' : nameOf(m.user_id), role: m.role, status: m.status })),
+    members: mem.rows.filter((m) => m.workspace_id === r.id).map((m) => ({ userId: m.user_id, name: m.user_id === who.userId ? 'You' : nameOf(m.user_id), role: m.role, status: m.status, active: live.has(m.user_id) })),
     pending: r.role === 'owner' ? Number(pending.rows.find((p) => p.workspace_id === r.id)?.n ?? 0) : 0,
   }))
   return {
@@ -262,6 +266,14 @@ export async function shareState(db: Db, who: Caller) {
     invites: inv.rows.map((i) => ({ id: i.id, workspaceId: i.workspace_id, name: i.name, from: nameOf(i.created_by), role: i.role })),
     news: news.rows.map((n) => ({ id: n.id, kind: n.kind, workspaceId: n.workspace_id, from: n.from_user ? nameOf(n.from_user) : '', info: n.info ?? '', extra: n.extra ?? '', read: n.read, at: n.created_at })),
   }
+}
+
+/** Clear one piece of news (or all of it): sharing news and assignments, never an invitation that still waits for an answer. */
+export async function clearShareNews(db: Db, who: Caller, body: { id?: unknown }) {
+  const id = idOf(body.id)
+  if (id) await db.query("delete from notifications where id = $1 and user_id = $2 and (kind like 'share-%' or kind in ('assigned', 'task-added')) and kind <> 'share-invite'", [id, who.userId])
+  else await db.query("delete from notifications where user_id = $1 and (kind like 'share-%' or kind in ('assigned', 'task-added')) and kind <> 'share-invite'", [who.userId])
+  return { ok: true }
 }
 
 export async function markShareNewsRead(db: Db, who: Caller) {
@@ -285,6 +297,7 @@ export async function handleShare(db: Db, who: Caller, body: Record<string, unkn
     case 'added': return notifyAdded(db, who, body)
     case 'retire': return retire(db, who, body)
     case 'read': return markShareNewsRead(db, who)
+    case 'clear': return clearShareNews(db, who, body)
     default: throw new BadRequest('Unknown action')
   }
 }

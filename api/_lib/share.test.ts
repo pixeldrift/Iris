@@ -132,3 +132,26 @@ describe('sharing a group', () => {
     expect(again.workspaceId).not.toBe(ws)
   })
 })
+
+describe('presence and clearing news', () => {
+  it('says who has the app open, and clears news without touching an invitation', async () => {
+    const ws = (await createShare(db, as('ann'), { name: 'Live', rootFolderId: `live-${Math.random()}` })).workspaceId
+    await inviteConnection(db, as('ann'), { workspaceId: ws, toUserId: 'bob' })
+    await accept(db, as('bob'), { inviteId: (await shareState(db, as('bob'))).invites[0].id })
+    await applySync(db, 'bob', { cursors: {}, changes: [], device: { id: 'bob-phone' }, active: true })
+    const view = (await shareState(db, as('ann'))).shares.find((x) => x.workspaceId === ws)!
+    expect(view.members.find((m) => m.name === 'Bob')?.active).toBe(true)
+    expect(view.members.find((m) => m.name === 'You')?.active).toBe(false) // (Ann has no device checking in)
+    await db.query("update devices set last_seen = now() - interval '5 minutes' where user_id = 'bob'")
+    expect((await shareState(db, as('ann'))).shares.find((x) => x.workspaceId === ws)!.members.find((m) => m.name === 'Bob')?.active).toBe(false)
+    // news is cleared one at a time or all at once; an invitation that has not been answered stays
+    await notifyAssigned(db, as('ann'), { workspaceId: ws, userId: 'bob', taskId: 'z', title: 'A' })
+    await notifyAssigned(db, as('ann'), { workspaceId: ws, userId: 'bob', taskId: 'y', title: 'B' })
+    const news = (await shareState(db, as('bob'))).news
+    const one = news.find((n) => n.kind === 'assigned')!
+    await handleShare(db, as('bob'), { action: 'clear', id: one.id })
+    expect((await shareState(db, as('bob'))).news.some((n) => n.id === one.id)).toBe(false)
+    await handleShare(db, as('bob'), { action: 'clear' })
+    expect((await shareState(db, as('bob'))).news.filter((n) => n.kind === 'assigned')).toHaveLength(0)
+  })
+})

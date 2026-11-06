@@ -18,6 +18,7 @@ import { Tip } from './Tip'
 import { IconAll, IconBoard, IconCalendar, IconChart, IconInbox, IconBook, IconList, IconPlus, IconPond, IconPriority, IconTimeline } from './icons'
 
 import { Disclosure, Gap, rowBase } from './sidebar/parts'
+import { askName } from './NameDialog'
 import { ScopeRow, Section, weekMonths } from './sidebar/Section'
 import { PersonRow } from './sidebar/PersonRow'
 import { useFolderSlot } from './sidebar/folderSlot'
@@ -106,7 +107,15 @@ export function Sidebar() {
     return live.filter((t) => t.folderIds.some((f) => ids.has(f))).length
   }
 
-  const newFolder = (parentId: string | null) => {
+  const newFolder = async (parentId: string | null) => {
+    // on a touch screen the keyboard would cover a name edited in place: ask in a box above it instead
+    if (window.matchMedia?.('(pointer: coarse)').matches) {
+      const name = await askName(parentId ? 'New subgroup' : 'New group', 'Group name')
+      if (!name) return
+      addFolder(name, parentId)
+      if (parentId) setCollapsed((c) => new Set([...c].filter((x) => x !== parentId)))
+      return
+    }
     const id = addFolder('New group', parentId)
     if (parentId) setCollapsed((c) => new Set([...c].filter((x) => x !== parentId)))
     setEditing(id)

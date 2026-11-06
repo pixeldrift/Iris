@@ -12,6 +12,8 @@ export interface ShareMember {
   name: string
   role: 'owner' | 'editor' | 'viewer'
   status: 'active' | 'leaving'
+  /** has the app open right now */
+  active: boolean
 }
 export interface ShareInfo {
   workspaceId: string
@@ -117,10 +119,45 @@ function moveTo(rootId: string, workspaceId: string | undefined) {
 }
 
 /**
+ * A group inside a shared group is shared with it, by default: a new subgroup (or one dragged in) joins its parent's workspace, and one
+ * dragged out of every shared group comes back to its owner's own space. The group that was actually shared (the root of a share) keeps its own.
+ */
+function alignFolderWorkspaces() {
+  const sh = useShare.getState()
+  if (!sh.loaded) return // (what is shared is not known yet: do not undo anything on a guess)
+  const s = useStore.getState()
+  const roots = new Set(sh.shares.map((x) => x.rootFolderId).filter(Boolean))
+  const byId = new Map(s.folders.map((f) => [f.id, f]))
+  const memo = new Map<string, string | undefined>()
+  const expected = (f: Folder, depth = 0): string | undefined => {
+    if (memo.has(f.id)) return memo.get(f.id)
+    let ws: string | undefined
+    if (roots.has(f.id)) ws = f.workspaceId // a share's own root keeps its workspace
+    else {
+      const parent = f.parentId && depth < 50 ? byId.get(f.parentId) : undefined
+      ws = parent ? expected(parent, depth + 1) : undefined
+    }
+    memo.set(f.id, ws)
+    return ws
+  }
+  let changed = false
+  const folders = s.folders.map((f) => {
+    const ws = expected(f)
+    if (ws === f.workspaceId) return f
+    changed = true
+    if (ws) return { ...f, workspaceId: ws }
+    const { workspaceId: _w, ...rest } = f
+    return rest as Folder
+  })
+  if (changed) suppressHistory(() => useStore.setState({ folders }))
+}
+
+/**
  * A task that is in a shared group lives in that group's workspace, wherever it was made or tagged (so a task added to a shared
  * group after it was shared reaches everyone), and one taken out of every shared group comes back to its owner's own space.
  */
 export function alignTaskWorkspaces() {
+  alignFolderWorkspaces()
   const s = useStore.getState()
   const shared = new Map(s.folders.filter((f) => f.workspaceId).map((f) => [f.id, f.workspaceId as string]))
   if (!shared.size && !s.tasks.some((t) => t.workspaceId)) return
@@ -144,11 +181,15 @@ export async function shareGroup(folder: Folder) {
   const stale = useShare.getState().shares.find((x) => x.rootFolderId === folder.id && x.role === 'owner' && folder.workspaceId !== x.workspaceId)
   if (stale) await call({ action: 'retire', workspaceId: stale.workspaceId }).catch(() => undefined)
   const { workspaceId } = await call<{ workspaceId: string }>({ action: 'create', name: folder.name, rootFolderId: folder.id })
+  await refreshShare() // (so the group is known as a share's root before anything is moved into it)
   moveTo(folder.id, workspaceId)
-  await refreshShare()
 }
 
-export const inviteConnection = (workspaceId: string, toUserId: string, role: 'editor' | 'viewer') => call({ action: 'invite', workspaceId, toUserId, role }).then(refreshShare)
+export const inviteConnection = (workspaceId: string, toUserId: string, role: 'editor' | 'viewer') =>
+  call({ action: 'invite', workspaceId, toUserId, role }).then(() => {
+    notify() // (the same sound they hear when it arrives)
+    return refreshShare()
+  })
 
 export async function inviteLink(workspaceId: string, role: 'editor' | 'viewer'): Promise<string> {
   const { token } = await call<{ token: string }>({ action: 'link', workspaceId, role })
@@ -237,6 +278,8 @@ export async function leaveGroup(share: ShareInfo, keepCopy: boolean) {
 export const acceptInvite = (inviteId: string) => call<{ workspaceId: string; name: string }>({ action: 'accept', inviteId }).then(async (r) => (await refreshShare(), r))
 export const acceptToken = (token: string) => call<{ workspaceId: string; name: string }>({ action: 'accept', token }).then(async (r) => (await refreshShare(), r))
 export const declineInvite = (inviteId: string) => call({ action: 'decline', inviteId }).then(refreshShare)
+/** Clear one bit of sharing news, or all of it (invitations that wait for an answer stay). */
+export const clearShareNews = (id?: string) => call({ action: 'clear', ...(id ? { id } : {}) }).then(refreshShare)
 export const markShareRead = () => call({ action: 'read' }).then(refreshShare)
 
 /** Give a task to a member of its group (and tell them). */
@@ -255,4 +298,12 @@ export function memberPhoto(userId: string, me: string): string | undefined {
   const people = useStore.getState().people
   if (userId === me) return people.find((p) => p.isMe)?.photo
   return people.find((p) => p.link?.userId === userId)?.photo
+}
+
+/** Is this person (a connection whose entry is linked to their account) in a group you share, and have they the app open right now? null when it is not known. */
+export function presenceOf(userId: string | undefined): boolean | null {
+  if (!userId) return null
+  let known: boolean | null = null
+  for (const sh of useShare.getState().shares) for (const m of sh.members) if (m.userId === userId) known = (known ?? false) || m.active
+  return known
 }

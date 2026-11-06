@@ -9,6 +9,7 @@ import { Avatar } from '../shared'
 import { Count, rowBase } from './parts'
 import { hasPart, pickOnly } from '../../core/scope'
 import { useFilterPress } from './filterPress'
+import { presenceOf, useShare } from '../../sync/share'
 
 export function PersonRow({ person, count }: { person: Person; count: number }) {
   const scope = useStore((s) => s.scope)
@@ -18,6 +19,9 @@ export function PersonRow({ person, count }: { person: Person; count: number }) 
   const part = { type: 'person' as const, id: person.id }
   const on = hasPart(scope, part)
   const press = useFilterPress(part)
+  // someone in a shared group with you: a purple ring when they have the app open, grey when not
+  useShare((s) => s.shares)
+  const live = presenceOf(person.link?.userId)
   return (
     <div
       {...props}
@@ -29,7 +33,7 @@ export function PersonRow({ person, count }: { person: Person; count: number }) 
         over ? 'scale-[1.02] bg-lilac-200/80 ring-2 ring-lilac-400/60' : active ? 'ring-1 ring-lilac-300/50' : ''
       }`}
     >
-      <Avatar person={person} size={18} />
+      <Avatar person={person} size={18} className={live === null ? '' : live ? 'ring-1 ring-lilac-500' : 'opacity-60 ring-1 ring-ink-faint/60'} />
       <span className="truncate">{person.name}</span>
       <Count n={count} />
       <span className="absolute right-1.5 flex rounded-lg bg-white/80 px-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">

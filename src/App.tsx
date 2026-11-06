@@ -4,6 +4,7 @@ import { useStore } from './state/store'
 import { audioRunning, pauseAudio, resumeAudio, unlock } from './audio/engine'
 import { applyAudio } from './state/store'
 import { Decor } from './ui/Decor'
+import { NameDialogHost } from './ui/NameDialog'
 import { DialogHost } from './ui/dialogs'
 import { DragLayer } from './ui/dnd'
 import { ContactPromptHost, PersonDialog } from './ui/PeopleDialogs'
@@ -129,6 +130,7 @@ export default function App() {
       <SettingsDialog />
       <DangerHost />
       <DialogHost />
+      <NameDialogHost />
       <ToastHost />
       <UpdateBubble />
       <DragLayer />
