@@ -5,7 +5,7 @@ import { IconGame, IconPop, IconTrash } from '../icons'
 import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL } from '../../core/flock'
-import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
+import { groupTasks, layoutClusters, pairKey, relations, treeOrder } from '../../core/groups'
 import { bubbleRadius, effectiveUrgency } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -21,7 +21,7 @@ import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
-import { canReparent, pathOf } from '../../core/folders'
+import { canReparent, descendantIds, pathOf } from '../../core/folders'
 import { undo } from '../../state/history'
 import { PondMembers } from '../pond/Members'
 import { askName } from '../NameDialog'
@@ -98,6 +98,9 @@ export function Pond() {
     const sx = e.clientX
     const sy = e.clientY
     const sh0 = shifts.current.get(key) ?? { dx: 0, dy: 0 }
+    // the groups inside this one travel with it
+    const family = group === 'folder' && folders.some((f) => f.id === key) ? [...descendantIds(folders, key)].filter((id) => id !== key && clusters.current.has(id)) : []
+    const fam0 = new Map(family.map((id) => [id, shifts.current.get(id) ?? { dx: 0, dy: 0 }]))
     document.body.classList.add('dragging')
     grabbed.current += 1
     const st0 = labelSt.current.get(key) ?? { x: sh0.dx, y: sh0.dy, vx: 0, vy: 0, pinned: false }
@@ -134,13 +137,24 @@ export function Pond() {
         target = t
         setHot(t)
       }
-      for (const id of c.ids) {
-        const m = nodes.current.get(id)
-        const b = c.base.get(id)
-        if (m && b) {
-          m.sim.hx = b.x + sh.dx
-          m.sim.hy = b.y + sh.dy
+      const carry = (cl: typeof c, s: { dx: number; dy: number }) => {
+        for (const id of cl.ids) {
+          const m = nodes.current.get(id)
+          const b = cl.base.get(id)
+          if (m && b) {
+            m.sim.hx = b.x + s.dx
+            m.sim.hy = b.y + s.dy
+          }
         }
+      }
+      carry(c, sh)
+      for (const id of family) {
+        const o = clusters.current.get(id)
+        const f0 = fam0.get(id)!
+        if (!o) continue
+        const fs = { dx: f0.dx + sh.dx - sh0.dx, dy: f0.dy + sh.dy - sh0.dy }
+        shifts.current.set(id, fs)
+        carry(o, fs)
       }
       wake()
     }
@@ -151,6 +165,7 @@ export function Pond() {
         const into = folders.find((f) => f.id === target)
         const moved = folders.find((f) => f.id === key)
         shifts.current.delete(key)
+        for (const id of family) shifts.current.delete(id)
         moveFolder(key, target)
         if (moved && into) showToast(`“${moved.name}” is now inside “${into.name}”`, { label: 'Undo', run: undo })
         setHot(null)
@@ -395,10 +410,12 @@ export function Pond() {
         // the groups on this level are named in the pond even when nothing is in them yet (so there is somewhere to drop a bubble, and to add to)
         const scopeId = scopeRef.current.type === 'folder' ? scopeRef.current.id : null
         const have = new Set(groups.map((g) => g.key))
+        const within = scopeId ? descendantIds(folders, scopeId) : null
         const empties = folders
-          .filter((f) => f.parentId === scopeId && !have.has(f.id))
+          .filter((f) => (within ? within.has(f.id) && f.id !== scopeId : true) && !have.has(f.id))
           .map((f) => ({ key: f.id, label: f.name, taskIds: [] as string[], hue: f.hue, path: pathOf(folders, f.id).map((x) => ({ id: x.id, name: x.name })) }))
-        const at = (key: string) => folders.find((f) => f.id === key)?.sort ?? 99
+        const order = treeOrder(folders)
+        const at = (key: string) => order.get(key) ?? 99
         if (empties.length) groups = [...groups, ...empties].sort((a, b) => at(a.key) - at(b.key))
       }
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
