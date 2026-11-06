@@ -42,8 +42,8 @@ export function patchDuration(t: Pick<Task, 'time' | 'endTime'>, minutes: number
 }
 
 /** Where an event sits in its day, in minutes. An event with a start but no end is drawn for a default hour. */
-export function spanOnDay(t: Pick<Task, 'kind' | 'time' | 'endTime'>): { s: number; e: number } | null {
-  if (t.kind !== 'event' || !t.time) return null
+export function spanOnDay(t: Pick<Task, 'time' | 'endTime'> & { kind?: string }): { s: number; e: number } | null {
+  if (!t.time) return null // (anything with a start time is at that time, whatever kind it was made as)
   const s = toMin(t.time)
   const e = t.endTime && toMin(t.endTime) > s ? toMin(t.endTime) : Math.min(s + DEFAULT_MIN, DAY_MIN)
   return { s, e: Math.max(e, s + 5) }

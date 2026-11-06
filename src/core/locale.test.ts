@@ -31,8 +31,8 @@ describe('locale', () => {
   })
   it('reads 3/4 as March 4 unless dates are day-first', () => {
     const now = new Date(2026, 0, 2)
-    expect(parseQuickAdd('dentist 3/4', now, { folders: [], people: [] }).day).toBe('2026-03-04')
+    expect(parseQuickAdd('dentist 3/4', now, { folders: [], people: [] }).due).toBe('2026-03-04')
     setLocalePrefs({ date: 'dmy' })
-    expect(parseQuickAdd('dentist 3/4', now, { folders: [], people: [] }).day).toBe('2026-04-03')
+    expect(parseQuickAdd('dentist 3/4', now, { folders: [], people: [] }).due).toBe('2026-04-03')
   })
 })

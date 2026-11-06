@@ -10,7 +10,7 @@ import { acceptRequest, declineRequest, deleteNotices, disconnectFrom, markNotic
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
 import { NotificationsRow } from './SettingsDialog'
-import { acceptInvite, clearShareNews, declineInvite, leaveGroup, markShareRead, useShare } from '../sync/share'
+import { acceptInvite, clearShareNews, declineInvite, describeNews, leaveGroup, markShareRead, useShare } from '../sync/share'
 import { IconBell, IconClose, IconLink } from './icons'
 import { closeNotices, dismissAlert, dismissAllAlerts, useAlerts, useNoticesOpen } from './notices'
 
@@ -408,12 +408,7 @@ export function NoticesHost() {
           .filter((n) => n.kind !== 'share-invite')
           .map((n) => {
             const leaving = n.kind === 'share-removed' ? shares.find((x) => x.workspaceId === n.workspaceId && x.status === 'leaving') : undefined
-            const text =
-              n.kind === 'share-removed' ? `${n.from} stopped sharing “${n.info}” with you${n.extra === 'copy' ? '. You can keep a copy.' : '.'}`
-              : n.kind === 'share-joined' ? `${n.from} joined “${n.info}”`
-              : n.kind === 'share-left' ? `${n.from} left “${n.info}”`
-              : n.kind === 'assigned' ? `${n.from} gave you “${n.info}”`
-              : n.info
+            const text = describeNews(n)
             return (
               <li key={n.id} data-flip={`s:${n.id}`} className={`flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-2 ${popping.has(`s:${n.id}`) ? 'notice-pop' : ''}`}>
                 <div className="min-w-0 flex-1">
@@ -476,11 +471,12 @@ export function NoticesHost() {
         ))}
       </ul>
       {reminders.length === 0 && waiting.length === 0 && news.length === 0 && invites.length === 0 && shareLines.length === 0 && <p className="py-5 text-center text-sm text-ink-faint">Nothing new.</p>}
-      <div className="mt-4 border-t border-white/50 pt-1">
-        <NotificationsRow compact />
-      </div>
-      <div className="mt-2 flex justify-end">
-        <button type="button" className={btnGhost} onClick={close}>
+      {/* the allow-notifications switch and Close share one line, apart from the list above */}
+      <div className="mt-3 flex items-center gap-2 border-t border-white/50 pt-2">
+        <div className="min-w-0 flex-1">
+          <NotificationsRow compact />
+        </div>
+        <button type="button" className={`${btnGhost} shrink-0`} onClick={close}>
           Close
         </button>
       </div>

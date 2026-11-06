@@ -3,23 +3,28 @@ import type { Task } from '../core/types'
 import { SegmentedToggle } from './SegmentedToggle'
 import { ListEditor } from './ListEditor'
 import { ReminderField } from './ReminderField'
-import { EventFields, RecentStrip, RepeatField } from './KindFields'
+import { EventAlerts, RecentStrip, RepeatField, ScheduleFields } from './KindFields'
+import { formatTime } from '../core/tasks'
 import { useEffect, useRef, useState } from 'react'
 import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
 import { DateMark, DatePicker } from './DatePicker'
+import { TimePicker } from './TimePicker'
+import { notionImageFrom } from './photo'
+import { describeRecurrence } from '../core/recurrence'
+import { relativeLabel } from '../core/dates'
 import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
-import { IconCheck, IconClose, IconPencil, IconTrash } from './icons'
+import { IconCheck, IconChevron, IconClose, IconPencil, IconPlus, IconTrash } from './icons'
 import { DoneButton, KindHint, KINDS, OpenPlace, STATUSES } from './shared'
 import { TagInput } from './TagInput'
 import { Tip } from './Tip'
 
-function SoftSlider({ label, left, right, value, onChange, actual, actualNote }: { label: string; left: string; right: string; value: number; onChange: (v: number) => void; actual?: number; actualNote?: string }) {
+function SoftSlider({ label, shown = label, compact = false, left, right, value, onChange, actual, actualNote }: { label: string; shown?: string; compact?: boolean; left: string; right: string; value: number; onChange: (v: number) => void; actual?: number; actualNote?: string }) {
   return (
-    <label className="block">
-      <span className="mb-0.5 block text-xs font-medium text-ink-soft">{label}</span>
+    <label className="block" title={`${label}: ${left} … ${right}`}>
+      <span className="mb-0.5 block truncate text-xs font-medium text-ink-soft">{shown}</span>
       <span className="relative block">
         <input type="range" min={0} max={1} step="any" value={value} onChange={(e) => onChange(Number(e.target.value))} className="soft" aria-label={label} />
         {/* a small dot under the slider where the value really in use sits, when it is not where the slider has been left */}
@@ -36,10 +41,12 @@ function SoftSlider({ label, left, right, value, onChange, actual, actualNote }:
           </span>
         )}
       </span>
-      <span className="-mt-1.5 flex justify-between text-[0.68rem] leading-none text-ink-faint">
-        <span>{left}</span>
-        <span>{right}</span>
-      </span>
+      {!compact && (
+        <span className="-mt-1.5 flex justify-between text-[0.68rem] leading-none text-ink-faint">
+          <span>{left}</span>
+          <span>{right}</span>
+        </span>
+      )}
     </label>
   )
 }
@@ -105,74 +112,89 @@ function AssignField({ task }: { task: Task }) {
   )
 }
 
-function WhenFields({ task }: { task: Task }) {
-  const update = useStore((s) => s.updateTask)
-  const setDue = useStore((s) => s.setDue)
-  const [more, setMore] = useState(() => !!task.start || !task.rollover)
+/** A line that folds open: for the things most people leave alone (repeats, a separate day to work on it). */
+function Twirl({ title, summary, open, onToggle, children }: { title: string; summary?: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
-    <div className="space-y-3 rounded-2xl bg-white/35 p-3">
-      <div>
-        <h4 className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">When</h4>
-        <p className="text-[0.7rem] text-ink-faint"><DateMark kind="scheduled" />Scheduled for is the day you’ll do it; <DateMark kind="deadline" />Deadline is when it has to be done. On the calendar the outlined circle is the first, the filled one the second.</p>
-      </div>
-      <div className="space-y-1.5">
-        <DatePicker label={<><DateMark kind="scheduled" />Scheduled for</>} value={task.day} onChange={(v) => update(task.id, { day: v })} />
-        <ReminderField task={task} which="do" label="Remind me on the day" />
-      </div>
-      <div className="space-y-1.5">
-        <DatePicker label={<><DateMark kind="deadline" />Deadline</>} value={task.due} onChange={(v) => setDue(task.id, v)} />
-        <ReminderField task={task} which="due" label="Remind me before the deadline" />
-      </div>
-      <div>
-        <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} className="text-xs text-lilac-700 hover:underline">
-          {more ? 'Fewer options' : 'More options'}
-        </button>
-        {more && (
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <DatePicker label="Timeline start" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
-            <div className="text-xs font-medium text-ink-soft">
-              If I don’t finish
-              <button
-                type="button"
-                onClick={() => update(task.id, { rollover: !task.rollover })}
-                aria-pressed={task.rollover}
-                className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
-              >
-                {task.rollover ? 'Carry to next day' : 'Leave it here'}
-                <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
-                  <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+    <div>
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-1.5 rounded-xl px-1 py-1 text-left text-xs font-medium text-ink-soft transition hover:text-ink">
+        <span className={`text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
+          <IconChevron size={13} />
+        </span>
+        <span>{title}</span>
+        {summary && !open && <span className="min-w-0 flex-1 truncate text-right font-normal text-lilac-700">{summary}</span>}
+      </button>
+      {open && <div className="mt-1.5 space-y-2.5 rounded-2xl bg-white/35 p-3">{children}</div>}
     </div>
   )
 }
 
-/** Every editable field of a task, one under another. Used by the side panel and by the quick-add box. */
-export function TaskFields({ task, withKind = true }: { task: Task; withKind?: boolean }) {
-  const people = useStore((s) => s.people)
+/** When it is due (a day, and a time if it matters) and the reminder that comes with it. */
+function DueField({ task }: { task: Task }) {
+  const setDue = useStore((s) => s.setDue)
+  return (
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+        <DatePicker label={<><DateMark kind="deadline" />Due</>} value={task.due} onChange={(v) => setDue(task.id, v)} />
+        {task.due && (
+          <div className="min-w-[7.5rem]">
+            <TimePicker label="Time" value={task.dueTime ?? null} onChange={(v) => setDue(task.id, task.due, v)} placeholder="Any time" />
+          </div>
+        )}
+      </div>
+      <ReminderField task={task} which="due" label="Remind me" />
+    </div>
+  )
+}
+
+/**
+ * A day to do it, apart from when it is due: optional, so it is folded away until wanted. Give it a start (and an end, or a duration) and
+ * it is something at a set time, which is all an event is.
+ */
+function PlanField({ task }: { task: Task }) {
+  const update = useStore((s) => s.updateTask)
+  const [open, setOpen] = useState(() => !!task.day || !!task.start || !task.rollover || task.kind === 'event')
+  const summary = task.day ? `${relativeLabel(task.day)}${task.time ? ` · ${formatTime(task.time)}${task.endTime ? `–${formatTime(task.endTime)}` : ''}` : ''}` : undefined
+  return (
+    <Twirl title={task.kind === 'event' ? 'When' : 'Plan a day to work on it'} summary={summary} open={open} onToggle={() => setOpen((o) => !o)}>
+      <p className="text-[0.7rem] text-ink-faint">
+        <DateMark kind="deadline" />Due is when it has to be done. <DateMark kind="scheduled" />The day you plan to do it is separate, and can have a time too (or a start and end: an hour to work on it); it shows on the calendar then.
+      </p>
+      <ScheduleFields task={task} dateLabel={<><DateMark kind="scheduled" />Work on it on</>} />
+      {task.time ? <EventAlerts task={task} /> : task.day ? <ReminderField task={task} which="do" label="Remind me that day" /> : null}
+      <div className="grid grid-cols-2 gap-3">
+        <DatePicker label="Timeline start" value={task.start} max={task.due} onChange={(v) => update(task.id, { start: v })} />
+        <div className="text-xs font-medium text-ink-soft">
+          If I don’t finish
+          <button
+            type="button"
+            onClick={() => update(task.id, { rollover: !task.rollover })}
+            aria-pressed={task.rollover}
+            className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
+          >
+            {task.rollover ? 'Carry to next day' : 'Leave it here'}
+            <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
+              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
+            </span>
+          </button>
+        </div>
+      </div>
+    </Twirl>
+  )
+}
+
+/**
+ * Something to do (or be at, or keep doing), in the order people reach for things: where it belongs, when it is due, the reminder, then the
+ * rest. The type only decides which of these show (it is a layout, not a category): a list adds its entries, a habit leaves out the dates
+ * and opens its repeats.
+ */
+function TaskLayout({ task, links }: { task: Task; links: { href: string; label: string; who: string }[] }) {
   const update = useStore((s) => s.updateTask)
   const setStatus = useStore((s) => s.setStatus)
-  const linked = people.filter((p) => task.personIds.includes(p.id))
-  const links = linked.flatMap((p) => allLinks(p).map((l) => ({ ...l, who: p.name.split(' ')[0] })))
+  const habit = task.kind === 'habit'
+  const [repeatOpen, setRepeatOpen] = useState(() => !!task.repeat || habit)
   return (
     <>
-      {withKind && (
-      <div className="space-y-1.5">
-      <SegmentedToggle label="Type" value={task.kind} options={KINDS} onChange={(k) => update(task.id, { kind: k })} />
-        <KindHint kind={task.kind} className="px-0.5" />
-      </div>
-      )}
-
-      {task.kind === 'list' && <ListEditor task={task} />}
-      {task.kind === 'event' && <EventFields task={task} />}
-      {task.kind !== 'event' && <PlaceField task={task} />}
-      {task.kind !== 'list' && <RepeatField task={task} />}
-      {(!!task.repeat || task.kind === 'habit') && <RecentStrip task={task} />}
-
+      <TagInput taskId={task.id} />
       {links.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {links.map((l) => (
@@ -182,43 +204,118 @@ export function TaskFields({ task, withKind = true }: { task: Task; withKind?: b
           ))}
         </div>
       )}
-
-      {task.kind === 'habit' && <ReminderField task={task} />}
-
+      <AssignField task={task} />
+      {task.kind === 'list' && <ListEditor task={task} />}
+      {!habit && <DueField task={task} />}
+      {!habit && <PlanField task={task} />}
+      {task.kind !== 'list' && (
+        <Twirl title="Repeats" summary={task.repeat ? describeRecurrence(task.repeat) : undefined} open={repeatOpen} onToggle={() => setRepeatOpen((o) => !o)}>
+          {task.kind === 'task' && <p className="text-[0.7rem] text-ink-faint">For something you want to keep doing, a Habit is usually the better fit.</p>}
+          <RepeatField task={task} />
+          {(!!task.repeat || habit) && <RecentStrip task={task} />}
+        </Twirl>
+      )}
+      {habit && <ReminderField task={task} />}
+      <PlaceField task={task} />
       <textarea
         value={task.notes}
         onChange={(e) => update(task.id, { notes: e.target.value })}
-        placeholder="Notes, thoughts, anything…"
+        placeholder="Notes…"
         aria-label="Notes"
         rows={3}
         className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
       />
-
-      <div className="space-y-3">
-        <SoftSlider label="How much it matters" left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
-        <SoftSlider label="How urgent it is" left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
+      {/* both sliders on one line: most people never touch them (the priority grid does the fine tuning) */}
+      <div className="grid grid-cols-2 gap-4">
+        <SoftSlider label="How much it matters" shown="Importance" compact left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
+        <SoftSlider label="How urgent it is" shown="Urgency" compact left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
       </div>
-
-      <AssignField task={task} />
-      {task.kind !== 'event' && task.kind !== 'habit' && <WhenFields task={task} />}
-
-      {task.kind !== 'habit' && (
-      <div>
-        <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
-        <div className="flex gap-1.5">
-          {STATUSES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setStatus(task.id, s.id)}
-              title={s.hint}
-              className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
-            >
-              {s.one}
-            </button>
-          ))}
+      {!habit && (
+        <div>
+          <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
+          <div className="flex gap-1.5">
+            {STATUSES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setStatus(task.id, s.id)}
+                title={s.hint}
+                className={`flex-1 rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
+              >
+                {s.one}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
       )}
+    </>
+  )
+}
+
+/** A notion: a scribble on the back of a napkin. Where it belongs, the words (a big box), a picture. Nothing else. */
+function NotionFields({ task }: { task: Task }) {
+  const update = useStore((s) => s.updateTask)
+  const showToast = useStore((s) => s.showToast)
+  const input = useRef<HTMLInputElement>(null)
+  return (
+    <>
+      <TagInput taskId={task.id} />
+      <textarea
+        value={task.notes}
+        onChange={(e) => update(task.id, { notes: e.target.value })}
+        placeholder="Jot it down: a thought, a link, something to remember…"
+        aria-label="Notes"
+        rows={9}
+        className="well w-full resize-y rounded-2xl px-3.5 py-3 text-sm leading-relaxed"
+      />
+      {task.image ? (
+        <div className="relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
+          <img src={task.image} alt="" draggable={false} className="max-h-72 w-full object-contain" />
+          <button type="button" onClick={() => update(task.id, { image: undefined })} aria-label="Remove the picture" className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/85 text-ink-soft shadow transition hover:text-[#b04a6e]">
+            <IconClose size={13} />
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => input.current?.click()} className="glass-soft flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm text-lilac-700 transition hover:bg-white/80">
+          <IconPlus size={14} /> Add a picture
+        </button>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        aria-label="Choose a picture"
+        onChange={async (e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (!file) return
+          try {
+            update(task.id, { image: await notionImageFrom(file) })
+          } catch (err) {
+            showToast((err as Error).message)
+          }
+        }}
+      />
+    </>
+  )
+}
+
+/** Every editable field of a task, one under another. Used by the side panel and by the quick-add box. */
+export function TaskFields({ task, withKind = true }: { task: Task; withKind?: boolean }) {
+  const people = useStore((s) => s.people)
+  const update = useStore((s) => s.updateTask)
+  const linked = people.filter((p) => task.personIds.includes(p.id))
+  const links = linked.flatMap((p) => allLinks(p).map((l) => ({ ...l, who: p.name.split(' ')[0] })))
+  const kindToggle = withKind && (
+    <div className="space-y-1.5">
+      <SegmentedToggle label="Type" value={task.kind} options={KINDS} onChange={(k) => update(task.id, { kind: k })} />
+      <KindHint kind={task.kind} className="px-0.5" />
+    </div>
+  )
+  return (
+    <>
+      {kindToggle}
+      {task.kind === 'idea' ? <NotionFields task={task} /> : <TaskLayout task={task} links={links} />}
     </>
   )
 }
@@ -283,9 +380,11 @@ export function TaskDetail() {
       >
         <header className="flex items-start gap-3 px-5 pb-2 pt-5">
           {/* stays level with the first line of the title when it wraps */}
-          <span className="mt-[5px] shrink-0">
-            <DoneButton task={task} size={26} />
-          </span>
+          {task.kind !== 'idea' && (
+            <span className="mt-[5px] shrink-0">
+              <DoneButton task={task} size={26} />
+            </span>
+          )}
           {editingTitle ? (
             <input
               ref={titleRef}
@@ -332,7 +431,7 @@ export function TaskDetail() {
         </div>
 
         <footer className="space-y-3 border-t border-white/60 px-5 pb-4 pt-3">
-          <TagInput taskId={task.id} />
+          
           <div className="flex items-center gap-2">
             <button
               onClick={async () => {

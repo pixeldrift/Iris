@@ -33,7 +33,7 @@ export const KINDS = [
   { id: 'event', label: 'Event', hint: 'Event: a specific occurrence with a time or place.' },
   { id: 'habit', label: 'Habit', hint: 'Habit: a repeating action with a goal of consistency.' },
   { id: 'list', label: 'List', hint: 'List: a set of things to check off, like groceries.' },
-  { id: 'idea', label: 'Idea', hint: 'Idea: a loose thought to keep for later.' },
+  { id: 'idea', label: 'Notion', hint: 'Notion: a passing thought, a link, a scribble to keep for later. No dates, no fuss.' },
 ] as const
 
 /** One light italic line saying what the chosen type is for. */
@@ -47,6 +47,8 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
   const toggle = useStore((s) => s.toggleDone)
   const occ = repeatOf(task) ? (currentOccurrence(task, today()) ?? today()) : null
   const done = occ ? task.log.includes(occ) : task.status === 'done'
+  // a notion is a passing thought, not an obligation: nothing to tick off
+  if (task.kind === 'idea') return null
   return (
     <button
       onPointerDown={(e) => e.stopPropagation()}
@@ -152,7 +154,7 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
     >
       {relativeLabel(when)}
       {/* tomorrow is just "Tomorrow"; the time only rides along for days further out */}
-      {task.kind === 'event' && task.time && when !== addDays(today(), 1) && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
+      {task.time && when !== addDays(today(), 1) && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
       {!compact && task.day && task.due && task.due !== task.day && <i className="ml-1 font-normal opacity-70">· due {relativeLabel(task.due)}</i>}
     </span>
   )

@@ -17,3 +17,35 @@ export async function portraitFrom(file: File): Promise<string> {
   bitmap.close?.()
   return canvas.toDataURL('image/jpeg', 0.82)
 }
+
+/**
+ * A picture for a notion: shrunk to fit 480px and saved as a JPEG, made lighter until it is under about 45 KB, so it can travel with the
+ * item when it syncs (an item may be at most 64 KB in all).
+ */
+export async function notionImageFrom(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  let max = 480
+  for (;;) {
+    const k = Math.min(1, max / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * k))
+    canvas.height = Math.max(1, Math.round(bitmap.height * k))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('This browser can’t prepare pictures.')
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    for (const q of [0.78, 0.62, 0.48, 0.36]) {
+      const url = canvas.toDataURL('image/jpeg', q)
+      if (url.length <= 45_000) {
+        bitmap.close?.()
+        return url
+      }
+    }
+    max = Math.round(max * 0.75)
+    if (max < 120) {
+      bitmap.close?.()
+      return canvas.toDataURL('image/jpeg', 0.3)
+    }
+  }
+}

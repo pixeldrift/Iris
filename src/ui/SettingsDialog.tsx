@@ -307,6 +307,7 @@ export function SettingsDialog() {
           <Row k="limitPlay" label="Limit play time" hint="3 minutes of play at a time, then a break" />
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
           <NotificationsRow />
+          <Row k="autoRemind" label="Remind me about due dates" hint="a reminder comes with every due date (you can change or remove it)" />
           {accountsConfigured && <Row k="notifyShared" label="Tell others about my new tasks" hint="when I add one to a shared group (off by default)" />}
         </Group>
         <Group title="Date &amp; Time">

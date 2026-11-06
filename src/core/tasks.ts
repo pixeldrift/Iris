@@ -128,7 +128,7 @@ export function nextAllowedDay(from: string, days: number[] | null | undefined):
  * shows as overdue.
  */
 export function rolloverDay(t: Task, now = today()): string | null {
-  if (t.kind === 'event' || repeatOf(t)) return null // an event is at its time; a series just repeats
+  if (t.kind === 'event' || (t.day && t.time) || repeatOf(t)) return null // anything at a set time is at its time; a series just repeats
   if (t.status === 'done' || !t.day || t.rollover === false || t.day >= now) return null
   const next = nextAllowedDay(now, t.days)
   if (t.due && next > t.due) return null

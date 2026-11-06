@@ -3,6 +3,7 @@ import { GRAY, tint } from '../../core/color'
 import type { Folder } from '../../core/types'
 import { useStore } from '../../state/store'
 import { confirmDeleteFolder } from './confirmDelete'
+import { deleteGroup } from '../../sync/share'
 import { FLOWER_SHAPES, Flower } from '../Flower'
 import { Popover } from '../Popover'
 import { IconCheck, IconPerson, IconPlus, IconTrash } from '../icons'
@@ -28,7 +29,6 @@ export function FolderOptions({
 }) {
   const renameFolder = useStore((s) => s.renameFolder)
   const updateFolder = useStore((s) => s.updateFolder)
-  const deleteFolder = useStore((s) => s.deleteFolder)
   const [name, setName] = useState(folder.name)
   useEffect(() => {
     if (open) setName(folder.name)
@@ -46,7 +46,7 @@ export function FolderOptions({
             onClick={async () => {
               onClose()
               const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
-              if (choices) deleteFolder(folder.id, choices)
+              if (choices) void deleteGroup(folder, choices)
             }}
             className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
           >

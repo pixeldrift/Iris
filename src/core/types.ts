@@ -85,6 +85,10 @@ export interface Task {
   start: string | null
   /** The deadline. */
   due: string | null
+  /** The time of day it is due (`HH:MM`), when the deadline is more than a day. */
+  dueTime?: string | null
+  /** A notion's picture, a small JPEG as a data URL. */
+  image?: string
   /** The day you plan to do it. Optional and separate from `due`; falls back to `due`. */
   day: string | null
   /** Carry over to the next day when not finished. Defaults to on. */

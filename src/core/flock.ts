@@ -47,6 +47,15 @@ export const WATER_FEEL = {
   push: 0.085,
 }
 
+/** A "force field" around a group: bubbles that are not its own cannot come inside it. */
+export interface Field {
+  cx: number
+  cy: number
+  R: number
+  /** The bubbles that belong to the group (they are free to be inside). */
+  ids: Set<string>
+}
+
 export interface Bump {
   id: string
   strength: number
@@ -62,6 +71,7 @@ export function stepSim(
   p: SimParams,
   related: (a: string, b: string) => boolean,
   dt = 1,
+  fields: Field[] = [],
 ): { bumps: Bump[]; energy: number } {
   const bumps: Bump[] = []
   for (let i = 0; i < nodes.length; i++) {
@@ -130,8 +140,68 @@ export function stepSim(
     a.vy *= p.damping
     a.x += a.vx * dt
     a.y += a.vy * dt
-    energy += a.vx * a.vx + a.vy * a.vy
   }
+
+  // Hard limits, after the soft pushing above: a group's field keeps other groups' bubbles out, and no two bubbles may overlap (even
+  // in the same group). A bubble that is held (pinned) is not moved, so it can be carried across a field to be dropped into a group.
+  for (const f of fields) {
+    for (const a of nodes) {
+      if (a.pinned || f.ids.has(a.id)) continue
+      const dx = a.x - f.cx
+      const dy = a.y - f.cy
+      const d = Math.hypot(dx, dy) || 0.001
+      const lim = f.R + a.r + 4
+      if (d < lim) {
+        const ux = dx / d
+        const uy = dy / d
+        a.x += ux * (lim - d)
+        a.y += uy * (lim - d)
+        const inward = a.vx * ux + a.vy * uy
+        if (inward < 0) {
+          a.vx -= ux * inward
+          a.vy -= uy * inward
+        }
+      }
+    }
+  }
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i]
+        const b = nodes[j]
+        if (a.pinned && b.pinned) continue
+        let dx = b.x - a.x
+        let dy = b.y - a.y
+        let dist = Math.hypot(dx, dy)
+        const min = a.r + b.r + 2
+        if (dist >= min) continue
+        if (dist < 0.001) {
+          dx = Math.random() - 0.5
+          dy = Math.random() - 0.5
+          dist = Math.hypot(dx, dy) || 1
+        }
+        const nx = dx / dist
+        const ny = dy / dist
+        const wa = a.pinned ? 0 : b.pinned ? 1 : a.heavy ? 0.25 : b.heavy ? 0.75 : 0.5
+        const wb = 1 - wa
+        const over = min - dist
+        a.x -= nx * over * wa
+        a.y -= ny * over * wa
+        b.x += nx * over * wb
+        b.y += ny * over * wb
+        // they stop closing in on each other (no springing back into the overlap)
+        const closing = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny
+        if (closing > 0) {
+          a.vx -= nx * closing * wa
+          a.vy -= ny * closing * wa
+          b.vx += nx * closing * wb
+          b.vy += ny * closing * wb
+        }
+      }
+    }
+  }
+  // (counted after the hard limits, so a bubble just pressing against another, which the limits keep still, does not keep the water awake)
+  for (const a of nodes) if (!a.pinned) energy += a.vx * a.vx + a.vy * a.vy
   return { bumps, energy }
 }
 
