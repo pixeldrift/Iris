@@ -40,6 +40,8 @@ export interface Settings {
   systemNotifications: boolean
   /** Tell the others in a shared group when I add a task to it (off unless chosen). */
   notifyShared: boolean
+  /** A due date brings a reminder with it. */
+  autoRemind: boolean
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */
@@ -114,7 +116,7 @@ export interface TasksSlice {
   removeFromFolder: (taskId: string, folderId: string) => void
   addPerson: (taskId: string, personId: string) => void
   removePerson: (taskId: string, personId: string) => void
-  setDue: (taskId: string, due: string | null) => void
+  setDue: (taskId: string, due: string | null, dueTime?: string | null) => void
   /** Plan the task for a day (separate from its deadline). */
   setDay: (taskId: string, day: string | null) => void
   /** Move unfinished tasks planned for past days to their next available day. */

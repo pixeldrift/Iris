@@ -1,4 +1,4 @@
-import { addDays, today } from '../../core/dates'
+import { addDays, fromISO, today } from '../../core/dates'
 import { descendantIds, pathOf } from '../../core/folders'
 import { detectContactIntent, matchPerson } from '../../core/people'
 import { patchForStage, planRank, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
@@ -68,7 +68,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
               next.reminded = false
             }
             // and the deadline's own reminder follows the deadline
-            if (next.dueRemindBefore != null && 'due' in patch) {
+            if (next.dueRemindBefore != null && ('due' in patch || 'dueTime' in patch)) {
               next.dueRemindAt = remindFromRule(next, next.dueRemindBefore, Date.now(), 'due')
               next.dueReminded = false
             }
@@ -159,12 +159,28 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         if (!t) return
         get().updateTask(taskId, { personIds: t.personIds.filter((p) => p !== personId) })
       },
-      setDue: (taskId, due) => {
+      setDue: (taskId, due, dueTime) => {
         const t = get().tasks.find((x) => x.id === taskId)
         if (!t) return
-        const patch: Partial<Task> = { due, urgency: urgencyForDue(t.urgency, due) }
+        const time = due ? (dueTime === undefined ? (t.dueTime ?? null) : dueTime) : null
+        const patch: Partial<Task> = { due, dueTime: time, urgency: urgencyForDue(t.urgency, due) }
         if (due && t.start && t.start > due) patch.start = due
         get().updateTask(taskId, patch)
+        // A due date brings a reminder with it (unless this item has had one before, or the person has turned that off): with a time, an hour
+        // before; without, the morning of. It shows like any other reminder, so it can be changed or taken away, and stays gone once it has been.
+        if (due && get().settings.autoRemind && t.kind !== 'idea' && t.dueRemindBefore === undefined && (t.dueRemindAt ?? null) === null) {
+          const now = Date.now()
+          if (time) {
+            const [h, m] = time.split(':').map(Number)
+            const d = fromISO(due)
+            d.setHours(h, m, 0, 0)
+            const at = d.getTime() - 60 * 60_000
+            if (at > now) get().setReminder(taskId, at, null, 'due')
+          } else {
+            const at = remindFromRule({ day: null, due, time: null }, 0, now, 'due')
+            if (at) get().setReminder(taskId, at, 0, 'due')
+          }
+        }
       },
 
       setDay: (taskId, day) => get().updateTask(taskId, { day }),

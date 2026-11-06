@@ -64,9 +64,9 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
   let dueMode = false
 
   // "idea: ...", "list: ..." etc
-  let r = take(t, /^\s*(task|event|habit|list|idea)\s*:\s*/i)
+  let r = take(t, /^\s*(task|event|habit|list|idea|notion)\s*:\s*/i)
   if (r.m) {
-    out.kind = r.m[1].toLowerCase() as TaskKind
+    out.kind = (r.m[1].toLowerCase() === 'notion' ? 'idea' : r.m[1].toLowerCase()) as TaskKind
     t = ` ${r.rest.trim()} `
   }
 

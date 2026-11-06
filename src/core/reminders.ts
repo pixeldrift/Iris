@@ -49,10 +49,10 @@ export const remindAnchor = (t: Pick<Task, 'day' | 'due'>): string | null => t.d
  * "A day before" without having to say when: the same time of day if the item has one, otherwise a sensible
  * morning (9 am). Null when there is no date to be before, or that moment has already gone.
  */
-export function remindFromRule(t: Pick<Task, 'day' | 'due' | 'time'>, daysBefore: number, now = Date.now(), which: 'do' | 'due' = 'do'): number | null {
+export function remindFromRule(t: Pick<Task, 'day' | 'due' | 'time'> & { dueTime?: string | null }, daysBefore: number, now = Date.now(), which: 'do' | 'due' = 'do'): number | null {
   const a = which === 'due' ? t.due : remindAnchor(t)
   if (!a) return null
-  const [h, m] = (t.time ?? '09:00').split(':').map(Number)
+  const [h, m] = ((which === 'due' ? t.dueTime : t.time) ?? '09:00').split(':').map(Number)
   const d = fromISO(addDays(a, -daysBefore))
   d.setHours(h, m, 0, 0)
   return d.getTime() > now ? d.getTime() : null

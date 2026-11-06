@@ -173,6 +173,9 @@ export function NewTask() {
     drop(0)
     const name = title.trim()
     const done = (id: string) => {
+      // a due date typed into the box brings its reminder, like one chosen in the details
+      const made = useStore.getState().tasks.find((x) => x.id === id)
+      if (made?.due && made.kind !== 'idea') useStore.getState().setDue(id, made.due, made.dueTime ?? null)
       finish(id, quiet)
       if (quiet) showToast(`Added “${(parsed?.title || name).slice(0, 40)}”`, { label: 'Undo', run: () => deleteTask(id) })
     }
@@ -329,7 +332,7 @@ export function NewTask() {
         {more && draft && (
           <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2" style={{ paddingBottom: "calc(0.25rem + var(--kb, 0px) * 0.5)" }}>
             <TaskFields task={draft} withKind={false} />
-            <TagInput taskId={draft.id} />
+            {draft.kind !== 'task' && draft.kind !== 'idea' && <TagInput taskId={draft.id} />}
           </div>
         )}
         {more && draft && (

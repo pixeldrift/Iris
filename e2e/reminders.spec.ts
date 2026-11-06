@@ -33,16 +33,16 @@ test.describe('quick add and fuzzy reminders', () => {
     await page.keyboard.press('n')
     await page.keyboard.type(`Submit form ${SOON}`)
     await page.keyboard.press('Enter')
-    // the reminder for the day it is planned for opens out of its own line
-    await page.getByRole('button', { name: 'Remind me on the day' }).click()
-    const doGroup = page.getByRole('radiogroup', { name: 'Remind me on the day' })
+    // the planned day is open already (it has one); its reminder opens out of its own line
+    await page.getByRole('button', { name: 'Remind me that day' }).click()
+    const doGroup = page.getByRole('radiogroup', { name: 'Remind me that day' })
     await expect(doGroup.getByRole('radio', { name: 'Day before' })).toBeVisible()
     await doGroup.getByRole('radio', { name: 'Day before' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Submit form'))?.remindBefore).toBe(1)
     // and the deadline has a reminder of its own: setting it leaves the first alone
     expect((await taskNamed(page, 'Submit form'))?.dueRemindAt ?? null).toBeNull()
-    await page.getByRole('button', { name: 'Remind me before the deadline' }).click()
-    await page.getByRole('radiogroup', { name: 'Remind me before the deadline' }).getByRole('radio', { name: 'This evening' }).click()
+    await page.getByRole('button', { name: 'Remind me', exact: true }).click()
+    await page.getByRole('radiogroup', { name: 'Remind me', exact: true }).getByRole('radio', { name: 'This evening' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Submit form'))?.dueRemindAt).toBeTruthy()
     expect((await taskNamed(page, 'Submit form'))?.remindBefore).toBe(1)
   })
