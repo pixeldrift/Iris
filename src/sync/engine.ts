@@ -322,6 +322,12 @@ async function poll(userId: string) {
     }
     const news = Object.entries(resp.heads).some(([ws, head]) => head > (mem.cursors[ws] ?? 0))
     if (news) return syncNow(userId)
+    // a shared group that is no longer ours (deleted, or we were removed): a full sync clears it from this device
+    if (resp.workspaces) {
+      const inNow = new Set(resp.workspaces.map((w) => w.id))
+      const st = useStore.getState()
+      if ([...st.tasks, ...st.folders].some((x) => !!x.workspaceId && !inNow.has(x.workspaceId))) return syncNow(userId)
+    }
     useSync.setState({ status: 'idle', lastAt: Date.now(), error: null })
   } catch (e) {
     if (e instanceof SignedOut) return useSync.setState({ status: 'off', error: null })
