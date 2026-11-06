@@ -196,3 +196,14 @@ describe('request validation', () => {
     expect(parseRequest({ cursor: 5, changes: [] }, 'me').cursors).toEqual({ me: 5 })
   })
 })
+
+describe('presence', () => {
+  it('stops counting a device the moment it says it is going to the background', async () => {
+    await sync('pat', { device: { id: 'd1' }, active: true })
+    const open = await db.query<{ n: string }>("select count(*) as n from devices where user_id = 'pat' and last_seen > now() - interval '60 seconds'")
+    expect(Number(open.rows[0].n)).toBe(1)
+    await applySync(db, 'pat', { cursors: {}, changes: [], light: true, away: true, device: { id: 'd1' } })
+    const after = await db.query<{ n: string }>("select count(*) as n from devices where user_id = 'pat' and last_seen > now() - interval '60 seconds'")
+    expect(Number(after.rows[0].n)).toBe(0)
+  })
+})

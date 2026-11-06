@@ -21,6 +21,7 @@ import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
+import { pathOf } from '../../core/folders'
 import { PondMembers } from '../pond/Members'
 import { IconPerson } from '../icons'
 import { usePondGestures } from '../pond/usePondGestures'
@@ -341,7 +342,17 @@ export function Pond() {
     if (group === 'free') {
       for (const t of visible) homes.set(t.id, { x: t.x * w, y: t.y * h })
     } else {
-      const groups = groupTasks(visible, group, folders, people, undefined, scopeRef.current.type === 'folder' ? scopeRef.current.id : undefined)
+      let groups = groupTasks(visible, group, folders, people, undefined, scopeRef.current.type === 'folder' ? scopeRef.current.id : undefined)
+      if (group === 'folder') {
+        // the groups on this level are named in the pond even when nothing is in them yet (so there is somewhere to drop a bubble, and to add to)
+        const scopeId = scopeRef.current.type === 'folder' ? scopeRef.current.id : null
+        const have = new Set(groups.map((g) => g.key))
+        const empties = folders
+          .filter((f) => f.parentId === scopeId && !have.has(f.id))
+          .map((f) => ({ key: f.id, label: f.name, taskIds: [] as string[], hue: f.hue, path: pathOf(folders, f.id).map((x) => ({ id: x.id, name: x.name })) }))
+        const at = (key: string) => folders.find((f) => f.id === key)?.sort ?? 99
+        if (empties.length) groups = [...groups, ...empties].sort((a, b) => at(a.key) - at(b.key))
+      }
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
       const spacing = avgR * 1.45
       const blob = (n: number) => spacing * Math.sqrt(n) + avgR
@@ -368,7 +379,7 @@ export function Pond() {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: sumX / Math.max(1, base.size), y: top - 40 })
+        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: base.size ? sumX / base.size : cx, y: base.size ? top - 40 : cy })
       })
     }
     setLabels(nextLabels)

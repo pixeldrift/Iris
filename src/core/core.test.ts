@@ -922,3 +922,15 @@ describe('quick add: where it happens', () => {
     expect(q('At Main St').place).toBeUndefined() // nothing left for a title
   })
 })
+
+describe('quick add: a tag that names nothing', () => {
+  it('stays in the title and never loops (typing "@S" or "#x" with no such person or group used to hang the app)', () => {
+    const ctx = { folders: [], people: [] }
+    const a = parseQuickAdd('Call @S', new Date(2026, 5, 10), ctx)
+    expect(a.title).toBe('Call @S')
+    expect(a.personIds).toEqual([])
+    const b = parseQuickAdd('Plan #nothing here @nobody', new Date(2026, 5, 10), ctx)
+    expect(b.title).toContain('#nothing')
+    expect(b.title).toContain('@nobody')
+  })
+})
