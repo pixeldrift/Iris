@@ -73,6 +73,12 @@ test('sharing a group: invite a connection, they join and are given a task, then
   await row(bob, 'Trip planning').click()
   await expect(bob.getByText('Book flights').first()).toBeVisible({ timeout: 20_000 })
 
+  // a task Ann adds to the shared group after it was shared reaches Bob too
+  await ann.keyboard.press('n')
+  await ann.keyboard.type('Hotel booked')
+  await ann.keyboard.press('Enter')
+  await expect(bob.getByText('Hotel booked').first()).toBeVisible({ timeout: 25_000 })
+
   // Bob is given the task (any member can be picked), and Ann is told nothing here but Bob is told when Ann gives it
   await bob.getByText('Book flights').first().click({ force: true }) // (a drifting bubble is never still)
   await expect(bob.getByLabel('Assigned to')).toBeVisible()
@@ -87,4 +93,23 @@ test('sharing a group: invite a connection, they join and are given a task, then
   await ann.getByRole('button', { name: 'Remove, no copy' }).click()
   await bob.reload()
   await expect(row(bob, 'Trip planning')).toHaveCount(0, { timeout: 20_000 })
+})
+
+test('a profile picture replaces the initial on the account button and in the menu', async ({ browser }) => {
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+  const page = await (await browser.newContext({ viewport: { width: 1200, height: 900 } })).newPage()
+  await signUp(page, 'Pia Painter', `pia${stamp}@example.com`)
+  const account = page.locator('[aria-label^="Account"]')
+  await expect(account.locator('img')).toHaveCount(0)
+  await expect(account).toContainText('P')
+  await account.click()
+  await page.getByText('My Profile', { exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit', exact: true }).click({ timeout: 3000 }).catch(() => {}) // (a profile may open as a card first)
+  await page.getByLabel('Choose a photo').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PNG })
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(account.locator('img')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await account.click()
+  await expect(page.getByText(`pia${stamp}@example.com`).locator('xpath=ancestor::div[contains(@class,"gap-2.5")][1]').locator('img')).toBeVisible()
 })

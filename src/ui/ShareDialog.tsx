@@ -23,6 +23,8 @@ export function ShareDialog() {
   const shares = useShare((s) => s.shares)
   const showToast = useStore((s) => s.showToast)
   const connections = useConnect((s) => s.connections)
+  const myPhoto = useStore((s) => s.people.find((p) => p.isMe)?.photo)
+  const myId = useShare((s) => s.me)
   const [busy, setBusy] = useState(false)
   const [ask, setAsk] = useState<null | { kind: 'remove'; userId: string; name: string } | { kind: 'stop' } | { kind: 'leave' }>(null)
   const [link, setLink] = useState('')
@@ -75,7 +77,7 @@ export function ShareDialog() {
               <ul className="space-y-1" aria-label="Members">
                 {share.members.map((m) => (
                   <li key={m.userId} className="flex items-center gap-2 rounded-xl bg-white/45 px-3 py-2">
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-lilac-100 text-xs font-medium text-lilac-700">{m.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-lilac-100 text-xs font-medium text-lilac-700">{m.userId === myId && myPhoto ? <img src={myPhoto} alt="" draggable={false} className="h-full w-full object-cover" /> : m.name.slice(0, 1).toUpperCase()}</span>
                     <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
                     {mine && m.role !== 'owner' && m.status === 'active' ? (
                       <>

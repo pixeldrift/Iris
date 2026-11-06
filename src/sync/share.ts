@@ -108,6 +108,26 @@ function moveTo(rootId: string, workspaceId: string | undefined) {
   }))
 }
 
+/**
+ * A task that is in a shared group lives in that group's workspace, wherever it was made or tagged (so a task added to a shared
+ * group after it was shared reaches everyone), and one taken out of every shared group comes back to its owner's own space.
+ */
+export function alignTaskWorkspaces() {
+  const s = useStore.getState()
+  const shared = new Map(s.folders.filter((f) => f.workspaceId).map((f) => [f.id, f.workspaceId as string]))
+  if (!shared.size && !s.tasks.some((t) => t.workspaceId)) return
+  let changed = false
+  const tasks = s.tasks.map((t) => {
+    const ws = t.folderIds.map((id) => shared.get(id)).find(Boolean)
+    if (ws === t.workspaceId) return t
+    changed = true
+    if (ws) return { ...t, workspaceId: ws }
+    const { workspaceId: _w, assigneeId: _a, ...rest } = t
+    return rest as Task
+  })
+  if (changed) suppressHistory(() => useStore.setState({ tasks }))
+}
+
 /** How many tasks are in a group (and the ones under it): what a person is told will be shared. */
 export const countShared = (rootId: string) => subtreeOf(rootId).taskIds.size
 
