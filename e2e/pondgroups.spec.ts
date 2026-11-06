@@ -30,6 +30,28 @@ test.describe('groups in the pond', () => {
     expect(s!.folders.find((f) => f.name === 'Fresh sub')!.parentId).toBe(home.id)
   })
 
+  test('a group dragged by its name onto another group goes inside it', async ({ page }) => {
+    await page.waitForTimeout(1200) // (let the groups settle into place)
+    const life = page.locator('.pond-label').filter({ hasText: 'Life' }).first()
+    const home = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
+    const a = (await life.boundingBox())!
+    const b = (await home.boundingBox())!
+    // grab "Life" by its name and carry it onto the middle of "Home"
+    await page.mouse.move(a.x + a.width / 2 - 8, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + a.width / 2 - 8, a.y + a.height / 2 + 8, { steps: 3 })
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + 60, { steps: 16 })
+    await page.mouse.up()
+    await expect
+      .poll(async () => {
+        const st = await saved(page)
+        const homeF = st?.folders.find((f) => f.name === 'Home')
+        return st?.folders.find((f) => f.name === 'Life')?.parentId === homeF?.id
+      })
+      .toBe(true)
+    await expect(page.getByText(/“Life” is now inside “Home”/)).toBeVisible()
+  })
+
   test('tapping the water just below a group starts a new item in the nearest group', async ({ page }) => {
     const label = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
     const b = (await label.boundingBox())!

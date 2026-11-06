@@ -21,7 +21,8 @@ import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
-import { pathOf } from '../../core/folders'
+import { canReparent, pathOf } from '../../core/folders'
+import { undo } from '../../state/history'
 import { PondMembers } from '../pond/Members'
 import { askName } from '../NameDialog'
 import { IconPerson } from '../icons'
@@ -42,6 +43,8 @@ export function Pond() {
   const addHere = (key: string): ComposePreset | null =>
     key === 'none' || key === 'all' ? null : group === 'folder' ? { folderIds: [key] } : group === 'person' ? { personIds: [key] } : group === 'kind' ? { kind: key as TaskKind } : null
   const addFolder = useStore((s) => s.addFolder)
+  const moveFolder = useStore((s) => s.moveFolder)
+  const showToast = useStore((s) => s.showToast)
   const newSubgroup = async (parentId: string) => {
     const name = await askName('New subgroup', 'Group name')
     if (name) addFolder(name, parentId)
@@ -100,10 +103,37 @@ export function Pond() {
     const st0 = labelSt.current.get(key) ?? { x: sh0.dx, y: sh0.dy, vx: 0, vy: 0, pinned: false }
     st0.pinned = true
     labelSt.current.set(key, st0)
+    // Carrying a group by its name onto another group nests it there (when the pond is gathered by group).
+    const nestable = group === 'folder' && key !== 'none' && folders.some((f) => f.id === key)
+    const targetAt = (px: number, py: number): string | null => {
+      if (!nestable) return null
+      const box = ref.current?.getBoundingClientRect()
+      if (!box) return null
+      const cv = view.current
+      const wx = (px - box.left - cv.tx) / cv.scale
+      const wy = (py - box.top - cv.ty) / cv.scale
+      let best: { key: string; d: number } | null = null
+      for (const o of clusters.current.values()) {
+        if (o.key === key || o.key === 'none' || !canReparent(folders, key, o.key)) continue
+        if (folders.find((f) => f.id === key)?.parentId === o.key) continue // (already in it)
+        const sh = shifts.current.get(o.key)
+        let d = Math.hypot(o.cx + (sh?.dx ?? 0) - wx, o.cy + (sh?.dy ?? 0) - wy) - o.R
+        const lab = labelsRef.current.find((l) => l.key === o.key)
+        if (lab) d = Math.min(d, Math.hypot(lab.x + (sh?.dx ?? 0) - wx, lab.y + (sh?.dy ?? 0) - wy) - 40) // (onto the group's name counts too)
+        if (d < 30 && (!best || d < best.d)) best = { key: o.key, d }
+      }
+      return best?.key ?? null
+    }
+    let target: string | null = null
     const move = (ev: PointerEvent) => {
       const k = view.current.scale
       const sh = { dx: sh0.dx + (ev.clientX - sx) / k, dy: sh0.dy + (ev.clientY - sy) / k }
       shifts.current.set(key, sh)
+      const t = targetAt(ev.clientX, ev.clientY)
+      if (t !== target) {
+        target = t
+        setHot(t)
+      }
       for (const id of c.ids) {
         const m = nodes.current.get(id)
         const b = c.base.get(id)
@@ -116,6 +146,15 @@ export function Pond() {
     }
     const up = () => {
       st0.pinned = false
+      if (target) {
+        // dropped on another group: it becomes a group inside it
+        const into = folders.find((f) => f.id === target)
+        const moved = folders.find((f) => f.id === key)
+        shifts.current.delete(key)
+        moveFolder(key, target)
+        if (moved && into) showToast(`“${moved.name}” is now inside “${into.name}”`, { label: 'Undo', run: undo })
+        setHot(null)
+      }
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
@@ -737,7 +776,7 @@ export function Pond() {
             <div
               data-ui
               onPointerDown={(e) => dragLabel(e, l.key)}
-              title="Drag to move this whole group"
+              title={group === 'folder' ? 'Drag to move this whole group, or onto another group to put it inside' : 'Drag to move this whole group'}
               style={{ color: l.hue === undefined ? 'var(--color-lilac-700)' : `${tint(l.hue, 50, 36)}` }}
               className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap rounded-full px-3.5 py-1 font-display font-bold italic transition-all duration-300 hover:bg-white/60 hover:shadow-sm ${
                 hot === l.key ? 'scale-110 bg-white/70 text-4xl' : 'text-3xl opacity-90'
