@@ -68,6 +68,8 @@ function deviceInfo(): { id: string; label: string } {
   return { id, label }
 }
 const isVisible = () => typeof document === 'undefined' || document.visibilityState === 'visible'
+/** Someone is actually here: the app is showing and is the window in front (a minimized or covered one is not "active" to the others). */
+const isPresent = () => isVisible() && (typeof document === 'undefined' || document.hasFocus())
 const hashes = () => new Map(entities().map((e) => [keyOf(e.kind, e.id), hashOf(e.data)]))
 
 function normalize(c: Change) {
@@ -130,11 +132,11 @@ interface Reply {
   workspaces?: { id: string; personal: boolean }[]
 }
 
-async function post(body: { cursors: Record<string, number>; changes: Change[]; device?: { id: string; label: string }; active?: boolean; light?: boolean; beat?: boolean }, retried = false): Promise<Reply> {
+async function post(body: { cursors: Record<string, number>; changes: Change[]; device?: { id: string; label: string }; active?: boolean; light?: boolean; beat?: boolean; away?: boolean }, retried = false, keepalive = false): Promise<Reply> {
   const token = await apiToken(retried)
   if (!token) throw new SignedOut()
-  const res = await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
-  if (res.status === 401 && !retried) return post(body, true) // the token may have just expired: fetch a fresh one once
+  const res = await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body), keepalive })
+  if (res.status === 401 && !retried) return post(body, true, keepalive) // the token may have just expired: fetch a fresh one once
   if (!res.ok) {
     const detail = (await res.json().catch(() => null)) as { error?: string; reason?: string } | null
     throw new Error(detail?.error ? `${detail.error}${detail.reason ? ` (${detail.reason})` : ''}` : res.status === 404 ? 'The sync API was not found (/api/sync returned 404)' : `Sync failed (HTTP ${res.status})`)
@@ -182,7 +184,7 @@ async function syncOnce(userId: string) {
     if (!returning) {
       // first time this account is used on this device
       mem = { ...emptyMemory(), userId }
-      const peek = await post({ cursors: {}, changes: [], device, active: isVisible() })
+      const peek = await post({ cursors: {}, changes: [], device, active: isPresent() })
       if (peek.changes.length > 0) {
         // the account already has data: the built-in samples would only be clutter on top of it
         suppressHistory(() => useStore.setState((s) => ({
@@ -201,7 +203,7 @@ async function syncOnce(userId: string) {
       const { changes, stamps } = localChanges(ents, mem, Date.now())
       const wasKnown = new Set(Object.keys(mem.known))
       const pushed = hashes()
-      const resp = await post({ cursors: mem.cursors, changes, device, active: isVisible() })
+      const resp = await post({ cursors: mem.cursors, changes, device, active: isPresent() })
       const rejected = new Set((resp.rejected ?? []).map((r) => keyOf(r.kind as Kind, r.id)))
       for (const c of changes) {
         const key = keyOf(c.kind, c.id)
@@ -313,7 +315,7 @@ async function poll(userId: string) {
   if (mem.userId !== userId) return syncNow(userId) // never synced here yet
   const beat = Date.now() - lastBeat > BEAT_MS
   try {
-    const resp = await post({ cursors: mem.cursors, changes: [], light: true, beat, device: deviceInfo(), active: isVisible() })
+    const resp = await post({ cursors: mem.cursors, changes: [], light: true, beat, device: deviceInfo(), active: isPresent() })
     if (beat) {
       lastBeat = Date.now()
       if (typeof resp.peers === 'number') useSync.setState({ peers: resp.peers })
@@ -355,7 +357,16 @@ export function startSync(userId: string): () => void {
     window.clearTimeout(loop)
     void tick(true)
   }
+  // going to the background (minimized, switched away from): tell the server now, so the others stop seeing this device as open
+  const away = () => {
+    if (isPresent()) return
+    const mem = loadMemory()
+    if (mem.userId === userId) void post({ cursors: {}, changes: [], light: true, device: deviceInfo(), away: true }, false, true).catch(() => undefined)
+  }
   document.addEventListener('visibilitychange', wake)
+  document.addEventListener('visibilitychange', away)
+  window.addEventListener('blur', away)
+  window.addEventListener('pagehide', away)
   window.addEventListener('online', wake)
   window.addEventListener('focus', wake)
   void tick(true)
@@ -365,6 +376,9 @@ export function startSync(userId: string): () => void {
     window.clearTimeout(edit)
     window.clearTimeout(loop)
     document.removeEventListener('visibilitychange', wake)
+    document.removeEventListener('visibilitychange', away)
+    window.removeEventListener('blur', away)
+    window.removeEventListener('pagehide', away)
     window.removeEventListener('online', wake)
     window.removeEventListener('focus', wake)
   }

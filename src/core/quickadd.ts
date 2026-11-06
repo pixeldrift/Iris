@@ -70,7 +70,9 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     t = ` ${r.rest.trim()} `
   }
 
-  // #folder and @person (by name; "#school/bio" walks a path)
+  // #folder and @person (by name; "#school/bio" walks a path). One that names nothing is put back in the title, after the loop:
+  // putting it back inside would only find it again, forever.
+  const unknown: string[] = []
   for (;;) {
     r = take(t, /\s#([\w][\w/ -]*?)(?=\s(?:#|@)|\s*$|\s(?:on|at|by|due|every|tomorrow|today|yesterday|next|in)\b)/i)
     if (!r.m) break
@@ -80,7 +82,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     if (hit && !out.folderIds.includes(hit.id)) {
       out.folderIds.push(hit.id)
       out.chips.push(`#${hit.name}`)
-    } else if (!hit) t += ` ${r.m[0].trim()}` // unknown: leave it in the title
+    } else if (!hit) unknown.push(r.m[0].trim()) // unknown: leave it in the title
   }
   for (;;) {
     r = take(t, /\s@([\w][\w' .-]*?)(?=\s(?:#|@)|\s*$|\s(?:on|at|by|due|every|tomorrow|today|yesterday|next|in)\b)/i)
@@ -91,8 +93,9 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     if (hit && !out.personIds.includes(hit.id)) {
       out.personIds.push(hit.id)
       out.chips.push(`@${hit.name.split(' ')[0]}`)
-    } else if (!hit) t += ` ${r.m[0].trim()}`
+    } else if (!hit) unknown.push(r.m[0].trim())
   }
+  if (unknown.length) t += ` ${unknown.join(' ')}`
 
   // "remind me a day before" / "a week in advance": relative to the item's own date, so no time is asked for
   let before: number | null = null

@@ -30,6 +30,8 @@ export interface SyncRequest {
   device?: { id: string; label?: string }
   /** The app is visible on this device right now. */
   active?: boolean
+  /** This device is going to the background right now (minimized, switched away from): stop counting it as open. */
+  away?: boolean
 }
 
 export interface WorkspaceInfo {
@@ -93,7 +95,7 @@ export function parseRequest(body: unknown, userId = ''): SyncRequest {
     if (typeof b.device.id !== 'string' || !b.device.id || b.device.id.length > 100) throw new BadRequest('Bad device')
     device = { id: b.device.id, label: typeof b.device.label === 'string' ? b.device.label.slice(0, 60) : '' }
   }
-  return { cursors, changes, device, active: !!b.active, light: !!b.light, beat: !!b.beat }
+  return { cursors, changes, device, active: !!b.active, light: !!b.light, beat: !!b.beat, away: !!b.away }
 }
 
 async function ensureHome(db: Db, userId: string) {
@@ -137,6 +139,7 @@ async function checkIn(db: Db, userId: string, req: SyncRequest): Promise<number
  * is above its cursor does it do a full sync. (`beat` adds the presence write and peer count, done every so often.)
  */
 export async function lightCheck(db: Db, userId: string, req: SyncRequest): Promise<SyncResponse> {
+  if (req.away && req.device) await db.query("update devices set last_seen = now() - interval '1 hour' where user_id = $1 and device_id = $2", [userId, req.device.id])
   let { workspaces, heads } = await membership(db, userId)
   if (!workspaces.length) {
     await ensureHome(db, userId)

@@ -246,7 +246,7 @@ export async function shareState(db: Db, who: Caller) {
   )
   // who has the app open right now: a device of theirs checked in with the app visible in the last minute
   const live = new Set(
-    (await db.query<{ user_id: string }>("select distinct user_id from devices where last_seen > now() - interval '60 seconds' and user_id = any($1::text[])", [[...new Set(mem.rows.map((m) => m.user_id))]])).rows.map((r) => r.user_id),
+    (await db.query<{ user_id: string }>("select distinct user_id from devices where last_seen > now() - interval '40 seconds' and user_id = any($1::text[])", [[...new Set(mem.rows.map((m) => m.user_id))]])).rows.map((r) => r.user_id),
   )
   const names = await displayNames(db, [...new Set([...mem.rows.map((m) => m.user_id), ...inv.rows.map((i) => i.created_by), ...news.rows.flatMap((n) => (n.from_user ? [n.from_user] : []))])])
   const nameOf = (id: string) => names.get(id) ?? 'Someone'
