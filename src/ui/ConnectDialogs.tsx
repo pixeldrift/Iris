@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatClock, formatDate } from '../core/locale'
+import { toISO } from '../core/dates'
 import { create } from 'zustand'
 import { DEFAULT_SHARES, detailsOf, matchesFor, SHARE_FIELDS } from '../core/linking'
 import type { Person } from '../core/types'
@@ -6,7 +8,7 @@ import { acceptRequest, declineRequest, deleteNotices, disconnectFrom, markNotic
 import { useStore } from '../state/store'
 import { askConfirm, Modal } from './dialogs'
 import { NotificationsRow } from './SettingsDialog'
-import { acceptInvite, declineInvite, leaveGroup, markShareRead, useShare } from '../sync/share'
+import { acceptInvite, clearShareNews, declineInvite, leaveGroup, markShareRead, useShare } from '../sync/share'
 import { IconBell, IconClose, IconLink } from './icons'
 import { closeNotices, dismissAlert, dismissAllAlerts, useAlerts, useNoticesOpen } from './notices'
 
@@ -248,6 +250,18 @@ const when = (iso: string) => {
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`
 }
 
+/** "3 h ago": tap it for the actual date and time, tap again to go back. */
+function When({ iso }: { iso: string }) {
+  const [exact, setExact] = useState(false)
+  const d = new Date(iso)
+  const full = `${formatDate(toISO(d), { weekday: true })} at ${formatClock(d.getHours(), d.getMinutes())}`
+  return (
+    <button type="button" onClick={() => setExact((e) => !e)} title={exact ? 'Show how long ago' : full} className="rounded text-left text-xs text-ink-faint transition hover:text-ink-soft hover:underline">
+      {exact ? full : when(iso)}
+    </button>
+  )
+}
+
 /**
  * Everything waiting for you, in one list: reminders that have gone off (each can be opened, snoozed, finished or dismissed),
  * then connection requests to answer, then the news (people who accepted). Reminders and news can be cleared one by one or all at once.
@@ -277,24 +291,29 @@ export function NoticesHost() {
   const { invites, news: shareNews, shares } = useShare()
   const shareLines = shareNews.filter((n) => !n.read || Date.now() - new Date(n.at).getTime() < 3 * 86_400_000)
   const news = notices.filter((n) => n.kind === 'accepted')
+  const clearable = reminders.length + news.length + shareLines.filter((n) => n.kind !== 'share-invite').length
   const remove = (ids?: string[]) => deleteNotices(ids).catch((e) => showToast((e as Error).message))
   const pill = 'rounded-full bg-white/70 px-3 py-1 text-xs text-ink-soft transition hover:bg-white'
   return (
     <Modal open={open} onClose={close} label="Notifications">
       <div className="flex items-center">
         <h3 className="font-display text-xl">Notifications</h3>
-        {(news.length > 0 || reminders.length > 0) && (
+        {clearable > 0 && (
           <button
             type="button"
             onClick={() => {
               dismissAllAlerts()
               if (news.length) void remove()
+              if (shareLines.some((n) => n.kind !== 'share-invite')) void clearShareNews().catch((e) => showToast((e as Error).message))
             }}
-            className="ml-auto rounded-full px-3 py-1 text-xs text-ink-soft transition hover:bg-white/70 hover:text-ink"
+            className="ml-auto whitespace-nowrap rounded-full px-3 py-1 text-xs text-lilac-600 transition hover:bg-white/70 hover:text-lilac-700"
           >
             Clear all
           </button>
         )}
+        <button type="button" onClick={close} aria-label="Close notifications" title="Close" className={`${clearable > 0 ? '' : 'ml-auto '}-mr-1.5 grid h-8 w-8 place-items-center rounded-full text-ink-soft transition hover:bg-white/70 hover:text-ink`}>
+          <IconClose size={16} />
+        </button>
       </div>
       <ul className="mt-3 space-y-1.5" aria-label="Notifications">
         {reminders.map(({ t, note }) => (
@@ -352,7 +371,7 @@ export function NoticesHost() {
               <li key={n.id} className="flex items-center gap-2 rounded-2xl bg-white/35 py-2 pl-3 pr-2">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-ink">{text}</div>
-                  <div className="text-xs text-ink-faint">{when(n.at)}</div>
+                  <When iso={n.at} />
                 </div>
                 {n.kind === 'assigned' && (
                   <button type="button" className="rounded-full bg-lilac-500 px-3 py-1 text-xs text-white shadow shadow-lilac-500/30" onClick={() => (select(n.extra), close())}>
@@ -371,6 +390,9 @@ export function NoticesHost() {
                     </button>
                   </>
                 )}
+                <button type="button" onClick={() => void clearShareNews(n.id).catch((e) => showToast((e as Error).message))} aria-label="Clear this notification" title="Clear" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-ink">
+                  <IconClose size={12} />
+                </button>
               </li>
             )
           })}
@@ -398,7 +420,7 @@ export function NoticesHost() {
               <div className="text-sm text-ink">
                 <span className="font-medium">{n.from}</span> accepted your invitation
               </div>
-              <div className="text-xs text-ink-faint">{when(n.at)}</div>
+              <When iso={n.at} />
             </div>
             <button type="button" onClick={() => void remove([n.id])} aria-label={`Delete notification from ${n.from}`} title="Delete" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
               <IconClose size={12} />

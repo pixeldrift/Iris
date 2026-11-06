@@ -5,6 +5,7 @@ import type { Person } from '../core/types'
 import { suppressHistory } from '../state/history'
 import { useStore } from '../state/store'
 import { apiToken } from './auth'
+import { notify } from '../audio/engine'
 
 /** One connection as the server describes it to this person (see api/_lib/connect.ts). */
 export interface Connection {
@@ -175,6 +176,7 @@ export function startConnect(): () => void {
 /** Ask the person at this email to connect. The answer is the same whether or not they are on Lilac. */
 export async function sendInvite(person: Person, shares: string[]) {
   await call({ action: 'invite', email: person.email, personId: person.id, shares })
+  notify() // (the same sound they hear when it arrives)
   useStore.getState().savePerson({ id: person.id, name: person.name, invited: person.email.trim().toLowerCase() })
 }
 

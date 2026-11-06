@@ -11,6 +11,7 @@ import { useSearchMatcher, useVisibleTasks } from './useVisible'
 import { VIEWS } from './Sidebar'
 import { SegmentedToggle } from './SegmentedToggle'
 import { Tip } from './Tip'
+import { useUnread } from './useUnread'
 import { useLandscapePhone } from './useMedia'
 
 const GROUPS: { id: PondGroup; label: string; icon: React.ReactNode }[] = [
@@ -135,6 +136,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
   const set = useStore((s) => s.setSetting)
   const setSidebar = useStore((s) => s.setSidebar)
   const land = useLandscapePhone()
+  const unread = useUnread()
   const setScope = useStore((s) => s.setScope)
   const query = useStore((s) => s.search)
   const setSearch = useStore((s) => s.setSearch)
@@ -262,6 +264,13 @@ export function TopBar({ onNew }: { onNew: () => void }) {
         </Tip>
       )}
       <UndoRedo />
+      {scope.type === 'contacts' && (
+        <Tip label="Close the address book">
+          <button onClick={() => setScope({ type: 'all' })} aria-label="Close the address book" className={btn(false)}>
+            <IconClose />
+          </button>
+        </Tip>
+      )}
     </>
   )
   const nameOf = (p: Scope) =>
@@ -362,8 +371,14 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
       {/* a phone turned sideways keeps the menu beside the content: this brings it back once it has been folded away */}
       {!land && (
-        <button aria-label="Menu" onClick={() => setSidebar(true)} className="glass-soft order-1 grid h-9 w-9 place-items-center rounded-full md:hidden">
+        <button aria-label={unread > 0 ? `Menu. ${unread} to look at` : 'Menu'} onClick={() => setSidebar(true)} className="glass-soft relative order-1 grid h-9 w-9 place-items-center rounded-full text-lilac-600 md:hidden">
           <IconMenu />
+          {unread > 0 && (
+            // the bell's count, so it is seen even with the menu closed
+            <span aria-hidden className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-white px-1 text-[0.6rem] font-semibold leading-none text-lilac-700 shadow ring-1 ring-lilac-300">
+              {unread}
+            </span>
+          )}
         </button>
       )}
       <h2 className="order-2 min-w-0 flex-1 truncate font-display text-2xl leading-9 md:text-3xl md:leading-9">{heading}</h2>

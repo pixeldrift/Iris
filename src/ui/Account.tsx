@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { accountsConfigured, authClient } from '../sync/auth'
-import { startConnect, useConnect } from '../sync/connect'
+import { startConnect } from '../sync/connect'
 import { forgetAccountData, startSync, syncNow, useSync } from '../sync/engine'
 import { ConnectHost } from './ConnectDialogs'
 import { ShareDialog } from './ShareDialog'
-import { acceptToken, startShare, useShare } from '../sync/share'
-import { openNotices, useAlerts } from './notices'
+import { useUnread } from './useUnread'
+import { acceptToken, startShare } from '../sync/share'
+import { openNotices } from './notices'
 import { openVerify, sendCode, VerifyDialog } from './VerifyDialog'
 import { askConfirm, Modal } from './dialogs'
 import { IconBell, IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
@@ -182,8 +183,7 @@ export function AccountRow() {
 function AccountMenu() {
   const { data } = authClient.useSession()
   const sync = useSync()
-  const waiting = useAlerts((s) => s.items.length) // reminders that have gone off and are still waiting
-  const unread = useConnect((s) => s.connections.filter((c) => c.status === 'pending-in').length + s.notices.filter((n) => !n.read && n.kind === 'accepted').length) + waiting + useShare((s) => s.invites.length + s.news.filter((n) => !n.read).length)
+  const unread = useUnread()
   const people = useStore((s) => s.people)
   const [menu, setMenu] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
@@ -218,12 +218,12 @@ function AccountMenu() {
         className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
       >
         {picture ? <img src={picture} alt="" draggable={false} className="h-full w-full rounded-full object-cover" /> : initial}
+        {sync.status === 'error' && <span aria-hidden title="Couldn’t sync" className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#c95b88] ring-2 ring-white/80" />}
         {unread > 0 && (
-          <span aria-hidden className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#c4577e] px-1 text-[0.6rem] font-semibold leading-none text-white ring-2 ring-white/80">
+          <span aria-hidden className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-lilac-500 px-1 text-[0.6rem] font-semibold leading-none text-white ring-2 ring-white/80">
             {unread}
           </span>
         )}
-        <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white/80 ${dot}`} />
       </button>
       <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-60 p-1.5">
         <div className="flex items-center gap-2.5 px-2.5 pb-2 pt-1.5">
