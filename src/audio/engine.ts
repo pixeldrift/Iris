@@ -184,6 +184,12 @@ export function drop(pan = 0) {
   play('add', { pan })
 }
 
+/** The new-item box opening: a small, quiet bubble (the drip of the item actually being added is the louder one). */
+export function composeOpen() {
+  if (!can('drops')) return
+  play('arrive', { level: 0.35, rate: 1.35, variation: 0.08 })
+}
+
 /** An item arrives from another device. */
 export function arrive(pan = 0) {
   if (!can('drops')) return

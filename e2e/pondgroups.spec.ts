@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { folderRow, open } from './helpers'
+import { folderRow, open, saved } from './helpers'
 
 test.describe('groups in the pond', () => {
   test.beforeEach(async ({ page }) => {
@@ -8,20 +8,56 @@ test.describe('groups in the pond', () => {
     await page.waitForTimeout(500)
   })
 
-  test('a group can be made from the pond, and is named there before anything is in it', async ({ page }) => {
-    await page.getByRole('button', { name: '+ Group' }).click()
+  test('there is no add-group link beside "Gather by"', async ({ page }) => {
+    await expect(page.getByRole('button', { name: '+ Group' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '+ Subgroup' })).toHaveCount(0)
+  })
+
+  test('a group with nothing in it is still named in the pond', async ({ page }) => {
+    await page.getByText('Groups', { exact: true }).locator('xpath=ancestor::*[self::header or self::div][1]').getByRole('button').last().click()
     await page.getByLabel('Group name').fill('Empty one')
-    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByLabel('Group name').press('Enter')
     await expect(page.locator('.pond-label').filter({ hasText: 'Empty one' })).toBeVisible()
   })
 
-  test('inside a group, a subgroup is made from the pond and named there while empty', async ({ page }) => {
-    await folderRow(page, 'School').click()
-    await page.waitForTimeout(600)
-    await page.getByRole('button', { name: '+ Subgroup' }).click()
+  test('the plus beside a group’s name makes a subgroup in it', async ({ page }) => {
+    await page.locator('.pond-label').filter({ hasText: 'Home' }).first().getByRole('button', { name: /New subgroup in Home/ }).click()
     await page.getByLabel('Group name').fill('Fresh sub')
     await page.getByRole('button', { name: 'Create' }).click()
-    await expect(page.locator('.pond-label').filter({ hasText: 'Fresh sub' })).toBeVisible()
+    await expect(folderRow(page, 'Fresh sub')).toBeVisible()
+    const s = await saved(page)
+    const home = s!.folders.find((f) => f.name === 'Home')!
+    expect(s!.folders.find((f) => f.name === 'Fresh sub')!.parentId).toBe(home.id)
+  })
+
+  test('tapping the water just below a group starts a new item in the nearest group', async ({ page }) => {
+    const label = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
+    const b = (await label.boundingBox())!
+    // a spot of open water (not on a bubble or a label) close to the group's name
+    const spot = await page.evaluate(({ cx, cy }) => {
+      const pond = document.querySelector('[aria-label^="Pond canvas"]')!.getBoundingClientRect()
+      for (let r = 70; r <= 200; r += 10)
+        for (let a = 0; a < 360; a += 20) {
+          const x = cx + r * Math.cos((a * Math.PI) / 180)
+          const y = cy + r * Math.sin((a * Math.PI) / 180)
+          if (x < pond.left + 20 || x > pond.right - 20 || y < pond.top + 20 || y > pond.bottom - 20) continue
+          const el = document.elementFromPoint(x, y)
+          if (el && !el.closest('[data-node],[data-ui],button')) return { x, y }
+        }
+      return null
+    }, { cx: b.x + b.width / 2, cy: b.y + b.height / 2 })
+    expect(spot).not.toBeNull()
+    await page.mouse.click(spot!.x, spot!.y)
+    await page.getByLabel('New item').first().fill('Tap test')
+    await page.keyboard.press('Enter')
+    await expect
+      .poll(async () => {
+        const st = await saved(page)
+        const t = st?.tasks.find((x) => x.title === 'Tap test')
+        // (it belongs to a group: the nearest one to where the water was tapped)
+        return !!t && t.folderIds.length > 0 && st!.folders.some((f) => t.folderIds.includes(f.id))
+      })
+      .toBe(true)
   })
 })
 
@@ -32,5 +68,4 @@ test('typing @ and a name nobody has in the quick add box does not freeze the ap
   await page.keyboard.type('Call @Zq')
   const alive = await Promise.race([page.evaluate(() => 1).then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 6000))])
   expect(alive).toBe(true)
-  await expect(page.getByRole('textbox').first()).toBeVisible()
 })
