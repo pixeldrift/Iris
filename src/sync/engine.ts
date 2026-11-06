@@ -1,9 +1,9 @@
 import { clearHistory, suppressHistory } from '../state/history'
 import { create } from 'zustand'
-import { arrive } from '../audio/engine'
+import { arrive, bloom, pop, undone } from '../audio/engine'
 import { apiToken } from './auth'
 import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normalize'
-import { alignTaskWorkspaces } from './share'
+import { alignTaskWorkspaces, announceAdded } from './share'
 import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
 import { useStore } from '../state/store'
 import { emptyMemory, hashOf, keyOf, localChanges, remoteToApply, type Change, type Entity, type Kind, type SyncMemory } from './diff'
@@ -199,6 +199,7 @@ async function syncOnce(userId: string) {
       alignTaskWorkspaces() // (a task in a shared group is in its workspace)
       const ents = entities()
       const { changes, stamps } = localChanges(ents, mem, Date.now())
+      const wasKnown = new Set(Object.keys(mem.known))
       const pushed = hashes()
       const resp = await post({ cursors: mem.cursors, changes, device, active: isVisible() })
       const rejected = new Set((resp.rejected ?? []).map((r) => keyOf(r.kind as Kind, r.id)))
@@ -211,6 +212,11 @@ async function syncOnce(userId: string) {
         else if (c.workspaceId && !rejected.has(key)) mem.wsOf[key] = c.workspaceId
         else delete mem.wsOf[key] // (back in the personal workspace)
       }
+      // tasks newly added to a shared group: tell the others, if this person has asked us to
+      if (returning && useStore.getState().settings.notifyShared) {
+        const fresh = changes.filter((c) => c.kind === 'task' && c.data && c.workspaceId && !rejected.has(keyOf(c.kind, c.id)) && !wasKnown.has(keyOf(c.kind, c.id)))
+        for (const c of fresh.slice(0, 5)) announceAdded(c.workspaceId!, c.id, String((c.data as { title?: string }).title ?? ''))
+      }
       // a deletion left behind in the workspace something was moved out of is not a deletion of the thing itself
       const here = new Map<string, string | undefined>([...useStore.getState().tasks, ...useStore.getState().folders].map((x) => [x.id, x.workspaceId]))
       const incoming = resp.changes.filter((c) => !(c.data === null && here.has(c.id) && here.get(c.id) !== (c.workspaceId && c.workspaceId !== userId ? c.workspaceId : undefined)))
@@ -218,6 +224,7 @@ async function syncOnce(userId: string) {
       // things another device just added: they arrive with a drop and a ripple, like something you placed yourself
       const have = new Set(useStore.getState().tasks.map((t) => t.id))
       const arrived = returning ? apply.filter((c) => c.kind === 'task' && c.data && !have.has(c.id)).map((c) => c.id) : []
+      if (returning && isVisible()) soundsForRemote(apply) // (a bubble popped or checked off by someone else is heard here too)
       const stored = applyRemote(apply)
       for (const c of apply) {
         const key = keyOf(c.kind, c.id)
@@ -251,6 +258,28 @@ async function syncOnce(userId: string) {
     }
     useSync.setState({ status: navigator.onLine === false ? 'offline' : 'error', error: e instanceof Error ? e.message : 'Sync failed' })
   }
+}
+
+/** The sound of what someone else just did to a task we have: deleting it (the pop), checking it off, or un-checking it. */
+function soundsForRemote(apply: Change[]) {
+  const mine = new Map(useStore.getState().tasks.map((t) => [t.id, t]))
+  let gone = false
+  let done = false
+  let undo = false
+  for (const c of apply) {
+    if (c.kind !== 'task') continue
+    const t = mine.get(c.id)
+    if (!t) continue
+    if (c.data === null) gone = true
+    else {
+      const status = (c.data as { status?: string }).status
+      if (status === 'done' && t.status !== 'done') done = true
+      else if (status !== 'done' && t.status === 'done') undo = true
+    }
+  }
+  if (gone) pop()
+  else if (done) bloom()
+  else if (undo) undone()
 }
 
 /** A drop of water for something that just arrived from another device (a few at most: a burst is one splash). */

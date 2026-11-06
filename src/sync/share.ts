@@ -4,6 +4,7 @@ import type { Folder, Task } from '../core/types'
 import { suppressHistory } from '../state/history'
 import { useStore } from '../state/store'
 import { apiToken } from './auth'
+import { notify } from '../audio/engine'
 
 /** Sharing a group (see api/_lib/share.ts for the rules, and docs/COLLABORATION.md). */
 export interface ShareMember {
@@ -63,8 +64,14 @@ async function call<T = unknown>(body: Record<string, unknown>): Promise<T> {
   return out
 }
 
+let seenNews: Set<string> | null = null
+
 export async function refreshShare() {
   const s = await call<Omit<ShareState, 'loaded'>>({ action: 'state' })
+  // a soft sound for something new for you (a task given to you, an invitation, a task added), but not for what was already waiting
+  const fresh = [...s.invites.map((i) => i.id), ...s.news.filter((n) => !n.read).map((n) => n.id)]
+  if (seenNews && fresh.some((id) => !seenNews!.has(id)) && document.visibilityState === 'visible') notify()
+  seenNews = new Set(fresh)
   useShare.setState({ ...s, loaded: true })
   settleUnsharing(s.shares)
 }
@@ -84,6 +91,7 @@ export function startShare(): () => void {
     document.removeEventListener('visibilitychange', wake)
     window.removeEventListener('focus', wake)
     useShare.setState(EMPTY)
+    seenNews = null
   }
 }
 
@@ -132,6 +140,9 @@ export function alignTaskWorkspaces() {
 export const countShared = (rootId: string) => subtreeOf(rootId).taskIds.size
 
 export async function shareGroup(folder: Folder) {
+  // a group that was shared before and then taken back leaves an empty shell behind: close it, so this starts a fresh share
+  const stale = useShare.getState().shares.find((x) => x.rootFolderId === folder.id && x.role === 'owner' && folder.workspaceId !== x.workspaceId)
+  if (stale) await call({ action: 'retire', workspaceId: stale.workspaceId }).catch(() => undefined)
   const { workspaceId } = await call<{ workspaceId: string }>({ action: 'create', name: folder.name, rootFolderId: folder.id })
   moveTo(folder.id, workspaceId)
   await refreshShare()
@@ -154,8 +165,10 @@ export const removeMember = (workspaceId: string, userId: string, allowCopy: boo
  */
 export async function stopSharing(share: ShareInfo, allowCopy: boolean) {
   await call({ action: 'stop', workspaceId: share.workspaceId, allowCopy })
-  if (share.rootFolderId && !allowCopy) moveTo(share.rootFolderId, undefined)
-  else rememberUnsharing(share.workspaceId)
+  if (share.rootFolderId && !allowCopy) {
+    moveTo(share.rootFolderId, undefined)
+    await call({ action: 'retire', workspaceId: share.workspaceId }).catch(() => undefined)
+  } else rememberUnsharing(share.workspaceId)
   await refreshShare()
 }
 
@@ -183,7 +196,10 @@ function settleUnsharing(shares: ShareInfo[]) {
     const s = shares.find((x) => x.workspaceId === ws)
     if (!s) continue // already gone
     if (s.members.some((m) => m.role !== 'owner')) keep.push(ws)
-    else if (s.rootFolderId) moveTo(s.rootFolderId, undefined)
+    else if (s.rootFolderId) {
+      moveTo(s.rootFolderId, undefined)
+      void call({ action: 'retire', workspaceId: ws }).then(refreshShare, () => undefined)
+    }
   }
   try {
     localStorage.setItem(UNSHARING, JSON.stringify(keep))
@@ -227,4 +243,16 @@ export const markShareRead = () => call({ action: 'read' }).then(refreshShare)
 export function assignTask(task: Task, userId: string | undefined, title = task.title) {
   useStore.getState().updateTask(task.id, { assigneeId: userId })
   if (userId && task.workspaceId) void call({ action: 'assigned', workspaceId: task.workspaceId, userId, taskId: task.id, title }).catch(() => undefined)
+}
+
+/** Tell the others in a shared group that a task was added (only when this person has switched that on). */
+export function announceAdded(workspaceId: string, taskId: string, title: string) {
+  void call({ action: 'added', workspaceId, taskId, title }).catch(() => undefined)
+}
+
+/** A member's picture: your own, or a connected person's whose entry in your address book is linked to their account. */
+export function memberPhoto(userId: string, me: string): string | undefined {
+  const people = useStore.getState().people
+  if (userId === me) return people.find((p) => p.isMe)?.photo
+  return people.find((p) => p.link?.userId === userId)?.photo
 }

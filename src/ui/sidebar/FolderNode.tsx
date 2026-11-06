@@ -207,7 +207,7 @@ export function FolderNode(props: NodeProps) {
               }}
               aria-haspopup="dialog"
               aria-expanded={options}
-              className="grid h-6 w-6 place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
+              className="grid h-5 w-6 place-items-center rounded-full transition hover:scale-110 hover:bg-white/60"
             >
               <Flower hue={folder.hue} shape={folder.shape} size={16} />
             </button>
@@ -267,7 +267,7 @@ export function FolderNode(props: NodeProps) {
           </button>
         )}
         <GroupMenu n={count(folder.id)} name={folder.name} actions={actions} />
-        <GripHandle label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />
+        <GripHandle compact label="Drag to move or nest" onPointerDown={(e, handle) => editing !== folder.id && onPointerDown(e, handle)} />
       </div>
       <Gap open={slotHere !== null} indent={slotHere?.depth ?? 0} line />
       {isOpen && kids.map((k) => <FolderNode key={k.id} {...props} folder={k} depth={depth + 1} />)}

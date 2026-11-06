@@ -30,6 +30,7 @@ const SOUNDS = {
   undone: { url: '/sounds/drip-down.wav', gain: 0.5 }, // un-checking it: the same two drips, in the opposite order
   tick: { url: '/sounds/pop-low.wav', gain: 0.9 }, // tagged, moved, dropped into a group
   alert: { url: '/sounds/bubble-trio.wav', gain: 5 }, // a reminder going off
+  notify: { url: '/sounds/notify.wav', gain: 1.6 }, // news for you: a task given to you, an invitation (a soft rising pair of notes)
 } as const
 type SoundKey = keyof typeof SOUNDS
 const buffers = new Map<string, AudioBuffer>()
@@ -214,6 +215,12 @@ function bell(freq: number, when: number, vol: number, pan: number, decay: numbe
 export function bloom() {
   if (!can('chimes')) return
   play('done', { variation: 0.03 })
+}
+
+/** Something for you in the bell (a task given to you, an invitation to share). Quiet in the background, like the other interface sounds. */
+export function notify() {
+  if (!can('chimes')) return
+  play('notify', { variation: 0.01 })
 }
 
 /** Un-checked: the two drips of finishing, played the other way round (it falls instead of rises). */

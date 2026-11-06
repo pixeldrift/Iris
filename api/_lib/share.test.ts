@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { accept, BadRequest, createShare, Forbidden, handleShare, inviteConnection, inviteLink, leave, notifyAssigned, remove, setRole, shareState, stop } from './share'
+import { accept, BadRequest, createShare, Forbidden, handleShare, inviteConnection, inviteLink, leave, notifyAdded, notifyAssigned, remove, retire, setRole, shareState, stop } from './share'
 import { applySync, type Change } from './sync'
 
 const SCHEMA = readFileSync(new URL('../../db/schema.sql', import.meta.url), 'utf8')
@@ -114,5 +114,21 @@ describe('sharing a group', () => {
     await createShare(db, as('bob'), { name: 'Once', rootFolderId: 'same' })
     await expect(createShare(db, as('bob'), { name: 'Twice', rootFolderId: 'same' })).rejects.toBeInstanceOf(BadRequest)
     await expect(handleShare(db, as('bob'), { action: 'nope' })).rejects.toBeInstanceOf(BadRequest)
+  })
+
+  it('tells the other members when a task is added, and lets the owner close an emptied group so it can be shared afresh', async () => {
+    const root = `again-${Math.random()}`
+    const ws = (await createShare(db, as('ann'), { name: 'Again', rootFolderId: root })).workspaceId
+    await inviteConnection(db, as('ann'), { workspaceId: ws, toUserId: 'bob' })
+    await accept(db, as('bob'), { inviteId: (await shareState(db, as('bob'))).invites[0].id })
+    await notifyAdded(db, as('ann'), { workspaceId: ws, taskId: 'new1', title: 'Pick a hotel' })
+    expect((await shareState(db, as('bob'))).news[0]).toMatchObject({ kind: 'task-added', info: 'Pick a hotel', from: 'Ann' })
+    // she cannot close it while Bob is in it; once he is out, she can, and the same group can be shared again from scratch
+    await expect(retire(db, as('ann'), { workspaceId: ws })).rejects.toBeInstanceOf(Forbidden)
+    await remove(db, as('ann'), { workspaceId: ws, userId: 'bob', allowCopy: false })
+    await retire(db, as('ann'), { workspaceId: ws })
+    expect((await shareState(db, as('ann'))).shares.some((x) => x.workspaceId === ws)).toBe(false)
+    const again = await createShare(db, as('ann'), { name: 'Again', rootFolderId: root })
+    expect(again.workspaceId).not.toBe(ws)
   })
 })

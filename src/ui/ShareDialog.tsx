@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { create } from 'zustand'
 import { useStore } from '../state/store'
 import { useConnect } from '../sync/connect'
-import { countShared, inviteConnection, inviteLink, leaveGroup, removeMember, setMemberRole, shareGroup, stopSharing, useShare, type ShareInfo } from '../sync/share'
+import { countShared, memberPhoto, inviteConnection, inviteLink, leaveGroup, removeMember, setMemberRole, shareGroup, stopSharing, useShare, type ShareInfo } from '../sync/share'
 import { Modal } from './dialogs'
 import { IconLink, IconPerson } from './icons'
 
@@ -23,7 +23,6 @@ export function ShareDialog() {
   const shares = useShare((s) => s.shares)
   const showToast = useStore((s) => s.showToast)
   const connections = useConnect((s) => s.connections)
-  const myPhoto = useStore((s) => s.people.find((p) => p.isMe)?.photo)
   const myId = useShare((s) => s.me)
   const [busy, setBusy] = useState(false)
   const [ask, setAsk] = useState<null | { kind: 'remove'; userId: string; name: string } | { kind: 'stop' } | { kind: 'leave' }>(null)
@@ -31,7 +30,8 @@ export function ShareDialog() {
   const [role, setRole] = useState<'editor' | 'viewer'>('editor')
 
   // the share this group is the root of; or the shared group it sits inside
-  const own = shares.find((s) => s.rootFolderId === folderId)
+  // (a share whose group has since been taken back home is an empty shell, not this group's sharing)
+  const own = shares.find((s) => s.rootFolderId === folderId && folder?.workspaceId === s.workspaceId)
   const inside = folder?.workspaceId ? shares.find((s) => s.workspaceId === folder.workspaceId) : undefined
   const share: ShareInfo | undefined = own ?? inside
   const run = async (fn: () => Promise<unknown>, done?: string) => {
@@ -77,7 +77,7 @@ export function ShareDialog() {
               <ul className="space-y-1" aria-label="Members">
                 {share.members.map((m) => (
                   <li key={m.userId} className="flex items-center gap-2 rounded-xl bg-white/45 px-3 py-2">
-                    <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-lilac-100 text-xs font-medium text-lilac-700">{m.userId === myId && myPhoto ? <img src={myPhoto} alt="" draggable={false} className="h-full w-full object-cover" /> : m.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-lilac-100 text-xs font-medium text-lilac-700">{memberPhoto(m.userId, myId) ? <img src={memberPhoto(m.userId, myId)} alt="" draggable={false} className="h-full w-full object-cover" /> : m.name.slice(0, 1).toUpperCase()}</span>
                     <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
                     {mine && m.role !== 'owner' && m.status === 'active' ? (
                       <>

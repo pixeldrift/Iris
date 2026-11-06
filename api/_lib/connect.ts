@@ -6,7 +6,7 @@ import type { Caller } from './verify.js'
 export const FIELDS = ['name', 'phone', 'email', 'address', 'birthday'] as const
 export type ShareField = (typeof FIELDS)[number]
 const KEYS: Record<ShareField, string[]> = {
-  name: ['first', 'last'],
+  name: ['first', 'last', 'photo'], // (a profile picture travels with the name: whoever sees who you are sees your face)
   phone: ['phone'],
   email: ['email'],
   address: ['address', 'street', 'city', 'state', 'zip'],
@@ -33,6 +33,11 @@ function cleanDetails(v: unknown): Details {
   const all = Object.values(KEYS).flat()
   for (const k of all) {
     const x = (v as Record<string, unknown>)[k]
+    if (k === 'photo') {
+      // a small square picture as a data URL (the app makes it a few kilobytes), and nothing that isn't an image
+      if (typeof x === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(x) && x.length <= 80_000) out[k] = x
+      continue
+    }
     if (typeof x === 'string' && x.trim()) out[k] = x.trim().slice(0, 200)
   }
   return out

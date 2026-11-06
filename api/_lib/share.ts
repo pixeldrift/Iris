@@ -172,6 +172,33 @@ export async function leave(db: Db, who: Caller, body: { workspaceId?: unknown }
   return { ok: true }
 }
 
+/**
+ * Close a shared group for good, once the owner is the only one left in it (everyone has been removed or has let it go, and the group
+ * has come home to the owner). Sharing the group again then starts a fresh one, rather than reviving this empty shell.
+ */
+export async function retire(db: Db, who: Caller, body: { workspaceId?: unknown }) {
+  const ws = idOf(body.workspaceId)
+  if (!ws) throw new BadRequest('Which group?')
+  await asOwner(db, ws, who.userId)
+  const others = await db.query("select 1 from workspace_members where workspace_id = $1 and role <> 'owner'", [ws])
+  if (others.rows.length) throw new Forbidden('There are still people in this group.')
+  await db.query('delete from workspaces where id = $1', [ws])
+  return { ok: true }
+}
+
+/** Tell the other members that a task was added to a shared group (the app only asks when the person has switched this on). */
+export async function notifyAdded(db: Db, who: Caller, body: { workspaceId?: unknown; taskId?: unknown; title?: unknown }) {
+  const ws = idOf(body.workspaceId)
+  const taskId = idOf(body.taskId)
+  if (!ws || !taskId) return { ok: true }
+  const mine = await membership(db, ws, who.userId)
+  if (!mine || mine.role === 'viewer') throw new Forbidden('You can add to a group you can edit.')
+  const title = typeof body.title === 'string' ? body.title.slice(0, 120) : ''
+  const others = await db.query<{ user_id: string }>("select user_id from workspace_members where workspace_id = $1 and user_id <> $2 and status = 'active'", [ws, who.userId])
+  for (const o of others.rows) await notify(db, o.user_id, 'task-added', ws, who.userId, title, taskId)
+  return { ok: true }
+}
+
 /** Tell a member a task was given to them. (Both must be in the group; the app calls this when an assignee is set.) */
 export async function notifyAssigned(db: Db, who: Caller, body: { workspaceId?: unknown; userId?: unknown; taskId?: unknown; title?: unknown }) {
   const ws = idOf(body.workspaceId)
@@ -214,7 +241,7 @@ export async function shareState(db: Db, who: Caller) {
   )
   const pending = ids.length ? await db.query<{ workspace_id: string; n: string }>('select workspace_id, count(*) as n from workspace_invites where workspace_id = any($1::text[]) and not used and expires_at > now() group by workspace_id', [ids]) : { rows: [] as { workspace_id: string; n: string }[] }
   const news = await db.query<{ id: string; kind: string; workspace_id: string | null; from_user: string | null; info: string | null; extra: string | null; read: boolean; created_at: string }>(
-    "select id, kind, workspace_id, from_user, info, extra, read, created_at from notifications where user_id = $1 and kind like any(array['share-%', 'assigned']) order by created_at desc limit 40",
+    "select id, kind, workspace_id, from_user, info, extra, read, created_at from notifications where user_id = $1 and kind like any(array['share-%', 'assigned', 'task-added']) order by created_at desc limit 40",
     [who.userId],
   )
   const names = await displayNames(db, [...new Set([...mem.rows.map((m) => m.user_id), ...inv.rows.map((i) => i.created_by), ...news.rows.flatMap((n) => (n.from_user ? [n.from_user] : []))])])
@@ -238,7 +265,7 @@ export async function shareState(db: Db, who: Caller) {
 }
 
 export async function markShareNewsRead(db: Db, who: Caller) {
-  await db.query("update notifications set read = true where user_id = $1 and (kind like 'share-%' or kind = 'assigned')", [who.userId])
+  await db.query("update notifications set read = true where user_id = $1 and (kind like 'share-%' or kind in ('assigned', 'task-added'))", [who.userId])
   return { ok: true }
 }
 
@@ -255,6 +282,8 @@ export async function handleShare(db: Db, who: Caller, body: Record<string, unkn
     case 'stop': return stop(db, who, body)
     case 'leave': return leave(db, who, body)
     case 'assigned': return notifyAssigned(db, who, body)
+    case 'added': return notifyAdded(db, who, body)
+    case 'retire': return retire(db, who, body)
     case 'read': return markShareNewsRead(db, who)
     default: throw new BadRequest('Unknown action')
   }

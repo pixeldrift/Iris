@@ -1,6 +1,6 @@
 // Minimal offline shell: network-first for pages, cache-first for hashed assets.
-const CACHE = 'lilac-v8'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/sounds/drop-wet.wav', '/sounds/bubbles-wet.wav', '/sounds/bubble-trio.wav', '/sounds/drip-double.wav', '/sounds/drip-down.wav', '/sounds/pop-high.wav', '/sounds/pop-low.wav']
+const CACHE = 'lilac-v9'
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/sounds/drop-wet.wav', '/sounds/bubbles-wet.wav', '/sounds/bubble-trio.wav', '/sounds/drip-double.wav', '/sounds/drip-down.wav', '/sounds/pop-high.wav', '/sounds/pop-low.wav', '/sounds/notify.wav']
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()))
