@@ -82,6 +82,11 @@ function ViewSwitcher() {
   )
 }
 
+/** The menu's width on a desktop (px): its default, and how narrow or wide it may be dragged. */
+const SIDEBAR_DEFAULT = 280
+const SIDEBAR_MIN = 240
+const SIDEBAR_MAX = 560
+
 export function Sidebar() {
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
@@ -295,6 +300,52 @@ export function Sidebar() {
     },
   }
   const justSwiped = useRef(false)
+  // On a desktop the menu can be dragged wider (to read long, nested group names in full): the width is remembered on this device.
+  const [wide, setWide] = useState(() => {
+    try {
+      const w = Number(localStorage.getItem('lilac-sidebar-w'))
+      return w >= SIDEBAR_MIN && w <= SIDEBAR_MAX ? w : SIDEBAR_DEFAULT
+    } catch {
+      return SIDEBAR_DEFAULT
+    }
+  })
+  const resizable = !land && !mobile
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const x0 = e.clientX
+    const w0 = wide
+    let w = w0
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+    const move = (ev: PointerEvent) => {
+      w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, w0 + ev.clientX - x0))
+      setWide(w)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      try {
+        localStorage.setItem('lilac-sidebar-w', String(w))
+      } catch {
+        /* just for this visit */
+      }
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+  }
+  const resetWidth = () => {
+    setWide(SIDEBAR_DEFAULT)
+    try {
+      localStorage.removeItem('lilac-sidebar-w')
+    } catch {
+      /* ignore */
+    }
+  }
   // closed to its sliver (upright: not open; sideways: folded away)
   const folded = land ? navHidden : mobile && !open
 
@@ -322,12 +373,27 @@ export function Sidebar() {
             : {
                 paddingTop: 'env(safe-area-inset-top)',
                 transitionTimingFunction: SPRING,
+                ...(resizable ? { width: wide } : {}),
                 ...(swipe !== null ? { translate: open ? `${swipe}px 0` : `calc(-100% + var(--sliver) + ${swipe}px) 0` } : {}),
                 ...(mobile ? { touchAction: 'pan-y' } : {}),
               }
         }
         {...(open ? swipeProps : {})}
       >
+        {resizable && (
+          // drag the right edge to set the width; double-click puts it back
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Menu width: drag to resize, double-click to reset"
+            title="Drag to resize · double-click to reset"
+            onPointerDown={startResize}
+            onDoubleClick={resetWidth}
+            className="group/resize absolute inset-y-6 -right-2 z-20 hidden w-4 cursor-col-resize touch-none md:block"
+          >
+            <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-lilac-400/0 transition group-hover/resize:bg-lilac-400/60" />
+          </div>
+        )}
         {/* On a phone a plain sliver of glass stays beside the pond (nothing of the menu shows through):
             tap it, or drag an item onto it, to open the drawer. */}
         {!land && sliver && !open && (

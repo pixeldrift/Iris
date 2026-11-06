@@ -220,7 +220,7 @@ function AccountMenu() {
         {picture ? <img src={picture} alt="" draggable={false} className="h-full w-full rounded-full object-cover" /> : initial}
         {sync.status === 'error' && <span aria-hidden title="Couldn’t sync" className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#c95b88] ring-2 ring-white/80" />}
         {unread > 0 && (
-          <span aria-hidden className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-lilac-500 px-1 text-[0.6rem] font-semibold leading-none text-white ring-2 ring-white/80">
+          <span aria-hidden className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-lilac-500 px-1 text-[0.6rem] font-semibold leading-none text-white ring-2 ring-white/80">
             {unread}
           </span>
         )}
