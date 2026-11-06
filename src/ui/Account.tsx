@@ -204,6 +204,8 @@ function AccountMenu() {
   const dot = sync.status === 'error' ? 'bg-[#c95b88]' : sync.status === 'offline' ? 'bg-ink-faint' : sync.status === 'syncing' ? 'animate-pulse bg-lilac-400' : 'bg-[#6fc29a]'
   const me = people.find((p) => p.id === `me-${data.user.id}`)
   const initial = (data.user.name || data.user.email)[0]?.toUpperCase()
+  // your profile picture (My Profile) stands in for the initial, here and in the menu
+  const picture = me?.photo
   const item = 'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-lilac-100/70'
   return (
     <>
@@ -215,7 +217,7 @@ function AccountMenu() {
         aria-label={`Account: ${data.user.name || data.user.email}. ${status}${unread ? `. ${unread} to look at` : ''}`}
         className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
       >
-        {initial}
+        {picture ? <img src={picture} alt="" draggable={false} className="h-full w-full rounded-full object-cover" /> : initial}
         {unread > 0 && (
           <span aria-hidden className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#c4577e] px-1 text-[0.6rem] font-semibold leading-none text-white ring-2 ring-white/80">
             {unread}
@@ -225,7 +227,7 @@ function AccountMenu() {
       </button>
       <Popover open={menu} onClose={() => setMenu(false)} anchor={ref} align="end" className="w-60 p-1.5">
         <div className="flex items-center gap-2.5 px-2.5 pb-2 pt-1.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-lilac-200 text-base font-semibold text-lilac-700">{initial}</span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-lilac-200 text-base font-semibold text-lilac-700">{picture ? <img src={picture} alt="" draggable={false} className="h-full w-full object-cover" /> : initial}</span>
           <div className="min-w-0">
             <div className="truncate text-sm font-medium leading-tight">{data.user.name || data.user.email}</div>
             <div className="truncate text-xs text-ink-faint">{data.user.email}</div>
