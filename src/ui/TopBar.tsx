@@ -12,7 +12,6 @@ import { VIEWS } from './Sidebar'
 import { SegmentedToggle } from './SegmentedToggle'
 import { Tip } from './Tip'
 import { useUnread } from './useUnread'
-import { askName } from './NameDialog'
 import { useLandscapePhone } from './useMedia'
 
 const GROUPS: { id: PondGroup; label: string; icon: React.ReactNode }[] = [
@@ -234,24 +233,11 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       </div>
     )
 
-  const addFolder = useStore((st) => st.addFolder)
-  const addGroup = async () => {
-    const parentId = scope.type === 'folder' ? scope.id : null
-    const name = await askName(parentId ? 'New subgroup' : 'New group', 'Group name')
-    if (name) addFolder(name, parentId)
-  }
-
   const gather = (cls: string) =>
     view === 'pond' &&
     scope.type !== 'contacts' && (
       <div className={cls} role="group" aria-label="Arrange the pond">
         <SegmentedToggle label="Gather by" options={GROUPS} fill value={pondGroup} onChange={(v) => set('pondGroup', v)} />
-        {pondGroup === 'folder' && (
-          // a group (or, inside one, a subgroup) can be made right here
-          <button type="button" onClick={() => void addGroup()} className="ml-3 shrink-0 whitespace-nowrap rounded-full px-2 py-1 text-xs text-lilac-600 transition hover:bg-lilac-100/80 hover:text-lilac-700">
-            {scope.type === 'folder' ? '+ Subgroup' : '+ Group'}
-          </button>
-        )}
       </div>
     )
 

@@ -1,3 +1,4 @@
+import { composeOpen } from '../audio/engine'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { EXAMPLES, ExampleHint } from './ExampleHint'
 import { SegmentedToggle } from './SegmentedToggle'
@@ -91,6 +92,9 @@ export function NewTask() {
   const discard = useStore((s) => s.discardDraft)
   const select = useStore((s) => s.select)
   const view = useStore((s) => s.view)
+  useEffect(() => {
+    if (open) composeOpen()
+  }, [open])
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<TaskKind | null>(null) // null = let what you type decide
   const [plain, setPlain] = useState(false) // "keep as typed": ignore dates, tags and repeats

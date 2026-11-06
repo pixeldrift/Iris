@@ -23,6 +23,7 @@ import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
 import { pathOf } from '../../core/folders'
 import { PondMembers } from '../pond/Members'
+import { askName } from '../NameDialog'
 import { IconPerson } from '../icons'
 import { usePondGestures } from '../pond/usePondGestures'
 import { useSize } from '../pond/useSize'
@@ -40,6 +41,11 @@ export function Pond() {
   /** The + beside a cluster's name: a new item that already belongs to it (where that means something). */
   const addHere = (key: string): ComposePreset | null =>
     key === 'none' || key === 'all' ? null : group === 'folder' ? { folderIds: [key] } : group === 'person' ? { personIds: [key] } : group === 'kind' ? { kind: key as TaskKind } : null
+  const addFolder = useStore((s) => s.addFolder)
+  const newSubgroup = async (parentId: string) => {
+    const name = await askName('New subgroup', 'Group name')
+    if (name) addFolder(name, parentId)
+  }
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
   const scopeRef = useRef(scope)
@@ -674,7 +680,29 @@ export function Pond() {
     checkOffscreen,
     // in pop mode a tap on the water only ripples: it never starts a new item
     onTap: (p) => {
-      if (popRef.current === 'off') return false
+      if (popRef.current === 'off') {
+        // water near a group (below it, or beside one of its bubbles) starts the new item in that group; far from any, it is just a new item
+        const cv = view.current
+        const wx = (p.x - cv.tx) / cv.scale
+        const wy = (p.y - cv.ty) / cv.scale
+        let best: { key: string; d: number } | null = null
+        for (const c of clusters.current.values()) {
+          let d = Infinity
+          for (const id of c.ids) {
+            const n = nodes.current.get(id)
+            if (n) d = Math.min(d, Math.hypot(n.sim.x - wx, n.sim.y - wy) - n.sim.r)
+          }
+          const lab = labelsRef.current.find((l) => l.key === c.key)
+          if (lab) d = Math.min(d, Math.hypot(lab.x - wx, lab.y - wy) - 30)
+          d *= cv.scale // (how far it looks on screen, however far the pond is zoomed)
+          if (d < 110 && (!best || d < best.d)) best = { key: c.key, d }
+        }
+        const preset = best ? addHere(best.key) : null
+        if (!preset) return false
+        const { w: W, h: H } = dims.current
+        openCompose({ x: wx / W, y: wy / H }, preset)
+        return true
+      }
       spawnRipple('circle', p.x, p.y)
       return true
     },
@@ -741,11 +769,12 @@ export function Pond() {
                 </span>
               )}
               {addHere(l.key) && (
+                // the + beside a group's name makes a subgroup in it (a new item is made by tapping the water near the group)
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => openCompose(null, addHere(l.key)!)}
-                  aria-label={`New item in ${l.label}`}
-                  title={`New item in ${l.label}`}
+                  onClick={() => (group === 'folder' ? void newSubgroup(l.key) : openCompose(null, addHere(l.key)!))}
+                  aria-label={group === 'folder' ? `New subgroup in ${l.label}` : `New item in ${l.label}`}
+                  title={group === 'folder' ? `New subgroup in ${l.label}` : `New item in ${l.label}`}
                   className="ml-2 inline-grid h-6 w-6 -translate-y-0.5 place-items-center rounded-full bg-white/65 align-middle font-sans text-base font-normal not-italic leading-none text-lilac-700 shadow-sm transition hover:scale-110 hover:bg-white"
                 >
                   +
@@ -812,7 +841,7 @@ export function Pond() {
       )}
       {visible.length > 0 && !phone && (
         <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-32 pr-40 text-left text-xs text-ink-faint/80 sm:block">
-          {popMode === 'delete' ? 'Delete mode: popping a bubble deletes its task · undo brings it back' : popMode === 'fun' ? 'Fun mode: pop away, nothing is deleted' : popMode === 'game' ? 'Pop game: watch the colours, then pop them in the same order' : 'Click the water to add · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
+          {popMode === 'delete' ? 'Delete mode: popping a bubble deletes its task · undo brings it back' : popMode === 'fun' ? 'Fun mode: pop away, nothing is deleted' : popMode === 'game' ? 'Pop game: watch the colours, then pop them in the same order' : 'Click the water to add (near a group, to add to it) · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
         </p>
       )}
 
