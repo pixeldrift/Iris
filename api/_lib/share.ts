@@ -276,6 +276,23 @@ export async function clearShareNews(db: Db, who: Caller, body: { id?: unknown }
   return { ok: true }
 }
 
+/**
+ * A member deleted a shared group. The others are told. When the owner deletes the group a share began with, sharing ends with it
+ * (the shared space is closed and it vanishes for everyone else); a group deleted inside a shared group just goes, and they are told.
+ */
+export async function groupDeleted(db: Db, who: Caller, body: { workspaceId?: unknown; name?: unknown; root?: unknown }) {
+  const ws = idOf(body.workspaceId)
+  if (!ws) throw new BadRequest('Which group?')
+  const mine = await membership(db, ws, who.userId)
+  if (!mine || mine.role === 'viewer') throw new Forbidden('You can delete from a group you can edit.')
+  const name = typeof body.name === 'string' ? body.name.slice(0, 120) : ''
+  const closing = body.root === true && mine.role === 'owner'
+  const others = await db.query<{ user_id: string }>("select user_id from workspace_members where workspace_id = $1 and user_id <> $2", [ws, who.userId])
+  for (const o of others.rows) await notify(db, o.user_id, closing ? 'share-deleted' : 'share-folder-deleted', ws, who.userId, name)
+  if (closing) await db.query('delete from workspaces where id = $1', [ws])
+  return { ok: true }
+}
+
 /** Just who has the app open right now, among everyone in the groups you are in: small enough to ask every few seconds. */
 export async function presence(db: Db, who: Caller) {
   const { rows } = await db.query<{ user_id: string }>(
@@ -310,6 +327,7 @@ export async function handleShare(db: Db, who: Caller, body: Record<string, unkn
     case 'read': return markShareNewsRead(db, who)
     case 'clear': return clearShareNews(db, who, body)
     case 'presence': return presence(db, who)
+    case 'deleted': return groupDeleted(db, who, body)
     default: throw new BadRequest('Unknown action')
   }
 }

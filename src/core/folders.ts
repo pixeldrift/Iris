@@ -1,8 +1,10 @@
 import type { Folder, FlowerShape } from './types'
 
 export function childrenOf(folders: Folder[], parentId: string | null): Folder[] {
+  // a group whose parent is not here (someone shared just this subgroup with you, not the group it sits in) stands at the top
+  const have = parentId === null ? new Set(folders.map((f) => f.id)) : null
   return folders
-    .filter((f) => f.parentId === parentId)
+    .filter((f) => (parentId === null ? f.parentId === null || !have!.has(f.parentId) : f.parentId === parentId))
     .sort((a, b) => a.sort - b.sort || a.createdAt - b.createdAt)
 }
 

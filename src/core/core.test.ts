@@ -934,3 +934,13 @@ describe('quick add: a tag that names nothing', () => {
     expect(b.title).toContain('@nobody')
   })
 })
+
+describe('a group whose parent is not here', () => {
+  it('stands at the top (a subgroup shared on its own)', async () => {
+    const { childrenOf } = await import('./folders')
+    const f = (id: string, parentId: string | null, sort = 0) => ({ id, name: id, parentId, hue: 285, shape: 'blossom', sort, createdAt: 0 }) as never
+    const tops = childrenOf([f('shared', 'not-here'), f('own', null, 1), f('kid', 'own')], null).map((x) => x.id)
+    expect(tops).toEqual(['shared', 'own'])
+    expect(childrenOf([f('shared', 'not-here'), f('own', null, 1), f('kid', 'own')], 'own').map((x) => x.id)).toEqual(['kid'])
+  })
+})

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { accept, BadRequest, createShare, Forbidden, handleShare, inviteConnection, inviteLink, leave, notifyAdded, notifyAssigned, remove, retire, setRole, shareState, stop } from './share'
+import { accept, BadRequest, groupDeleted, createShare, Forbidden, handleShare, inviteConnection, inviteLink, leave, notifyAdded, notifyAssigned, remove, retire, setRole, shareState, stop } from './share'
 import { applySync, type Change } from './sync'
 
 const SCHEMA = readFileSync(new URL('../../db/schema.sql', import.meta.url), 'utf8')
@@ -153,5 +153,22 @@ describe('presence and clearing news', () => {
     expect((await shareState(db, as('bob'))).news.some((n) => n.id === one.id)).toBe(false)
     await handleShare(db, as('bob'), { action: 'clear' })
     expect((await shareState(db, as('bob'))).news.filter((n) => n.kind === 'assigned')).toHaveLength(0)
+  })
+})
+
+describe('deleting a shared group', () => {
+  it('tells the others, and closes the share when it is the group the share began with', async () => {
+    const ws = (await createShare(db, as('ann'), { name: 'Doomed', rootFolderId: `d-${Math.random()}` })).workspaceId
+    await inviteConnection(db, as('ann'), { workspaceId: ws, toUserId: 'bob' })
+    await accept(db, as('bob'), { inviteId: (await shareState(db, as('bob'))).invites[0].id })
+    // a group inside it, deleted by Bob: Ann is told, the share carries on
+    await groupDeleted(db, as('bob'), { workspaceId: ws, name: 'Side', root: false })
+    expect((await shareState(db, as('ann'))).news.find((n) => n.kind === 'share-folder-deleted')).toMatchObject({ info: 'Side', from: 'Bob' })
+    expect((await shareState(db, as('ann'))).shares.some((x) => x.workspaceId === ws)).toBe(true)
+    // the whole group, deleted by Ann: Bob is told, and it is gone for him
+    await groupDeleted(db, as('ann'), { workspaceId: ws, name: 'Doomed', root: true })
+    const bob = await shareState(db, as('bob'))
+    expect(bob.news.find((n) => n.kind === 'share-deleted')).toMatchObject({ info: 'Doomed', from: 'Ann' })
+    expect(bob.shares.some((x) => x.workspaceId === ws)).toBe(false)
   })
 })

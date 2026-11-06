@@ -236,3 +236,58 @@ test('a subgroup made inside a shared group is shared with it by default', async
   await ann.getByLabel('Group name').press('Enter')
   await expect(row(bob, 'Child group')).toBeVisible({ timeout: 25_000 })
 })
+
+test('a subgroup shared without its parent shows at the top for the other person, who is told when invited and when the group is deleted', async ({ browser }) => {
+  test.setTimeout(170_000)
+  const annEmail = `vann${stamp}@example.com`
+  const bobEmail = `vbob${stamp}@example.com`
+  const ann = await (await browser.newContext({ viewport: { width: 1200, height: 900 } })).newPage()
+  const bob = await (await browser.newContext({ viewport: { width: 1200, height: 900 } })).newPage()
+  await signUp(ann, 'Ann Archer', annEmail)
+  await signUp(bob, 'Bob Builder', bobEmail)
+  await ann.getByRole('button', { name: /Address book/ }).first().click()
+  await ann.getByRole('button', { name: 'Add a person' }).last().click()
+  await ann.getByPlaceholder('First name').fill('Bobby')
+  await ann.getByPlaceholder('Email').fill(bobEmail)
+  await ann.getByRole('button', { name: 'Save', exact: true }).click()
+  await ann.getByRole('button', { name: 'Send invitation' }).click()
+  await bob.reload()
+  await bob.locator('[aria-label^="Account"]').click()
+  await bob.getByRole('button', { name: /Notifications/ }).click()
+  await bob.getByRole('button', { name: 'Review' }).click()
+  await bob.getByRole('button', { name: 'Accept', exact: true }).click()
+  await ann.reload()
+  await bob.reload()
+  await expect(bob.locator('[data-node]').first()).toBeVisible()
+
+  // Ann: a parent group with a child; only the child is shared
+  await ann.getByText('Groups', { exact: true }).locator('xpath=ancestor::*[self::header or self::div][1]').getByRole('button').last().click()
+  await ann.getByLabel('Group name').fill('Outer')
+  await ann.getByLabel('Group name').press('Enter')
+  await row(ann, 'Outer').locator('button[aria-haspopup=dialog]').click()
+  await ann.getByRole('button', { name: 'Add subgroup' }).click()
+  await ann.getByLabel('Group name').fill('Inner')
+  await ann.getByLabel('Group name').press('Enter')
+  await row(ann, 'Inner').locator('button[aria-haspopup=dialog]').click()
+  await ann.getByRole('button', { name: 'Share', exact: true }).click()
+  await ann.getByRole('button', { name: 'Share this group' }).click()
+  await ann.getByRole('button', { name: 'Invite', exact: true }).click()
+  await ann.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+  // Bob, with the app open, is told about it as it arrives
+  await expect(bob.getByText(/invited you to share “Inner”/).first()).toBeVisible({ timeout: 40_000 })
+  await bob.locator('[aria-label^="Account"]').click()
+  await bob.getByRole('button', { name: /Notifications/ }).click()
+  await bob.getByRole('button', { name: 'Join' }).click()
+  await bob.getByRole('button', { name: 'Close notifications' }).click()
+  // ...and sees Inner on its own at the top, though he has nothing called Outer
+  await expect(row(bob, 'Inner')).toBeVisible({ timeout: 25_000 })
+  await expect(row(bob, 'Outer')).toHaveCount(0)
+
+  // Ann deletes Inner (the group the share began with): Bob is told, and it is gone for him
+  await row(ann, 'Inner').hover()
+  await row(ann, 'Inner').locator('button[aria-haspopup=menu]').click()
+  await ann.getByRole('button', { name: 'Delete', exact: true }).click()
+  await ann.getByRole('button', { name: /^Delete/ }).last().click()
+  await expect(bob.getByText(/deleted “Inner”/).first()).toBeVisible({ timeout: 40_000 })
+  await expect(row(bob, 'Inner')).toHaveCount(0, { timeout: 25_000 })
+})

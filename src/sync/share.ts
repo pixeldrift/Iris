@@ -66,13 +66,36 @@ async function call<T = unknown>(body: Record<string, unknown>): Promise<T> {
   return out
 }
 
+/** One line saying what happened, for the notifications list and for the pop-up that appears when it arrives. */
+export function describeNews(n: { kind: string; from: string; info: string; extra?: string }): string {
+  switch (n.kind) {
+    case 'share-invite': return `${n.from} invited you to share “${n.info}”`
+    case 'share-removed': return `${n.from} removed you from “${n.info}”${n.extra === 'copy' ? '. You can keep a copy.' : '.'}`
+    case 'share-joined': return `${n.from} joined “${n.info}”`
+    case 'share-left': return `${n.from} left “${n.info}”`
+    case 'share-deleted': return `${n.from} deleted “${n.info}”, so it is no longer shared`
+    case 'share-folder-deleted': return `${n.from} deleted the group “${n.info}”`
+    case 'assigned': return `${n.from} gave you “${n.info}”`
+    case 'task-added': return `${n.from} added “${n.info}”`
+    default: return n.info
+  }
+}
+
 let seenNews: Set<string> | null = null
 
 export async function refreshShare() {
   const s = await call<Omit<ShareState, 'loaded'>>({ action: 'state' })
   // a soft sound for something new for you (a task given to you, an invitation, a task added), but not for what was already waiting
   const fresh = [...s.invites.map((i) => i.id), ...s.news.filter((n) => !n.read).map((n) => n.id)]
-  if (seenNews && fresh.some((id) => !seenNews!.has(id)) && document.visibilityState === 'visible') notify()
+  if (seenNews && fresh.some((id) => !seenNews!.has(id)) && document.visibilityState === 'visible') {
+    notify()
+    // and a pop-up saying what it is (an invitation, being added or removed, a group deleted, a task for you)
+    const lines = [
+      ...s.invites.filter((i) => !seenNews!.has(i.id)).map((i) => describeNews({ kind: 'share-invite', from: i.from, info: i.name })),
+      ...s.news.filter((n) => !n.read && !seenNews!.has(n.id)).map((n) => describeNews(n)),
+    ]
+    if (lines.length) useStore.getState().showToast(lines.length === 1 ? lines[0] : `${lines[0]} (and ${lines.length - 1} more in your notifications)`)
+  }
   seenNews = new Set(fresh)
   useShare.setState({ ...s, loaded: true })
   settleUnsharing(s.shares)
@@ -322,4 +345,18 @@ export function presenceOf(userId: string | undefined): boolean | null {
   let known: boolean | null = null
   for (const sh of useShare.getState().shares) for (const m of sh.members) if (m.userId === userId) known = (known ?? false) || m.active
   return known
+}
+
+/** Delete a group. When it is shared, the others are told first (and if it is the group a share began with, sharing ends with it). */
+export async function deleteGroup(folder: Folder, choices: Parameters<ReturnType<typeof useStore.getState>['deleteFolder']>[1]) {
+  const share = folder.workspaceId ? useShare.getState().shares.find((x) => x.workspaceId === folder.workspaceId) : undefined
+  if (share) {
+    const root = share.rootFolderId === folder.id
+    if (root && share.role !== 'owner') {
+      useStore.getState().showToast('Only the owner can delete a shared group. Leave it instead (the group’s Sharing menu).')
+      return
+    }
+    await call({ action: 'deleted', workspaceId: share.workspaceId, name: folder.name, root }).catch(() => undefined)
+  }
+  useStore.getState().deleteFolder(folder.id, choices)
 }

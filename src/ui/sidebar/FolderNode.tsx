@@ -6,6 +6,7 @@ import type { Folder } from '../../core/types'
 import { useStore } from '../../state/store'
 import { targetAt, useDnd, useDropTarget, usePointerDrag } from '../dnd'
 import { confirmDeleteFolder } from './confirmDelete'
+import { deleteGroup } from '../../sync/share'
 import { Flower } from '../Flower'
 import { Popover } from '../Popover'
 import { lifter } from '../lift'
@@ -81,7 +82,6 @@ export function FolderNode(props: NodeProps) {
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
   const renameFolder = useStore((s) => s.renameFolder)
-  const deleteFolder = useStore((s) => s.deleteFolder)
   const moveFolder = useStore((s) => s.moveFolder)
   const kids = childrenOf(folders, folder.id)
   const isOpen = !collapsed.has(folder.id)
@@ -168,7 +168,7 @@ export function FolderNode(props: NodeProps) {
       run: async () => {
         {
           const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
-          if (choices) deleteFolder(folder.id, choices)
+          if (choices) void deleteGroup(folder, choices)
         }
       },
     },
