@@ -14,7 +14,7 @@ export const DEFAULT_SHARES: ShareField[] = ['name', 'phone', 'email']
 
 /** The details someone offers to their connections: their own entry in the address book. */
 export function detailsOf(p: Person): Record<string, string> {
-  const d: Record<string, string> = { first: p.first ?? '', last: p.last ?? '', phone: p.phone, email: p.email, address: p.address, street: p.street ?? '', city: p.city ?? '', state: p.state ?? '', zip: p.zip ?? '', birthday: p.birthday ?? '' }
+  const d: Record<string, string> = { first: p.first ?? '', last: p.last ?? '', phone: p.phone, email: p.email, address: p.address, street: p.street ?? '', city: p.city ?? '', state: p.state ?? '', zip: p.zip ?? '', birthday: p.birthday ?? '', photo: p.photo ?? '' }
   for (const k of Object.keys(d)) if (!d[k]) delete d[k]
   return d
 }
@@ -37,6 +37,7 @@ export function applyShared(p: Person, fields: Record<string, string>, shares: r
   let out: Person = p
   for (const f of p.link.got) if (!shares.includes(f)) out = clearField(out, f)
   if (shares.includes('name') && (fields.first || fields.last)) out = { ...out, first: fields.first ?? '', last: fields.last ?? '', name: fullName(fields.first ?? '', fields.last ?? '') }
+  if (shares.includes('name') && fields.photo) out = { ...out, photo: fields.photo }
   if (shares.includes('phone') && fields.phone) out = { ...out, phone: fields.phone }
   if (shares.includes('email') && fields.email) out = { ...out, email: fields.email }
   if (shares.includes('birthday') && fields.birthday) out = { ...out, birthday: fields.birthday }

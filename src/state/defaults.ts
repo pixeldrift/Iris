@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   limitPlay: true,
   autoUrgency: true,
   systemNotifications: true,
+  notifyShared: false,
   playGate: { usedMs: 0, lockUntil: 0, level: 0, lastLockAt: 0 },
   dateFormat: 'us',
   clockFormat: '12',

@@ -307,6 +307,7 @@ export function SettingsDialog() {
           <Row k="limitPlay" label="Limit play time" hint="3 minutes of play at a time, then a break" />
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
           <NotificationsRow />
+          {accountsConfigured && <Row k="notifyShared" label="Tell others about my new tasks" hint="when I add one to a shared group (off by default)" />}
         </Group>
         <Group title="Date &amp; Time">
           <div className="space-y-2 px-2 py-1.5">

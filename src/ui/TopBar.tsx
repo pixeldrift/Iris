@@ -172,7 +172,8 @@ export function TopBar({ onNew }: { onNew: () => void }) {
 
   const searchField = (cls: string) =>
     searchShown && (
-      <div className={cls}>
+      <div className={`${cls} flex items-center gap-1.5`}>
+        <div className="relative min-w-0 flex-1">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
           <IconSearch size={15} />
         </span>
@@ -193,7 +194,7 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           }}
           aria-label="Search"
           enterKeyHint="search"
-          className={`well h-9 w-full rounded-full pl-9 text-sm ${query.trim() ? 'pr-16' : 'pr-9'}`}
+          className={`well h-9 w-full rounded-full pl-9 text-sm ${query.trim() ? 'pr-24' : 'pr-3'}`}
         />
         {/* the hint is drawn here rather than as a placeholder, so one too long for the box can fade out toward the clear button */}
         {!query && (
@@ -205,19 +206,28 @@ export function TopBar({ onNew }: { onNew: () => void }) {
             Search everything…
           </span>
         )}
-        <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+        <span className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
           {query.trim() && <span className="text-xs tabular-nums text-ink-soft">{matchCount}</span>}
-          <button
-            onClick={() => {
-              setSearch('')
-              setSearchOpen(false)
-            }}
-            aria-label="Clear search"
-            className="grid h-6 w-6 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink"
-          >
-            <IconClose size={12} />
-          </button>
+          {query.trim() && (
+            // clears the words and leaves the box open
+            <button onClick={() => { setSearch(''); searchRef.current?.focus() }} className="text-xs text-lilac-600 transition hover:text-lilac-700 hover:underline">
+              Clear
+            </button>
+          )}
         </span>
+        </div>
+        {/* closes the search (and clears it); outside the box, so it is not mistaken for clearing the words */}
+        <button
+          onClick={() => {
+            setSearch('')
+            setSearchOpen(false)
+          }}
+          aria-label="Close search"
+          title="Close search"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink"
+        >
+          <IconClose size={13} />
+        </button>
       </div>
     )
 

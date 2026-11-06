@@ -38,6 +38,8 @@ export interface Settings {
   autoUrgency: boolean
   /** Reminders may also appear as system notifications (once the browser allows them); off keeps them inside Lilac. */
   systemNotifications: boolean
+  /** Tell the others in a shared group when I add a task to it (off unless chosen). */
+  notifyShared: boolean
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */

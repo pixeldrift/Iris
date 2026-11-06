@@ -21,6 +21,8 @@ import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
+import { PondMembers } from '../pond/Members'
+import { IconPerson } from '../icons'
 import { usePondGestures } from '../pond/usePondGestures'
 import { useSize } from '../pond/useSize'
 import { MAX_SCALE, MIN_SCALE, type PondApi, type PopMode, type Rec, type View } from '../pond/types'
@@ -722,6 +724,11 @@ export function Pond() {
               ) : (
                 l.label
               )}
+              {folders.find((f) => f.id === l.key)?.workspaceId && (
+                <span title="Shared group" aria-label="Shared group" role="img" className="ml-1.5 inline-block align-middle text-[0.5em] not-italic opacity-70">
+                  <IconPerson size={16} />
+                </span>
+              )}
               {addHere(l.key) && (
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
@@ -804,7 +811,7 @@ export function Pond() {
           <SegmentedToggle
             label="What popping does"
             iconsOnly
-            tones={{ delete: 'bg-rose-500 shadow-rose-500/40' }}
+            tones={{ delete: 'bg-[#c4577e] shadow-[#c4577e]/35' }}
             value={popMode as 'fun' | 'game' | 'delete'}
             onChange={(v) => {
               if (v !== 'delete' && limit.blocked()) return // (a break: say so, and stay where we are)
@@ -828,7 +835,7 @@ export function Pond() {
             }
             aria-pressed={pop}
             aria-label="Pop mode"
-            className={`grid h-9 w-9 place-items-center rounded-full transition ${pop ? (popMode === 'delete' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/40' : 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40') : 'glass-soft text-ink-soft hover:bg-white/80'}`}
+            className={`grid h-9 w-9 place-items-center rounded-full transition ${pop ? (popMode === 'delete' ? 'bg-[#c4577e] text-white shadow-md shadow-[#c4577e]/35' : 'bg-lilac-500 text-white shadow-md shadow-lilac-500/40') : 'glass-soft text-ink-soft hover:bg-white/80'}`}
           >
             <IconPop size={19} />
           </button>
@@ -844,10 +851,11 @@ export function Pond() {
           <span className="glass max-w-sm rounded-2xl !bg-white/95 px-6 py-4 text-center font-display text-xl italic leading-snug text-lilac-700">{limit.note.text}</span>
         </p>
       )}
+      {popMode === 'off' && <PondMembers />}
       {popMode === 'delete' && (
         // short, top left where the game's score sits, so it covers next to nothing
         <div data-ui className="pointer-events-none absolute left-3 top-3 z-10">
-          <div role="alert" className="rounded-full bg-rose-500 px-3.5 py-1.5 text-sm font-semibold text-white shadow-lg shadow-rose-500/40">
+          <div role="alert" className="rounded-full bg-[#c4577e] px-3.5 py-1.5 text-sm font-semibold text-white shadow-lg shadow-[#c4577e]/35">
             Pop to delete!
           </div>
         </div>
