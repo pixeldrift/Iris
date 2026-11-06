@@ -5,7 +5,7 @@ import { IconGame, IconPop, IconTrash } from '../icons'
 import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, fitView, stepSim, WATER_FEEL } from '../../core/flock'
-import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
+import { groupTasks, layoutClusters, pairKey, relations, treeOrder } from '../../core/groups'
 import { bubbleRadius, effectiveUrgency } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -21,7 +21,7 @@ import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
-import { canReparent, pathOf } from '../../core/folders'
+import { canReparent, descendantIds, pathOf } from '../../core/folders'
 import { undo } from '../../state/history'
 import { PondMembers } from '../pond/Members'
 import { askName } from '../NameDialog'
@@ -79,8 +79,12 @@ export function Pond() {
     R: number
     ids: string[]
     base: Map<string, { x: number; y: number }>
+    /** the groups sitting inside this one */
+    kids: string[]
   }
   const clusters = useRef(new Map<string, Cluster>())
+  /** every bubble of the groups inside a group, however deep (they belong inside its circle) */
+  const allKids = (key: string): string[] => (clusters.current.get(key)?.kids ?? []).flatMap((k) => [...(clusters.current.get(k)?.ids ?? []), ...allKids(k)])
   const shifts = useRef(new Map<string, { dx: number; dy: number }>())
   const groupOf = useRef(new Map<string, string>())
   const labelEls = useRef(new Map<string, HTMLElement>())
@@ -98,6 +102,9 @@ export function Pond() {
     const sx = e.clientX
     const sy = e.clientY
     const sh0 = shifts.current.get(key) ?? { dx: 0, dy: 0 }
+    // the groups inside this one travel with it
+    const family = group === 'folder' && folders.some((f) => f.id === key) ? [...descendantIds(folders, key)].filter((id) => id !== key && clusters.current.has(id)) : []
+    const fam0 = new Map(family.map((id) => [id, shifts.current.get(id) ?? { dx: 0, dy: 0 }]))
     document.body.classList.add('dragging')
     grabbed.current += 1
     const st0 = labelSt.current.get(key) ?? { x: sh0.dx, y: sh0.dy, vx: 0, vy: 0, pinned: false }
@@ -120,6 +127,7 @@ export function Pond() {
         let d = Math.hypot(o.cx + (sh?.dx ?? 0) - wx, o.cy + (sh?.dy ?? 0) - wy) - o.R
         const lab = labelsRef.current.find((l) => l.key === o.key)
         if (lab) d = Math.min(d, Math.hypot(lab.x + (sh?.dx ?? 0) - wx, lab.y + (sh?.dy ?? 0) - wy) - 40) // (onto the group's name counts too)
+        if (d < 0) d = -1 - 100 / o.R // (inside several circles: the smallest, innermost group wins)
         if (d < 30 && (!best || d < best.d)) best = { key: o.key, d }
       }
       return best?.key ?? null
@@ -134,13 +142,24 @@ export function Pond() {
         target = t
         setHot(t)
       }
-      for (const id of c.ids) {
-        const m = nodes.current.get(id)
-        const b = c.base.get(id)
-        if (m && b) {
-          m.sim.hx = b.x + sh.dx
-          m.sim.hy = b.y + sh.dy
+      const carry = (cl: typeof c, s: { dx: number; dy: number }) => {
+        for (const id of cl.ids) {
+          const m = nodes.current.get(id)
+          const b = cl.base.get(id)
+          if (m && b) {
+            m.sim.hx = b.x + s.dx
+            m.sim.hy = b.y + s.dy
+          }
         }
+      }
+      carry(c, sh)
+      for (const id of family) {
+        const o = clusters.current.get(id)
+        const f0 = fam0.get(id)!
+        if (!o) continue
+        const fs = { dx: f0.dx + sh.dx - sh0.dx, dy: f0.dy + sh.dy - sh0.dy }
+        shifts.current.set(id, fs)
+        carry(o, fs)
       }
       wake()
     }
@@ -151,6 +170,7 @@ export function Pond() {
         const into = folders.find((f) => f.id === target)
         const moved = folders.find((f) => f.id === key)
         shifts.current.delete(key)
+        for (const id of family) shifts.current.delete(id)
         moveFolder(key, target)
         if (moved && into) showToast(`“${moved.name}” is now inside “${into.name}”`, { label: 'Undo', run: undo })
         setHot(null)
@@ -334,7 +354,7 @@ export function Pond() {
         (a, b) => r.related.has(pairKey(a, b)),
         1,
         // gathered: each group has a field around it that other groups' bubbles cannot enter
-        g === 'free' ? [] : [...clusters.current.values()].map((c) => { const sh = shifts.current.get(c.key); return { cx: c.cx + (sh?.dx ?? 0), cy: c.cy + (sh?.dy ?? 0), R: c.R, ids: new Set(c.ids) } }),
+        g === 'free' ? [] : [...clusters.current.values()].map((c) => { const sh = shifts.current.get(c.key); return { cx: c.cx + (sh?.dx ?? 0), cy: c.cy + (sh?.dy ?? 0), R: c.R, ids: new Set([...c.ids, ...allKids(c.key)]) } }),
       )
       paint()
       let labelEnergy = 0
@@ -395,40 +415,93 @@ export function Pond() {
         // the groups on this level are named in the pond even when nothing is in them yet (so there is somewhere to drop a bubble, and to add to)
         const scopeId = scopeRef.current.type === 'folder' ? scopeRef.current.id : null
         const have = new Set(groups.map((g) => g.key))
+        const within = scopeId ? descendantIds(folders, scopeId) : null
         const empties = folders
-          .filter((f) => f.parentId === scopeId && !have.has(f.id))
+          .filter((f) => (within ? within.has(f.id) && f.id !== scopeId : true) && !have.has(f.id))
           .map((f) => ({ key: f.id, label: f.name, taskIds: [] as string[], hue: f.hue, path: pathOf(folders, f.id).map((x) => ({ id: x.id, name: x.name })) }))
-        const at = (key: string) => folders.find((f) => f.id === key)?.sort ?? 99
+        const order = treeOrder(folders)
+        const at = (key: string) => order.get(key) ?? 99
         if (empties.length) groups = [...groups, ...empties].sort((a, b) => at(a.key) - at(b.key))
       }
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
       const spacing = avgR * 1.75 + 4 // (close, but bubbles that would overlap are held apart by the water itself)
       const blob = (n: number) => spacing * Math.sqrt(n) + avgR
-      // clusters sit far enough apart never to touch; "Frame all" then zooms to fit
-      const centers = layoutClusters(groups.map((g) => blob(g.taskIds.length)), w / h)
-      groups.forEach((g, gi) => {
-        const cx = w / 2 + centers[gi].x
-        const cy = h / 2 + centers[gi].y
+      // A group inside another is one big bubble of its own within the parent's circle: roots are laid out in the pond,
+      // then each group's own bubbles sit at its middle and its child groups are packed around them.
+      const byKey = new Map(groups.map((g) => [g.key, g]))
+      const parentOf = (key: string): string | null => {
+        let f = folders.find((x) => x.id === key)
+        while (f?.parentId) {
+          if (byKey.has(f.parentId)) return f.parentId
+          f = folders.find((x) => x.id === f!.parentId)
+        }
+        return null
+      }
+      const kidsOf = new Map<string, string[]>()
+      const roots: string[] = []
+      for (const g of groups) {
+        const pk = group === 'folder' ? parentOf(g.key) : null
+        if (pk) kidsOf.set(pk, [...(kidsOf.get(pk) ?? []), g.key])
+        else roots.push(g.key)
+      }
+      const GAP = 16
+      const radiusOf = new Map<string, number>()
+      const place = new Map<string, { x: number; y: number }>() // child offsets from the parent's middle
+      const sizeOf = (key: string): number => {
+        const own = blob(byKey.get(key)!.taskIds.length)
+        const kids = kidsOf.get(key) ?? []
+        if (!kids.length) {
+          radiusOf.set(key, own)
+          return own
+        }
+        const rs = kids.map(sizeOf)
+        // spread the children round a ring just outside the group's own bubbles, widening it until they all fit
+        let scale = 1
+        let d: number[] = []
+        for (let n = 0; n < 40; n++, scale += 0.08) {
+          d = rs.map((r) => (own + r + GAP) * scale)
+          const need = rs.reduce((sum, r, i) => sum + 2 * Math.asin(Math.min(1, (r + GAP / 2) / d[i])), 0)
+          if (need <= Math.PI * 2 || kids.length === 1) break
+        }
+        const gaps = rs.map((r, i) => 2 * Math.asin(Math.min(1, (r + GAP / 2) / d[i])))
+        const spare = Math.max(0, Math.PI * 2 - gaps.reduce((a2, b2) => a2 + b2, 0)) / kids.length
+        let ang = -Math.PI / 2 + gaps[0] / 2 + Math.PI / 6
+        kids.forEach((k, i) => {
+          place.set(k, { x: Math.cos(ang) * d[i], y: Math.sin(ang) * d[i] })
+          ang += gaps[i] / 2 + spare + (gaps[i + 1] ?? 0) / 2
+        })
+        const R = Math.max(own, ...rs.map((r, i) => d[i] + r)) + 4
+        radiusOf.set(key, R)
+        return R
+      }
+      const rootR = roots.map(sizeOf)
+      const centers = layoutClusters(rootR, w / h)
+      const rOf = new Map(visible.map((t) => [t.id, radius(t)]))
+      const put = (key: string, cx: number, cy: number) => {
+        const g = byKey.get(key)!
         const base = new Map<string, { x: number; y: number }>()
         g.taskIds.forEach((id, i) => {
-          const a = i * 2.39996
+          const a2 = i * 2.39996
           const rad = spacing * Math.sqrt(i)
-          const pos = { x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad }
+          const pos = { x: cx + Math.cos(a2) * rad, y: cy + Math.sin(a2) * rad }
           homes.set(id, pos)
           base.set(id, pos)
           groupOf.current.set(id, g.key)
         })
-        clusters.current.set(g.key, { key: g.key, cx, cy, R: blob(g.taskIds.length), ids: g.taskIds, base })
-        // hug the cluster: centred over its bubbles, just above the topmost one
-        const rOf = new Map(visible.map((t) => [t.id, radius(t)]))
+        const kids = kidsOf.get(key) ?? []
+        clusters.current.set(g.key, { key: g.key, cx, cy, R: radiusOf.get(key)!, ids: g.taskIds, base, kids })
+        // the name hugs the group's own bubbles, or rides above the whole circle when other groups sit inside it
         let top = Infinity
         let sumX = 0
         for (const [id, pos] of base) {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: base.size ? sumX / base.size : cx, y: base.size ? top - 40 : cy })
-      })
+        const ly = kids.length ? cy - radiusOf.get(key)! - 26 : base.size ? top - 40 : cy
+        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: base.size && !kids.length ? sumX / base.size : cx, y: ly })
+        for (const k of kids) put(k, cx + place.get(k)!.x, cy + place.get(k)!.y)
+      }
+      roots.forEach((k, i) => put(k, w / 2 + centers[i].x, h / 2 + centers[i].y))
     }
     setLabels(nextLabels)
     labelsRef.current = nextLabels
