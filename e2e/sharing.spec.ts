@@ -164,6 +164,11 @@ test('a shared group carries a person mark and shows who is in it; sharing it ag
   // the pond names the shared group with the person mark, and shows who is in it
   await expect(bob.getByRole('img', { name: 'Shared group' }).first()).toBeVisible()
   await expect(ann.getByRole('group', { name: 'People in shared groups' })).toBeVisible({ timeout: 20_000 })
+  // tapping a face opens that person's card
+  await ann.getByRole('group', { name: 'People in shared groups' }).getByRole('button').first().click()
+  await expect(ann.getByRole('heading', { name: /Bob/ })).toBeVisible()
+  await ann.keyboard.press('Escape')
+  await expect(ann.getByRole('dialog')).toHaveCount(0)
 
   // Ann takes the group back with no copy; sharing it again reaches Bob again
   await row(ann, 'Round two').locator('button[aria-haspopup=dialog]').click()

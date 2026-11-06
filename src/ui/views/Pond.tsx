@@ -741,25 +741,24 @@ export function Pond() {
               }`}
             >
               {l.path && l.path.length > 1 ? (
-                // a breadcrumb: the folders above are lighter, italic, underlined links that move up a level
-                l.path.map((c, i) =>
-                  i < l.path!.length - 1 ? (
-                    <span key={c.id}>
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => setScope({ type: 'folder', id: c.id })}
-                        className="text-[0.62em] font-normal underline decoration-1 underline-offset-[5px] opacity-70 transition hover:opacity-100"
-                      >
-                        {c.name}
-                      </button>
-                      <span className="mx-1.5 text-[0.62em] font-normal opacity-60" aria-hidden>
-                        ›
+                <>
+                  {/* the groups above, as small underlined links on a line of their own over the name; each moves up to that level */}
+                  <span className="block text-center text-[0.42em] font-normal leading-tight not-italic">
+                    {l.path.slice(0, -1).map((c, i) => (
+                      <span key={c.id}>
+                        {i > 0 && (
+                          <span className="mx-1 opacity-60" aria-hidden>
+                            ›
+                          </span>
+                        )}
+                        <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setScope({ type: 'folder', id: c.id })} className="underline decoration-1 underline-offset-[3px] opacity-70 transition hover:opacity-100">
+                          {c.name}
+                        </button>
                       </span>
-                    </span>
-                  ) : (
-                    <span key={c.id}>{c.name}</span>
-                  ),
-                )
+                    ))}
+                  </span>
+                  <span>{l.path[l.path.length - 1].name}</span>
+                </>
               ) : (
                 l.label
               )}

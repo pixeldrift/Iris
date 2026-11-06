@@ -371,11 +371,11 @@ export function TopBar({ onNew }: { onNew: () => void }) {
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-1 pt-4 md:px-6 md:pt-5" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
       {/* a phone turned sideways keeps the menu beside the content: this brings it back once it has been folded away */}
       {!land && (
-        <button aria-label={unread > 0 ? `Menu. ${unread} to look at` : 'Menu'} onClick={() => setSidebar(true)} className="glass-soft relative order-1 grid h-9 w-9 place-items-center rounded-full text-lilac-600 md:hidden">
+        <button aria-label={unread > 0 ? `Menu. ${unread} to look at` : 'Menu'} onClick={() => setSidebar(true)} className="relative order-1 grid h-9 w-9 place-items-center rounded-full bg-lilac-500 text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600 md:hidden">
           <IconMenu />
           {unread > 0 && (
             // the bell's count, so it is seen even with the menu closed
-            <span aria-hidden className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-white px-1 text-[0.6rem] font-semibold leading-none text-lilac-700 shadow ring-1 ring-lilac-300">
+            <span aria-hidden className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full border border-lilac-500 bg-white px-1 text-[0.6rem] font-semibold leading-none text-lilac-700">
               {unread}
             </span>
           )}

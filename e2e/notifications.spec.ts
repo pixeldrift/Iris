@@ -55,3 +55,26 @@ test.describe('reminder cards', () => {
     await expect(page.getByRole('button', { name: /more notification/ })).toHaveCount(0)
   })
 })
+
+test.describe('the notifications box', () => {
+  test('keeps its size when something is cleared (until it is closed and opened again), and a cleared one pops away', async ({ page }) => {
+    await withReminders(page, 4)
+    await page.getByRole('button', { name: /3 more notifications/ }).click()
+    const dialog = page.getByRole('dialog', { name: 'Notifications' })
+    await expect(dialog.getByRole('listitem')).toHaveCount(4)
+    await page.waitForTimeout(600)
+    const full = (await dialog.boundingBox())!.height
+    await dialog.getByRole('button', { name: /^Dismiss/ }).first().click()
+    // it pops, then goes (the others glide up)...
+    await expect(dialog.getByRole('listitem')).toHaveCount(3, { timeout: 2000 })
+    await page.waitForTimeout(500)
+    // ...and the box stays as tall as it was
+    expect(Math.abs((await dialog.boundingBox())!.height - full)).toBeLessThan(2)
+    // opened again, it fits what is there
+    await dialog.getByRole('button', { name: 'Close notifications' }).click()
+    await expect(page.getByRole('dialog', { name: 'Notifications' })).toHaveCount(0)
+    await page.getByRole('button', { name: /(\d+) more notifications?|notifications/i }).first().click()
+    await page.waitForTimeout(600)
+    expect((await page.getByRole('dialog', { name: 'Notifications' }).boundingBox())!.height).toBeLessThan(full - 20)
+  })
+})

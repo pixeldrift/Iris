@@ -276,6 +276,17 @@ export async function clearShareNews(db: Db, who: Caller, body: { id?: unknown }
   return { ok: true }
 }
 
+/** Just who has the app open right now, among everyone in the groups you are in: small enough to ask every few seconds. */
+export async function presence(db: Db, who: Caller) {
+  const { rows } = await db.query<{ user_id: string }>(
+    `select distinct d.user_id from devices d
+      where d.last_seen > now() - interval '40 seconds'
+        and d.user_id in (select user_id from workspace_members where workspace_id in (select workspace_id from workspace_members where user_id = $1))`,
+    [who.userId],
+  )
+  return { active: rows.map((r) => r.user_id) }
+}
+
 export async function markShareNewsRead(db: Db, who: Caller) {
   await db.query("update notifications set read = true where user_id = $1 and (kind like 'share-%' or kind in ('assigned', 'task-added'))", [who.userId])
   return { ok: true }
@@ -298,6 +309,7 @@ export async function handleShare(db: Db, who: Caller, body: Record<string, unkn
     case 'retire': return retire(db, who, body)
     case 'read': return markShareNewsRead(db, who)
     case 'clear': return clearShareNews(db, who, body)
+    case 'presence': return presence(db, who)
     default: throw new BadRequest('Unknown action')
   }
 }
