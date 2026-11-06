@@ -66,26 +66,42 @@ function PlaceField({ task }: { task: Task }) {
 function AssignField({ task }: { task: Task }) {
   const share = useShare((s) => s.shares.find((x) => x.workspaceId === task.workspaceId))
   const me = useShare((s) => s.me)
+  const people = useStore((s) => s.people)
   if (!task.workspaceId || !share) return null
   const members = share.members.filter((m) => m.status === 'active')
+  const others = members.filter((m) => m.userId !== me)
+  // someone tagged on the task who is also a member of this group (their entry is linked to their account)
+  const tagged = task.personIds.flatMap((id) => {
+    const link = people.find((p) => p.id === id)?.link
+    const m = link && others.find((x) => x.userId === link.userId)
+    return m ? [m] : []
+  })
   return (
-    <label className="block rounded-2xl bg-white/35 p-3 text-xs font-medium text-ink-soft">
-      Assigned to
-      <select
-        aria-label="Assigned to"
-        value={task.assigneeId && members.some((m) => m.userId === task.assigneeId) ? task.assigneeId : ''}
-        disabled={share.role === 'viewer'}
-        onChange={(e) => assignTask(task, e.target.value || undefined)}
-        className="well mt-1 block w-full rounded-xl px-2.5 py-1.5 text-sm font-normal text-ink"
-      >
-        <option value="">Nobody</option>
-        {members.map((m) => (
-          <option key={m.userId} value={m.userId}>
-            {m.userId === me ? 'Me' : m.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="rounded-2xl bg-white/35 p-3 text-xs font-medium text-ink-soft">
+      <label className="block">
+        Assigned to
+        <select
+          aria-label="Assigned to"
+          value={task.assigneeId && members.some((m) => m.userId === task.assigneeId) ? task.assigneeId : ''}
+          disabled={share.role === 'viewer'}
+          onChange={(e) => assignTask(task, e.target.value || undefined)}
+          className="well mt-1 block w-full rounded-xl px-2.5 py-1.5 text-sm font-normal text-ink"
+        >
+          <option value="">Nobody</option>
+          {members.map((m) => (
+            <option key={m.userId} value={m.userId}>
+              {m.userId === me ? 'Me' : m.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {others.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Only you are in this group so far. Once someone joins (Group menu › Sharing › Invite) you can give them tasks.</p>}
+      {!task.assigneeId && tagged.length > 0 && (
+        <button type="button" onClick={() => assignTask(task, tagged[0].userId)} className="mt-1.5 rounded-full bg-lilac-100/80 px-3 py-1 font-normal text-lilac-700 transition hover:bg-lilac-200/80">
+          {tagged[0].name} is tagged on this: assign it to them
+        </button>
+      )}
+    </div>
   )
 }
 
