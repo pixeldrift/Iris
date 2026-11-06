@@ -54,6 +54,8 @@ test.describe('the task and notion panels', () => {
     const dialog = page.getByLabel('Task details')
     await expect(dialog.getByLabel('Notes')).toBeVisible()
     await expect(dialog.getByRole('button', { name: /Add a picture/ })).toBeVisible()
+    // a notion is not something to complete: no check mark, in the panel or on the list
+    await expect(dialog.getByRole('button', { name: /Mark done/ })).toHaveCount(0)
     for (const gone of [/^Due/, /Remind me/, /Repeats/, /Importance/, /Urgency/, /Stage/, /Assigned to/]) await expect(dialog.getByText(gone)).toHaveCount(0)
     const rows = await dialog.getByLabel('Notes').evaluate((e) => (e as HTMLTextAreaElement).rows)
     expect(rows).toBeGreaterThanOrEqual(8)
