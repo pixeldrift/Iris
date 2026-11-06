@@ -28,22 +28,20 @@ test.describe('quick add and fuzzy reminders', () => {
     expect(new Date((await taskNamed(page, 'Call mom'))!.remindAt).getHours()).toBe(18)
   })
 
-  test('the item panel offers Day before / Week before once the item has a date', async ({ page }) => {
+  test('the item panel offers Day before / Week before once the item has a due date, and brings a reminder with it', async ({ page }) => {
     await goto(page, 'List') // a new item opens its details here
     await page.keyboard.press('n')
     await page.keyboard.type(`Submit form ${SOON}`)
     await page.keyboard.press('Enter')
-    // the planned day is open already (it has one); its reminder opens out of its own line
-    await page.getByRole('button', { name: 'Remind me that day' }).click()
-    const doGroup = page.getByRole('radiogroup', { name: 'Remind me that day' })
-    await expect(doGroup.getByRole('radio', { name: 'Day before' })).toBeVisible()
-    await doGroup.getByRole('radio', { name: 'Day before' }).click()
-    await expect.poll(async () => (await taskNamed(page, 'Submit form'))?.remindBefore).toBe(1)
-    // and the deadline has a reminder of its own: setting it leaves the first alone
-    expect((await taskNamed(page, 'Submit form'))?.dueRemindAt ?? null).toBeNull()
+    // a typed date is the due date, and a reminder (the morning of) came with it
+    await expect.poll(async () => (await taskNamed(page, 'Submit form'))?.dueRemindBefore).toBe(0)
+    // it can be changed: the choices are relative to the due date
     await page.getByRole('button', { name: 'Remind me', exact: true }).click()
-    await page.getByRole('radiogroup', { name: 'Remind me', exact: true }).getByRole('radio', { name: 'This evening' }).click()
-    await expect.poll(async () => (await taskNamed(page, 'Submit form'))?.dueRemindAt).toBeTruthy()
-    expect((await taskNamed(page, 'Submit form'))?.remindBefore).toBe(1)
+    const group = page.getByRole('radiogroup', { name: 'Remind me', exact: true })
+    await expect(group.getByRole('radio', { name: 'Day before' })).toBeVisible()
+    await group.getByRole('radio', { name: 'Day before' }).click()
+    await expect.poll(async () => (await taskNamed(page, 'Submit form'))?.dueRemindBefore).toBe(1)
+    // the planned day is separate and not set
+    expect((await taskNamed(page, 'Submit form'))?.remindBefore ?? null).toBeNull()
   })
 })
