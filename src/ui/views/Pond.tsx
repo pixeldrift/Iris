@@ -293,6 +293,9 @@ export function Pond() {
         list,
         { home: g === 'free' ? WATER_FEEL.homeFree : WATER_FEEL.homeGrouped, magnet: g === 'free' ? WATER_FEEL.magnet : 0, damping: g === 'free' ? WATER_FEEL.dampingFree : WATER_FEEL.damping, push: WATER_FEEL.push },
         (a, b) => r.related.has(pairKey(a, b)),
+        1,
+        // gathered: each group has a field around it that other groups' bubbles cannot enter
+        g === 'free' ? [] : [...clusters.current.values()].map((c) => { const sh = shifts.current.get(c.key); return { cx: c.cx + (sh?.dx ?? 0), cy: c.cy + (sh?.dy ?? 0), R: c.R, ids: new Set(c.ids) } }),
       )
       paint()
       let labelEnergy = 0
@@ -360,7 +363,7 @@ export function Pond() {
         if (empties.length) groups = [...groups, ...empties].sort((a, b) => at(a.key) - at(b.key))
       }
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
-      const spacing = avgR * 1.45
+      const spacing = avgR * 1.75 + 4 // (close, but bubbles that would overlap are held apart by the water itself)
       const blob = (n: number) => spacing * Math.sqrt(n) + avgR
       // clusters sit far enough apart never to touch; "Frame all" then zooms to fit
       const centers = layoutClusters(groups.map((g) => blob(g.taskIds.length)), w / h)
