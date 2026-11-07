@@ -22,17 +22,17 @@ describe('the pond water', () => {
   it('a group’s field keeps other groups’ bubbles out, and lets its own in', () => {
     const own = node('own', 0, 0, 20)
     const stranger = node('stranger', 10, 0, 20, 10, 0) // wanders into the field
-    const field = { cx: 0, cy: 0, R: 100, ids: new Set(['own']) }
+    const field = { pad: 22, ids: new Set(['own']) }
     for (let i = 0; i < 60; i++) stepSim([own, stranger], P, () => false, 1, [field])
-    expect(Math.hypot(stranger.x, stranger.y)).toBeGreaterThanOrEqual(100 + stranger.r)
-    expect(Math.hypot(own.x, own.y)).toBeLessThan(100) // (its own member stays inside)
+    expect(Math.hypot(stranger.x - own.x, stranger.y - own.y)).toBeGreaterThanOrEqual(own.r + 22 + stranger.r - 0.5)
   })
 
   it('a bubble being carried can cross a field (to be dropped into the group)', () => {
     const held = node('held', 0, 0, 20)
     held.pinned = true
-    const field = { cx: 0, cy: 0, R: 100, ids: new Set<string>() }
-    stepSim([held], P, () => false, 1, [field])
+    const member = node('member', 5, 0, 20)
+    const field = { pad: 22, ids: new Set(['member']) }
+    stepSim([held, member], P, () => false, 1, [field])
     expect(held.x).toBe(0)
     expect(held.y).toBe(0)
   })

@@ -36,11 +36,11 @@ test.describe('groups in the pond', () => {
     const home = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
     const a = (await life.boundingBox())!
     const b = (await home.boundingBox())!
-    // grab "Life" by its name and carry it onto the middle of "Home"
+    // grab "Life" by its name and carry it onto the name "Home"
     await page.mouse.move(a.x + a.width / 2 - 8, a.y + a.height / 2)
     await page.mouse.down()
     await page.mouse.move(a.x + a.width / 2 - 8, a.y + a.height / 2 + 8, { steps: 3 })
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + 60, { steps: 16 })
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 16 })
     await page.mouse.up()
     await expect
       .poll(async () => {
@@ -68,7 +68,7 @@ test.describe('groups in the pond', () => {
   })
 
   test('tapping the water just below a group starts a new item in the nearest group', async ({ page }) => {
-    const label = page.locator('.pond-label').filter({ hasText: 'Life' }).first()
+    const label = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
     const b = (await label.boundingBox())!
     // a spot of open water (not on a bubble or a label) close to the group's name
     const spot = await page.evaluate(({ cx, cy }) => {
