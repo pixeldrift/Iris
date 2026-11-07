@@ -152,3 +152,6 @@ export function formatTime(hhmm: string): string {
 
 /** Consecutive occurrences done (a habit's streak). */
 export const habitStreak = (t: Task, now = today()): number => repeatStreak(t, now)
+
+/** Everyone a task is given to (the older single `assigneeId` counts too). */
+export const assigneesOf = (t: Pick<Task, 'assigneeIds' | 'assigneeId'>): string[] => t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])

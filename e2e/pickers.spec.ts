@@ -10,6 +10,7 @@ test.describe('date and time pickers', () => {
     await open(page)
     await goto(page, 'List')
     await page.locator('[data-lift-id^="task:"]').first().click()
+    await page.getByRole('button', { name: /Deadline/ }).click() // (a deadline has its own reminder)
     await page.getByRole('button', { name: /^Remind me( on the day)?$/ }).first().click() // (the reminder opens out of its own line)
     await page.getByText('and a time').waitFor()
   })

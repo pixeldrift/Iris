@@ -42,6 +42,8 @@ export interface Task {
   /** The shared workspace it lives in; absent = the person's own. */
   workspaceId?: string
   /** In a shared group: the member (a user id) it is given to. */
+  /** Who it is given to, in a shared group (more than one is fine). `assigneeId` is the older single field. */
+  assigneeIds?: string[]
   assigneeId?: string
   title: string
   notes: string

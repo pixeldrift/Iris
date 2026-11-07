@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { assigneesOf } from '../core/tasks'
 import { descendantIds } from '../core/folders'
 import type { Folder, Task } from '../core/types'
 import { suppressHistory } from '../state/history'
@@ -153,7 +154,7 @@ function moveTo(rootId: string, workspaceId: string | undefined) {
   }
   useStore.setState((s) => ({
     folders: s.folders.map((f) => (folderIds.has(f.id) ? stamp(f) : f)),
-    tasks: s.tasks.map((t) => (taskIds.has(t.id) ? (workspaceId ? stamp(t) : { ...stamp(t), assigneeId: undefined }) : t)),
+    tasks: s.tasks.map((t) => (taskIds.has(t.id) ? (workspaceId ? stamp(t) : { ...stamp(t), assigneeId: undefined, assigneeIds: undefined }) : t)),
   }))
 }
 
@@ -206,7 +207,7 @@ export function alignTaskWorkspaces() {
     if (ws === t.workspaceId) return t
     changed = true
     if (ws) return { ...t, workspaceId: ws }
-    const { workspaceId: _w, assigneeId: _a, ...rest } = t
+    const { workspaceId: _w, assigneeId: _a, assigneeIds: _as, ...rest } = t
     return rest as Task
   })
   if (changed) suppressHistory(() => useStore.setState({ tasks }))
@@ -300,7 +301,7 @@ export function copyShared(workspaceId: string, rootFolderId: string | null) {
     return { ...rest, id: fmap.get(f.id)!, parentId: f.id === rootFolderId || !f.parentId ? null : fmap.get(f.parentId) ?? null }
   })
   const copiedTasks: Task[] = tasks.map((t) => {
-    const { workspaceId: _w, assigneeId: _a, ...rest } = t
+    const { workspaceId: _w, assigneeId: _a, assigneeIds: _as, ...rest } = t
     return { ...rest, id: newId(), folderIds: t.folderIds.map((id) => fmap.get(id)).filter((x): x is string => !!x) }
   })
   suppressHistory(() => useStore.setState((st) => ({ folders: [...st.folders, ...copiedFolders], tasks: [...st.tasks, ...copiedTasks] })))
@@ -321,10 +322,12 @@ export const declineInvite = (inviteId: string) => call({ action: 'decline', inv
 export const clearShareNews = (id?: string) => call({ action: 'clear', ...(id ? { id } : {}) }).then(refreshShare)
 export const markShareRead = () => call({ action: 'read' }).then(refreshShare)
 
-/** Give a task to a member of its group (and tell them). */
-export function assignTask(task: Task, userId: string | undefined, title = task.title) {
-  useStore.getState().updateTask(task.id, { assigneeId: userId })
-  if (userId && task.workspaceId) void call({ action: 'assigned', workspaceId: task.workspaceId, userId, taskId: task.id, title }).catch(() => undefined)
+/** Give a task to members of its group (and tell the ones who are newly given it). */
+export function assignTask(task: Task, userIds: string[], title = task.title) {
+  const before = new Set(assigneesOf(task))
+  useStore.getState().updateTask(task.id, { assigneeIds: userIds, assigneeId: userIds[0] })
+  if (!task.workspaceId) return
+  for (const userId of userIds) if (!before.has(userId)) void call({ action: 'assigned', workspaceId: task.workspaceId, userId, taskId: task.id, title }).catch(() => undefined)
 }
 
 /** Tell the others in a shared group that a task was added (only when this person has switched that on). */

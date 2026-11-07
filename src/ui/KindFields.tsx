@@ -16,7 +16,7 @@ import { askNotify } from './notify'
 import { ALERT_CHOICES, alertLabel, nextAlertChoice } from '../core/reminders'
 
 /** The day it is scheduled for, optionally with a start and end (or a duration): one fact told three ways. */
-export function ScheduleFields({ task, dateLabel = 'Date' }: { task: Task; dateLabel?: React.ReactNode }) {
+export function ScheduleFields({ task, dateLabel = 'Date', trailing }: { task: Task; dateLabel?: React.ReactNode; trailing?: React.ReactNode }) {
   const update = useStore((s) => s.updateTask)
   const tasks = useStore((s) => s.tasks)
   // the free room around this event on its day: out to the events either side of it
@@ -32,13 +32,20 @@ export function ScheduleFields({ task, dateLabel = 'Date' }: { task: Task; dateL
   const canFitEnd = !!gap && gap.to > mine!.e
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      {/* the date, its time, and (beside them) whatever the caller adds: the button for a deadline */}
+      <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_auto] items-end gap-2">
         <DatePicker label={dateLabel} value={task.day} onChange={(v) => update(task.id, { day: v })} />
-        <span />
         {/* start, end and duration are one fact told three ways: moving the start carries the end along, and end and duration follow each other */}
         <TimePicker label="Starts" value={task.time} onChange={(v) => update(task.id, patchStart(task, v))} />
-        <TimePicker label="Ends" value={task.endTime} onChange={(v) => update(task.id, { endTime: v })} />
-        <DurationPicker label="Duration" value={durationOf(task)} disabled={!task.time} onChange={(m) => update(task.id, patchDuration(task, m))} />
+        {trailing || <span />}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {task.time && (
+          <>
+            <TimePicker label="Ends" value={task.endTime} onChange={(v) => update(task.id, { endTime: v })} />
+            <DurationPicker label="Duration" value={durationOf(task)} onChange={(m) => update(task.id, patchDuration(task, m))} />
+          </>
+        )}
         {task.time && (
           // stretch to the free time either side: out to the neighbouring events (or 8 am and 6 pm when nothing is nearer)
           <div className="col-span-2 flex flex-wrap gap-2">

@@ -11,23 +11,21 @@ test.describe('dates, reminders and a place on the details card', () => {
     await page.keyboard.press('n')
     await page.keyboard.type('Plan the garden')
     await page.keyboard.press('Enter')
-    // what matters first: where it belongs, when it is due, and the reminder
-    await expect(page.getByText(/^Due/).first()).toBeAttached()
-    await expect(page.getByRole('button', { name: 'Remind me', exact: true })).toBeVisible()
-    await expect(page.getByText(/^Do on/)).toHaveCount(0)
-    await expect(page.getByText(/^Due by/)).toHaveCount(0)
-    // the separate day to work on it (and the timeline start) are folded away until wanted
+    // what matters first: where it belongs, the scheduled day (one date, with a button beside it to add a deadline)
+    await expect(page.getByText(/^Scheduled/).first()).toBeAttached()
+    await expect(page.getByRole('button', { name: /Deadline/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Remind me', exact: true })).toHaveCount(0)
+    // the timeline start is folded away until wanted
     await expect(page.getByText(/^Timeline start/)).toHaveCount(0)
-    await expect(page.getByText(/^Work on it on/)).toHaveCount(0)
-    await page.getByRole('button', { name: /Plan a day to work on it/ }).click()
-    await expect(page.getByText(/^Work on it on/)).toBeAttached()
+    await page.getByRole('button', { name: 'More', exact: true }).click()
     await expect(page.getByText(/^Timeline start/)).toBeAttached()
     // that day's own reminder only appears once there is a day
     await expect(page.getByRole('button', { name: 'Remind me that day' })).toHaveCount(0)
     // a place, for a plain task too
     await page.getByLabel('Where').fill('Back garden')
     await expect.poll(async () => (await taskNamed(page, 'Plan the garden'))?.place).toBe('Back garden')
-    // the reminder
+    // the deadline, and its reminder
+    await page.getByRole('button', { name: /Deadline/ }).click()
     await page.getByRole('button', { name: 'Remind me', exact: true }).click()
     await page.getByRole('radiogroup', { name: 'Remind me' }).getByRole('radio', { name: 'This evening' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Plan the garden'))?.dueRemindAt).toBeTruthy()
