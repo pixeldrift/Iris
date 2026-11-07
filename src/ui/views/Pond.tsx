@@ -21,7 +21,7 @@ import { bubbleHue } from '../pond/hue'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
-import { canReparent, descendantIds, pathOf } from '../../core/folders'
+import { canReparent, pathOf } from '../../core/folders'
 import { undo } from '../../state/history'
 import { PondMembers } from '../pond/Members'
 import { askName } from '../NameDialog'
@@ -106,9 +106,6 @@ export function Pond() {
     const sx = e.clientX
     const sy = e.clientY
     const sh0 = shifts.current.get(key) ?? { dx: 0, dy: 0 }
-    // the groups inside this one travel with it
-    const family = group === 'folder' && folders.some((f) => f.id === key) ? [...descendantIds(folders, key)].filter((id) => id !== key && clusters.current.has(id)) : []
-    const fam0 = new Map(family.map((id) => [id, shifts.current.get(id) ?? { dx: 0, dy: 0 }]))
     document.body.classList.add('dragging')
     grabbed.current += 1
     const st0 = labelSt.current.get(key) ?? { x: sh0.dx, y: sh0.dy, vx: 0, vy: 0, pinned: false }
@@ -154,24 +151,13 @@ export function Pond() {
         target = t
         setHot(t)
       }
-      const carry = (cl: typeof c, s: { dx: number; dy: number }) => {
-        for (const id of cl.ids) {
-          const m = nodes.current.get(id)
-          const b = cl.base.get(id)
-          if (m && b) {
-            m.sim.hx = b.x + s.dx
-            m.sim.hy = b.y + s.dy
-          }
+      for (const id of c.ids) {
+        const m = nodes.current.get(id)
+        const b = c.base.get(id)
+        if (m && b) {
+          m.sim.hx = b.x + sh.dx
+          m.sim.hy = b.y + sh.dy
         }
-      }
-      carry(c, sh)
-      for (const id of family) {
-        const o = clusters.current.get(id)
-        const f0 = fam0.get(id)!
-        if (!o) continue
-        const fs = { dx: f0.dx + sh.dx - sh0.dx, dy: f0.dy + sh.dy - sh0.dy }
-        shifts.current.set(id, fs)
-        carry(o, fs)
       }
       wake()
     }
@@ -184,7 +170,6 @@ export function Pond() {
         const into = folders.find((f) => f.id === target)
         const moved = folders.find((f) => f.id === key)
         shifts.current.delete(key)
-        for (const id of family) shifts.current.delete(id)
         moveFolder(key, target)
         if (moved && into) showToast(`“${moved.name}” is now inside “${into.name}”`, { label: 'Undo', run: undo })
         setHot(null)
@@ -364,7 +349,7 @@ export function Pond() {
       const list = [...nodes.current.values()].map((n) => n.sim)
       const { bumps, energy } = stepSim(
         list,
-        { home: g === 'free' ? WATER_FEEL.homeFree : WATER_FEEL.homeGrouped, magnet: g === 'free' ? WATER_FEEL.magnet : 0, damping: g === 'free' ? WATER_FEEL.dampingFree : WATER_FEEL.damping, push: WATER_FEEL.push },
+        { home: g === 'free' ? WATER_FEEL.homeFree : WATER_FEEL.homeGrouped, magnet: g === 'free' ? WATER_FEEL.magnet : WATER_FEEL.magnet * 0.5, damping: g === 'free' ? WATER_FEEL.dampingFree : WATER_FEEL.damping, push: WATER_FEEL.push },
         (a, b) => r.related.has(pairKey(a, b)),
         1,
         // gathered: each group has a field around it that other groups' bubbles cannot enter
@@ -436,10 +421,10 @@ export function Pond() {
         if (empties.length) groups = [...groups, ...empties].sort((a, b) => at(a.key) - at(b.key))
       }
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
-      const spacing = avgR * 1.75 + 4 // (close, but bubbles that would overlap are held apart by the water itself)
+      const spacing = avgR * 1.45 + 2 // (close, but bubbles that would overlap are held apart by the water itself)
       const blob = (n: number) => spacing * Math.sqrt(n) + avgR
       // clusters sit far enough apart never to touch; "Frame all" then zooms to fit
-      const centers = layoutClusters(groups.map((g) => blob(g.taskIds.length)), w / h)
+      const centers = layoutClusters(groups.map((g) => blob(g.taskIds.length)), w / h, 30)
       groups.forEach((g, gi) => {
         const cx = w / 2 + centers[gi].x
         const cy = h / 2 + centers[gi].y
