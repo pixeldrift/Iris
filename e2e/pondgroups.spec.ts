@@ -64,7 +64,22 @@ test.describe('groups in the pond', () => {
     await expect(label('Home')).toBeVisible()
   })
 
+  test('group names are drawn above the bubbles, even ones moved over them', async ({ page }) => {
+    await page.waitForTimeout(1500)
+    // push a bubble right over a group's name: the name must still be the top thing there
+    const over = await page.evaluate(() => {
+      const label = document.querySelector('.pond-label > [data-ui]')!.getBoundingClientRect()
+      const node = document.querySelector('[data-node]') as HTMLElement
+      const r = node.getBoundingClientRect()
+      node.style.translate = `${label.left + label.width / 2 - (r.left + r.width / 2)}px ${label.top + label.height / 2 - (r.top + r.height / 2)}px`
+      const hit = document.elementFromPoint(label.left + label.width / 2 - 6, label.top + label.height / 2)
+      return !!hit?.closest('.pond-label')
+    })
+    expect(over).toBe(true)
+  })
+
   test('tapping the water just below a group starts a new item in the nearest group', async ({ page }) => {
+    await page.waitForTimeout(1500) // (let the bubbles settle)
     const label = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
     const b = (await label.boundingBox())!
     // a spot of open water (not on a bubble or a label) close to the group's name

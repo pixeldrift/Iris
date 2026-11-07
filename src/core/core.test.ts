@@ -79,7 +79,7 @@ describe('tasks', () => {
 })
 
 import { detectContactIntent, matchPerson, contactLink, parseVCards } from './people'
-import { groupTasks, layoutClusters, relations } from './groups'
+import { groupTasks, layoutClusters, packCircles, relations } from './groups'
 import { reorder, withoutFolder } from './folders'
 import { boundsOf, fitView, stepSim, WATER_FEEL, type SimNode } from './flock'
 
@@ -128,6 +128,12 @@ describe('grouping & flocking', () => {
     const c = layoutClusters(radii, 1.6)
     for (let i = 0; i < c.length; i++)
       for (let j = i + 1; j < c.length; j++) expect(Math.hypot(c[i].x - c[j].x, c[i].y - c[j].y)).toBeGreaterThan(radii[i] + radii[j])
+  })
+  it('packs bubbles of different sizes snugly with none overlapping', () => {
+    const radii = [60, 30, 45, 25, 50, 35]
+    const { pos, R } = packCircles(radii)
+    for (let i = 0; i < radii.length; i++) for (let j = i + 1; j < radii.length; j++) expect(Math.hypot(pos[i].x - pos[j].x, pos[i].y - pos[j].y)).toBeGreaterThanOrEqual(radii[i] + radii[j])
+    expect(R).toBeLessThan(Math.sqrt(radii.reduce((s, r) => s + r * r, 0)) * 1.9)
   })
   it('relates tasks that share a folder or person', () => {
     const r = relations(tasks)

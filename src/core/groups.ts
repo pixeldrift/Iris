@@ -108,3 +108,43 @@ export function relations(tasks: Task[]): { related: Set<string> } {
 }
 
 export const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
+
+/**
+ * Packs circles of the given radii as snugly as they go around the origin (biggest first, each one where it touches
+ * its neighbours and sits closest to the middle). Returns centres in the order of `radii`, re-centred on their mean,
+ * and the radius of the circle that holds them all.
+ */
+export function packCircles(radii: number[], gap = 3): { pos: { x: number; y: number }[]; R: number } {
+  const order = radii.map((_, i) => i).sort((a, b) => radii[b] - radii[a])
+  const placed: { i: number; x: number; y: number }[] = []
+  for (const i of order) {
+    if (!placed.length) {
+      placed.push({ i, x: 0, y: 0 })
+      continue
+    }
+    const cx = placed.reduce((s, p) => s + p.x, 0) / placed.length
+    const cy = placed.reduce((s, p) => s + p.y, 0) / placed.length
+    let best: { x: number; y: number; d: number } | null = null
+    for (const p of placed) {
+      const dist = radii[p.i] + radii[i] + gap
+      for (let k = 0; k < 36; k++) {
+        const a = (k / 36) * Math.PI * 2
+        const x = p.x + Math.cos(a) * dist
+        const y = p.y + Math.sin(a) * dist
+        if (placed.some((q) => Math.hypot(q.x - x, q.y - y) < radii[q.i] + radii[i] + gap - 0.5)) continue
+        const d = Math.hypot(x - cx, y - cy)
+        if (!best || d < best.d) best = { x, y, d }
+      }
+    }
+    placed.push({ i, x: best?.x ?? 0, y: best?.y ?? 0 })
+  }
+  const mx = placed.reduce((s, p) => s + p.x, 0) / (placed.length || 1)
+  const my = placed.reduce((s, p) => s + p.y, 0) / (placed.length || 1)
+  const pos = radii.map(() => ({ x: 0, y: 0 }))
+  let R = 0
+  for (const p of placed) {
+    pos[p.i] = { x: p.x - mx, y: p.y - my }
+    R = Math.max(R, Math.hypot(p.x - mx, p.y - my) + radii[p.i])
+  }
+  return { pos, R }
+}

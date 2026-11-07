@@ -5,7 +5,7 @@ import { IconGame, IconPop, IconTrash } from '../icons'
 import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, FIELD_PAD, fitView, stepSim, WATER_FEEL } from '../../core/flock'
-import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
+import { groupTasks, layoutClusters, pairKey, packCircles, relations } from '../../core/groups'
 import { bubbleRadius, effectiveUrgency } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -421,32 +421,30 @@ export function Pond() {
         if (empties.length) groups = [...groups, ...empties].sort((a, b) => at(a.key) - at(b.key))
       }
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
-      const spacing = avgR * 1.45 + 2 // (close, but bubbles that would overlap are held apart by the water itself)
-      const blob = (n: number) => spacing * Math.sqrt(n) + avgR
-      // clusters sit far enough apart never to touch; "Frame all" then zooms to fit
-      const centers = layoutClusters(groups.map((g) => blob(g.taskIds.length)), w / h, 30)
+      // each group's bubbles are packed snugly by their real sizes (so no odd gaps); clusters sit far enough apart never to touch
+      const rOf = new Map(visible.map((t) => [t.id, radius(t)]))
+      const packs = groups.map((g) => packCircles(g.taskIds.map((id) => rOf.get(id) ?? avgR)))
+      const blob = (gi: number) => (groups[gi].taskIds.length ? packs[gi].R + 6 : avgR)
+      const centers = layoutClusters(groups.map((_, gi) => blob(gi)), w / h, 30)
       groups.forEach((g, gi) => {
         const cx = w / 2 + centers[gi].x
         const cy = h / 2 + centers[gi].y
         const base = new Map<string, { x: number; y: number }>()
         g.taskIds.forEach((id, i) => {
-          const a = i * 2.39996
-          const rad = spacing * Math.sqrt(i)
-          const pos = { x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad }
+          const pos = { x: cx + packs[gi].pos[i].x, y: cy + packs[gi].pos[i].y }
           homes.set(id, pos)
           base.set(id, pos)
           groupOf.current.set(id, g.key)
         })
-        clusters.current.set(g.key, { key: g.key, cx, cy, R: blob(g.taskIds.length), ids: g.taskIds, base })
+        clusters.current.set(g.key, { key: g.key, cx, cy, R: blob(gi), ids: g.taskIds, base })
         // hug the cluster: centred over its bubbles, just above the topmost one
-        const rOf = new Map(visible.map((t) => [t.id, radius(t)]))
         let top = Infinity
         let sumX = 0
         for (const [id, pos] of base) {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: base.size ? sumX / base.size : cx, y: base.size ? top - 40 : cy })
+        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: base.size ? sumX / base.size : cx, y: base.size ? top - 46 : cy })
       })
     }
     setLabels(nextLabels)
@@ -790,7 +788,7 @@ export function Pond() {
               el.style.transform = st ? `translate(${st.x}px, ${st.y}px)` : ''
             }}
             className="pond-label absolute"
-            style={{ left: l.x, top: l.y }}
+            style={{ left: l.x, top: l.y, zIndex: 5 }}
           >
             <div
               data-ui
