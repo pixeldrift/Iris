@@ -444,7 +444,7 @@ export function Pond() {
           top = Math.min(top, pos.y - (rOf.get(id) ?? avgR))
           sumX += pos.x
         }
-        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: base.size ? sumX / base.size : cx, y: base.size ? top - 40 : cy })
+        nextLabels.push({ key: g.key, label: g.label, hue: g.hue, path: g.path, x: base.size ? sumX / base.size : cx, y: base.size ? top - 46 : cy })
       })
     }
     setLabels(nextLabels)
@@ -788,7 +788,7 @@ export function Pond() {
               el.style.transform = st ? `translate(${st.x}px, ${st.y}px)` : ''
             }}
             className="pond-label absolute"
-            style={{ left: l.x, top: l.y }}
+            style={{ left: l.x, top: l.y, zIndex: 5 }}
           >
             <div
               data-ui

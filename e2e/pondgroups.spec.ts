@@ -65,6 +65,7 @@ test.describe('groups in the pond', () => {
   })
 
   test('tapping the water just below a group starts a new item in the nearest group', async ({ page }) => {
+    await page.waitForTimeout(1500) // (let the bubbles settle)
     const label = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
     const b = (await label.boundingBox())!
     // a spot of open water (not on a bubble or a label) close to the group's name
