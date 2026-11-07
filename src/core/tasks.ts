@@ -155,3 +155,7 @@ export const habitStreak = (t: Task, now = today()): number => repeatStreak(t, n
 
 /** Everyone a task is given to (the older single `assigneeId` counts too). */
 export const assigneesOf = (t: Pick<Task, 'assigneeIds' | 'assigneeId'>): string[] => t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])
+
+/** Does the task have a reminder, a deadline reminder or an alert still waiting to go off? */
+export const reminderPending = (t: Pick<Task, 'remindAt' | 'reminded' | 'dueRemindAt' | 'dueReminded' | 'alerts'>): boolean =>
+  (t.remindAt !== null && !t.reminded) || (t.dueRemindAt != null && !t.dueReminded) || (t.alerts?.length ?? 0) > 0

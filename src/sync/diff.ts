@@ -51,13 +51,14 @@ export interface Entity {
  * Compare this device's entities with what the server last had. Returns the changes to push
  * (new or edited ones, and tombstones for ones that are gone) stamped with `now`.
  */
-export function localChanges(entities: Entity[], memory: SyncMemory, now: number): { changes: Change[]; stamps: Record<string, number> } {
+export function localChanges(entities: Entity[], memory: SyncMemory, now: number, hold: ReadonlySet<string> = new Set()): { changes: Change[]; stamps: Record<string, number> } {
   const changes: Change[] = []
   const stamps = { ...memory.stamps }
   const seen = new Set<string>()
   for (const e of entities) {
     const key = keyOf(e.kind, e.id)
     seen.add(key)
+    if (hold.has(key)) continue // (still being edited: it goes out when the panel is closed)
     if (memory.known[key] === hashOf(e.data)) continue
     stamps[key] = now
     // moved between workspaces (a group being shared, or taken back): it is gone from the old one and new in the other

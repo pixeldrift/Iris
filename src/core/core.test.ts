@@ -966,3 +966,15 @@ describe('quick add: due dates and times', () => {
     expect(parseQuickAdd('Buy milk friday', now, ctx)).toMatchObject({ due: '2026-10-30' })
   })
 })
+
+describe('reminderPending', () => {
+  it('is true only while a reminder, deadline reminder or alert is waiting', async () => {
+    const { reminderPending } = await import('./tasks')
+    const base = { remindAt: null, reminded: false, dueRemindAt: null, dueReminded: false, alerts: [] as number[] }
+    expect(reminderPending(base)).toBe(false)
+    expect(reminderPending({ ...base, remindAt: 5 })).toBe(true)
+    expect(reminderPending({ ...base, remindAt: 5, reminded: true })).toBe(false)
+    expect(reminderPending({ ...base, dueRemindAt: 5 })).toBe(true)
+    expect(reminderPending({ ...base, alerts: [10] })).toBe(true)
+  })
+})

@@ -21,6 +21,13 @@ describe('localChanges', () => {
     expect(stamps[keyOf('task', 'a')]).toBeUndefined()
   })
 
+  it('holds back a task that is still being edited (and does not mistake it for a deletion)', () => {
+    const mem = { ...emptyMemory(), known: { [keyOf('task', 'a')]: hashOf({ id: 'a', title: 'A' }), [keyOf('task', 'b')]: hashOf({ id: 'b', title: 'B' }) } }
+    const { changes } = localChanges([task('a', 'A edited'), task('b', 'B edited')], mem, 5, new Set([keyOf('task', 'a')]))
+    expect(changes.map((c) => c.id)).toEqual(['b'])
+    expect(localChanges([task('a', 'A edited')], mem, 6, new Set([keyOf('task', 'a')])).changes.filter((c) => c.id === 'a')).toEqual([])
+  })
+
   it('has nothing to say when nothing changed', () => {
     const mem = { ...emptyMemory(), known: { [keyOf('task', 'a')]: hashOf({ id: 'a', title: 'A' }) } }
     expect(localChanges([task('a', 'A')], mem, 1).changes).toEqual([])

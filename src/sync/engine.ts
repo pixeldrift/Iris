@@ -6,6 +6,7 @@ import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normali
 import { alignTaskWorkspaces, announceAdded } from './share'
 import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
 import { useStore } from '../state/store'
+import { reminderPending } from '../core/tasks'
 import { emptyMemory, hashOf, keyOf, localChanges, remoteToApply, type Change, type Entity, type Kind, type SyncMemory } from './diff'
 
 export type SyncStatus = 'off' | 'syncing' | 'idle' | 'error' | 'offline'
@@ -200,7 +201,11 @@ async function syncOnce(userId: string) {
       if (kept !== useStore.getState().tasks) suppressHistory(() => useStore.setState({ tasks: kept }))
       alignTaskWorkspaces() // (a task in a shared group is in its workspace)
       const ents = entities()
-      const { changes, stamps } = localChanges(ents, mem, Date.now())
+      // a task whose reminders are still being set in the details panel is not sent until the panel is closed (so the server never buzzes for a half-chosen time)
+      const open = useStore.getState().selectedId
+      const editing = open ? useStore.getState().tasks.find((t) => t.id === open) : undefined
+      const hold = new Set(editing && reminderPending(editing) ? [keyOf('task', editing.id)] : [])
+      const { changes, stamps } = localChanges(ents, mem, Date.now(), hold)
       const wasKnown = new Set(Object.keys(mem.known))
       const pushed = hashes()
       const resp = await post({ cursors: mem.cursors, changes, device, active: isPresent() })
@@ -349,7 +354,7 @@ export function startSync(userId: string): () => void {
     edit = window.setTimeout(() => void syncNow(userId), useSync.getState().peers > 0 ? 250 : 1200)
   }
   const unsub = useStore.subscribe((s, prev) => {
-    if (s.tasks !== prev.tasks || s.folders !== prev.folders || s.people !== prev.people) soon()
+    if (s.tasks !== prev.tasks || s.folders !== prev.folders || s.people !== prev.people || s.selectedId !== prev.selectedId) soon()
   })
   const tick = async (full: boolean) => {
     await (full ? syncNow(userId) : poll(userId))
