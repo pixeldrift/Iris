@@ -47,13 +47,17 @@ export const WATER_FEEL = {
   push: 0.085,
 }
 
-/** A "force field" around a group: bubbles that are not its own cannot come inside it. */
+/** Space kept around a group's bubbles, in px. */
+export const FIELD_PAD = 22
+
+/**
+ * A "force field" around a group: bubbles that are not its own cannot come inside it. Its shape is the group's own
+ * bubbles, each grown by `pad`, so it hugs them however they are spread (and follows them as they drift).
+ */
 export interface Field {
-  cx: number
-  cy: number
-  R: number
   /** The bubbles that belong to the group (they are free to be inside). */
   ids: Set<string>
+  pad: number
 }
 
 export interface Bump {
@@ -145,22 +149,32 @@ export function stepSim(
   // Hard limits, after the soft pushing above: a group's field keeps other groups' bubbles out, and no two bubbles may overlap (even
   // in the same group). A bubble that is held (pinned) is not moved, so it can be carried across a field to be dropped into a group.
   for (const f of fields) {
+    const members = nodes.filter((n) => f.ids.has(n.id))
+    if (!members.length) continue
     for (const a of nodes) {
       if (a.pinned || f.ids.has(a.id)) continue
-      const dx = a.x - f.cx
-      const dy = a.y - f.cy
-      const d = Math.hypot(dx, dy) || 0.001
-      const lim = f.R + a.r + 4
-      if (d < lim) {
-        const ux = dx / d
-        const uy = dy / d
-        a.x += ux * (lim - d)
-        a.y += uy * (lim - d)
-        const inward = a.vx * ux + a.vy * uy
-        if (inward < 0) {
-          a.vx -= ux * inward
-          a.vy -= uy * inward
+      // how far inside the shape is it: measured from the nearest member bubble
+      let near: SimNode | null = null
+      let gap = Infinity
+      for (const m of members) {
+        const g = Math.hypot(a.x - m.x, a.y - m.y) - (m.r + f.pad + a.r)
+        if (g < gap) {
+          gap = g
+          near = m
         }
+      }
+      if (!near || gap >= 0) continue
+      const dx = a.x - near.x
+      const dy = a.y - near.y
+      const d = Math.hypot(dx, dy) || 0.001
+      const ux = dx / d
+      const uy = dy / d
+      a.x += ux * -gap
+      a.y += uy * -gap
+      const inward = a.vx * ux + a.vy * uy
+      if (inward < 0) {
+        a.vx -= ux * inward
+        a.vy -= uy * inward
       }
     }
   }
