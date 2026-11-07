@@ -48,7 +48,7 @@ export const WATER_FEEL = {
 }
 
 /** Space kept around a group's bubbles, in px. */
-export const FIELD_PAD = 22
+export const FIELD_PAD = 14
 
 /**
  * A "force field" around a group: bubbles that are not its own cannot come inside it. Its shape is the group's own
