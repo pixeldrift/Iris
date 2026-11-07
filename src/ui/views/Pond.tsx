@@ -5,7 +5,7 @@ import { IconGame, IconPop, IconTrash } from '../icons'
 import { tint } from '../../core/color'
 import { plink } from '../../audio/engine'
 import { boundsOf, FIELD_PAD, fitView, stepSim, WATER_FEEL } from '../../core/flock'
-import { groupTasks, layoutClusters, pairKey, relations, treeOrder } from '../../core/groups'
+import { groupTasks, layoutClusters, pairKey, relations } from '../../core/groups'
 import { bubbleRadius, effectiveUrgency } from '../../core/tasks'
 import type { Task, TaskKind } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -45,6 +45,14 @@ export function Pond() {
   const addFolder = useStore((s) => s.addFolder)
   const moveFolder = useStore((s) => s.moveFolder)
   const showToast = useStore((s) => s.showToast)
+  /** Show just this group; if it is already the one shown, step back up a level (to its parent, or everything). */
+  const stepTo = (id: string) => {
+    const cur = scopeRef.current
+    if (cur.type === 'folder' && cur.id === id) {
+      const up1 = folders.find((f) => f.id === id)?.parentId
+      setScope(up1 && folders.some((f) => f.id === up1) ? { type: 'folder', id: up1 } : { type: 'all' })
+    } else setScope({ type: 'folder', id })
+  }
   const newSubgroup = async (parentId: string) => {
     const name = await askName('New subgroup', 'Group name')
     if (name) addFolder(name, parentId)
@@ -134,7 +142,10 @@ export function Pond() {
       return best?.key ?? null
     }
     let target: string | null = null
+    // a tap on a group's name filters the pond to that group; tapping it again (when it is the one shown) steps back up a level
+    const tapName = () => stepTo(key)
     const move = (ev: PointerEvent) => {
+      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) > 5) moved0 = true
       const k = view.current.scale
       const sh = { dx: sh0.dx + (ev.clientX - sx) / k, dy: sh0.dy + (ev.clientY - sy) / k }
       shifts.current.set(key, sh)
@@ -164,8 +175,10 @@ export function Pond() {
       }
       wake()
     }
+    let moved0 = false
     const up = () => {
       st0.pinned = false
+      if (!target && !moved0 && group === 'folder' && folders.some((f) => f.id === key)) tapName()
       if (target) {
         // dropped on another group: it becomes a group inside it
         const into = folders.find((f) => f.id === target)
@@ -416,12 +429,10 @@ export function Pond() {
         // the groups on this level are named in the pond even when nothing is in them yet (so there is somewhere to drop a bubble, and to add to)
         const scopeId = scopeRef.current.type === 'folder' ? scopeRef.current.id : null
         const have = new Set(groups.map((g) => g.key))
-        const within = scopeId ? descendantIds(folders, scopeId) : null
         const empties = folders
-          .filter((f) => (within ? within.has(f.id) && f.id !== scopeId : true) && !have.has(f.id))
+          .filter((f) => f.parentId === scopeId && !have.has(f.id))
           .map((f) => ({ key: f.id, label: f.name, taskIds: [] as string[], hue: f.hue, path: pathOf(folders, f.id).map((x) => ({ id: x.id, name: x.name })) }))
-        const order = treeOrder(folders)
-        const at = (key: string) => order.get(key) ?? 99
+        const at = (key: string) => folders.find((f) => f.id === key)?.sort ?? 99
         if (empties.length) groups = [...groups, ...empties].sort((a, b) => at(a.key) - at(b.key))
       }
       const avgR = visible.length ? visible.reduce((s, t) => s + radius(t), 0) / visible.length : 50
@@ -799,7 +810,7 @@ export function Pond() {
             <div
               data-ui
               onPointerDown={(e) => dragLabel(e, l.key)}
-              title={group === 'folder' ? 'Drag to move this whole group, or onto another group to put it inside' : 'Drag to move this whole group'}
+              title={group === 'folder' ? 'Tap to show just this group (tap again to step back up); drag to move it, or onto another group to put it inside' : 'Drag to move this whole group'}
               style={{ color: l.hue === undefined ? 'var(--color-lilac-700)' : `${tint(l.hue, 50, 36)}` }}
               className={`pop-in -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none whitespace-nowrap relative rounded-full px-3.5 py-1 font-display font-bold italic text-3xl transition-[background-color,box-shadow,opacity,text-shadow] duration-300 hover:bg-white/60 hover:shadow-sm ${
                 hot === l.key ? 'bg-white/80 opacity-100 shadow-[0_0_22px_6px_rgba(167,139,250,0.55)] [text-shadow:0_0_1px_currentColor,0_0_10px_rgba(255,255,255,0.9)]' : 'opacity-90'
@@ -816,7 +827,7 @@ export function Pond() {
                             ›
                           </span>
                         )}
-                        <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setScope({ type: 'folder', id: c.id })} className="underline decoration-1 underline-offset-[3px] opacity-70 transition hover:opacity-100">
+                        <button onPointerDown={(e) => e.stopPropagation()} onClick={() => stepTo(c.id)} className="underline decoration-1 underline-offset-[3px] opacity-70 transition hover:opacity-100">
                           {c.name}
                         </button>
                       </span>

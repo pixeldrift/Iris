@@ -50,21 +50,18 @@ test.describe('groups in the pond', () => {
       })
       .toBe(true)
     await expect(page.getByText(/“Life” is now inside “Home”/)).toBeVisible()
-    // "Life" keeps its own name in the pond, and carrying "Home" carries it along
-    await page.waitForTimeout(1500)
-    const life2 = page.locator('.pond-label').filter({ hasText: 'Life' }).first()
-    await expect(life2).toBeVisible()
-    const l0 = (await life2.boundingBox())!
-    const h0 = (await page.locator('.pond-label').filter({ hasText: 'Home' }).first().boundingBox())!
-    await page.mouse.move(h0.x + h0.width / 2 - 8, h0.y + h0.height / 2)
-    await page.mouse.down()
-    await page.mouse.move(h0.x + h0.width / 2 + 40, h0.y + h0.height / 2 + 40, { steps: 6 })
-    await page.mouse.move(h0.x + h0.width / 2 + 120, h0.y + h0.height / 2 + 120, { steps: 10 })
-    await page.mouse.up()
-    await page.waitForTimeout(1500)
-    const l1 = (await page.locator('.pond-label').filter({ hasText: 'Life' }).first().boundingBox())!
-    expect(l1.x - l0.x).toBeGreaterThan(60)
-    expect(l1.y - l0.y).toBeGreaterThan(60)
+  })
+
+  test('tapping a group’s name shows just that group, and tapping it again steps back up', async ({ page }) => {
+    const label = (n: string) => page.locator('.pond-label').filter({ hasText: n }).first()
+    await expect(label('Home')).toBeVisible()
+    const name = (n: string) => label(n).locator(':scope > [data-ui]')
+    await name('School').click({ position: { x: 14, y: 12 } })
+    await expect(label('English 101')).toBeVisible()
+    await expect(page.locator('.pond-label').filter({ hasText: 'Home' })).toHaveCount(0)
+    await page.waitForTimeout(800)
+    await page.locator('.pond-label button', { hasText: 'School' }).first().click()
+    await expect(label('Home')).toBeVisible()
   })
 
   test('tapping the water just below a group starts a new item in the nearest group', async ({ page }) => {
