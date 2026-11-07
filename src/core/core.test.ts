@@ -113,7 +113,7 @@ describe('grouping & flocking', () => {
   const tasks = all.filter((t) => !t.id.startsWith('demo-past'))
   it('groups tasks by top-level folder', () => {
     const g = groupTasks(tasks, 'folder', folders, people, '2026-10-26')
-    expect(g.find((x) => x.label === 'English 101')?.path?.map((p) => p.name)).toEqual(['School', 'English 101'])
+    expect(g.find((x) => x.label === 'School')?.taskIds.length).toBe(4)
     expect(g.reduce((n, x) => n + x.taskIds.length, 0)).toBe(tasks.length)
   })
   it('inside a folder, gathers by its subfolders and keeps the breadcrumb trail', () => {

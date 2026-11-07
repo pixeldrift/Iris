@@ -1,5 +1,5 @@
 import { diffDays, today } from './dates'
-import { childrenOf, descendantIds, pathOf } from './folders'
+import { descendantIds, pathOf } from './folders'
 import type { Folder, Person, PondGroup, Task } from './types'
 
 export interface Group {
@@ -10,19 +10,6 @@ export interface Group {
   hue?: number
   /** For folder groups: the trail from the top (School › English 101), so the title reads as a breadcrumb. */
   path?: { id: string; name: string }[]
-}
-
-/** Depth-first position of every folder (a group, then the groups inside it), so family members sit side by side. */
-export function treeOrder(folders: Folder[]): Map<string, number> {
-  const out = new Map<string, number>()
-  const walk = (parent: string | null) => {
-    for (const f of childrenOf(folders, parent)) {
-      out.set(f.id, out.size)
-      walk(f.id)
-    }
-  }
-  walk(null)
-  return out
 }
 
 const KIND_LABELS = { task: 'Tasks', event: 'Events', habit: 'Habits', list: 'Lists', idea: 'Notions' } as const
@@ -41,11 +28,11 @@ function bucket(
       const f = (inside ? t.folderIds.find((x) => inside.has(x)) : undefined) ?? t.folderIds[0]
       if (!f) return ['none', 'Unsorted', 99]
       const path = pathOf(ctx.folders, f)
-      // every group keeps its own bubble cluster and title (its parents show small above the name), listed right after its parent
-      const target = path[path.length - 1]
+      const at = scope ? path.findIndex((x) => x.id === scope) : -1
+      const target = at >= 0 ? (path[at + 1] ?? path[at]) : path[0]
       if (!target) return ['none', 'Unsorted', 99]
-      const trail = path.map((x) => ({ id: x.id, name: x.name }))
-      return [target.id, target.name, treeOrder(ctx.folders).get(target.id) ?? 0, target.hue, trail]
+      const trail = pathOf(ctx.folders, target.id).map((x) => ({ id: x.id, name: x.name }))
+      return [target.id, target.name, target.sort, target.hue, trail]
     }
     case 'person': {
       const p = ctx.people.find((x) => x.id === t.personIds[0])
