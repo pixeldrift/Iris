@@ -64,7 +64,7 @@ interface Node {
 type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number }
 
 /** The horizontal field of view of the lens, in degrees. */
-export const FOV = { min: 20, max: 100, start: 60 }
+export const FOV = { min: 20, max: 100, start: 50 }
 const TAP_PX = 6
 
 export class SpatialScene {
@@ -484,7 +484,7 @@ export class SpatialScene {
     const yaw0 = (minY + maxY) / 2
     const pit0 = (minP + maxP) / 2
     const aspect = Math.max(0.2, this.camera.aspect)
-    const needH = Math.max(maxY - minY, 2 * Math.atan(Math.tan((maxP - minP) / 2) * aspect)) * 1.12
+    const needH = Math.max(maxY - minY, 2 * Math.atan(Math.tan((maxP - minP) / 2) * aspect)) * 1.1
     const fov = Math.min(FOV.max, Math.max(FOV.start, (needH * 180) / Math.PI))
     const t = this.tracking.touch
     if (instant) {
