@@ -3,6 +3,8 @@ import { goto, open } from './helpers'
 
 test.describe('the month as an endless grid', () => {
   test.beforeEach(async ({ page }) => {
+    // a fixed day (the first screen shows one or two months depending on the date, and these checks expect one)
+    await page.clock.setFixedTime(new Date(2026, 10, 6, 10, 0))
     await open(page)
     await goto(page, 'Calendar')
   })
