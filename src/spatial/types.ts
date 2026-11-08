@@ -9,7 +9,7 @@
  * (apparent sizes do not change with it; it just keeps the cards far from the eye).
  */
 export const K = 2.5
-export const WORLD = { eye: 0, ring: 9 * K, cardW: 3 * K, cardH: 1 * K, gap: 0.24 * K } as const
+export const WORLD = { eye: 0, ring: 9 * K, cardW: 2.4 * K, cardH: 0.8 * K, gap: 0.2 * K } as const
 
 /** Optional reference for future AR: where in a real room this was pinned (never filled by sensor readings). */
 export interface SpatialAnchor {
@@ -24,6 +24,10 @@ export interface ClusterPlacement {
   z: number
   /** Turn about the vertical axis (so the cluster faces the middle of the room). */
   ry: number
+  /** Tilt toward the eye (a group above or below eye level leans to face the viewer, so nothing is seen at a steep angle). */
+  rx?: number
+  /** Half the height of its grid (so the tilt aims at its middle, not its name). */
+  half?: number
   /** Where on the ring it sits (radians, 0 = straight ahead, growing to the right) and how far out. */
   a: number
   r: number

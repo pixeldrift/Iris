@@ -116,6 +116,7 @@ test.describe('spatial workspace', () => {
 
   test('groups out of view get a soft dot on the frame, and tapping one turns to that group', async ({ page }) => {
     await enter(page)
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Zoom in' }).click() // (everything starts in view, so zoom in to push some out)
     await page.waitForTimeout(800)
     await expect.poll(() => page.locator('.edge-dot:not(.leaving)').count()).toBeGreaterThan(0)
     const before = await page.locator('.edge-dot:not(.leaving)').count()
@@ -141,6 +142,33 @@ test.describe('spatial workspace', () => {
     await box.uncheck()
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.links)).toBe(false)
     await expect(intro(page).locator('canvas')).toBeVisible()
+  })
+
+  test('starts with the whole wall in view, and Fit all goes back to that after zooming', async ({ page }) => {
+    await enter(page)
+    await expect(page.getByRole('button', { name: 'Fit all' })).toBeVisible()
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Zoom in' }).click()
+    await page.waitForTimeout(800)
+    const zoomed = await page.locator('.edge-dot:not(.leaving)').count()
+    expect(zoomed).toBeGreaterThan(0)
+    await page.getByRole('button', { name: 'Fit all' }).click()
+    await page.waitForTimeout(1400)
+    await expect(intro(page).locator('canvas')).toBeVisible()
+    // fitting brings the groups back into view: fewer dots at the edge than when zoomed in
+    expect(await page.locator('.edge-dot:not(.leaving)').count()).toBeLessThan(zoomed)
+  })
+
+  test('a slider down the right side sets how far away the wall is (the cylinder the groups are pinned to)', async ({ page }) => {
+    await enter(page)
+    const slider = page.getByRole('slider', { name: 'Wall distance' })
+    await expect(slider).toBeVisible()
+    await slider.fill('8')
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(8)
+    await slider.fill('60')
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(60)
+    await expect(intro(page).locator('canvas')).toBeVisible()
+    await slider.dblclick() // (double-tap resets)
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(22.5)
   })
 
   test('the simple view can be chosen by hand', async ({ page }) => {

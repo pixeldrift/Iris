@@ -1,9 +1,9 @@
 // EnvironmentProvider: what is behind the tasks. Independent of tracking and of the layout: changing it never moves a task.
-//   virtual   a soft procedural room of light and drifting dust (the default; it is meant to look good, not like a fallback)
+//   virtual   a soft procedural sky of pale colour (the default; it is meant to look good, not like a fallback)
 //   panorama  a 360-degree equirectangular picture the person chooses
 //   camera    the rear camera as the background (asked for only when the person chooses it)
 
-import { AdditiveBlending, BackSide, CanvasTexture, Color, DoubleSide, Float32BufferAttribute, Mesh, MeshBasicMaterial, Points, PointsMaterial, BufferGeometry, SphereGeometry, CircleGeometry, SRGBColorSpace, Texture, TextureLoader, type Scene } from 'three'
+import { BackSide, CanvasTexture, Mesh, MeshBasicMaterial, SphereGeometry, SRGBColorSpace, Texture, TextureLoader, type Scene } from 'three'
 import { K, type EnvironmentKind } from './types'
 
 export interface EnvironmentProvider {
@@ -87,8 +87,6 @@ function skySphere(map: Texture): Mesh {
 export class VirtualEnvironment implements EnvironmentProvider {
   readonly kind = 'virtual' as const
   private sky?: Mesh
-  private dust?: Points
-  private floor?: Mesh
   private tex?: CanvasTexture
   private scene?: Scene
   async start(_host: HTMLElement, scene: Scene): Promise<boolean> {
@@ -96,55 +94,13 @@ export class VirtualEnvironment implements EnvironmentProvider {
     this.tex = new CanvasTexture(skyCanvas())
     this.sky = skySphere(this.tex)
     scene.add(this.sky)
-    // a faint pool of light on the floor, so there is a down as well as an up
-    const f = document.createElement('canvas')
-    f.width = f.height = 256
-    const g = f.getContext('2d')!
-    const rg = g.createRadialGradient(128, 128, 0, 128, 128, 128)
-    rg.addColorStop(0, 'rgba(255,255,255,0.55)')
-    rg.addColorStop(1, 'rgba(255,255,255,0)')
-    g.fillStyle = rg
-    g.fillRect(0, 0, 256, 256)
-    this.floor = new Mesh(new CircleGeometry(24 * K, 48), new MeshBasicMaterial({ map: new CanvasTexture(f), transparent: true, depthWrite: false, side: DoubleSide }))
-    this.floor.rotation.x = -Math.PI / 2
-    this.floor.position.y = -6 * K
-    scene.add(this.floor)
-    // dust, drifting very slowly, for depth
-    const n = 160
-    const pos = new Float32Array(n * 3)
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2
-      const r = (4 + Math.random() * 22) * K
-      pos[i * 3] = Math.sin(a) * r
-      pos[i * 3 + 1] = (Math.random() - 0.4) * 14 * K
-      pos[i * 3 + 2] = -Math.cos(a) * r
-    }
-    const geo = new BufferGeometry()
-    geo.setAttribute('position', new Float32BufferAttribute(pos, 3))
-    // round, soft specks (a plain point is a square)
-    const sp = document.createElement('canvas')
-    sp.width = sp.height = 64
-    const sg = sp.getContext('2d')!
-    const sr = sg.createRadialGradient(32, 32, 0, 32, 32, 32)
-    sr.addColorStop(0, 'rgba(255,255,255,1)')
-    sr.addColorStop(1, 'rgba(255,255,255,0)')
-    sg.fillStyle = sr
-    sg.fillRect(0, 0, 64, 64)
-    this.dust = new Points(geo, new PointsMaterial({ size: 0.12 * K, map: new CanvasTexture(sp), color: new Color('#ffffff'), transparent: true, opacity: 0.45, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true }))
-    scene.add(this.dust)
     return true
   }
-  tick(t: number) {
-    if (this.dust) this.dust.rotation.y = t * 0.00002
-  }
   dispose() {
-    for (const o of [this.sky, this.floor, this.dust]) {
-      if (!o) continue
-      this.scene?.remove(o)
-      o.geometry.dispose()
-      const mat = o.material as MeshBasicMaterial | PointsMaterial
-      mat.map?.dispose()
-      mat.dispose()
+    if (this.sky) {
+      this.scene?.remove(this.sky)
+      this.sky.geometry.dispose()
+      ;(this.sky.material as MeshBasicMaterial).dispose()
     }
     this.tex?.dispose()
   }

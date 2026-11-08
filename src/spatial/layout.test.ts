@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { K } from './types'
-import { ensureLayout, lookAt, moveCluster, moveTask, taskWorld, type LayoutInput } from './layout'
+import { K, WORLD } from './types'
+import { ensureLayout, withRadius, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -80,12 +80,12 @@ describe('spatial layout', () => {
     expect(lookAt(c2).yaw).toBeCloseTo(-Math.PI / 4, 5)
   })
 
-  it('starts every group within a 90-degree stretch straight ahead (none behind the viewer), on rows below when there are many', () => {
+  it('starts every group within a wide stretch straight ahead (70 degrees each side; none behind the viewer), on rows below when there are many', () => {
     const many: Record<string, string[]> = {}
     for (let i = 0; i < 12; i++) many[`g${i}`] = Array.from({ length: 1 + (i % 5) }, (_, k) => `t${i}-${k}`)
     const l = ensureLayout(empty, input(many))
     for (const c of Object.values(l.clusters)) {
-      expect(Math.abs(c.a)).toBeLessThanOrEqual(Math.PI / 4 + 1e-6)
+      expect(Math.abs(c.a)).toBeLessThanOrEqual((Math.PI * 7) / 18 + 1e-6)
       expect(c.z).toBeLessThan(0) // in front
     }
     expect(Math.max(...Object.values(l.clusters).map((c) => c.tier ?? 0))).toBeGreaterThan(0)
@@ -97,8 +97,8 @@ describe('spatial layout', () => {
     // two of them are subgroups (nearer)
     inp.clusters = inp.clusters.map((c, i) => (i === 3 || i === 8 ? { ...c, parent: 'g0', depth: 1 } : c))
     const l = ensureLayout(empty, inp)
-    const cellW = (3 + 0.24) * K
-    const cellH = (1 + 0.24) * K
+    const cellW = WORLD.cardW + WORLD.gap
+    const cellH = WORLD.cardH + WORLD.gap
     const boxes = Object.entries(l.clusters).map(([id, c]) => {
       const n = many[id].length
       const rows = Math.ceil(n / c.cols)
@@ -120,7 +120,44 @@ describe('spatial layout', () => {
     const first = ensureLayout(empty, input(base))
     const next = ensureLayout(first, input({ ...base, c: ['c1', 'c2'], d: ['d1'] }))
     for (const id of ['a', 'b']) expect(next.clusters[id]).toEqual(first.clusters[id])
-    expect(Math.abs(next.clusters.c.a)).toBeLessThanOrEqual(Math.PI / 4 + 1e-6)
+    expect(Math.abs(next.clusters.c.a)).toBeLessThanOrEqual((Math.PI * 7) / 18 + 1e-6)
     expect(next.clusters.c.z).toBeLessThan(0)
+  })
+
+  it('leans each group toward the eye so none is seen at a steep angle, and keeps its cards on that tilted plane', () => {
+    const many: Record<string, string[]> = {}
+    for (let i = 0; i < 9; i++) many[`g${i}`] = Array.from({ length: 4 }, (_, k) => `t${i}-${k}`)
+    const l = ensureLayout(empty, input(many))
+    for (const c of Object.values(l.clusters)) {
+      const bs = planeBasis(c)
+      const mid = [c.x - bs.up[0] * (c.half ?? 0), c.y - bs.up[1] * (c.half ?? 0), c.z - bs.up[2] * (c.half ?? 0)]
+      const len = Math.hypot(mid[0], mid[1], mid[2])
+      // the plane's normal points back at the viewer: the cosine between it and the way to the eye is nearly 1
+      const facing = -(bs.normal[0] * mid[0] + bs.normal[1] * mid[1] + bs.normal[2] * mid[2]) / len
+      expect(facing).toBeGreaterThan(0.995)
+    }
+    // a card's own place is on its plane
+    for (const t of Object.values(l.tasks)) {
+      const c = l.clusters[t.c]
+      const w = taskWorld(t, c)
+      const bs = planeBasis(c)
+      const off = (w[0] - c.x) * bs.normal[0] + (w[1] - c.y) * bs.normal[1] + (w[2] - c.z) * bs.normal[2]
+      expect(Math.abs(off)).toBeLessThan(1e-6)
+    }
+  })
+
+  it('pins every group to a cylinder of the chosen radius, keeping direction and height, and still facing the eye', () => {
+    const l = ensureLayout(empty, input({ a: ['a1', 'a2'], b: ['b1'], c: ['c1', 'c2', 'c3'] }))
+    for (const R of [4, 22.5, 80]) {
+      const w = withRadius(l, R)
+      for (const [id, c] of Object.entries(w.clusters)) {
+        expect(Math.hypot(c.x, c.z)).toBeCloseTo(R, 5)
+        expect(c.a).toBeCloseTo(l.clusters[id].a, 8)
+        expect(c.y).toBeCloseTo(l.clusters[id].y, 8)
+        const bs = planeBasis(c)
+        const mid = [c.x - bs.up[0] * (c.half ?? 0), c.y - bs.up[1] * (c.half ?? 0), c.z - bs.up[2] * (c.half ?? 0)]
+        expect(-(bs.normal[0] * mid[0] + bs.normal[1] * mid[1] + bs.normal[2] * mid[2]) / Math.hypot(mid[0], mid[1], mid[2])).toBeGreaterThan(0.99)
+      }
+    }
   })
 })

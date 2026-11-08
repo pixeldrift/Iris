@@ -4,7 +4,7 @@
 import { CanvasTexture, DoubleSide, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Plane, Raycaster, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, LinearMipmapLinearFilter } from 'three'
 import { HUB_PX, drawCard, drawPlate, drawHub, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
-import { moveCluster, moveTask, taskWorld, lookAt } from './layout'
+import { moveCluster, moveTask, taskWorld, lookAt, planeBasis, withRadius } from './layout'
 import { K, WORLD, type SpatialLayoutData } from './types'
 import type { SpatialTracking } from './tracking'
 import { edgeDots } from '../core/edges'
@@ -37,7 +37,7 @@ interface Node {
 }
 /** The horizontal field of view of the lens, in degrees: narrow by default (a distant wall seen through a telephoto, so it stays flat). */
 const MIN_FOV = 14
-const MAX_FOV = 80
+const MAX_FOV = 100
 const START_FOV = 40
 const HOLD_MS = 380
 const TAP_PX = 8
@@ -52,6 +52,8 @@ export class SpatialScene {
   private plates = new Map<string, Mesh>()
   private links?: LineSegments
   private showLinks = true
+  /** The radius of the cylinder the groups are pinned to (null = as laid out). */
+  private radius: number | null = null
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
   private env?: EnvironmentProvider
@@ -61,7 +63,7 @@ export class SpatialScene {
   private lastQ = ''
   private ro?: ResizeObserver
   private fov = START_FOV
-  private focusTween?: { t0: number; from: [number, number]; to: [number, number] }
+  private focusTween?: { t0: number; from: [number, number]; to: [number, number]; fov?: [number, number] }
   private pointers = new Map<number, { x: number; y: number }>()
   private press?: { id: number; x: number; y: number; t0: number; hit: { kind: 'task' | 'hub'; id: string; uvx: number } | null; mode: 'pending' | 'look' | 'drag'; timer: number; plane?: Plane; offset?: Vector3 }
   private pinch?: { d: number; fov: number }
@@ -100,7 +102,7 @@ export class SpatialScene {
 
   setContent(c: SceneContent) {
     this.content = c
-    this.layout = c.layout
+    this.layout = this.radius === null ? c.layout : withRadius(c.layout, this.radius)
     const seen = new Set<string>()
     for (const t of c.tasks) {
       seen.add(t.id)
@@ -117,6 +119,8 @@ export class SpatialScene {
         tex.anisotropy = 4
         const mesh = new Mesh(new PlaneGeometry(WORLD.cardW, WORLD.cardH), new MeshBasicMaterial({ map: tex, transparent: true, side: DoubleSide, depthWrite: false }))
         mesh.userData = { kind: 'task', id: t.id }
+        mesh.rotation.order = 'YXZ'
+        mesh.renderOrder = 2 // (a fixed order, so overlapping see-through things never swap places as the camera moves)
         this.scene.add(mesh)
         n = { mesh, tex, key: '' }
         this.tasks.set(t.id, n)
@@ -139,6 +143,8 @@ export class SpatialScene {
         tex.colorSpace = SRGBColorSpace
         const mesh = new Mesh(new PlaneGeometry(WORLD.cardW * 1.15, (WORLD.cardW * 1.15 * HUB_PX.h) / HUB_PX.w), new MeshBasicMaterial({ map: tex, transparent: true, side: DoubleSide, depthWrite: false }))
         mesh.userData = { kind: 'hub', id: h.id }
+        mesh.rotation.order = 'YXZ'
+        mesh.renderOrder = 3
         this.scene.add(mesh)
         n = { mesh, tex, key: '' }
         this.hubs.set(h.id, n)
@@ -171,7 +177,7 @@ export class SpatialScene {
       if (!n || !tp || !cp) continue
       const [x, y, z] = taskWorld(tp, cp)
       n.mesh.position.set(x, y, z)
-      n.mesh.rotation.set(0, cp.ry, tp.rot ?? 0)
+      n.mesh.rotation.set(cp.rx ?? 0, cp.ry, tp.rot ?? 0)
       n.mesh.scale.setScalar(cp.scale ?? 1)
     }
     const hueOf = new Map(this.content.clusters.map((c) => [c.id, c.hue]))
@@ -181,7 +187,7 @@ export class SpatialScene {
       const n = this.hubs.get(h.id)
       if (!cp || !n) continue
       n.mesh.position.set(cp.x, cp.y, cp.z)
-      n.mesh.rotation.set(0, cp.ry, 0)
+      n.mesh.rotation.set(cp.rx ?? 0, cp.ry, 0)
       // the plate: a faint pane the group's cards sit on
       const mine = this.content.tasks.filter((t) => L.tasks[t.id]?.c === h.id)
       let top = 0.55 * K
@@ -198,6 +204,8 @@ export class SpatialScene {
       let plate = this.plates.get(h.id)
       if (!plate) {
         plate = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ transparent: true, side: DoubleSide, depthWrite: false }))
+        plate.rotation.order = 'YXZ'
+        plate.renderOrder = 1
         this.scene.add(plate)
         this.plates.set(h.id, plate)
       }
@@ -215,8 +223,10 @@ export class SpatialScene {
       plate.scale.set(w, hh, 1)
       const cx = (left + right) / 2
       const cy = (top + bottom) / 2
-      plate.position.set(cp.x + Math.cos(cp.ry) * cx + Math.sin(cp.ry) * -0.06 * K, cp.y + cy, cp.z + -Math.sin(cp.ry) * cx + Math.cos(cp.ry) * -0.06 * K)
-      plate.rotation.set(0, cp.ry, 0)
+      const bs = planeBasis(cp)
+      const back = -0.06 * K // (a little behind the cards)
+      plate.position.set(cp.x + bs.right[0] * cx + bs.up[0] * cy + bs.normal[0] * back, cp.y + bs.right[1] * cx + bs.up[1] * cy + bs.normal[1] * back, cp.z + bs.right[2] * cx + bs.up[2] * cy + bs.normal[2] * back)
+      plate.rotation.set(cp.rx ?? 0, cp.ry, 0)
       plateSeen.add(h.id)
     }
     for (const [id, p] of this.plates) {
@@ -257,6 +267,13 @@ export class SpatialScene {
       this.scene.add(this.links)
     }
     this.dirty = true
+  }
+
+  /** Pin every group to a cylinder of this radius around the viewer (a testing control: near is in your face, far is a distant wall). */
+  setRadius(r: number | null) {
+    this.radius = r
+    this.layout = r === null ? this.content.layout : withRadius(this.content.layout, r)
+    this.place()
   }
 
   /** Whether the faint curves between a group and its subgroups are drawn. */
@@ -305,6 +322,51 @@ export class SpatialScene {
     // with motion on, the sensor already turns the view: the touch offset only has to make up the difference
     this.focusTween = { t0: performance.now(), from: [t.yaw, t.pitch], to: [yaw - this.tracking.sensorYaw(), pitch] }
     this.events.onFocus?.(id)
+  }
+  /** Turn and zoom so the whole wall is in view (as far as the widest lens allows). */
+  frameAll(instant = false) {
+    const L = this.layout
+    const ids = this.content.clusters.map((c) => c.id).filter((id) => L.clusters[id])
+    if (!ids.length) return
+    let minY = Infinity
+    let maxY = -Infinity
+    let minP = Infinity
+    let maxP = -Infinity
+    for (const id of ids) {
+      const cp = L.clusters[id]
+      const bs = planeBasis(cp)
+      const n = this.content.tasks.filter((t) => L.tasks[t.id]?.c === id).map((t) => L.tasks[t.id])
+      const us = n.length ? n.map((t) => t.u) : [0]
+      const vs = n.length ? n.map((t) => t.v) : [0]
+      const u0 = Math.min(...us) - WORLD.cardW / 2
+      const u1 = Math.max(...us) + WORLD.cardW / 2
+      const v0 = Math.min(...vs) - WORLD.cardH / 2
+      const v1 = 0.7 * K
+      for (const [u, v] of [[u0, v0], [u1, v0], [u0, v1], [u1, v1]]) {
+        const x = cp.x + bs.right[0] * u + bs.up[0] * v
+        const y = cp.y + bs.right[1] * u + bs.up[1] * v
+        const z = cp.z + bs.right[2] * u + bs.up[2] * v
+        const yaw = Math.atan2(x, -z)
+        const pit = Math.atan2(y, Math.hypot(x, z))
+        minY = Math.min(minY, yaw)
+        maxY = Math.max(maxY, yaw)
+        minP = Math.min(minP, pit)
+        maxP = Math.max(maxP, pit)
+      }
+    }
+    const yaw0 = (minY + maxY) / 2
+    const pit0 = (minP + maxP) / 2
+    const aspect = Math.max(0.2, this.camera.aspect)
+    const needH = Math.max(maxY - minY, 2 * Math.atan(Math.tan((maxP - minP) / 2) * aspect)) * 1.12
+    const fov = Math.min(MAX_FOV, Math.max(START_FOV, (needH * 180) / Math.PI))
+    const t = this.tracking.touch
+    if (instant) {
+      t.set(-yaw0 - this.tracking.sensorYaw(), pit0)
+      this.fov = fov
+      this.dirty = true
+      return
+    }
+    this.focusTween = { t0: performance.now(), from: [t.yaw, t.pitch], to: [-yaw0 - this.tracking.sensorYaw(), pit0], fov: [this.fov, fov] }
   }
   private resize() {
     const w = Math.max(1, this.host.clientWidth)
@@ -369,13 +431,14 @@ export class SpatialScene {
       let dy = f.to[0] - f.from[0]
       dy = Math.atan2(Math.sin(dy), Math.cos(dy))
       this.tracking.touch.set(f.from[0] + dy * e, f.from[1] + (f.to[1] - f.from[1]) * e)
+      if (f.fov) this.fov = f.fov[0] + (f.fov[1] - f.fov[0]) * e
       if (k >= 1) this.focusTween = undefined
       this.dirty = true
     }
     const pose = this.tracking.getPose()
     const sig = pose.q.map((x) => x.toFixed(4)).join(',') + this.fov
     // in touch mode nothing changes unless it is moved: draw only when something did (kinder to the battery)
-    if (sig !== this.lastQ || this.dirty || this.env?.kind === 'virtual') {
+    if (sig !== this.lastQ || this.dirty) {
       this.lastQ = sig
       this.dirty = false
       this.camera.quaternion.set(pose.q[0], pose.q[1], pose.q[2], pose.q[3])
@@ -384,7 +447,6 @@ export class SpatialScene {
       const asp = this.camera.aspect
       this.camera.fov = Math.max(8, Math.min(100, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
       this.camera.updateProjectionMatrix()
-      this.env?.tick?.(now)
       this.renderer.render(this.scene, this.camera)
       this.updateDots()
     }
@@ -412,7 +474,8 @@ export class SpatialScene {
         sx = W / 2 + (cam.x / len) * 5000
         sy = H / 2 - (cam.y / len) * 5000
       }
-      return [{ id: c.id, x: sx, y: sy, r: 60, hue: c.hue }]
+      // a dot that is showing stays until its group is well back in view, so one hovering at the edge never flickers
+      return [{ id: c.id, x: sx, y: sy, r: this.dotEls.has(c.id) && !this.dotEls.get(c.id)!.classList.contains('leaving') ? -40 : 60, hue: c.hue }]
     })
     const dots = edgeDots(pts, { scale: 1, tx: 0, ty: 0 }, W, H, { inset: 14 })
     const now = new Set(dots.map((d) => d.id))
@@ -421,7 +484,7 @@ export class SpatialScene {
       if (!el) {
         el = document.createElement('button')
         el.type = 'button'
-        el.className = 'edge-dot'
+        el.className = 'edge-dot still'
         el.setAttribute('aria-label', 'A group out of view this way: turn to it')
         el.title = 'A group out of view this way'
         Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '16px', height: '16px', translate: '-50% -50%', borderRadius: '9999px' })
