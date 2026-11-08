@@ -187,3 +187,14 @@ export function moveTask(t: TaskPlacement, c: ClusterPlacement, world: Vec3): Ta
 
 /** The heading (radians) and height to look at to face a cluster (its middle). */
 export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - (c.half ?? 0), Math.hypot(c.x, c.z)) })
+
+/** Every group pinned to a cylinder of radius `r` around the viewer (each keeps its direction and height; its tilt follows). */
+export function withRadius(l: SpatialLayoutData, r: number): SpatialLayoutData {
+  const clusters: Record<string, ClusterPlacement> = {}
+  for (const [id, c] of Object.entries(l.clusters)) clusters[id] = tilt({ ...c, x: r * Math.sin(c.a), z: -r * Math.cos(c.a), r, ry: -c.a })
+  return { ...l, clusters }
+}
+
+/** The radius groups start at, and the range the testing slider offers (world units; one is about a metre, scaled by K). */
+export const RADIUS = { start: WORLD.ring, min: 4, max: 90 }
+

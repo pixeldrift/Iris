@@ -4,7 +4,7 @@
 import { CanvasTexture, DoubleSide, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Plane, Raycaster, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, LinearMipmapLinearFilter } from 'three'
 import { HUB_PX, drawCard, drawPlate, drawHub, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
-import { moveCluster, moveTask, taskWorld, lookAt, planeBasis } from './layout'
+import { moveCluster, moveTask, taskWorld, lookAt, planeBasis, withRadius } from './layout'
 import { K, WORLD, type SpatialLayoutData } from './types'
 import type { SpatialTracking } from './tracking'
 import { edgeDots } from '../core/edges'
@@ -52,6 +52,8 @@ export class SpatialScene {
   private plates = new Map<string, Mesh>()
   private links?: LineSegments
   private showLinks = true
+  /** The radius of the cylinder the groups are pinned to (null = as laid out). */
+  private radius: number | null = null
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
   private env?: EnvironmentProvider
@@ -100,7 +102,7 @@ export class SpatialScene {
 
   setContent(c: SceneContent) {
     this.content = c
-    this.layout = c.layout
+    this.layout = this.radius === null ? c.layout : withRadius(c.layout, this.radius)
     const seen = new Set<string>()
     for (const t of c.tasks) {
       seen.add(t.id)
@@ -265,6 +267,13 @@ export class SpatialScene {
       this.scene.add(this.links)
     }
     this.dirty = true
+  }
+
+  /** Pin every group to a cylinder of this radius around the viewer (a testing control: near is in your face, far is a distant wall). */
+  setRadius(r: number | null) {
+    this.radius = r
+    this.layout = r === null ? this.content.layout : withRadius(this.content.layout, r)
+    this.place()
   }
 
   /** Whether the faint curves between a group and its subgroups are drawn. */

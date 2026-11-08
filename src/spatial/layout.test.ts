@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { K, WORLD } from './types'
-import { ensureLayout, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { ensureLayout, withRadius, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -143,6 +143,21 @@ describe('spatial layout', () => {
       const bs = planeBasis(c)
       const off = (w[0] - c.x) * bs.normal[0] + (w[1] - c.y) * bs.normal[1] + (w[2] - c.z) * bs.normal[2]
       expect(Math.abs(off)).toBeLessThan(1e-6)
+    }
+  })
+
+  it('pins every group to a cylinder of the chosen radius, keeping direction and height, and still facing the eye', () => {
+    const l = ensureLayout(empty, input({ a: ['a1', 'a2'], b: ['b1'], c: ['c1', 'c2', 'c3'] }))
+    for (const R of [4, 22.5, 80]) {
+      const w = withRadius(l, R)
+      for (const [id, c] of Object.entries(w.clusters)) {
+        expect(Math.hypot(c.x, c.z)).toBeCloseTo(R, 5)
+        expect(c.a).toBeCloseTo(l.clusters[id].a, 8)
+        expect(c.y).toBeCloseTo(l.clusters[id].y, 8)
+        const bs = planeBasis(c)
+        const mid = [c.x - bs.up[0] * (c.half ?? 0), c.y - bs.up[1] * (c.half ?? 0), c.z - bs.up[2] * (c.half ?? 0)]
+        expect(-(bs.normal[0] * mid[0] + bs.normal[1] * mid[1] + bs.normal[2] * mid[2]) / Math.hypot(mid[0], mid[1], mid[2])).toBeGreaterThan(0.99)
+      }
     }
   })
 })

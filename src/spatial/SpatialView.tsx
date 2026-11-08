@@ -10,6 +10,7 @@ import { Popover } from '../ui/Popover'
 import { IconChevron, IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
 import { buildContent, sameLayout } from './content'
+import { RADIUS } from './layout'
 import { CameraEnvironment, PanoramaEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
 import { SpatialScene } from './SpatialScene'
 import { StaticCanvas } from './StaticCanvas'
@@ -17,9 +18,39 @@ import { useSpatial } from './store'
 import { SpatialTracking } from './tracking'
 import type { EnvironmentKind, TrackingStatus } from './types'
 
+/** A slider standing upright, filling the height it is given (a range input laid on its side, sized to its box). */
+function VerticalSlider({ label, min, max, step, value, onChange, onReset }: { label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void; onReset: () => void }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [len, setLen] = useState(160)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setLen(Math.max(60, el.clientHeight - 4)))
+    ro.observe(el)
+    setLen(Math.max(60, el.clientHeight - 4))
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div ref={box} className="relative min-h-0 w-full flex-1">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={label}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onDoubleClick={onReset}
+        className="soft absolute left-1/2 top-1/2"
+        style={{ width: len, transform: 'translate(-50%, -50%) rotate(-90deg)' }}
+      />
+    </div>
+  )
+}
+
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
-  const { environment, tracking: trackPref, render, seen, tipSeen, links } = useSpatial()
+  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius } = useSpatial()
   const stored = useSpatial((s) => s.layout)
   const setLayout = useSpatial((s) => s.setLayout)
   const prefs = useSpatial((s) => s.set)
@@ -154,6 +185,9 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
+  useEffect(() => {
+    scene.current?.setRadius(radius)
+  }, [radius, phase, simple])
 
   // leaving: stop the sensors
   useEffect(
@@ -325,6 +359,21 @@ export default function SpatialView() {
               <span />
             )}
           </div>
+          {!simple && (
+            // a testing control: how far away the wall is (the cylinder the groups are pinned to), down the right-hand side
+            <div data-ui className="absolute bottom-28 right-3 top-16 z-10 flex w-9 flex-col items-center gap-1.5 rounded-full bg-white/70 py-2 shadow-md backdrop-blur">
+              <span className="text-[0.6rem] font-medium leading-none text-ink-soft" aria-hidden>
+                far
+              </span>
+              <VerticalSlider label="Wall distance" min={RADIUS.min} max={RADIUS.max} step={0.5} value={radius} onChange={(v) => prefs({ radius: v })} onReset={() => prefs({ radius: RADIUS.start })} />
+              <span className="text-[0.6rem] font-medium leading-none text-ink-soft" aria-hidden>
+                near
+              </span>
+              <span className="text-[0.6rem] tabular-nums leading-none text-ink-faint" title="Distance to the wall (double-tap the slider to reset)">
+                {Math.round(radius)}
+              </span>
+            </div>
+          )}
           {!note && !tipSeen && !simple && (
             <button type="button" onClick={() => prefs({ tipSeen: true })} className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">
               Hold a task, then drag, to move it. Tap a group’s name to turn to it. <span className="text-lilac-600">Got it</span>

@@ -18,6 +18,7 @@ store, keyed by task and group id.
 | Interaction | inside `SpatialScene.ts` | tap a card: open (the existing details panel); tap its circle: tick it off; tap a group name: turn to it; hold a card or a group name, then drag: move it (a quick drag just looks around, so scrolling never moves anything); drag/pinch/wheel/arrow keys/`+`/`-`/`R`. |
 | Controller | `SpatialView.tsx` | picks the best mode, explains on first use, falls back step by step, tears down on exit. |
 | Level 5 fallback | `StaticCanvas.tsx` | no WebGL (or switched to *Simple*): the same groups and tasks on a plain canvas you pan and zoom; select, open and complete all work. |
+| Wall distance (testing) | `SpatialView.tsx`, `withRadius` in `layout.ts` | A slider down the right side sets the radius of the cylinder the groups' centres are pinned to (4 to 90 units, double-tap resets; saved on the device). Each group keeps its direction and height and leans to face the eye. Near is in your face with strong perspective, far is a distant wall; card sizes stay fixed, so farther looks smaller (use *Fit all* or zoom to compensate). |
 | Finding your way | in `SpatialScene.ts` | the Pond's soft edge dots, for the room: a small glowing dot on the frame (in the group's colour) for each group wholly out of view, on the line from the middle of the screen to it, including groups behind you; tap one to turn to it. The maths is `src/core/edges.ts`. |
 | Screen readers / keyboard | in `SpatialView.tsx` | a visually hidden list of the same tasks with open and tick buttons. |
 

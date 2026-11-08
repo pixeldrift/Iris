@@ -158,6 +158,19 @@ test.describe('spatial workspace', () => {
     expect(await page.locator('.edge-dot:not(.leaving)').count()).toBeLessThan(zoomed)
   })
 
+  test('a slider down the right side sets how far away the wall is (the cylinder the groups are pinned to)', async ({ page }) => {
+    await enter(page)
+    const slider = page.getByRole('slider', { name: 'Wall distance' })
+    await expect(slider).toBeVisible()
+    await slider.fill('8')
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(8)
+    await slider.fill('60')
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(60)
+    await expect(intro(page).locator('canvas')).toBeVisible()
+    await slider.dblclick() // (double-tap resets)
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(22.5)
+  })
+
   test('the simple view can be chosen by hand', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
