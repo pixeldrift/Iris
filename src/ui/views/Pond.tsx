@@ -18,7 +18,7 @@ import { Strays, type StrayField } from '../pond/Strays'
 import { PlayTimer, PopGameBar } from '../pond/PopGameBar'
 import { usePlayLimit } from '../pond/usePlayLimit'
 import { bubbleHue } from '../pond/hue'
-import { edgeMarkers, type EdgeMarker } from '../../core/edges'
+import { edgeDots } from '../../core/edges'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
@@ -77,8 +77,12 @@ export function Pond() {
   const running = useRef(false)
   const grabbed = useRef(0)
   const [offscreen, setOffscreen] = useState(false)
-  const [markers, setMarkers] = useState<EdgeMarker[]>([])
-  const markerSig = useRef('')
+  // a soft dot on the border for each bubble wholly out of view: which exist is state (so they fade in and out), where they sit is written
+  // straight to the page as the canvas moves
+  const [dots, setDots] = useState<{ id: string; hue: number; leaving?: boolean }[]>([])
+  const dotsRef = useRef<{ id: string; hue: number; leaving?: boolean }[]>([])
+  const dotEls = useRef(new Map<string, HTMLElement>())
+  const dotAt = useRef(new Map<string, { x: number; y: number; to: { x: number; y: number }; d: number }>())
   const hueById = useRef(new Map<string, number>())
   const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number; hue?: number; path?: { id: string; name: string }[] }[]>([])
   const labelsRef = useRef(labels)
@@ -276,12 +280,32 @@ export function Pond() {
       }
     }
     setOffscreen((p) => (p === off ? p : off))
-    // and a soft marker on the border for each direction something lies in
-    const next = off ? edgeMarkers([...nodes.current.values()].map((n) => ({ id: n.sim.id, x: n.sim.x, y: n.sim.y, r: n.sim.r, hue: hueById.current.get(n.sim.id) ?? 285 })), v, W, H) : []
-    const sig = next.map((m) => `${Math.round(m.x / 3)},${Math.round(m.y / 3)},${m.count},${Math.round(m.distance / 40)},${m.hue}`).join('|')
-    if (sig !== markerSig.current) {
-      markerSig.current = sig
-      setMarkers(next)
+    // a soft dot on the frame for each bubble wholly out of view, along the line from the middle to it
+    const next = edgeDots([...nodes.current.values()].map((n) => ({ id: n.sim.id, x: n.sim.x, y: n.sim.y, r: n.sim.r, hue: hueById.current.get(n.sim.id) ?? 285 })), v, W, H)
+    const now = new Set(next.map((d) => d.id))
+    for (const d of next) {
+      dotAt.current.set(d.id, { x: d.x, y: d.y, to: d.at, d: d.distance })
+      const el = dotEls.current.get(d.id)
+      if (el) {
+        el.style.left = `${d.x}px`
+        el.style.top = `${d.y}px`
+      }
+    }
+    const prev = dotsRef.current
+    const stay = prev.filter((p) => now.has(p.id) || p.leaving)
+    const added = next.filter((d) => !prev.some((p) => p.id === d.id && !p.leaving)).map((d) => ({ id: d.id, hue: d.hue }))
+    const gone = prev.filter((p) => !now.has(p.id) && !p.leaving).map((p) => p.id)
+    if (added.length || gone.length) {
+      const list = [...stay.filter((p) => !added.some((a) => a.id === p.id)).map((p) => (gone.includes(p.id) ? { ...p, leaving: true } : { ...p, leaving: now.has(p.id) ? undefined : p.leaving })), ...added]
+      dotsRef.current = list
+      setDots(list)
+      if (gone.length) {
+        window.setTimeout(() => {
+          dotsRef.current = dotsRef.current.filter((p) => !(p.leaving && gone.includes(p.id) && !now.has(p.id)))
+          setDots(dotsRef.current)
+          for (const id of gone) dotAt.current.delete(id)
+        }, 450)
+      }
     }
   }, [])
 
@@ -979,28 +1003,36 @@ export function Pond() {
       <div data-ui className="absolute bottom-3 right-3 z-10">
         <ZoomControl onZoom={(f) => zoomAbout(f, w / 2, h / 2)} />
       </div>
-      {/* off-screen bubbles: a soft glowing dot on the border for each direction, with an arrowhead pointing the way (tap to go there) */}
+      {/* off-screen bubbles: a soft glowing dot rides along the frame where a line from the middle to each one crosses it (it fades in when the
+          bubble leaves the screen, and out when it comes back); tap one to glide there */}
       {!playful &&
-        markers.map((m) => (
+        dots.map((d) => (
           <button
-            key={`${m.ids[0]}-${m.count}`}
+            key={d.id}
             data-ui
             type="button"
+            ref={(el) => {
+              if (!el) return void dotEls.current.delete(d.id)
+              dotEls.current.set(d.id, el)
+              const at = dotAt.current.get(d.id)
+              if (at) {
+                el.style.left = `${at.x}px`
+                el.style.top = `${at.y}px`
+              }
+            }}
             onClick={() => {
+              const at = dotAt.current.get(d.id)
+              if (!at) return
               const { w: W, h: H } = dims.current
               const v = view.current
-              view.current = { scale: v.scale, tx: W / 2 - m.nearest.x * v.scale, ty: H / 2 - m.nearest.y * v.scale }
+              view.current = { scale: v.scale, tx: W / 2 - at.to.x * v.scale, ty: H / 2 - at.to.y * v.scale }
               applyView(true)
             }}
-            aria-label={m.count === 1 ? 'One more bubble this way: go there' : `${m.count} more bubbles this way: go there`}
-            title={m.count === 1 ? 'One more bubble this way' : `${m.count} more bubbles this way`}
-            className="edge-marker group absolute z-[5] grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center"
-            style={{ left: m.x, top: m.y, opacity: Math.max(0.55, 1 - m.distance / 2400), ['--h' as string]: Math.max(0, m.hue), ['--s' as string]: m.hue < 0 ? 0 : 1 }}
-          >
-            <span className="edge-glow" />
-            <span className="edge-arrow" style={{ transform: `rotate(${m.angle}deg) translateX(14px)` }} />
-            {m.count > 1 && <span className="relative text-[0.62rem] font-semibold leading-none text-white drop-shadow">{m.count}</span>}
-          </button>
+            aria-label="A bubble out of view this way: go there"
+            title="A bubble out of view this way"
+            className={`edge-dot absolute z-[5] h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full ${d.leaving ? 'leaving' : ''}`}
+            style={{ ['--h' as string]: Math.max(0, d.hue), ['--s' as string]: d.hue < 0 ? 0 : 1 }}
+          />
         ))}
       <div data-ui className="absolute bottom-3 left-3 z-10">
         <Tip label="Frame all bubbles">

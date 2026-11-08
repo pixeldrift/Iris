@@ -9,87 +9,41 @@ export interface EdgePoint {
   hue: number
 }
 
-export interface EdgeMarker {
-  /** Where the marker sits on the screen (just inside the border). */
+export interface EdgeDot {
+  id: string
+  /** Where the dot sits on the screen: where a line from the middle of the screen to the item crosses the frame. */
   x: number
   y: number
-  /** The way to go, in degrees (0 = right, 90 = down). */
-  angle: number
-  /** How many items lie that way (nearby ones share one marker). */
-  count: number
-  ids: string[]
-  /** The nearest of them (on the canvas) and how far it is on screen: nearer ones read stronger. */
-  nearest: { id: string; x: number; y: number }
-  distance: number
   hue: number
-}
-
-/** Position along the border of the rectangle inset by `m`, going round clockwise from the top-left corner. */
-function along(px: number, py: number, W: number, H: number, m: number): number {
-  const w = W - 2 * m
-  const h = H - 2 * m
-  const x = px - m
-  const y = py - m
-  if (y <= 0.5) return x // top edge
-  if (x >= w - 0.5) return w + y // right edge
-  if (y >= h - 0.5) return w + h + (w - x) // bottom edge
-  return 2 * w + h + (h - y) // left edge
-}
-function pointAt(s: number, W: number, H: number, m: number): { x: number; y: number } {
-  const w = W - 2 * m
-  const h = H - 2 * m
-  const p = ((s % (2 * (w + h))) + 2 * (w + h)) % (2 * (w + h))
-  if (p <= w) return { x: m + p, y: m }
-  if (p <= w + h) return { x: m + w, y: m + (p - w) }
-  if (p <= 2 * w + h) return { x: m + w - (p - w - h), y: m + h }
-  return { x: m, y: m + h - (p - 2 * w - h) }
+  /** How far the item is from the middle of the screen, in screen pixels. */
+  distance: number
+  /** The item's place on the canvas (for going there). */
+  at: { x: number; y: number }
 }
 
 /**
- * The items outside the screen, each pointed to from the border: a ray from the middle of the screen through the item meets
- * the border where its marker goes. Those close together along the border share one marker with a count.
+ * One dot for each item that is wholly outside the screen (one even partly in view gets none), placed where a straight line from
+ * the middle of the screen to the item meets the frame (inset by `inset` so the dot is not cut off). As the canvas moves, the dots ride
+ * along the border.
  */
-export function edgeMarkers(points: EdgePoint[], view: { scale: number; tx: number; ty: number }, W: number, H: number, opts: { inset?: number; merge?: number; max?: number } = {}): EdgeMarker[] {
-  const m = opts.inset ?? 16
-  const merge = opts.merge ?? 44
-  const max = opts.max ?? 24
+export function edgeDots(points: EdgePoint[], view: { scale: number; tx: number; ty: number }, W: number, H: number, opts: { inset?: number; max?: number } = {}): EdgeDot[] {
+  const m = opts.inset ?? 9
+  const max = opts.max ?? 80
   if (W <= 2 * m + 10 || H <= 2 * m + 10) return []
   const cx = W / 2
   const cy = H / 2
-  const hits: { p: EdgePoint; s: number; d: number; angle: number }[] = []
+  const out: EdgeDot[] = []
   for (const p of points) {
     const sx = p.x * view.scale + view.tx
     const sy = p.y * view.scale + view.ty
-    const slack = p.r * view.scale * 0.5
-    if (sx >= -slack && sx <= W + slack && sy >= -slack && sy <= H + slack) continue // (on screen, or mostly)
+    const r = p.r * view.scale
+    // wholly outside: clear of the screen on at least one side
+    const outside = sx + r <= 0 || sx - r >= W || sy + r <= 0 || sy - r >= H
+    if (!outside) continue
     const dx = sx - cx
     const dy = sy - cy
     const k = Math.min(dx ? (W / 2 - m) / Math.abs(dx) : Infinity, dy ? (H / 2 - m) / Math.abs(dy) : Infinity)
-    const edge = { x: cx + dx * k, y: cy + dy * k }
-    hits.push({ p, s: along(edge.x, edge.y, W, H, m), d: Math.hypot(dx, dy), angle: (Math.atan2(dy, dx) * 180) / Math.PI })
+    out.push({ id: p.id, x: cx + dx * k, y: cy + dy * k, hue: p.hue, distance: Math.hypot(dx, dy), at: { x: p.x, y: p.y } })
   }
-  hits.sort((a, b) => a.s - b.s)
-  // group neighbours along the border
-  const groups: (typeof hits)[] = []
-  for (const h of hits) {
-    const last = groups[groups.length - 1]
-    if (last && h.s - last[last.length - 1].s <= merge) last.push(h)
-    else groups.push([h])
-  }
-  const out: EdgeMarker[] = groups.map((g) => {
-    const s = g.reduce((a, b) => a + b.s, 0) / g.length
-    const pos = pointAt(s, W, H, m)
-    const near = g.reduce((a, b) => (b.d < a.d ? b : a))
-    return {
-      x: pos.x,
-      y: pos.y,
-      angle: (Math.atan2(pos.y - cy, pos.x - cx) * 180) / Math.PI,
-      count: g.length,
-      ids: g.map((x) => x.p.id),
-      nearest: { id: near.p.id, x: near.p.x, y: near.p.y },
-      distance: near.d,
-      hue: near.p.hue,
-    }
-  })
-  return out.sort((a, b) => b.count - a.count || a.distance - b.distance).slice(0, max)
+  return out.sort((a, b) => a.distance - b.distance).slice(0, max)
 }

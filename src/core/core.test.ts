@@ -1110,30 +1110,29 @@ describe('quick add: places, a bare time, removed detections, titles as typed', 
   })
 })
 
-describe('edge markers for off-screen items', () => {
-  it('points from the border toward what is off screen, merging neighbours and ignoring what is in view', async () => {
-    const { edgeMarkers } = await import('./edges')
+describe('edge dots for off-screen items', () => {
+  it('puts a dot where a line from the middle to the item crosses the frame, for items wholly out of view only', async () => {
+    const { edgeDots } = await import('./edges')
     const view = { scale: 1, tx: 0, ty: 0 }
     const pts = [
       { id: 'in', x: 300, y: 200, r: 40, hue: 10 }, // on screen
-      { id: 'right1', x: 1500, y: 195, r: 40, hue: 20 },
-      { id: 'right2', x: 1600, y: 210, r: 40, hue: 20 }, // close to the first along the border: one marker
-      { id: 'below', x: 400, y: 1500, r: 40, hue: 30 },
+      { id: 'half', x: 820, y: 200, r: 40, hue: 10 }, // partly in view (its edge is still on screen): no dot
+      { id: 'right', x: 1600, y: 200, r: 40, hue: 20 }, // straight right of the middle
+      { id: 'below', x: 600, y: 1500, r: 40, hue: 30 },
     ]
-    const m = edgeMarkers(pts, view, 800, 400)
-    expect(m).toHaveLength(2)
-    const right = m.find((x) => x.ids.includes('right1'))!
-    expect(right.count).toBe(2)
-    expect(right.x).toBeGreaterThan(700) // on the right border
-    expect(Math.abs(right.angle)).toBeLessThan(15) // pointing right
-    expect(right.nearest.id).toBe('right1')
-    const below = m.find((x) => x.ids.includes('below'))!
-    expect(below.y).toBeGreaterThan(350)
-    expect(below.angle).toBeGreaterThan(60)
-    expect(below.angle).toBeLessThan(120) // pointing down
+    const d = edgeDots(pts, view, 800, 400, { inset: 10 })
+    expect(d.map((x) => x.id).sort()).toEqual(['below', 'right'])
+    const right = d.find((x) => x.id === 'right')!
+    expect(right.x).toBeCloseTo(790, 0) // on the right frame
+    expect(right.y).toBeCloseTo(200, 0) // level with it: the line from the middle is horizontal
+    const below = d.find((x) => x.id === 'below')!
+    expect(below.y).toBeCloseTo(390, 0)
+    expect(below.x).toBeGreaterThan(400) // leans toward where it is (right of the middle)
   })
-  it('has nothing to say when everything is in view', async () => {
-    const { edgeMarkers } = await import('./edges')
-    expect(edgeMarkers([{ id: 'a', x: 100, y: 100, r: 30, hue: 0 }], { scale: 1, tx: 0, ty: 0 }, 800, 400)).toEqual([])
+  it('follows the canvas: moving it brings a dot in and takes it away', async () => {
+    const { edgeDots } = await import('./edges')
+    const pt = [{ id: 'a', x: 1000, y: 200, r: 30, hue: 0 }]
+    expect(edgeDots(pt, { scale: 1, tx: 0, ty: 0 }, 800, 400)).toHaveLength(1)
+    expect(edgeDots(pt, { scale: 1, tx: -400, ty: 0 }, 800, 400)).toEqual([]) // panned: now in view
   })
 })

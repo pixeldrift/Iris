@@ -23,8 +23,9 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
 
 **Views** (the purple card in the left sidebar):
 - **Pond**: the free canvas, bubbles floating on water. Click the water to add a thought. When bubbles are out of view, *Frame all*
-  pulses, and a soft glowing dot with an arrowhead sits on the border in each direction something lies (with a count when several are
-  that way); tap one to glide there.
+  pulses, and a small soft glowing dot (in the bubble's colour, flat like the dots on the Priority axes) rides along the frame for each
+  bubble wholly out of view, where a line from the middle of the pond to that bubble crosses it. A dot fades in when its bubble leaves
+  the screen and out when it comes back (a bubble even partly on screen has none); tap one to glide there.
 - **List**: sortable rows, swipe a row to delete it, drag to tag or schedule. Each shows its group, its day and where it is.
   *My order* lets you drag a row to any spot, with a purple line showing where it lands.
 - **Progress**: stages side by side (Not started, In progress, Completed, or your own per group, with the pencil at the top).
