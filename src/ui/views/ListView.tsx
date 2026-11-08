@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { isFinished } from '../../core/schedule'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
 import { sortTasks, effectiveUrgency } from '../../core/tasks'
@@ -86,7 +87,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
   const onPointerDown = useTaskDrag(task, el, (e) => (e.shiftKey || selecting ? onToggle() : useStore.getState().select(task.id)))
   const del = useStore((s) => s.deleteTask)
   const swipe = useSwipeToDelete(el, reveal, () => del(task.id))
-  const done = task.status === 'done'
+  const done = isFinished(task)
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>

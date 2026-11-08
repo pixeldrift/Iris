@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { isFinished } from '../core/schedule'
 import { matchesQuery } from '../core/search'
 import { matchesScope } from '../core/tasks'
 import type { Task } from '../core/types'
@@ -16,17 +17,23 @@ export function useVisibleTasks(includeDone = false, search: 'filter' | 'keep' =
   const scope = useStore((s) => s.scope)
   const showDone = useStore((s) => s.settings.showDone)
   const lingering = useStore((s) => s.lingering)
+  // an event that ends goes with the finished ones: look again every minute
+  const [minute, setMinute] = useState(() => Math.floor(Date.now() / 60_000))
+  useEffect(() => {
+    const id = window.setInterval(() => setMinute(Math.floor(Date.now() / 60_000)), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
   return useMemo(
     () =>
       tasks.filter(
         (t) =>
           !t.draft &&
-          (includeDone || showDone || t.status !== 'done' || lingering[t.id]) &&
+          (includeDone || showDone || !isFinished(t, minute * 60_000) || lingering[t.id]) &&
           matchesScope(t, scope, folders) &&
           // most views show only what matches; the pond keeps everything and fades the rest
           (search === 'keep' || !query.trim() || matchesQuery(t, query, { folders, people })),
       ),
-    [tasks, folders, people, scope, showDone, lingering, includeDone, search, query],
+    [tasks, folders, people, scope, showDone, lingering, includeDone, search, query, minute],
   )
 }
 

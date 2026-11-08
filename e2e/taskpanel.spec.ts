@@ -67,6 +67,16 @@ test.describe('the task and notion panels', () => {
     expect(rows).toBeGreaterThanOrEqual(8)
   })
 
+  test('an event has no check mark: it is something you go to, not something you do', async ({ page }) => {
+    await page.keyboard.press('n')
+    await page.keyboard.type('event: Dinner with Sam')
+    await page.keyboard.press('Enter')
+    const dialog = page.getByLabel('Task details')
+    await expect(dialog.getByRole('button', { name: /Mark (not )?done/ })).toHaveCount(0)
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Mark (not )?done: Dinner/ })).toHaveCount(0)
+  })
+
   test('the type is only a layout: giving a task a start time makes it an event, and a due time is just as optional', async ({ page }) => {
     await page.keyboard.press('n')
     await page.keyboard.type('Write the report')

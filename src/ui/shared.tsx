@@ -47,8 +47,8 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
   const toggle = useStore((s) => s.toggleDone)
   const occ = repeatOf(task) ? (currentOccurrence(task, today()) ?? today()) : null
   const done = occ ? task.log.includes(occ) : task.status === 'done'
-  // an idea is a passing thought, not an obligation: nothing to tick off
-  if (task.kind === 'idea') return null
+  // an idea is a passing thought and an event is something you go to, not something you do: nothing to tick off
+  if (task.kind === 'idea' || task.kind === 'event') return null
   return (
     <button
       onPointerDown={(e) => e.stopPropagation()}
