@@ -220,7 +220,7 @@ export function flowerImage(hue: number, shape: FlowerShape | undefined, onLoad:
   return undefined
 }
 
-export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo, onFlower: () => void = () => {}) {
+export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo, onFlower: () => void = () => {}, hover = false) {
   canvas.width = HUB_PX.w
   canvas.height = HUB_PX.h
   const g = canvas.getContext('2d')!
@@ -228,6 +228,15 @@ export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo, onFlower: () =>
   // the pond's group name: bold italic serif in the group's own colour, no bubble behind it, a soft white glow to keep it readable.
   // In front: a twirl (down when open, right when folded) and the group's flower; after it, the count in a small pale chip.
   const mid = canvas.height / 2
+  if (hover) {
+    // something is being carried over this name: a soft glow behind it says it would land here
+    roundRect(g, 2, 6, canvas.width - 4, canvas.height - 12, (canvas.height - 12) / 2)
+    g.fillStyle = hub.hue < 0 ? 'rgba(255,255,255,0.8)' : hsl(hub.hue, 70, 92, 0.9)
+    g.fill()
+    g.lineWidth = 4
+    g.strokeStyle = hub.hue < 0 ? 'rgba(180,170,200,0.9)' : hsl(hub.hue, 70, 60, 0.9)
+    g.stroke()
+  }
   const ink = hub.hue < 0 ? 'hsl(270,20%,38%)' : hsl(hub.hue, 50, 36, 1)
   g.fillStyle = ink
   g.beginPath()

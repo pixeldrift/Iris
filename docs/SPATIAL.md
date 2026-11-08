@@ -90,3 +90,6 @@ feel and drift, camera in a home-screen app, GPU/battery/heat. Those need a pass
 
 ## Group headers
 A group's name sits outside and above its box (the box is only the contents): a twirl (tap to fold the group down to just its name; remembered), the group's flower, the name in the pond's style, and the count. The same flower now sits in front of group names in the pond. Connector ribbons are thinner with less width variation.
+
+## Folding and spring-loaded groups
+Folding a group (the twirl) hides its subgroups too and leaves only its name, with the count of everything inside; groups with no tasks of their own show no box. A task or group carried over a folded name lights it, and after a short linger (0.7 s) it opens so you can see where you are dropping; it closes again afterwards unless the drop went into it. A task let go on a name joins that group; a group let go on a name moves inside it (over a box it only makes room). Other groups stay put while one is carried and make room when it is let go.

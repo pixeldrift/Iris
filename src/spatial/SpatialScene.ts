@@ -56,6 +56,8 @@ export interface SceneEvents {
   onFov?(fov: number): void
   /** The twirl on a group's name was tapped. */
   onCollapse?(id: string): void
+  /** A group was dropped onto another group's name: it should go inside it. */
+  onReparent?(id: string, parent: string): void
 }
 
 interface Node {
@@ -82,6 +84,9 @@ export class SpatialScene {
   private showLinks = true
   /** The radius of the cylinder the groups hang on (the layout itself is kept at WORLD.ring and bent to this). */
   private radius: number = WORLD.ring
+  /** Folded groups opened by lingering over them while carrying something (like spring-loaded folders), and the timer for the next. */
+  private sprung = new Set<string>()
+  private springTimer?: ReturnType<typeof setTimeout>
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   /** Where everything is meant to be (the stored layout, with groups pushed clear of each other). */
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -191,6 +196,7 @@ export class SpatialScene {
         })
         n.tex.needsUpdate = true
         n.key = key
+        n.mesh.userData.hov = false
       }
     }
     for (const [id, n] of this.hubs) if (!hubSeen.has(id)) this.drop(this.hubs, id, n)
@@ -271,12 +277,20 @@ export class SpatialScene {
       let left = pane.u0
       let right = pane.u1
       let bottom = pane.v0
+      let gridCount = 0
       for (const t of this.content.tasks) {
         const tp = L.tasks[t.id]
         if (tp?.c !== h.id || tp.free) continue
+        gridCount++
         left = Math.min(left, tp.u - WORLD.cardW / 2 - 0.4 * K)
         right = Math.max(right, tp.u + WORLD.cardW / 2 + 0.4 * K)
         bottom = Math.min(bottom, tp.v - WORLD.cardH / 2 - 0.4 * K)
+      }
+      const hov = this.carry?.hover === h.id
+      if (n.mesh.userData.hov !== hov && n.key) {
+        n.mesh.userData.hov = hov
+        drawHub(n.tex.image as HTMLCanvasElement, h, () => {}, hov)
+        n.tex.needsUpdate = true
       }
       // the name sits just above the box, along its left edge (outside it: the box is only the contents)
       {
@@ -314,7 +328,7 @@ export class SpatialScene {
       const back = -0.06 * K
       plate.position.set(cp.x + bs.right[0] * cx + bs.up[0] * cy + bs.normal[0] * back, cp.y + bs.right[1] * cx + bs.up[1] * cy + bs.normal[1] * back, cp.z + bs.right[2] * cx + bs.up[2] * cy + bs.normal[2] * back)
       plate.rotation.set(cp.rx ?? 0, cp.ry, 0)
-      plate.visible = !h.collapsed
+      plate.visible = !h.collapsed && gridCount > 0
       plateSeen.add(h.id)
     }
     for (const [id, p] of this.plates) {
@@ -765,16 +779,21 @@ export class SpatialScene {
   private cancelCarry() {
     if (!this.carry) return
     this.carry = undefined
+    this.closeSprung(null)
     this.layout = withRadius(this.content.layout, this.radius)
     this.place()
   }
 
   /** Which group (if any) is under a carried task: where the pointer's line of sight meets a group's own plane, inside its pane. */
-  private groupUnder(e: { clientX: number; clientY: number }, except: string): { id: string; u: number; v: number } | null {
+  private groupUnder(e: { clientX: number; clientY: number }, except: string): { id: string; u: number; v: number; hub?: boolean } | null {
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
-    let best: { id: string; u: number; v: number; d: number } | null = null
+    // a group's name is a target of its own (and the only one when it is folded)
+    const names = [...this.hubs.entries()].filter(([id, n]) => id !== except && n.mesh.visible).map(([, n]) => n.mesh)
+    const nh = this.raycaster.intersectObjects(names, false)[0]
+    let best: { id: string; u: number; v: number; d: number; hub?: boolean } | null = nh ? { id: nh.object.userData.id as string, u: 0, v: 0, d: nh.distance, hub: true } : null
     for (const [id, cp] of Object.entries(this.shown)) {
-      if (id === except && false) continue
+      if (id === except) continue
+      if (this.plates.get(id)?.visible === false) continue
       const bs = planeBasis(cp)
       const plane = new Plane().setFromNormalAndCoplanarPoint(new Vector3(...bs.normal), new Vector3(cp.x, cp.y, cp.z))
       const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
@@ -783,9 +802,32 @@ export class SpatialScene {
       const pane = paneOf(cp)
       if (u < pane.u0 || u > pane.u1 || v < pane.v0 || v > pane.v1) continue
       const d = at.distanceTo(this.raycaster.ray.origin)
-      if (!best || d < best.d) best = { id, u, v, d }
+      if (!best || (!best.hub && d < best.d)) best = { id, u, v, d }
     }
     return best
+  }
+
+  /** The group a carried thing is over has changed: light it up, and if it is folded, open it after a short linger. */
+  private hoverTo(id: string | null) {
+    const c = this.carry
+    if (!c || c.hover === id) return
+    c.hover = id
+    clearTimeout(this.springTimer)
+    if (id && this.content.clusters.find((x) => x.id === id)?.collapsed) {
+      this.springTimer = setTimeout(() => {
+        if (this.carry?.hover === id && this.content.clusters.find((x) => x.id === id)?.collapsed) {
+          this.sprung.add(id)
+          this.events.onCollapse?.(id)
+        }
+      }, 700)
+    }
+    this.place()
+  }
+  /** Folded groups that were opened only to see where something goes close again, except the one it landed in. */
+  private closeSprung(keep: string | null) {
+    clearTimeout(this.springTimer)
+    for (const id of this.sprung) if (id !== keep && !this.content.clusters.find((x) => x.id === id)?.collapsed) this.events.onCollapse?.(id)
+    this.sprung.clear()
   }
 
   private move = (e: PointerEvent) => {
@@ -830,22 +872,20 @@ export class SpatialScene {
       const a = onCylinder([at.x, at.y, at.z])
       mesh.rotation.set(Math.atan2(at.y, Math.hypot(at.x, at.z)), -a.a, 0)
       // the group it would join if let go here lights up
-      const over = this.groupUnder(e, '')
-      const hover = over?.id ?? null
-      if (hover !== c.hover) {
-        c.hover = hover
-        this.place()
-      }
+      this.hoverTo(this.groupUnder(e, '')?.id ?? null)
       this.dirty = true
     } else {
       // a whole group: it follows the finger around the cylinder, and the others make room for it
       const cur = this.layout.clusters[c.id]
       if (!cur) return
       const moved = moveCluster(cur, [at.x, at.y, at.z])
-      const clusters = separate({ ...this.layout.clusters, [c.id]: moved }, new Set([c.id]))
+      // (the others stay put while it is carried, so a name under the finger can be a target; they make room once it is let go)
+      const clusters = { ...this.layout.clusters, [c.id]: moved }
       this.layout = { ...this.layout, clusters }
       this.shown[c.id] = clusters[c.id] // (the carried one is under the finger, not gliding)
       this.place()
+      const over = this.groupUnder(e, c.id)
+      this.hoverTo(over?.hub ? over.id : null) // (over another group's name: it would go inside; over its box it just makes room)
     }
   }
   private up = (e: PointerEvent) => {
@@ -868,14 +908,15 @@ export class SpatialScene {
         const cp = this.shown[over.id]
         const pane = paneOf(cp)
         // it lands where it was let go (kept inside the pane); a different group means it joins that one
-        const u = Math.min(pane.u1 - WORLD.cardW / 2, Math.max(pane.u0 + WORLD.cardW / 2, over.u))
-        const v = Math.min(pane.v1 - WORLD.cardH / 2 - 0.1 * K, Math.max(pane.v0 + WORLD.cardH / 2, over.v))
+        let u = Math.min(pane.u1 - WORLD.cardW / 2, Math.max(pane.u0 + WORLD.cardW / 2, over.u))
+        let v = Math.min(pane.v1 - WORLD.cardH / 2 - 0.1 * K, Math.max(pane.v0 + WORLD.cardH / 2, over.v))
         const used = new Set(Object.values(L.tasks).filter((t) => t.c === over.id && !t.free).map((t) => t.slot))
         let slot = tp.c === over.id && !tp.free ? tp.slot : 0
         if (tp.c !== over.id || tp.free) {
           slot = 0
           while (used.has(slot)) slot++
         }
+        if (over.hub) ({ u, v } = slotAt(slot, cp.cols)) // (dropped on the name: it takes the next free place in the group)
         this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: over.id, u, v, dz: 0, slot, free: undefined } } }
         if (over.id !== (this.content.tasks.find((t) => t.id === c.id)?.cluster ?? tp.c)) this.events.onRetag?.(c.id, over.id)
       } else {
@@ -884,12 +925,22 @@ export class SpatialScene {
         this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: { a: a.a, y: a.y } } } }
       }
       this.events.onLayout(fromRadius(this.layout, this.radius))
+      this.closeSprung(over?.id ?? null)
       this.place()
       return
     }
     if (c && p.mode === 'cluster') {
       this.carry = undefined
-      this.events.onLayout(fromRadius(this.layout, this.radius))
+      const into = c.hover && c.hover !== c.id ? c.hover : null
+      if (into) {
+        // let go over another group: it goes inside that group (and is not left where the finger was)
+        this.layout = withRadius(this.content.layout, this.radius)
+        this.events.onReparent?.(c.id, into)
+      } else {
+        this.layout = { ...this.layout, clusters: separate(this.layout.clusters, new Set([c.id])) }
+        this.events.onLayout(fromRadius(this.layout, this.radius))
+      }
+      this.closeSprung(into)
       this.place()
       return
     }

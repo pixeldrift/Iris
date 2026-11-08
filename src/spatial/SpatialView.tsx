@@ -9,6 +9,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
+import { canReparent } from '../core/folders'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { RADIUS } from './layout'
@@ -55,7 +56,22 @@ export default function SpatialView() {
   const envRef = useRef<EnvironmentProvider | null>(null)
   const panoUrl = useRef<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const shownContent = useMemo(() => ({ ...content, clusters: content.clusters.map((c) => ({ ...c, collapsed: !!collapsed[c.id] })) }), [content, collapsed])
+  // a folded group takes its subgroups (and everything in them) with it: only its name is left, with the count of all it holds
+  const shownContent = useMemo(() => {
+    const byId = new Map(content.clusters.map((c) => [c.id, c]))
+    const hidden = (id: string): boolean => {
+      for (let p = byId.get(id)?.parent; p; p = byId.get(p)?.parent) if (collapsed[p]) return true
+      return false
+    }
+    const total = new Map<string, number>()
+    for (const c of content.clusters) for (let p: string | null | undefined = c.id; p; p = byId.get(p)?.parent) total.set(p, (total.get(p) ?? 0) + c.count)
+    const keep = new Set(content.clusters.filter((c) => !hidden(c.id)).map((c) => c.id))
+    return {
+      ...content,
+      clusters: content.clusters.filter((c) => keep.has(c.id)).map((c) => ({ ...c, collapsed: !!collapsed[c.id], count: collapsed[c.id] ? (total.get(c.id) ?? c.count) : c.count })),
+      tasks: content.tasks.filter((t) => keep.has(t.cluster)),
+    }
+  }, [content, collapsed])
   const live = useRef(shownContent)
   live.current = shownContent
 
@@ -126,6 +142,11 @@ export default function SpatialView() {
         onToggle: (id) => toggleDone(id),
         onLayout: (l) => setLayout(l),
         onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
+        // a group let go over another group's name goes inside it
+        onReparent: (id, parent) => {
+          const st = useStore.getState()
+          if (id !== 'none' && parent !== 'none' && canReparent(st.folders, id, parent)) st.moveFolder(id, parent)
+        },
         onFov: (f) => setFov(Math.round(f)),
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: (id, clusterId) => {

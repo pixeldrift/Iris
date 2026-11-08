@@ -22,6 +22,44 @@ const drag = async (page: import('@playwright/test').Page, a: { x: number; y: nu
   await page.waitForTimeout(500)
 }
 
+const collapsedFolders = (page: import('@playwright/test').Page) => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('lilac-spatial-v5') ?? '{}')?.state?.collapsed ?? {}))
+const fold = (page: import('@playwright/test').Page, ids: string[]) =>
+  page.addInitScript((list) => {
+    if (!localStorage.getItem('lilac-spatial-v5')) localStorage.setItem('lilac-spatial-v5', JSON.stringify({ state: { collapsed: Object.fromEntries(list.map((i) => [i, true])) }, version: 0 }))
+  }, ids)
+
+test.describe('folded groups', () => {
+  test('a task carried onto a folded name opens it after a short linger, and lands in it', async ({ page }) => {
+    await fold(page, ['demo-writing'])
+    await enter(page)
+    expect(await collapsedFolders(page)).toContain('demo-writing')
+    const from = (await pt(page, 'task', 'demo-grandma'))!
+    const to = (await pt(page, 'hub', 'demo-writing'))!
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 8, from.y + 4, { steps: 2 })
+    await page.mouse.move(to.x + 30, to.y, { steps: 14 })
+    await page.waitForTimeout(1100)
+    expect(await collapsedFolders(page)).not.toContain('demo-writing') // (it sprang open)
+    await page.mouse.up()
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { id: string }) => t.id === 'demo-grandma').folderIds[0]))).toBe('demo-writing')
+  })
+
+  test('a group let go on another group\'s name goes inside it; one opened only to look closes again', async ({ page }) => {
+    await fold(page, ['demo-writing', 'demo-garden'])
+    await enter(page)
+    const from = (await pt(page, 'hub', 'life'))!
+    const to = (await pt(page, 'hub', 'demo-writing'))!
+    await page.mouse.move(from.x + 20, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 28, from.y + 4, { steps: 2 })
+    await page.mouse.move(to.x + 30, to.y, { steps: 14 })
+    await page.waitForTimeout(1100)
+    await page.mouse.up()
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.folders.find((f: { id: string }) => f.id === 'life').parentId))).toBe('demo-writing')
+  })
+})
+
 test.describe('moving things in the space', () => {
   test('a task dragged onto another group joins it (and leaves the one it was in)', async ({ page }) => {
     await enter(page)

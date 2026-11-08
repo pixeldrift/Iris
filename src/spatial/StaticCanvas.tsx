@@ -163,7 +163,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
                   {c.count}
                 </span>
               </h3>
-              <div className={`grid gap-2 rounded-[2rem] border p-3 ${c.collapsed ? 'hidden' : ''}`} style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))`, background: `hsl(${Math.max(0, c.hue)},60%,84%,0.3)`, borderColor: `hsl(${Math.max(0, c.hue)},55%,72%,0.5)` }}>
+              <div className={`grid gap-2 rounded-[2rem] border p-3 ${c.collapsed || !content.tasks.some((t) => t.cluster === c.id) ? 'hidden' : ''}`} style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))`, background: `hsl(${Math.max(0, c.hue)},60%,84%,0.3)`, borderColor: `hsl(${Math.max(0, c.hue)},55%,72%,0.5)` }}>
                 {content.tasks
                   .filter((t) => t.cluster === c.id)
                   .map((t) => {
