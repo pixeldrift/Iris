@@ -155,10 +155,18 @@ occurrence is ticked off in turn, and you're encouraged for consistency streaks.
 Events have as many reminders as you like before they start. Other items get separate reminders for the day and for the deadline.
 
 **Quick add.** Type naturally ("Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am", "remind me to call mom at 5pm");
-"Lunch with Sam at Panera" adds a place; the preview shows what it understood. People in your address book are tagged by
+"Lunch with Sam at Panera" adds a place ("at Central Park", or in lower case when it ends in somewhere you go: "at downtown
+clinic", "at the pharmacy"; "look at the budget" stays a title). What it understood shows as chips, each with a small x that takes
+that one away (its words go back into the title); the larger x clears them all; *Keep as typed* leaves the title exactly as typed
+while what was understood still applies. Otherwise the title is the item: "at 5pm remind me to pick up the kids" becomes *pick up the
+kids* with a reminder for 5 pm today. A time with no day is for today (tomorrow, if that time has already gone by), shown as its own chip. People in your address book are tagged by
 name without typing an @ ("Call Sarah about the order"): a capitalised first or full name, favourites first (a first name shared by
 several people is only taken when exactly one of them is a favourite, or when the full name is typed); the name stays in the title.
-`#` and `@` offer the groups and people that exist as you type (Tab takes the first).
+`#` and `@` offer the groups and people that exist as you type (Tab takes the first). A day that owns something is never taken for
+a date ("prepare Monday's lesson plan", "tomorrow's agenda"). Settings > App options > *Quick add understands* chooses how much it
+does: *Automatically* (the default: applied as you type, with *Keep as typed*), *Suggest* (what it understood is shown as a dashed
+suggestion and nothing is applied until you tap *Use*, so there is nothing to undo) or *Off* (no dates, people, groups or type words are
+read, and no `#`/`@` suggestions appear: your words are kept exactly as typed).
 
 **Pictures.** Any item can have a picture (the Picture box in its details, or the picture button in quick add): it fills the item's
 bubble, tinted with the group's colour unless *Tint the picture with the group's color* is switched off, in which case the bubble's

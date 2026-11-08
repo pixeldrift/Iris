@@ -98,6 +98,10 @@ export function NewTask() {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<TaskKind | null>(null) // null = let what you type decide
   const [plain, setPlain] = useState(false) // "keep as typed": ignore dates, tags and repeats
+  const mode = useStore((s) => s.settings.quickAdd)
+  const [accepted, setAccepted] = useState(false) // in suggest-only mode: the person tapped "Use"
+  const [skipped, setSkipped] = useState<string[]>([]) // detections taken away with their x (their words stay in the title)
+  const [keepTitle, setKeepTitle] = useState(false) // "keep as typed": the title is left as typed, though what was understood still applies
   const [more, setMore] = useState(false) // the full details editor, opened in place
   const [draftId, setDraftId] = useState<string | null>(null)
   const draft = useStore((s) => (draftId ? s.tasks.find((t) => t.id === draftId) : undefined))
@@ -112,7 +116,20 @@ export function NewTask() {
     return () => window.clearInterval(t)
   }, [open])
   const spot = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 })
-  const parsed = useMemo(() => (plain || more || !title.trim() ? null : parseQuickAdd(title, new Date(), { folders, people })), [title, plain, more, folders, people])
+  // what it understands is applied ('auto'), applied only once accepted ('suggest'), or never tried ('off')
+  const applying = mode === 'auto' ? !plain : mode === 'suggest' ? accepted : false
+  const understood = useMemo(() => (mode === 'off' || more || !title.trim() ? null : parseQuickAdd(title, new Date(), { folders, people }, { skip: skipped, keepTitle })), [title, mode, more, folders, people, skipped, keepTitle])
+  const parsed = applying ? understood : null
+  // starting over with an empty line forgets what was taken away or kept
+  useEffect(() => {
+    if (!title.trim()) {
+      setSkipped([])
+      setKeepTitle(false)
+      setPlain(false)
+      setAccepted(false)
+    }
+  }, [title])
+  const suggested = mode === 'suggest' && !accepted && understood && understood.chips.length > 0 ? understood : null
   const shownKind: TaskKind = draft?.kind ?? kind ?? parsed?.kind ?? 'task'
 
   // a task being set up in the full editor is real data (so every field works) but hidden until it is placed
@@ -222,7 +239,7 @@ export function NewTask() {
   const dismiss = () => place(true)
 
   // autocorrect for #groups and @people: the ones that exist, offered while the name is being typed (Tab takes the first)
-  const sug = useMemo(() => suggestTags(title, { folders, people }), [title, folders, people])
+  const sug = useMemo(() => (mode === 'off' ? [] : suggestTags(title, { folders, people })), [title, mode, folders, people])
   const take = (text: string) => {
     setTitle(text)
     if (draftId) update(draftId, { title: text })
@@ -336,15 +353,47 @@ export function NewTask() {
             <IconClose size={16} />
           </button>
         </div>
-        {parsed && parsed.chips.length > 0 && (
+        {suggested && (
+          // suggest-only: nothing is applied until it is tapped, so there is nothing to undo
           <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
-            {parsed.chips.map((c) => (
-              <span key={c} className="chip-bubble rounded-full px-2.5 py-0.5 text-xs">
+            <span className="text-xs text-ink-faint">Suggested:</span>
+            {suggested.chips.map((c) => (
+              <span key={c} className="rounded-full border border-dashed border-lilac-300 px-2.5 py-0.5 text-xs text-ink-soft">
                 {c}
               </span>
             ))}
-            <button type="button" onClick={() => setPlain(true)} className="text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
-              Keep as typed
+            <button type="button" onClick={() => (setAccepted(true), ref.current?.focus())} className="rounded-full bg-lilac-100 px-2.5 py-0.5 text-xs font-medium text-lilac-700 transition hover:bg-lilac-200">
+              Use
+            </button>
+          </div>
+        )}
+        {parsed && parsed.detected.length > 0 && (
+          // what it understood: each piece has its own x to take it away (its words go back to the title), the big x clears them all
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-2xl bg-white/40 py-1.5 pl-2 pr-9 relative" role="group" aria-label="What was understood" aria-live="polite">
+            {parsed.detected.map((d) => (
+              <span key={d.key} className="chip-bubble inline-flex items-center gap-0.5 rounded-full py-0.5 pl-2.5 pr-1 text-xs">
+                {d.label}
+                <button type="button" onClick={() => setSkipped((s) => [...s, d.key])} aria-label={`Remove ${d.label}`} className="grid h-4 w-4 place-items-center rounded-full opacity-50 transition hover:bg-white/70 hover:opacity-100">
+                  <IconClose size={9} />
+                </button>
+              </span>
+            ))}
+            <button type="button" onClick={() => setKeepTitle((k) => !k)} aria-pressed={keepTitle} className="text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
+              {keepTitle ? 'Tidy the title' : 'Keep as typed'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSkipped([])
+                setKeepTitle(false)
+                if (mode === 'suggest') setAccepted(false)
+                else setPlain(true)
+              }}
+              aria-label="Clear everything it understood"
+              title="Clear everything it understood"
+              className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink"
+            >
+              <IconClose size={14} />
             </button>
           </div>
         )}
