@@ -369,7 +369,7 @@ export class SpatialScene {
         const toEye = pts[i].clone().negate().normalize()
         const across = new Vector3().crossVectors(tan, toEye).normalize()
         // thick in the middle, a little tapered at the ends
-        const w = (0.34 * K) * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
+        const w = (0.11 * K) * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
         for (const sgn of [-1, 1]) {
           const q = pts[i].clone().addScaledVector(across, sgn * w)
           pos.push(q.x, q.y, q.z)
