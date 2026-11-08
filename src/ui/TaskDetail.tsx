@@ -364,7 +364,7 @@ export function TaskDetail() {
       >
         <header className="flex items-start gap-3 px-5 pb-2 pt-5">
           {/* stays level with the first line of the title when it wraps */}
-          {task.kind !== 'idea' && (
+          {task.kind !== 'idea' && task.kind !== 'event' && (
             <span className="mt-[5px] shrink-0">
               <DoneButton task={task} size={26} />
             </span>
