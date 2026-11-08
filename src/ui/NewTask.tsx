@@ -357,12 +357,12 @@ export function NewTask() {
           </>
         )}
         {more && draft && (
-          <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2" style={{ paddingBottom: "calc(0.25rem + var(--kb, 0px) * 0.5)" }}>
+          <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-4 overflow-y-auto px-1 pt-2" style={{ paddingBottom: 'calc(var(--kb, 0px) * 0.5)' }}>
             <TaskFields task={draft} withKind={false} />
           </div>
         )}
         {more && draft && (
-          <div className="-mx-4 -mb-4 mt-2 flex shrink-0 items-center gap-2 border-t border-white/60 px-4 py-3">
+          <div className="-mx-4 -mb-4 flex shrink-0 items-center gap-2 border-t border-white/60 px-4 py-3">
             <button type="button" onClick={closeCompose} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
               Cancel
             </button>
