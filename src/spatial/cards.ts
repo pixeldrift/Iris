@@ -1,4 +1,6 @@
 import { CanvasTexture, SRGBColorSpace } from 'three'
+import { flowerMarkup } from '../ui/Flower'
+import type { FlowerShape } from '../core/types'
 
 // Drawing a task (or a group's name) onto a small canvas, to be a texture in the 3D scene. The look follows the pond's bubbles: a soft
 // gradient, a thin outline in the group's colour, a round check.
@@ -197,44 +199,84 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
 export interface HubInfo {
   name: string
   hue: number
+  shape?: FlowerShape
   count: number
   depth: number
+  /** Folded down to just its name. */
+  collapsed?: boolean
 }
-export const HUB_PX = { w: 384, h: 96 }
+export const HUB_PX = { w: 512, h: 96 }
 
-export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo) {
+/** A group's flower, drawn once from its SVG and kept (it calls back when it has loaded, so the name can be drawn again). */
+const flowers = new Map<string, HTMLImageElement>()
+export function flowerImage(hue: number, shape: FlowerShape | undefined, onLoad: () => void): HTMLImageElement | undefined {
+  const key = `${shape ?? 'blossom'}:${hue}`
+  const have = flowers.get(key)
+  if (have) return have.complete && have.naturalWidth ? have : undefined
+  const img = new Image()
+  img.onload = onLoad
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(flowerMarkup(hue, shape ?? 'blossom', 96))}`
+  flowers.set(key, img)
+  return undefined
+}
+
+export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo, onFlower: () => void = () => {}, hover = false) {
   canvas.width = HUB_PX.w
   canvas.height = HUB_PX.h
   const g = canvas.getContext('2d')!
   g.clearRect(0, 0, canvas.width, canvas.height)
-  const x = 8
-  const y = 14
-  const w = canvas.width - 16
-  const h = canvas.height - 28
-  roundRect(g, x, y, w, h, h / 2)
-  const fill = g.createLinearGradient(x, y, x + w, y)
-  fill.addColorStop(0, hsl(hub.hue, 55, 52, 1))
-  fill.addColorStop(1, hsl(hub.hue, 55, 60, 1))
-  g.fillStyle = fill
-  g.shadowColor = hsl(hub.hue, 50, 45, 0.4)
-  g.shadowBlur = 12
+  // the pond's group name: bold italic serif in the group's own colour, no bubble behind it, a soft white glow to keep it readable.
+  // In front: a twirl (down when open, right when folded) and the group's flower; after it, the count in a small pale chip.
+  const mid = canvas.height / 2
+  if (hover) {
+    // something is being carried over this name: a soft glow behind it says it would land here
+    roundRect(g, 2, 6, canvas.width - 4, canvas.height - 12, (canvas.height - 12) / 2)
+    g.fillStyle = hub.hue < 0 ? 'rgba(255,255,255,0.8)' : hsl(hub.hue, 70, 92, 0.9)
+    g.fill()
+    g.lineWidth = 4
+    g.strokeStyle = hub.hue < 0 ? 'rgba(180,170,200,0.9)' : hsl(hub.hue, 70, 60, 0.9)
+    g.stroke()
+  }
+  const ink = hub.hue < 0 ? 'hsl(270,20%,38%)' : hsl(hub.hue, 50, 36, 1)
+  g.fillStyle = ink
+  g.beginPath()
+  if (hub.collapsed) {
+    g.moveTo(14, mid - 11)
+    g.lineTo(14, mid + 11)
+    g.lineTo(32, mid)
+  } else {
+    g.moveTo(10, mid - 7)
+    g.lineTo(34, mid - 7)
+    g.lineTo(22, mid + 12)
+  }
+  g.closePath()
+  g.globalAlpha = 0.75
   g.fill()
-  g.shadowColor = 'transparent'
-  g.fillStyle = '#fff'
+  g.globalAlpha = 1
+  const fl = flowerImage(hub.hue, hub.shape, onFlower)
+  if (fl) g.drawImage(fl, 50, mid - 24, 48, 48)
+  const x = 108
   g.textBaseline = 'middle'
-  g.font = `italic 700 34px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
-  const label = wrapTitle(g, hub.name, w - 90, 1)[0] ?? hub.name
-  g.fillText(label, x + 26, y + h / 2 + 1)
-  // the count in a small round chip
   g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
   const n = String(hub.count)
   const cw = Math.max(34, g.measureText(n).width + 18)
-  roundRect(g, x + w - cw - 14, y + h / 2 - 17, cw, 34, 17)
-  g.fillStyle = 'rgba(255,255,255,0.9)'
+  g.font = `italic 700 54px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
+  const label = wrapTitle(g, hub.name, canvas.width - x - cw - 30, 1)[0] ?? hub.name
+  g.shadowColor = 'rgba(255,255,255,0.95)'
+  g.shadowBlur = 8
+  g.fillStyle = ink
+  g.fillText(label, x, mid + 1)
+  g.fillText(label, x, mid + 1)
+  g.shadowColor = 'transparent'
+  const tw = g.measureText(label).width
+  const cx = x + tw + 14
+  roundRect(g, cx, mid - 17, cw, 34, 17)
+  g.fillStyle = hub.hue < 0 ? 'rgba(235,232,240,0.9)' : hsl(hub.hue, 60, 90, 0.95)
   g.fill()
-  g.fillStyle = hsl(hub.hue, 45, 32, 1)
+  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
+  g.fillStyle = ink
   g.textAlign = 'center'
-  g.fillText(n, x + w - cw / 2 - 14, y + h / 2 + 1)
+  g.fillText(n, cx + cw / 2, mid + 1)
   g.textAlign = 'left'
 }
 
@@ -251,7 +293,7 @@ export function drawPlate(wUnits: number, hUnits: number, hue: number, hover = f
   c.height = h
   const g = c.getContext('2d')!
   const pad = 6
-  const radius = Math.min(1.25 * PX, (Math.min(w, h) - pad * 2) / 2)
+  const radius = Math.min(2.4 * PX, (Math.min(w, h) - pad * 2) / 2)
   roundRect(g, pad, pad, w - pad * 2, h - pad * 2, radius)
   g.fillStyle = hue < 0 ? 'rgba(236,236,236,0.34)' : hsl(hue, 60, 84, hover ? 0.62 : 0.3)
   g.fill()

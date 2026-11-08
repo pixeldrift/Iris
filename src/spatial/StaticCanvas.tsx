@@ -1,8 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { checkVars } from '../ui/taskColor'
+import { Flower } from '../ui/Flower'
+import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
-import { cellW, ensureLayout } from './layout'
+import { reparentGroup, retagTask } from './actions'
+import { cellW, ensureLayout, repose, separate, slotAt } from './layout'
+import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
 
 // layout units to pixels: across (a group is as wide as its columns) and down (rows are tighter than in 3D)
@@ -10,34 +14,64 @@ const PX = 11.8
 const PY = 5
 const ROW = 46
 const HEAD = 40
+const TASK_W = 220
+const MOVE = 6
+const SPRING_MS = 700
+
+type Box = { x: number; y: number; w: number; cols: number; h: number; n: number }
+type Carry = { kind: 'task' | 'group'; id: string; x: number; y: number; dx: number; dy: number; hover: string | null }
 
 /**
  * The flat canvas, with no 3D and no sensors: the same groups laid out as the same org chart, on a canvas you drag around and pinch (or
- * scroll) to zoom. Selecting, opening and completing all work. It is also where the workspace lands when 3D is unavailable.
+ * scroll) to zoom. Everything the 3D space does works here too: drag a task onto a group (or a folded name) to put it there, or out into
+ * the open to leave it floating; drag a group by its name or box to move it, or onto another name to put it inside; hover over a folded
+ * name and it opens to show you where things go; tap a name to turn to it, the twirl to fold it.
  */
-export function StaticCanvas({ content, layout }: { content: SpatialContent; layout: SpatialLayoutData }) {
+export function StaticCanvas({ content, layout, fitTick = 0 }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number }) {
   const select = useStore((s) => s.select)
   const toggle = useStore((s) => s.toggleDone)
+  const toggleCollapsed = useSpatial((s) => s.toggleCollapsed)
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
   const pts = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef<{ x: number; y: number; vx: number; vy: number; d: number; k: number } | null>(null)
+  const [carry, setCarry] = useState<Carry | null>(null)
+  const press = useRef<{ pid: number; sx: number; sy: number; kind: 'task' | 'group'; id: string; started: boolean } | null>(null)
+  const suppress = useRef(false)
+  const sprung = useRef(new Set<string>())
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const live = useRef({ content, v })
+  live.current = { content, v }
 
   // where each group sits (the layout is kept up to date by the view; this fills any gap so nothing is left out)
+  const L = useMemo(() => ensureLayout(layout, { clusters: content.clusters.map((c, i) => ({ id: c.id, parent: c.parent ?? null, depth: c.depth, order: i })), tasks: content.tasks.map((t) => ({ id: t.id, cluster: t.cluster })), allTaskIds: new Set(content.tasks.map((t) => t.id)), allClusterIds: new Set(content.clusters.map((c) => c.id)) }), [content, layout])
+  const inGrid = useMemo(() => {
+    const m = new Map<string, SceneTask[]>()
+    for (const t of content.tasks) {
+      const tp = L.tasks[t.id]
+      if (tp?.free) continue
+      m.set(t.cluster, [...(m.get(t.cluster) ?? []), t])
+    }
+    for (const list of m.values()) list.sort((a, b) => (L.tasks[a.id]?.slot ?? 0) - (L.tasks[b.id]?.slot ?? 0))
+    return m
+  }, [content, L])
   const places = useMemo(() => {
-    const L = ensureLayout(layout, { clusters: content.clusters.map((c, i) => ({ id: c.id, parent: c.parent ?? null, depth: c.depth, order: i })), tasks: content.tasks.map((t) => ({ id: t.id, cluster: t.cluster })), allTaskIds: new Set(content.tasks.map((t) => t.id)), allClusterIds: new Set(content.clusters.map((c) => c.id)) })
-    const out = new Map<string, { x: number; y: number; w: number; cols: number; h: number }>()
+    const out = new Map<string, Box>()
     for (const c of content.clusters) {
       const p = L.clusters[c.id]
       if (!p) continue
-      const n = content.tasks.filter((t) => t.cluster === c.id).length
-      const cols = p.cols
-      const rows = Math.max(1, Math.ceil(n / cols))
-      const w = cols * (cellW * PX) - 14
-      out.set(c.id, { x: p.a * p.r * PX - w / 2, y: -(p.y + 1.2 * K) * PY, w, cols, h: HEAD + rows * ROW })
+      const n = inGrid.get(c.id)?.length ?? 0
+      const rows = Math.max(1, Math.ceil(n / p.cols))
+      const w = p.cols * (cellW * PX) - 14
+      out.set(c.id, { x: p.a * p.r * PX - w / 2, y: -(p.y + 1.2 * K) * PY, w, cols: p.cols, n, h: HEAD + (n && !c.collapsed ? 24 + rows * ROW + (rows - 1) * 8 : 0) })
     }
     return out
-  }, [content, layout])
+  }, [content, L, inGrid])
+  const at = (id: string): Box | undefined => {
+    const b = places.get(id)
+    if (!b) return undefined
+    return carry?.kind === 'group' && carry.id === id ? { ...b, x: carry.x - carry.dx, y: carry.y - carry.dy } : b
+  }
   const bounds = useMemo(() => {
     let x0 = Infinity
     let y0 = Infinity
@@ -59,6 +93,10 @@ export function StaticCanvas({ content, layout }: { content: SpatialContent; lay
     const k = Math.min(1.4, Math.max(0.2, Math.min((r.width - pad * 2) / (bounds.x1 - bounds.x0), (r.height - pad * 2) / (bounds.y1 - bounds.y0))))
     setV({ k, x: (r.width - (bounds.x1 - bounds.x0) * k) / 2 - bounds.x0 * k, y: (r.height - (bounds.y1 - bounds.y0) * k) / 2 - bounds.y0 * k })
   }
+  useEffect(() => {
+    if (fitTick) fit()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitTick])
   const fitted = useRef(false)
   useLayoutEffect(() => {
     if (fitted.current || !places.size) return
@@ -85,22 +123,169 @@ export function StaticCanvas({ content, layout }: { content: SpatialContent; lay
     const r = box.current?.getBoundingClientRect()
     return { x: (r?.width ?? 0) / 2, y: (r?.height ?? 0) / 2 }
   }
+  /** Turn to a group: it comes to the middle of the canvas, closer. */
+  const focus = (id: string) => {
+    const b = places.get(id)
+    const r = box.current?.getBoundingClientRect()
+    if (!b || !r) return
+    const k = Math.min(1.6, Math.max(v.k, 1))
+    setV({ k, x: r.width / 2 - (b.x + b.w / 2) * k, y: r.height / 3 - b.y * k })
+  }
+  const canvasPoint = (e: { clientX: number; clientY: number }) => {
+    const r = box.current!.getBoundingClientRect()
+    return { x: (e.clientX - r.left - v.x) / v.k, y: (e.clientY - r.top - v.y) / v.k }
+  }
+  /** The group under a point on the canvas: its name (always) or its box (when open). */
+  const targetAt = (x: number, y: number, except: string): { id: string; name: boolean } | null => {
+    for (const c of content.clusters) {
+      if (c.id === except) continue
+      const b = places.get(c.id)
+      if (!b) continue
+      if (x < b.x || x > b.x + Math.max(b.w, 260) || y < b.y || y > b.y + b.h) continue
+      return { id: c.id, name: y < b.y + HEAD }
+    }
+    return null
+  }
+
+  // spring-loaded: a folded group opens when something is held over it, and closes again afterwards unless it was dropped into
+  const hoverTo = (id: string | null) => {
+    setCarry((c) => (c && c.hover !== id ? { ...c, hover: id } : c))
+    clearTimeout(timer.current)
+    if (id && live.current.content.clusters.find((c) => c.id === id)?.collapsed) {
+      timer.current = setTimeout(() => {
+        if (live.current.content.clusters.find((c) => c.id === id)?.collapsed) {
+          sprung.current.add(id)
+          toggleCollapsed(id)
+        }
+      }, SPRING_MS)
+    }
+  }
+  const closeSprung = (keep: string | null) => {
+    clearTimeout(timer.current)
+    for (const id of sprung.current) if (id !== keep && !live.current.content.clusters.find((c) => c.id === id)?.collapsed) toggleCollapsed(id)
+    sprung.current.clear()
+  }
+
+  const writeLayout = (next: SpatialLayoutData) => useSpatial.getState().setLayout(next)
+  const dropTask = (c: Carry) => {
+    const tp = L.tasks[c.id]
+    if (!tp) return
+    const over = targetAt(c.x, c.y, '')
+    const own = content.tasks.find((t) => t.id === c.id)?.cluster
+    if (over) {
+      const cl = L.clusters[over.id]
+      const used = new Set(Object.values(L.tasks).filter((t) => t.c === over.id && !t.free && t !== tp).map((t) => t.slot))
+      let slot = 0
+      if (over.id === own && !tp.free) slot = tp.slot
+      else while (used.has(slot)) slot++
+      const { u, v: vv } = slotAt(slot, cl.cols)
+      writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: over.id, u, v: vv, dz: 0, slot, free: undefined } } })
+      if (over.id !== own) retagTask(c.id, over.id)
+    } else {
+      writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: { a: c.x / PX / r0, y: -c.y / PY } } } })
+    }
+    closeSprung(over?.id ?? null)
+  }
+  const dropGroup = (c: Carry) => {
+    const p = L.clusters[c.id]
+    const b = places.get(c.id)
+    if (!p || !b) return
+    const over = c.hover && c.hover !== c.id ? c.hover : null
+    if (over) {
+      reparentGroup(c.id, over)
+    } else {
+      const left = c.x - c.dx
+      const top = c.y - c.dy
+      const moved = repose(p, (left + b.w / 2) / (PX * p.r), -(top / PY) - 1.2 * K)
+      writeLayout({ ...L, clusters: separate({ ...L.clusters, [c.id]: moved }, new Set([c.id])) })
+    }
+    closeSprung(over)
+  }
+
   const links = content.clusters.filter((c) => c.parent && places.has(c.parent) && places.has(c.id))
+  const free = content.tasks.filter((t) => L.tasks[t.id]?.free)
+  const r0 = L.clusters[Object.keys(L.clusters)[0]]?.r ?? 80
+
+  const row = (t: SceneTask, extra?: React.CSSProperties) => {
+    const vars = { ['--h' as string]: Math.max(0, t.hue), ['--s' as string]: t.hue < 0 ? 0 : 1, ['--u' as string]: 0.5, ...checkVars(t.hue) } as React.CSSProperties
+    return (
+      // the line view's row: its tint and outline, an inset check, the title on one line (cut with an ellipsis), the date that never wraps
+      <div key={t.id} data-task={t.id} style={{ ...vars, ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint flex cursor-grab items-center gap-2.5 rounded-xl px-2.5 py-2">
+        <button type="button" role="checkbox" aria-checked={t.done} aria-label={`${t.done ? 'Mark not done' : 'Mark done'}: ${t.title}`} onClick={() => toggle(t.id)} className={`well-circle grid h-[1.35rem] w-[1.35rem] shrink-0 place-items-center rounded-full text-xs text-white ${t.done ? 'is-on' : ''}`}>
+          {t.done ? '✓' : ''}
+        </button>
+        <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
+          {t.title || 'Untitled'}
+        </button>
+        {t.due && (
+          <span className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.68rem]" style={{ background: `hsl(${Math.max(0, t.hue)},60%,88%)`, color: `hsl(${Math.max(0, t.hue)},40%,30%)` }}>
+            {t.due}
+          </span>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div
       ref={box}
       className="absolute inset-0 touch-none select-none overflow-hidden rounded-[inherit] bg-gradient-to-b from-lilac-100/60 to-white/30"
+      onClickCapture={(e) => {
+        if (suppress.current) {
+          suppress.current = false
+          e.stopPropagation()
+          e.preventDefault()
+        }
+      }}
       onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest('button')) return
-        e.currentTarget.setPointerCapture(e.pointerId)
+        suppress.current = false
         pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
         const [a, b] = [...pts.current.values()]
-        gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: b ? Math.hypot(a.x - b.x, a.y - b.y) : 0, k: v.k }
+        if (b) {
+          // a second finger: it is a pinch, and whatever was being carried is let go where it was
+          press.current = null
+          setCarry(null)
+          closeSprung(null)
+          e.currentTarget.setPointerCapture(e.pointerId)
+          gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: Math.hypot(a.x - b.x, a.y - b.y), k: v.k }
+          return
+        }
+        const el = e.target as HTMLElement
+        const taskEl = el.closest('[data-task]') as HTMLElement | null
+        const hubEl = el.closest('[data-hub]') as HTMLElement | null
+        const boxEl = el.closest('[data-box]') as HTMLElement | null
+        if (taskEl || hubEl || boxEl) {
+          const id = taskEl?.dataset.task ?? hubEl?.dataset.hub ?? boxEl?.dataset.box ?? ''
+          press.current = { pid: e.pointerId, sx: e.clientX, sy: e.clientY, kind: taskEl ? 'task' : 'group', id, started: false }
+          return
+        }
+        e.currentTarget.setPointerCapture(e.pointerId)
+        gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: 0, k: v.k }
       }}
       onPointerMove={(e) => {
-        if (!pts.current.has(e.pointerId) || !gesture.current) return
-        pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+        if (pts.current.has(e.pointerId)) pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+        const pr = press.current
+        if (pr && pr.pid === e.pointerId) {
+          if (!pr.started && Math.hypot(e.clientX - pr.sx, e.clientY - pr.sy) > MOVE) {
+            pr.started = true
+            suppress.current = true
+            e.currentTarget.setPointerCapture(e.pointerId)
+            const p0 = canvasPoint({ clientX: pr.sx, clientY: pr.sy })
+            const src = pr.kind === 'task' ? (L.tasks[pr.id]?.free ? { x: L.tasks[pr.id].free!.a * PX * r0 - TASK_W / 2, y: -L.tasks[pr.id].free!.y * PY - 20 } : (() => { const el = box.current!.querySelector(`[data-task="${CSS.escape(pr.id)}"]`) as HTMLElement | null; const q = el?.getBoundingClientRect(); const r = box.current!.getBoundingClientRect(); return q ? { x: (q.left - r.left - v.x) / v.k, y: (q.top - r.top - v.y) / v.k } : { x: p0.x - 80, y: p0.y - 16 } })()) : { x: places.get(pr.id)?.x ?? p0.x, y: places.get(pr.id)?.y ?? p0.y }
+            setCarry({ kind: pr.kind, id: pr.id, x: p0.x, y: p0.y, dx: p0.x - src.x, dy: p0.y - src.y, hover: null })
+          }
+          if (pr.started) {
+            const p = canvasPoint(e)
+            const ex = pr.kind === 'group' ? pr.id : ''
+            const o = targetAt(p.x, p.y, ex)
+            // a task can join a group by its name or its box; a group only goes inside another by its name
+            const h = o && (pr.kind === 'task' || o.name) ? o.id : null
+            setCarry((c) => (c ? { ...c, x: p.x, y: p.y } : c))
+            if (h !== carry?.hover) hoverTo(h)
+          }
+          return
+        }
+        if (!gesture.current) return
         const g = gesture.current
         const [a, b] = [...pts.current.values()]
         if (b && g.d > 0) {
@@ -116,68 +301,100 @@ export function StaticCanvas({ content, layout }: { content: SpatialContent; lay
       }}
       onPointerUp={(e) => {
         pts.current.delete(e.pointerId)
+        const pr = press.current
+        if (pr && pr.pid === e.pointerId) {
+          press.current = null
+          if (pr.started && carry) {
+            if (pr.kind === 'task') dropTask(carry)
+            else dropGroup(carry)
+            setCarry(null)
+            return
+          }
+          // a tap on a group's name turns to it (the twirl and the buttons have their own taps)
+          const el = e.target as HTMLElement
+          if (pr.kind === 'group' && el.closest('[data-hub]') && !el.closest('button')) focus(pr.id)
+          return
+        }
         gesture.current = pts.current.size === 1 ? { x: [...pts.current.values()][0].x, y: [...pts.current.values()][0].y, vx: v.x, vy: v.y, d: 0, k: v.k } : null
       }}
       onPointerCancel={(e) => {
         pts.current.delete(e.pointerId)
         gesture.current = null
+        if (press.current?.pid === e.pointerId) {
+          press.current = null
+          setCarry(null)
+          closeSprung(null)
+        }
       }}
       onWheel={(e) => {
         const r = box.current!.getBoundingClientRect()
         zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top)
       }}
-      aria-label="Your tasks by group. Drag to move around, pinch to zoom."
+      aria-label="Your tasks by group. Drag to move around, pinch to zoom; drag a task or a group to move it."
     >
       <div className="absolute left-0 top-0" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})`, transformOrigin: '0 0' }}>
         <svg className="pointer-events-none absolute overflow-visible" width={1} height={1} aria-hidden>
           {links.map((c) => {
-            const a = places.get(c.parent as string)!
-            const b = places.get(c.id)!
+            const a = at(c.parent as string)!
+            const b = at(c.id)!
             const x0 = a.x + a.w / 2
-            const y0 = a.y + a.h
             const x1 = b.x + b.w / 2
             const y1 = b.y
+            const y0 = Math.min(a.y + a.h, y1 - 24) // (always downhill: never ends above where it starts)
             const m = (y0 + y1) / 2
             return <path key={c.id} d={`M${x0},${y0} C${x0},${m} ${x1},${m} ${x1},${y1}`} fill="none" stroke={`hsl(${Math.max(0, c.hue)},50%,62%)`} strokeWidth={2.5} strokeLinecap="round" opacity={0.7} />
           })}
         </svg>
-        {content.clusters.map((c) => {
-          const p = places.get(c.id)
+        {content.clusters.map((c: SceneCluster) => {
+          const p = at(c.id)
           if (!p) return null
+          const grid = inGrid.get(c.id) ?? []
+          const lit = carry?.hover === c.id
+          const dragging = carry?.kind === 'group' && carry.id === c.id
           return (
-            <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w }} aria-label={c.name}>
-              <h3 className="mb-2 flex items-center justify-between rounded-full px-3.5 py-1.5 font-display text-lg font-bold italic text-white shadow-md" style={{ background: `hsl(${Math.max(0, c.hue)},55%,56%)` }}>
+            <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w, zIndex: dragging ? 5 : 1, opacity: dragging ? 0.92 : 1 }} aria-label={c.name}>
+              <h3
+                data-hub={c.id}
+                className={`mb-2 flex cursor-grab items-center gap-1.5 rounded-full px-1 font-display text-2xl font-bold italic transition-colors ${lit ? 'bg-white/80 ring-2 ring-white' : ''}`}
+                style={{ color: `hsl(${Math.max(0, c.hue)},50%,36%)`, textShadow: '0 0 8px rgba(255,255,255,0.95)' }}
+              >
+                <button type="button" aria-expanded={!c.collapsed} aria-label={`${c.collapsed ? 'Show' : 'Fold'} ${c.name}`} onClick={() => toggleCollapsed(c.id)} className="grid h-6 w-5 shrink-0 place-items-center text-[0.7rem] not-italic opacity-75">
+                  {c.collapsed ? '▸' : '▾'}
+                </button>
+                <Flower hue={c.hue} shape={c.shape} size={22} />
                 {c.name}
-                <span className="rounded-full bg-white/90 px-2 text-xs not-italic" style={{ color: `hsl(${Math.max(0, c.hue)},45%,32%)` }}>
+                <span className="rounded-full px-2 text-xs not-italic" style={{ background: `hsl(${Math.max(0, c.hue)},60%,90%)` }}>
                   {c.count}
                 </span>
               </h3>
-              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))` }}>
-                {content.tasks
-                  .filter((t) => t.cluster === c.id)
-                  .map((t) => {
-                    const vars = { ['--h' as string]: Math.max(0, t.hue), ['--s' as string]: t.hue < 0 ? 0 : 1, ['--u' as string]: 0.5, ...checkVars(t.hue) } as React.CSSProperties
-                    return (
-                      // the line view's row: its tint and outline, an inset check, the title on one line (cut with an ellipsis), the date that never wraps
-                      <div key={t.id} style={{ ...vars, opacity: t.done ? 0.55 : 1 }} className="tint flex items-center gap-2.5 rounded-xl px-2.5 py-2">
-                        <button type="button" role="checkbox" aria-checked={t.done} aria-label={`${t.done ? 'Mark not done' : 'Mark done'}: ${t.title}`} onClick={() => toggle(t.id)} className={`well-circle grid h-[1.35rem] w-[1.35rem] shrink-0 place-items-center rounded-full text-xs text-white ${t.done ? 'is-on' : ''}`}>
-                          {t.done ? '✓' : ''}
-                        </button>
-                        <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
-                          {t.title || 'Untitled'}
-                        </button>
-                        {t.due && (
-                          <span className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.68rem]" style={{ background: `hsl(${Math.max(0, t.hue)},60%,88%)`, color: `hsl(${Math.max(0, t.hue)},40%,30%)` }}>
-                            {t.due}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
+              <div
+                data-box={c.id}
+                className={`grid gap-2 rounded-[2rem] border p-3 transition-shadow ${c.collapsed || grid.length === 0 ? 'hidden' : ''}`}
+                style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))`, background: `hsl(${Math.max(0, c.hue)},60%,${lit ? 78 : 84}%,${lit ? 0.6 : 0.3})`, borderColor: `hsl(${Math.max(0, c.hue)},55%,${lit ? 58 : 72}%,${lit ? 0.95 : 0.5})`, borderWidth: lit ? 3 : 1 }}
+              >
+                {grid.map((t) => row(t, carry?.kind === 'task' && carry.id === t.id ? { opacity: 0.3 } : undefined))}
               </div>
             </section>
           )
         })}
+        {free.map((t) => {
+          const f = L.tasks[t.id].free!
+          if (carry?.kind === 'task' && carry.id === t.id) return null
+          return (
+            <div key={t.id} className="absolute" style={{ left: f.a * PX * r0 - TASK_W / 2, top: -f.y * PY - 20, width: TASK_W, zIndex: 3 }}>
+              {row(t)}
+            </div>
+          )
+        })}
+        {carry?.kind === 'task' &&
+          (() => {
+            const t = content.tasks.find((x) => x.id === carry.id)
+            return t ? (
+              <div className="pointer-events-none absolute" style={{ left: carry.x - carry.dx, top: carry.y - carry.dy, width: TASK_W, zIndex: 9, transform: 'scale(1.05) rotate(-1.5deg)', filter: 'drop-shadow(0 8px 10px rgba(80,50,130,0.3))' }}>
+                {row(t, { cursor: 'grabbing' })}
+              </div>
+            ) : null
+          })()}
         {content.tasks.length === 0 && <p className="p-6 text-sm text-ink-faint">Nothing to show here yet.</p>}
       </div>
       <div className="absolute bottom-3 right-3 flex flex-col gap-1">
@@ -186,9 +403,6 @@ export function StaticCanvas({ content, layout }: { content: SpatialContent; lay
         </button>
         <button type="button" aria-label="Zoom out" onClick={() => zoomAt(1 / 1.2, centre().x, centre().y)} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-lg shadow">
           −
-        </button>
-        <button type="button" aria-label="Fit all" onClick={fit} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-xs shadow">
-          Fit
         </button>
       </div>
     </div>

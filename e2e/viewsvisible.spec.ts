@@ -10,7 +10,7 @@ test.describe('hiding views you do not use', () => {
     const dialog = page.getByRole('dialog')
     // folded: no checkboxes until it is opened
     await expect(dialog.getByRole('checkbox', { name: /Timeline/ })).toHaveCount(0)
-    await dialog.getByRole('button', { name: /Views in the sidebar/ }).click()
+    await dialog.getByRole('button', { name: /Sidebar menu/ }).click()
     await dialog.getByRole('checkbox', { name: /Timeline/ }).uncheck()
     await dialog.getByRole('checkbox', { name: /Overview/ }).uncheck()
     await expect.poll(async () => (await saved(page))!.settings.hiddenViews).toEqual(['timeline', 'overview'])
@@ -24,7 +24,7 @@ test.describe('hiding views you do not use', () => {
     await open(page)
     await page.getByRole('button', { name: 'My settings' }).click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByRole('button', { name: /Views in the sidebar/ }).click()
+    await dialog.getByRole('button', { name: /Sidebar menu/ }).click()
     await dialog.getByRole('checkbox', { name: /Pond/ }).uncheck()
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.view)).not.toBe('pond')
   })
@@ -33,7 +33,7 @@ test.describe('hiding views you do not use', () => {
     await open(page)
     await page.getByRole('button', { name: 'My settings' }).click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByRole('button', { name: /Views in the sidebar/ }).click()
+    await dialog.getByRole('button', { name: /Sidebar menu/ }).click()
     const grip = (await dialog.getByRole('button', { name: 'Move Overview' }).boundingBox())!
     const top = (await dialog.getByRole('checkbox', { name: /Pond/ }).boundingBox())!
     await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)

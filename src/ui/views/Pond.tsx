@@ -22,6 +22,7 @@ import { edgeDots } from '../../core/edges'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
+import { Flower } from '../Flower'
 import { canReparent, pathOf } from '../../core/folders'
 import { undo } from '../../state/history'
 import { PondMembers } from '../pond/Members'
@@ -852,10 +853,30 @@ export function Pond() {
                       </span>
                     ))}
                   </span>
-                  <span>{l.path[l.path.length - 1].name}</span>
+                  <span>
+                    {(() => {
+                    const f = folders.find((x) => x.id === l.key)
+                    return f ? (
+                      <span className="mr-1.5 inline-block -translate-y-0.5 align-middle">
+                        <Flower hue={f.hue} shape={f.shape} size={26} />
+                      </span>
+                    ) : null
+                  })()}
+                    {l.path[l.path.length - 1].name}
+                  </span>
                 </>
               ) : (
-                l.label
+                <>
+                  {(() => {
+                    const f = folders.find((x) => x.id === l.key)
+                    return f ? (
+                      <span className="mr-1.5 inline-block -translate-y-0.5 align-middle">
+                        <Flower hue={f.hue} shape={f.shape} size={26} />
+                      </span>
+                    ) : null
+                  })()}
+                  {l.label}
+                </>
               )}
               {folders.find((f) => f.id === l.key)?.workspaceId && (
                 <span title="Shared group" aria-label="Shared group" role="img" className="ml-1.5 inline-block align-middle text-[0.5em] not-italic opacity-70">

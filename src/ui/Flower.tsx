@@ -85,6 +85,13 @@ const tones = (hue: number, mono: boolean): CSSProperties =>
     '--flower-cream': '#fff6dc',
   }) as CSSProperties
 
+/** A flower as a standalone SVG string (for drawing into a canvas), in the folder's colour. */
+export function flowerMarkup(hue: number, shape: FlowerShape = 'blossom', size = 64): string {
+  const t = tones(hue, true) as Record<string, string>
+  const style = Object.entries(t).map(([k, v]) => `${k}:${v}`).join(';')
+  return `<svg xmlns="${SVGNS}" width="${size}" height="${size}" viewBox="-12 -12 24 24" style="${style}">${inner(shape)}</svg>`
+}
+
 export function Flower({
   hue,
   size = 18,
