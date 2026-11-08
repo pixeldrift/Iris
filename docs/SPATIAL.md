@@ -73,3 +73,11 @@ navigation, motion granted and denied (and the window turning), camera allowed a
 on exit), no-WebGL and chosen-simple fallbacks, completing from the workspace, and layout retained across exit and re-entry.
 **Not tested on a real iPhone** (no device was available): motion permission on iOS Safari and as a home-screen app, real sensor
 feel and drift, camera in a home-screen app, GPU/battery/heat. Those need a pass before relying on it.
+
+## Latest changes
+- Groups sit on a fixed cylinder (radius 80). The old radius slider is gone; Settings has a **View angle** slider (20-100) with a default dot at the usual angle.
+- Backgrounds are named Space / Camera / Photo; drawing is 3D / Flat.
+- Cards use the line-view row style (not round), with inset check wells; chips no longer clip.
+- Groups never overlap (push-apart keeps them clear). Family-tree rows by group depth; thick tapered ribbons link parent to child.
+- Drag a group (name or pane) to move it; drag a task to move it; drop on a group to retag it; leave the pane to float it, then drop into another.
+- Test hook: `?spacetest` exposes `window.__space`.

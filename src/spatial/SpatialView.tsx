@@ -10,7 +10,8 @@ import { Popover } from '../ui/Popover'
 import { IconChevron, IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
 import { buildContent, sameLayout } from './content'
-import { RADIUS } from './layout'
+import { FOV } from './SpatialScene'
+import { DefaultDot } from '../ui/DefaultDot'
 import { CameraEnvironment, PanoramaEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
 import { SpatialScene } from './SpatialScene'
 import { StaticCanvas } from './StaticCanvas'
@@ -18,39 +19,10 @@ import { useSpatial } from './store'
 import { SpatialTracking } from './tracking'
 import type { EnvironmentKind, TrackingStatus } from './types'
 
-/** A slider standing upright, filling the height it is given (a range input laid on its side, sized to its box). */
-function VerticalSlider({ label, min, max, step, value, onChange, onReset }: { label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void; onReset: () => void }) {
-  const box = useRef<HTMLDivElement>(null)
-  const [len, setLen] = useState(160)
-  useEffect(() => {
-    const el = box.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setLen(Math.max(60, el.clientHeight - 4)))
-    ro.observe(el)
-    setLen(Math.max(60, el.clientHeight - 4))
-    return () => ro.disconnect()
-  }, [])
-  return (
-    <div ref={box} className="relative min-h-0 w-full flex-1">
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-label={label}
-        onChange={(e) => onChange(Number(e.target.value))}
-        onDoubleClick={onReset}
-        className="soft absolute left-1/2 top-1/2"
-        style={{ width: len, transform: 'translate(-50%, -50%) rotate(-90deg)' }}
-      />
-    </div>
-  )
-}
-
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
-  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius } = useSpatial()
+  const { environment, tracking: trackPref, render, seen, tipSeen, links } = useSpatial()
+  const [fov, setFov] = useState<number>(FOV.start)
   const stored = useSpatial((s) => s.layout)
   const setLayout = useSpatial((s) => s.setLayout)
   const prefs = useSpatial((s) => s.set)
@@ -150,14 +122,27 @@ export default function SpatialView() {
         onOpen: (id) => select(id),
         onToggle: (id) => toggleDone(id),
         onLayout: (l) => setLayout(l),
+        onFov: (f) => setFov(Math.round(f)),
+        // a task dropped into another group joins it (and leaves the one it was in)
+        onRetag: (id, clusterId) => {
+          const st = useStore.getState()
+          const t = st.tasks.find((x) => x.id === id)
+          if (!t) return
+          const have = new Set(st.folders.map((f) => f.id))
+          const cur = t.folderIds.find((x) => have.has(x))
+          let ids = t.folderIds.filter((x) => x !== cur)
+          if (clusterId !== 'none') ids = [clusterId, ...ids.filter((x) => x !== clusterId)]
+          st.updateTask(id, { folderIds: ids })
+        },
       })
     } catch {
       // the graphics could not start after all: fall back to the flat canvas
-      setNote('3D could not start on this device, so here is the simple view.')
+      setNote('3D could not start on this device, so here is the flat view.')
       prefs({ render: 'simple' })
       return
     }
     scene.current = sc
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), fit: () => sc.frameAll(true) }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
@@ -185,10 +170,6 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
-  useEffect(() => {
-    scene.current?.setRadius(radius)
-  }, [radius, phase, simple])
-
   // leaving: stop the sensors
   useEffect(
     () => () => {
@@ -202,7 +183,7 @@ export default function SpatialView() {
 
   /* ---------- what is shown ---------- */
   const where = env === 'camera' ? 'Camera' : env === 'panorama' ? 'Panorama' : ''
-  const how = simple ? 'Simple view' : status.source === 'motion' ? 'Motion tracking' : 'Touch navigation'
+  const how = simple ? 'Flat view' : status.source === 'motion' ? 'Motion tracking' : 'Touch navigation'
   const statusText = simple || !where ? how : `${where} · ${how}`
 
   return (
@@ -221,7 +202,7 @@ export default function SpatialView() {
             <p className="mt-2 text-sm text-ink-soft">
               {simple
                 ? 'Your groups and tasks side by side on a canvas you can drag around and zoom.'
-                : 'Your groups hang around you like notes on a wall. Turn your phone to look around, or drag. Hold a task to move it, tap one to open it, tap its circle to tick it off.'}
+                : 'Your groups hang around you like notes on a wall, each subgroup under its group. Turn your phone to look around, or drag empty space. Drag any task or group to move it (a task let go over another group joins it; in open space it floats until you drop it into one). Tap a task to open it, its circle to tick it off.'}
             </p>
             {!simple && caps.motion && <p className="mt-2 text-xs text-ink-faint">Your phone will ask to use its motion sensors. Nothing leaves the device, and you can use touch instead.</p>}
             <div className="mt-4 flex flex-col gap-2">
@@ -264,7 +245,7 @@ export default function SpatialView() {
                       label="Background"
                       value={env}
                       options={[
-                        { id: 'virtual', label: 'Room' },
+                        { id: 'virtual', label: 'Space' },
                         { id: 'camera', label: 'Camera' },
                         { id: 'panorama', label: 'Photo' },
                       ]}
@@ -273,6 +254,19 @@ export default function SpatialView() {
                         else void chooseEnv(k)
                       }}
                     />
+                  </div>
+                </div>
+              )}
+              {!simple && (
+                <div>
+                  View angle
+                  <div className="relative mt-1 pb-1">
+                    <input type="range" min={FOV.min} max={FOV.max} step={1} value={fov} aria-label="View angle" onChange={(e) => scene.current?.setFov(Number(e.target.value))} className="soft relative z-10" />
+                    <DefaultDot at={(FOV.start - FOV.min) / (FOV.max - FOV.min)} color="#a39cb0" label="Back to the usual view angle" onReset={() => scene.current?.setFov(FOV.start)} />
+                  </div>
+                  <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
+                    <span>Closer</span>
+                    <span>Wider</span>
                   </div>
                 </div>
               )}
@@ -302,7 +296,7 @@ export default function SpatialView() {
               <div>
                 Drawing
                 <div className="mt-1">
-                  <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Simple' }]} onChange={(r) => prefs({ render: r })} />
+                  <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }]} onChange={(r) => prefs({ render: r })} />
                 </div>
               </div>
               {!simple && (
@@ -359,24 +353,9 @@ export default function SpatialView() {
               <span />
             )}
           </div>
-          {!simple && (
-            // a testing control: how far away the wall is (the cylinder the groups are pinned to), down the right-hand side
-            <div data-ui className="absolute bottom-28 right-3 top-16 z-10 flex w-9 flex-col items-center gap-1.5 rounded-full bg-white/70 py-2 shadow-md backdrop-blur">
-              <span className="text-[0.6rem] font-medium leading-none text-ink-soft" aria-hidden>
-                far
-              </span>
-              <VerticalSlider label="Wall distance" min={RADIUS.min} max={RADIUS.max} step={0.5} value={radius} onChange={(v) => prefs({ radius: v })} onReset={() => prefs({ radius: RADIUS.start })} />
-              <span className="text-[0.6rem] font-medium leading-none text-ink-soft" aria-hidden>
-                near
-              </span>
-              <span className="text-[0.6rem] tabular-nums leading-none text-ink-faint" title="Distance to the wall (double-tap the slider to reset)">
-                {Math.round(radius)}
-              </span>
-            </div>
-          )}
           {!note && !tipSeen && !simple && (
             <button type="button" onClick={() => prefs({ tipSeen: true })} className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">
-              Hold a task, then drag, to move it. Tap a group’s name to turn to it. <span className="text-lilac-600">Got it</span>
+              Drag a task or a group to move it. Pull a task out into the open, then drop it into another group. <span className="text-lilac-600">Got it</span>
             </button>
           )}
           {note && (

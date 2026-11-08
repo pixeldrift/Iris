@@ -6,9 +6,9 @@
 /**
  * Everything is drawn big and far (the wall is a distant, gently curved cylinder), and the camera looks at it through a narrow lens, so
  * perspective stays gentle: cards at the sides of the wall are hardly more slanted than those in the middle. `K` scales the whole room
- * (apparent sizes do not change with it; it just keeps the cards far from the eye).
+ * (apparent sizes do not change with it; it just keeps the cards far from the eye). The wall is 80 units away.
  */
-export const K = 2.5
+export const K = 80 / 9
 export const WORLD = { eye: 0, ring: 9 * K, cardW: 2.4 * K, cardH: 0.8 * K, gap: 0.2 * K } as const
 
 /** Optional reference for future AR: where in a real room this was pinned (never filled by sensor readings). */
@@ -35,6 +35,9 @@ export interface ClusterPlacement {
   cols: number
   /** Which row of groups it is on (0 = the first, then below it). */
   tier?: number
+  /** How deep it is in the group tree (0 = a top-level group), and how many rows of cards it has. */
+  depth?: number
+  rows?: number
   parent: string | null
   scale?: number
   anchor?: SpatialAnchor
@@ -50,6 +53,8 @@ export interface TaskPlacement {
   /** The grid slot it was given (a task dragged elsewhere keeps its slot free for no one: it is simply at its own u, v). */
   slot: number
   rot?: number
+  /** Pulled out of its group: floating on the cylinder at this angle and height until it is dropped into one. */
+  free?: { a: number; y: number }
   anchor?: SpatialAnchor
 }
 

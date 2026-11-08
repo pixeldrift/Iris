@@ -86,86 +86,108 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const y = PAD
   const w = CARD_PX.w - PAD * 2
   const h = CARD_PX.h - PAD * 2
+  const R = 22 // the line view's row corner (rounded, not round)
   g.save()
-  // opaque, like a bubble you can read at a glance (only a ticked-off one goes see-through)
+  // opaque, like the line view's rows (only a ticked-off one goes see-through)
   g.globalAlpha = c.done ? 0.5 : 1
-  g.shadowColor = hsl(c.hue, 45, 55, 0.35)
-  g.shadowBlur = 10
-  g.shadowOffsetY = 3
-  roundRect(g, x, y, w, h, 46)
-  // the usual soft gradient, blended with the app's cream background so it keeps the same look
-  const fill = g.createLinearGradient(x, y, x + w, y + h)
-  fill.addColorStop(0, CREAM_LIGHT)
-  fill.addColorStop(1, mixCream(c.hue))
-  g.fillStyle = fill
+  g.shadowColor = hsl(c.hue, 45, 50, 0.3)
+  g.shadowBlur = 12
+  g.shadowOffsetY = 4
+  roundRect(g, x, y, w, h, R)
+  // the row's gradient: the group's tint on the left fading to the cream, over an opaque base
+  g.fillStyle = CREAM_LIGHT
   g.fill()
   g.shadowColor = 'transparent'
-  g.lineWidth = 2.5
-  g.strokeStyle = hsl(c.hue, 55, 72, 0.9)
+  const fill = g.createLinearGradient(x, y, x + w, y + h * 0.3)
+  fill.addColorStop(0, mixCream(c.hue))
+  fill.addColorStop(0.72, CREAM_LIGHT)
+  g.fillStyle = fill
+  g.fill()
+  g.lineWidth = 3
+  g.strokeStyle = hsl(c.hue, 62, 70, 0.75)
   g.stroke()
   if (c.image) {
     g.save()
-    roundRect(g, x, y, w, h, 46)
+    roundRect(g, x, y, w, h, R)
     g.clip()
     g.globalAlpha = 0.22
     g.drawImage(c.image, x, y, w, h)
     g.restore()
   }
-  // the round check
-  const cx = x + 40
+  // the check: an inset circle (a well), filled in the group's colour when ticked
+  const cx = x + 42
   const cy = y + h / 2
+  const cr = 24
+  g.save()
   g.beginPath()
-  g.arc(cx, cy, 22, 0, Math.PI * 2)
-  g.fillStyle = c.done ? hsl(c.hue, 60, 60, 1) : 'rgba(255,255,255,0.9)'
-  g.fill()
-  g.lineWidth = 2.5
-  g.strokeStyle = hsl(c.hue, 55, 62, 1)
+  g.arc(cx, cy, cr, 0, Math.PI * 2)
+  g.clip()
+  if (c.done) {
+    const f = g.createRadialGradient(cx - 6, cy - 8, 2, cx, cy, cr)
+    f.addColorStop(0, hsl(c.hue, 65, 72, 1))
+    f.addColorStop(1, hsl(c.hue, 60, 56, 1))
+    g.fillStyle = f
+  } else g.fillStyle = 'rgba(255,255,255,0.55)'
+  g.fillRect(cx - cr, cy - cr, cr * 2, cr * 2)
+  // the inner shadow that makes it a well: a dark ring just outside the circle, blurred inward
+  g.shadowColor = hsl(c.hue, 40, 30, 0.45)
+  g.shadowBlur = 9
+  g.shadowOffsetX = 3
+  g.shadowOffsetY = 4
+  g.lineWidth = 12
+  g.strokeStyle = 'rgba(0,0,0,0.5)'
+  g.beginPath()
+  g.arc(cx, cy, cr + 6, 0, Math.PI * 2)
+  g.stroke()
+  g.restore()
+  g.beginPath()
+  g.arc(cx, cy, cr, 0, Math.PI * 2)
+  g.lineWidth = 2
+  g.strokeStyle = 'rgba(255,255,255,0.85)'
   g.stroke()
   if (c.done) {
     g.beginPath()
-    g.moveTo(cx - 9, cy + 1)
-    g.lineTo(cx - 2, cy + 8)
-    g.lineTo(cx + 11, cy - 8)
-    g.lineWidth = 4.5
+    g.moveTo(cx - 10, cy + 1)
+    g.lineTo(cx - 3, cy + 9)
+    g.lineTo(cx + 12, cy - 9)
+    g.lineWidth = 5
     g.lineCap = 'round'
     g.lineJoin = 'round'
     g.strokeStyle = '#fff'
     g.stroke()
   }
-  // the words
-  const tx = cx + 38
-  const maxW = x + w - 18 - tx
-  g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : '#2b2438'
-  g.textBaseline = 'middle'
-  g.font = `600 27px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
-  const lines = wrapTitle(g, c.title || 'Untitled', maxW, c.due ? 2 : 3)
-  const lh = 30
-  const top = cy - ((lines.length - 1) * lh) / 2 - (c.due ? 8 : 0)
-  lines.forEach((ln, i) => {
-    g.fillText(ln, tx, top + i * lh)
-    if (c.done) {
-      const wd = g.measureText(ln).width
-      g.fillRect(tx, top + i * lh, wd, 2)
-    }
-  })
+  // the due chip, on the right (measured first, so the words never run under it)
+  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
+  const chipW = c.due ? g.measureText(c.due).width + 24 : 0
   if (c.due) {
-    g.font = `500 20px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
-    const tw = g.measureText(c.due).width + 22
-    const px = tx
-    const py = y + h - 28
-    roundRect(g, px, py - 14, tw, 28, 14)
-    g.fillStyle = hsl(c.hue, 60, 86, 0.95)
+    const px = x + w - 16 - chipW
+    const py = cy
+    roundRect(g, px, py - 17, chipW, 34, 17)
+    g.fillStyle = hsl(c.hue, 60, 86, 1)
     g.fill()
     g.fillStyle = hsl(c.hue, 40, 30, 1)
-    g.fillText(c.due, px + 11, py + 1)
+    g.textBaseline = 'middle'
+    g.fillText(c.due, px + 12, py + 1)
   }
+  // the words (up to two lines, with an ellipsis, in the space between the check and the chip)
+  const tx = cx + cr + 18
+  const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0)
+  g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : '#2b2438'
+  g.textBaseline = 'middle'
+  g.font = `600 29px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
+  const lines = wrapTitle(g, c.title || 'Untitled', maxW, 2)
+  const lh = 33
+  const top = cy - ((lines.length - 1) * lh) / 2
+  lines.forEach((ln, i) => {
+    g.fillText(ln, tx, top + i * lh)
+    if (c.done) g.fillRect(tx, top + i * lh, g.measureText(ln).width, 2.5)
+  })
   if (c.progress && c.progress > 0 && c.progress < 100 && !c.done) {
-    const bx = tx
-    const bw = w - (tx - x) - 18
-    roundRect(g, bx, y + h - 12, bw, 6, 3)
+    const bw = x + w - 22 - tx
+    roundRect(g, tx, y + h - 14, bw, 6, 3)
     g.fillStyle = 'rgba(255,255,255,0.8)'
     g.fill()
-    roundRect(g, bx, y + h - 12, (bw * c.progress) / 100, 6, 3)
+    roundRect(g, tx, y + h - 14, (bw * c.progress) / 100, 6, 3)
     g.fillStyle = hsl(c.hue, 60, 62, 1)
     g.fill()
   }
@@ -220,7 +242,7 @@ export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo) {
  * The pane behind a group's cards, drawn at the pane's own proportions (48 px a unit) with large round corners, a soft tint of the
  * group's colour blended into the cream, a fine outline and a faint glow, so nothing is a hard square.
  */
-export function drawPlate(wUnits: number, hUnits: number, hue: number): CanvasTexture {
+export function drawPlate(wUnits: number, hUnits: number, hue: number, hover = false): CanvasTexture {
   const PX = 48
   const w = Math.max(32, Math.round(wUnits * PX))
   const h = Math.max(32, Math.round(hUnits * PX))
@@ -231,10 +253,10 @@ export function drawPlate(wUnits: number, hUnits: number, hue: number): CanvasTe
   const pad = 6
   const radius = Math.min(1.25 * PX, (Math.min(w, h) - pad * 2) / 2)
   roundRect(g, pad, pad, w - pad * 2, h - pad * 2, radius)
-  g.fillStyle = hue < 0 ? 'rgba(236,236,236,0.34)' : hsl(hue, 60, 84, 0.3)
+  g.fillStyle = hue < 0 ? 'rgba(236,236,236,0.34)' : hsl(hue, 60, 84, hover ? 0.62 : 0.3)
   g.fill()
-  g.lineWidth = 3
-  g.strokeStyle = hue < 0 ? 'rgba(200,200,200,0.55)' : hsl(hue, 55, 72, 0.5)
+  g.lineWidth = hover ? 6 : 3
+  g.strokeStyle = hue < 0 ? 'rgba(200,200,200,0.55)' : hsl(hue, hover ? 70 : 55, hover ? 58 : 72, hover ? 0.95 : 0.5)
   g.stroke()
   const t = new CanvasTexture(c)
   t.colorSpace = SRGBColorSpace

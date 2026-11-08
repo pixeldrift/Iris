@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../state/store'
+import { checkVars } from '../ui/taskColor'
 import type { SpatialContent } from './content'
 
 /**
@@ -38,17 +39,25 @@ export function StaticCanvas({ content }: { content: SpatialContent }) {
             <div className="space-y-2">
               {content.tasks
                 .filter((t) => t.cluster === c.id)
-                .map((t) => (
-                  <div key={t.id} className="flex items-center gap-2 rounded-2xl border bg-white/85 px-2.5 py-2 shadow-sm" style={{ borderColor: `hsl(${Math.max(0, t.hue)},55%,76%)`, opacity: t.done ? 0.55 : 1 }}>
-                    <button type="button" role="checkbox" aria-checked={t.done} aria-label={`${t.done ? 'Mark not done' : 'Mark done'}: ${t.title}`} onClick={() => toggle(t.id)} className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 text-xs text-white" style={{ borderColor: `hsl(${Math.max(0, t.hue)},55%,62%)`, background: t.done ? `hsl(${Math.max(0, t.hue)},60%,60%)` : 'transparent' }}>
-                      {t.done ? '✓' : ''}
-                    </button>
-                    <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 text-left font-display text-sm leading-snug ${t.done ? 'line-through' : ''}`}>
-                      {t.title || 'Untitled'}
-                      {t.due && <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[0.65rem] not-italic" style={{ background: `hsl(${Math.max(0, t.hue)},60%,88%)` }}>{t.due}</span>}
-                    </button>
-                  </div>
-                ))}
+                .map((t) => {
+                  const vars = { ['--h' as string]: Math.max(0, t.hue), ['--s' as string]: t.hue < 0 ? 0 : 1, ['--u' as string]: 0.5, ...checkVars(t.hue) } as React.CSSProperties
+                  return (
+                    // the line view's row: its tint and outline, an inset check, the title on one line (cut with an ellipsis), the date that never wraps
+                    <div key={t.id} style={{ ...vars, opacity: t.done ? 0.55 : 1 }} className="tint flex items-center gap-2.5 rounded-xl px-2.5 py-2">
+                      <button type="button" role="checkbox" aria-checked={t.done} aria-label={`${t.done ? 'Mark not done' : 'Mark done'}: ${t.title}`} onClick={() => toggle(t.id)} className={`well-circle grid h-[1.35rem] w-[1.35rem] shrink-0 place-items-center rounded-full text-xs text-white ${t.done ? 'is-on' : ''}`}>
+                        {t.done ? '✓' : ''}
+                      </button>
+                      <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
+                        {t.title || 'Untitled'}
+                      </button>
+                      {t.due && (
+                        <span className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.68rem]" style={{ background: `hsl(${Math.max(0, t.hue)},60%,88%)`, color: `hsl(${Math.max(0, t.hue)},40%,30%)` }}>
+                          {t.due}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
           </section>
         ))}

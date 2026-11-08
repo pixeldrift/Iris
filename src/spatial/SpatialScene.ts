@@ -1,13 +1,35 @@
 // SpatialScene: draws the layout with Three.js. It knows nothing of where the camera pose comes from (it is given a TrackingProvider) or
-// of what is behind (an EnvironmentProvider), and it never edits tasks: it reports taps and moves, and the caller decides what they mean.
+// of what is behind (an EnvironmentProvider), and it never edits tasks: it reports taps, moves and drops, and the caller decides what
+// they mean.
+//
+// Moving things is meant to be easy, like cards spread on a desk: grab any task and it comes with you; grab a group (its name or its
+// pane) and the whole group does, the others making room; let go of a task over another group and it joins it, over empty space and it
+// floats there (pulled out of its group) until it is dropped into one.
 
-import { CanvasTexture, DoubleSide, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Plane, Raycaster, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, LinearMipmapLinearFilter } from 'three'
-import { HUB_PX, drawCard, drawPlate, drawHub, type CardInfo, type HubInfo } from './cards'
-import type { EnvironmentProvider } from './environment'
-import { moveCluster, moveTask, taskWorld, lookAt, planeBasis, withRadius } from './layout'
-import { K, WORLD, type SpatialLayoutData } from './types'
-import type { SpatialTracking } from './tracking'
+import {
+  BufferGeometry,
+  CanvasTexture,
+  DoubleSide,
+  Float32BufferAttribute,
+  LinearMipmapLinearFilter,
+  Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  Plane,
+  PlaneGeometry,
+  Raycaster,
+  Scene,
+  SRGBColorSpace,
+  Vector2,
+  Vector3,
+  WebGLRenderer,
+} from 'three'
 import { edgeDots } from '../core/edges'
+import { HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
+import type { EnvironmentProvider } from './environment'
+import { freePose, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld } from './layout'
+import type { SpatialTracking } from './tracking'
+import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
 
 export interface SceneCluster extends HubInfo {
   id: string
@@ -26,8 +48,12 @@ export interface SceneEvents {
   onOpen(taskId: string): void
   onToggle(taskId: string): void
   onFocus?(clusterId: string): void
-  /** A card or cluster was dragged somewhere new: the caller stores the layout. */
+  /** A task was dropped into a group: the caller moves it there (its place in the new group is already in the layout). */
+  onRetag?(taskId: string, clusterId: string): void
+  /** Something was moved: the caller stores the layout. */
   onLayout(layout: SpatialLayoutData): void
+  /** The lens changed (a zoom, a fit): the horizontal angle in degrees. */
+  onFov?(fov: number): void
 }
 
 interface Node {
@@ -35,37 +61,38 @@ interface Node {
   tex: CanvasTexture
   key: string
 }
-/** The horizontal field of view of the lens, in degrees: narrow by default (a distant wall seen through a telephoto, so it stays flat). */
-const MIN_FOV = 14
-const MAX_FOV = 100
-const START_FOV = 40
-const HOLD_MS = 380
-const TAP_PX = 8
+type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number }
+
+/** The horizontal field of view of the lens, in degrees. */
+export const FOV = { min: 20, max: 100, start: 60 }
+const TAP_PX = 6
 
 export class SpatialScene {
   private renderer: WebGLRenderer
   private scene = new Scene()
-  private camera = new PerspectiveCamera(40, 1, 0.1 * K, 300 * K)
+  private camera = new PerspectiveCamera(60, 1, 0.1 * K, 300 * K)
   private raycaster = new Raycaster()
   private tasks = new Map<string, Node>()
   private hubs = new Map<string, Node>()
   private plates = new Map<string, Mesh>()
-  private links?: LineSegments
+  private links?: Mesh
   private showLinks = true
-  /** The radius of the cylinder the groups are pinned to (null = as laid out). */
-  private radius: number | null = null
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
+  /** Where everything is meant to be (the stored layout, with groups pushed clear of each other). */
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
+  /** Where the groups are drawn now: they glide to their places, so making room is smooth. */
+  private shown: Record<string, ClusterPlacement> = {}
   private env?: EnvironmentProvider
   private raf = 0
   private running = true
   private dirty = true
   private lastQ = ''
   private ro?: ResizeObserver
-  private fov = START_FOV
+  private fov = FOV.start
   private focusTween?: { t0: number; from: [number, number]; to: [number, number]; fov?: [number, number] }
   private pointers = new Map<number, { x: number; y: number }>()
-  private press?: { id: number; x: number; y: number; t0: number; hit: { kind: 'task' | 'hub'; id: string; uvx: number } | null; mode: 'pending' | 'look' | 'drag'; timer: number; plane?: Plane; offset?: Vector3 }
+  private press?: { id: number; x: number; y: number; t0: number; hit: Hit | null; mode: 'pending' | 'look' | 'task' | 'cluster' }
+  private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3 }
   private pinch?: { d: number; fov: number }
   private disposed = false
   /** Soft glowing dots on the frame for groups out of view (the Pond's edge dots, here for the room around you). */
@@ -83,7 +110,7 @@ export class SpatialScene {
     const el = this.renderer.domElement
     Object.assign(el.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', zIndex: '1', touchAction: 'none', outline: 'none' })
     el.tabIndex = 0
-    el.setAttribute('aria-label', 'Your tasks arranged around you. Drag to look around, pinch to zoom, tap a task to open it.')
+    el.setAttribute('aria-label', 'Your tasks arranged around you. Drag empty space to look around, pinch to zoom, tap a task to open it, drag a task or a group to move it.')
     host.appendChild(el)
     this.resize()
     this.ro = new ResizeObserver(() => this.resize())
@@ -102,12 +129,13 @@ export class SpatialScene {
 
   setContent(c: SceneContent) {
     this.content = c
-    this.layout = this.radius === null ? c.layout : withRadius(c.layout, this.radius)
+    // groups being carried keep their place under the finger until they are dropped
+    this.layout = this.carry?.kind === 'cluster' ? { ...c.layout, clusters: { ...c.layout.clusters, [this.carry.id]: this.layout.clusters[this.carry.id] ?? c.layout.clusters[this.carry.id] } } : c.layout
     const seen = new Set<string>()
+    // (with a great many tasks the pictures are drawn smaller, to save memory)
+    const scale = c.tasks.length > 240 ? 0.55 : c.tasks.length > 120 ? 0.75 : 1
     for (const t of c.tasks) {
       seen.add(t.id)
-      // (with a great many tasks the pictures are drawn smaller, to save memory)
-      const scale = c.tasks.length > 240 ? 0.55 : c.tasks.length > 120 ? 0.75 : 1
       const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${scale}`
       let n = this.tasks.get(t.id)
       if (!n) {
@@ -156,6 +184,9 @@ export class SpatialScene {
       }
     }
     for (const [id, n] of this.hubs) if (!hubSeen.has(id)) this.drop(this.hubs, id, n)
+    // newly seen groups appear in place; ones that were already here glide to wherever they are now meant to be
+    for (const id of Object.keys(this.layout.clusters)) if (!this.shown[id]) this.shown[id] = this.layout.clusters[id]
+    for (const id of Object.keys(this.shown)) if (!this.layout.clusters[id]) delete this.shown[id]
     this.place()
   }
 
@@ -167,64 +198,98 @@ export class SpatialScene {
     map.delete(id)
   }
 
-  /** Put every mesh where the layout says (and the soft plate behind each cluster, and the lines between a group and its subgroups). */
+  /** Glide the drawn groups toward where they are meant to be; true while any is still on its way. */
+  private glide(): boolean {
+    let moving = false
+    for (const [id, want] of Object.entries(this.layout.clusters)) {
+      const cur = this.shown[id]
+      if (!cur) {
+        this.shown[id] = want
+        continue
+      }
+      const da = want.a - cur.a
+      const dy = want.y - cur.y
+      if (Math.abs(da * want.r) < 0.01 * K && Math.abs(dy) < 0.01 * K) {
+        if (cur.a !== want.a || cur.y !== want.y) this.shown[id] = want
+        continue
+      }
+      moving = true
+      this.shown[id] = repose(want, cur.a + da * 0.3, cur.y + dy * 0.3)
+    }
+    return moving
+  }
+
+  /** Put every mesh where the layout says (and the pane behind each group, and the connectors between a group and its subgroups). */
   private place() {
     const L = this.layout
+    const S = this.shown
     for (const t of this.content.tasks) {
       const n = this.tasks.get(t.id)
       const tp = L.tasks[t.id]
-      const cp = tp && L.clusters[tp.c]
-      if (!n || !tp || !cp) continue
-      const [x, y, z] = taskWorld(tp, cp)
-      n.mesh.position.set(x, y, z)
-      n.mesh.rotation.set(cp.rx ?? 0, cp.ry, tp.rot ?? 0)
-      n.mesh.scale.setScalar(cp.scale ?? 1)
+      if (!n || !tp) continue
+      if (this.carry?.kind === 'task' && this.carry.id === t.id) continue // (under the finger)
+      const fp = freePose(tp)
+      const cp = S[tp.c]
+      if (fp) {
+        n.mesh.position.set(...fp.pos)
+        n.mesh.rotation.set(fp.rx, fp.ry, tp.rot ?? 0)
+        n.mesh.scale.setScalar(1.04)
+        n.mesh.renderOrder = 4 // (floating things are in front)
+      } else if (cp) {
+        const [x, y, z] = taskWorld(tp, cp)
+        n.mesh.position.set(x, y, z)
+        n.mesh.rotation.set(cp.rx ?? 0, cp.ry, tp.rot ?? 0)
+        n.mesh.scale.setScalar(cp.scale ?? 1)
+        n.mesh.renderOrder = 2
+      }
     }
     const hueOf = new Map(this.content.clusters.map((c) => [c.id, c.hue]))
     const plateSeen = new Set<string>()
     for (const h of this.content.clusters) {
-      const cp = L.clusters[h.id]
+      const cp = S[h.id]
       const n = this.hubs.get(h.id)
       if (!cp || !n) continue
       n.mesh.position.set(cp.x, cp.y, cp.z)
       n.mesh.rotation.set(cp.rx ?? 0, cp.ry, 0)
-      // the plate: a faint pane the group's cards sit on
-      const mine = this.content.tasks.filter((t) => L.tasks[t.id]?.c === h.id)
-      let top = 0.55 * K
-      let bottom = -1 * K
-      let left = -WORLD.cardW / 2
-      let right = WORLD.cardW / 2
-      for (const t of mine) {
+      n.mesh.scale.setScalar(cp.scale ?? 1)
+      // the pane its cards sit on: grown to hold every card in its grid (and drawn at its own proportions, with round corners)
+      const pane = paneOf(cp)
+      let left = pane.u0
+      let right = pane.u1
+      let bottom = pane.v0
+      for (const t of this.content.tasks) {
         const tp = L.tasks[t.id]
-        top = Math.max(top, tp.v + WORLD.cardH / 2)
-        bottom = Math.min(bottom, tp.v - WORLD.cardH / 2)
-        left = Math.min(left, tp.u - WORLD.cardW / 2)
-        right = Math.max(right, tp.u + WORLD.cardW / 2)
+        if (tp?.c !== h.id || tp.free) continue
+        left = Math.min(left, tp.u - WORLD.cardW / 2 - 0.4 * K)
+        right = Math.max(right, tp.u + WORLD.cardW / 2 + 0.4 * K)
+        bottom = Math.min(bottom, tp.v - WORLD.cardH / 2 - 0.4 * K)
       }
       let plate = this.plates.get(h.id)
       if (!plate) {
         plate = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ transparent: true, side: DoubleSide, depthWrite: false }))
         plate.rotation.order = 'YXZ'
         plate.renderOrder = 1
+        plate.userData = { kind: 'plate', id: h.id }
         this.scene.add(plate)
         this.plates.set(h.id, plate)
       }
-      const w = right - left + 0.9 * K
-      const hh = top - bottom + 0.9 * K
-      // the pane is drawn at its own proportions, so its corners are equally round whatever its size (nothing is a hard square)
+      const w = right - left
+      const hh = pane.v1 - bottom
+      const hover = this.carry?.hover === h.id
       const pm = plate.material as MeshBasicMaterial
-      const pkey = `${w.toFixed(1)}x${hh.toFixed(1)}|${hueOf.get(h.id)}`
+      const pkey = `${w.toFixed(1)}x${hh.toFixed(1)}|${hueOf.get(h.id)}|${hover}`
       if (plate.userData.key !== pkey) {
         pm.map?.dispose()
-        pm.map = drawPlate(w, hh, hueOf.get(h.id) ?? 285)
+        pm.map = drawPlate(w, hh, hueOf.get(h.id) ?? 285, hover)
         pm.needsUpdate = true
         plate.userData.key = pkey
       }
-      plate.scale.set(w, hh, 1)
-      const cx = (left + right) / 2
-      const cy = (top + bottom) / 2
+      const s = cp.scale ?? 1
+      plate.scale.set(w * s, hh * s, 1)
       const bs = planeBasis(cp)
-      const back = -0.06 * K // (a little behind the cards)
+      const cx = ((left + right) / 2) * s
+      const cy = ((pane.v1 + bottom) / 2) * s
+      const back = -0.06 * K
       plate.position.set(cp.x + bs.right[0] * cx + bs.up[0] * cy + bs.normal[0] * back, cp.y + bs.right[1] * cx + bs.up[1] * cy + bs.normal[1] * back, cp.z + bs.right[2] * cx + bs.up[2] * cy + bs.normal[2] * back)
       plate.rotation.set(cp.rx ?? 0, cp.ry, 0)
       plateSeen.add(h.id)
@@ -233,53 +298,105 @@ export class SpatialScene {
       if (plateSeen.has(id)) continue
       this.scene.remove(p)
       p.geometry.dispose()
+      ;(p.material as MeshBasicMaterial).map?.dispose()
       ;(p.material as MeshBasicMaterial).dispose()
       this.plates.delete(id)
     }
-    // a faint curve from a group to each of its subgroups (a straight line reads as a hard seam across the room), behind everything
-    const pts: number[] = []
-    for (const h of this.content.clusters) {
-      const cp = L.clusters[h.id]
-      const pp = h.parent ? L.clusters[h.parent] : null
-      if (!cp || !pp || !this.showLinks) continue
-      const len = Math.hypot(cp.x - pp.x, cp.y - pp.y, cp.z - pp.z)
-      const lift = Math.min(2.5 * K, len * 0.22)
-      let prev: [number, number, number] | null = null
-      for (let i = 0; i <= 16; i++) {
-        const t = i / 16
-        const arc = Math.sin(t * Math.PI) * lift
-        const pt: [number, number, number] = [pp.x + (cp.x - pp.x) * t, pp.y + (cp.y - pp.y) * t + arc, pp.z + (cp.z - pp.z) * t]
-        if (prev) pts.push(...prev, ...pt)
-        prev = pt
-      }
-    }
-    if (this.links) {
-      this.scene.remove(this.links)
-      this.links.geometry.dispose()
-      ;(this.links.material as LineBasicMaterial).dispose()
-      this.links = undefined
-    }
-    if (pts.length) {
-      const g = new BufferGeometry()
-      g.setAttribute('position', new Float32BufferAttribute(pts, 3))
-      this.links = new LineSegments(g, new LineBasicMaterial({ color: 0xc4b0e6, transparent: true, opacity: 0.28, depthWrite: false }))
-      this.links.renderOrder = -5
-      this.scene.add(this.links)
-    }
+    this.buildLinks()
     this.dirty = true
   }
 
-  /** Pin every group to a cylinder of this radius around the viewer (a testing control: near is in your face, far is a distant wall). */
-  setRadius(r: number | null) {
-    this.radius = r
-    this.layout = r === null ? this.content.layout : withRadius(this.content.layout, r)
-    this.place()
+  /**
+   * The connectors of the group tree: a thick, soft ribbon that leaves the bottom of a group, swings gently, and arrives at the top of its
+   * subgroup, shading from the one colour to the other (like the branches of a family tree). Behind everything else.
+   */
+  private buildLinks() {
+    if (this.links) {
+      this.scene.remove(this.links)
+      this.links.geometry.dispose()
+      ;(this.links.material as MeshBasicMaterial).dispose()
+      this.links = undefined
+    }
+    if (!this.showLinks) return
+    const S = this.shown
+    const pos: number[] = []
+    const col: number[] = []
+    const idx: number[] = []
+    const SEG = 20
+    const colorOf = (hue: number): [number, number, number] => {
+      const h = (hue < 0 ? 0 : hue) / 360
+      const sat = hue < 0 ? 0 : 0.55
+      const l = 0.68
+      const a = sat * Math.min(l, 1 - l)
+      const f = (n: number) => {
+        const k = (n + h * 12) % 12
+        return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+      }
+      return [f(0), f(8), f(4)]
+    }
+    const hueOf = new Map(this.content.clusters.map((c) => [c.id, c.hue]))
+    for (const h of this.content.clusters) {
+      const cp = S[h.id]
+      const pp = h.parent ? S[h.parent] : undefined
+      if (!cp || !pp) continue
+      const pb = planeBasis(pp)
+      const cb = planeBasis(cp)
+      const ps = pp.scale ?? 1
+      const cs = cp.scale ?? 1
+      // from just under the group (below its pane) to just above the subgroup's name
+      const prow = pp.rows ?? 1
+      const p0 = new Vector3(...[0, 1, 2].map((i) => [pp.x, pp.y, pp.z][i] + pb.up[i] * -((prow * (WORLD.cardH + WORLD.gap) + 0.55 * K) * ps)) as [number, number, number])
+      const p3 = new Vector3(...[0, 1, 2].map((i) => [cp.x, cp.y, cp.z][i] + cb.up[i] * (0.95 * K * cs)) as [number, number, number])
+      const d = p0.distanceTo(p3)
+      // a gentle S: it leaves heading down, arrives heading down, with a sideways sway so it reads as grown, not ruled
+      const side = new Vector3(pb.right[0], pb.right[1], pb.right[2]).multiplyScalar(((cp.a - pp.a) * pp.r) * 0.18)
+      const down = new Vector3(-pb.up[0], -pb.up[1], -pb.up[2]).multiplyScalar(d * 0.45)
+      const p1 = p0.clone().add(down).add(side)
+      const p2 = p3.clone().sub(down).sub(side)
+      const c0 = colorOf(hueOf.get(h.parent as string) ?? 285)
+      const c1 = colorOf(h.hue)
+      const base = pos.length / 3
+      const pts: Vector3[] = []
+      for (let i = 0; i <= SEG; i++) {
+        const t = i / SEG
+        const u = 1 - t
+        pts.push(p0.clone().multiplyScalar(u * u * u).add(p1.clone().multiplyScalar(3 * u * u * t)).add(p2.clone().multiplyScalar(3 * u * t * t)).add(p3.clone().multiplyScalar(t * t * t)))
+      }
+      for (let i = 0; i <= SEG; i++) {
+        const t = i / SEG
+        const tan = (pts[Math.min(SEG, i + 1)].clone().sub(pts[Math.max(0, i - 1)])).normalize()
+        // a ribbon that faces the viewer (the origin): its width runs across the way the branch is going
+        const toEye = pts[i].clone().negate().normalize()
+        const across = new Vector3().crossVectors(tan, toEye).normalize()
+        // thick in the middle, a little tapered at the ends
+        const w = (0.34 * K) * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
+        for (const sgn of [-1, 1]) {
+          const q = pts[i].clone().addScaledVector(across, sgn * w)
+          pos.push(q.x, q.y, q.z)
+          col.push(c0[0] + (c1[0] - c0[0]) * t, c0[1] + (c1[1] - c0[1]) * t, c0[2] + (c1[2] - c0[2]) * t)
+        }
+      }
+      for (let i = 0; i < SEG; i++) {
+        const a = base + i * 2
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+      }
+    }
+    if (!pos.length) return
+    const g = new BufferGeometry()
+    g.setAttribute('position', new Float32BufferAttribute(pos, 3))
+    g.setAttribute('color', new Float32BufferAttribute(col, 3))
+    g.setIndex(idx)
+    const m = new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.78, side: DoubleSide, depthWrite: false })
+    this.links = new Mesh(g, m)
+    this.links.renderOrder = 0
+    this.scene.add(this.links)
   }
 
-  /** Whether the faint curves between a group and its subgroups are drawn. */
+  /** Whether the connectors between a group and its subgroups are drawn. */
   setLinks(on: boolean) {
     this.showLinks = on
-    this.place()
+    this.buildLinks()
+    this.dirty = true
   }
 
   /** Changes of background are done one after another, so a quick second choice can never leave an earlier camera running. */
@@ -309,13 +426,21 @@ export class SpatialScene {
     this.tracking.recenter()
     this.dirty = true
   }
-  zoom(factor: number) {
-    this.fov = Math.min(MAX_FOV, Math.max(MIN_FOV, this.fov / factor))
+  get lens(): number {
+    return this.fov
+  }
+  /** Set the lens (the horizontal angle, in degrees). */
+  setFov(f: number) {
+    this.fov = Math.min(FOV.max, Math.max(FOV.min, f))
     this.dirty = true
+    this.events.onFov?.(this.fov)
+  }
+  zoom(factor: number) {
+    this.setFov(this.fov / factor)
   }
   /** Turn to face a group (the view glides there). */
   focusCluster(id: string) {
-    const cp = this.layout.clusters[id]
+    const cp = this.shown[id] ?? this.layout.clusters[id]
     if (!cp) return
     const { yaw, pitch } = lookAt(cp)
     const t = this.tracking.touch
@@ -335,13 +460,15 @@ export class SpatialScene {
     for (const id of ids) {
       const cp = L.clusters[id]
       const bs = planeBasis(cp)
-      const n = this.content.tasks.filter((t) => L.tasks[t.id]?.c === id).map((t) => L.tasks[t.id])
+      const pane = paneOf(cp)
+      const n = this.content.tasks.filter((t) => L.tasks[t.id]?.c === id && !L.tasks[t.id]?.free).map((t) => L.tasks[t.id])
       const us = n.length ? n.map((t) => t.u) : [0]
       const vs = n.length ? n.map((t) => t.v) : [0]
-      const u0 = Math.min(...us) - WORLD.cardW / 2
-      const u1 = Math.max(...us) + WORLD.cardW / 2
-      const v0 = Math.min(...vs) - WORLD.cardH / 2
-      const v1 = 0.7 * K
+      const s = cp.scale ?? 1
+      const u0 = Math.min(pane.u0, Math.min(...us) - WORLD.cardW / 2) * s
+      const u1 = Math.max(pane.u1, Math.max(...us) + WORLD.cardW / 2) * s
+      const v0 = Math.min(pane.v0, Math.min(...vs) - WORLD.cardH / 2) * s
+      const v1 = pane.v1 * s
       for (const [u, v] of [[u0, v0], [u1, v0], [u0, v1], [u1, v1]]) {
         const x = cp.x + bs.right[0] * u + bs.up[0] * v
         const y = cp.y + bs.right[1] * u + bs.up[1] * v
@@ -358,12 +485,11 @@ export class SpatialScene {
     const pit0 = (minP + maxP) / 2
     const aspect = Math.max(0.2, this.camera.aspect)
     const needH = Math.max(maxY - minY, 2 * Math.atan(Math.tan((maxP - minP) / 2) * aspect)) * 1.12
-    const fov = Math.min(MAX_FOV, Math.max(START_FOV, (needH * 180) / Math.PI))
+    const fov = Math.min(FOV.max, Math.max(FOV.start, (needH * 180) / Math.PI))
     const t = this.tracking.touch
     if (instant) {
       t.set(-yaw0 - this.tracking.sensorYaw(), pit0)
-      this.fov = fov
-      this.dirty = true
+      this.setFov(fov)
       return
     }
     this.focusTween = { t0: performance.now(), from: [t.yaw, t.pitch], to: [-yaw0 - this.tracking.sensorYaw(), pit0], fov: [this.fov, fov] }
@@ -373,9 +499,29 @@ export class SpatialScene {
     const h = Math.max(1, this.host.clientHeight)
     this.renderer.setSize(w, h, false)
     this.camera.aspect = w / h
-    // a wide window keeps the same vertical view; a tall one (a phone upright) is widened so the horizon is not narrow
     this.camera.updateProjectionMatrix()
     this.dirty = true
+  }
+
+  /* ---------- for tests ---------- */
+
+  /** Where something is on the screen (client coordinates), so a test can press on it. Only used by the end-to-end tests. */
+  screenPoint(kind: 'task' | 'hub' | 'plate', id: string): { x: number; y: number } | null {
+    const mesh = (kind === 'task' ? this.tasks.get(id)?.mesh : kind === 'hub' ? this.hubs.get(id)?.mesh : this.plates.get(id))
+    if (!mesh) return null
+    const p = mesh.position.clone().project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+  /** A spot on the screen with nothing under it (open space). */
+  emptyPoint(): { x: number; y: number } | null {
+    const r = this.renderer.domElement.getBoundingClientRect()
+    for (let fy = 0.1; fy < 0.95; fy += 0.06)
+      for (let fx = 0.1; fx < 0.9; fx += 0.06) {
+        const pt = { clientX: r.left + r.width * fx, clientY: r.top + r.height * fy }
+        if (!this.pick(pt)) return { x: pt.clientX, y: pt.clientY }
+      }
+    return null
   }
 
   /* ---------- lifecycle ---------- */
@@ -407,10 +553,14 @@ export class SpatialScene {
     for (const [id, n] of [...this.hubs]) this.drop(this.hubs, id, n)
     for (const p of this.plates.values()) {
       p.geometry.dispose()
+      ;(p.material as MeshBasicMaterial).map?.dispose()
       ;(p.material as MeshBasicMaterial).dispose()
     }
     this.plates.clear()
-    this.links?.geometry.dispose()
+    if (this.links) {
+      this.links.geometry.dispose()
+      ;(this.links.material as MeshBasicMaterial).dispose()
+    }
     // (after any background change still in flight, so a camera that was just starting is stopped too)
     void this.envQueue.finally(() => {
       this.env?.dispose()
@@ -432,8 +582,14 @@ export class SpatialScene {
       dy = Math.atan2(Math.sin(dy), Math.cos(dy))
       this.tracking.touch.set(f.from[0] + dy * e, f.from[1] + (f.to[1] - f.from[1]) * e)
       if (f.fov) this.fov = f.fov[0] + (f.fov[1] - f.fov[0]) * e
-      if (k >= 1) this.focusTween = undefined
+      if (k >= 1) {
+        this.focusTween = undefined
+        this.events.onFov?.(this.fov)
+      }
       this.dirty = true
+    }
+    if (this.glide()) {
+      this.place()
     }
     const pose = this.tracking.getPose()
     const sig = pose.q.map((x) => x.toFixed(4)).join(',') + this.fov
@@ -445,7 +601,7 @@ export class SpatialScene {
       if (pose.position) this.camera.position.set(...pose.position)
       // the lens is described by its horizontal angle; the vertical one follows the window's shape
       const asp = this.camera.aspect
-      this.camera.fov = Math.max(8, Math.min(100, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
+      this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
       this.camera.updateProjectionMatrix()
       this.renderer.render(this.scene, this.camera)
       this.updateDots()
@@ -458,7 +614,7 @@ export class SpatialScene {
     const H = this.host.clientHeight
     const v = new Vector3()
     const pts = this.content.clusters.flatMap((c) => {
-      const cp = this.layout.clusters[c.id]
+      const cp = this.shown[c.id]
       if (!cp) return []
       v.set(cp.x, cp.y, cp.z)
       const cam = v.clone().applyMatrix4(this.camera.matrixWorldInverse)
@@ -518,11 +674,18 @@ export class SpatialScene {
     const r = this.renderer.domElement.getBoundingClientRect()
     return new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
   }
-  private pick(e: { clientX: number; clientY: number }): { kind: 'task' | 'hub'; id: string; uvx: number } | null {
+  /** What is under the finger: a task first, then a group's name, then the pane of a group. */
+  private pick(e: { clientX: number; clientY: number }): Hit | null {
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
-    const hits = this.raycaster.intersectObjects([...this.tasks.values(), ...this.hubs.values()].map((n) => n.mesh), false)
-    const h = hits[0]
-    return h ? { kind: h.object.userData.kind, id: h.object.userData.id, uvx: h.uv?.x ?? 0.5 } : null
+    const objs = [...this.tasks.values(), ...this.hubs.values()].map((n) => n.mesh).concat([...this.plates.values()])
+    const hits = this.raycaster.intersectObjects(objs, false)
+    const rank = { task: 0, hub: 1, plate: 2 } as const
+    let best: (typeof hits)[number] | undefined
+    for (const h of hits) {
+      const k = h.object.userData.kind as keyof typeof rank
+      if (!best || rank[k] < rank[best.object.userData.kind as keyof typeof rank]) best = h
+    }
+    return best ? { kind: best.object.userData.kind, id: best.object.userData.id, uvx: best.uv?.x ?? 0.5 } : null
   }
   private radPerPx() {
     return (this.camera.fov * Math.PI) / 180 / Math.max(1, this.renderer.domElement.clientHeight)
@@ -533,32 +696,56 @@ export class SpatialScene {
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
     this.focusTween = undefined
     if (this.pointers.size === 2) {
-      if (this.press) clearTimeout(this.press.timer)
       this.press = undefined
+      this.cancelCarry()
       const [a, b] = [...this.pointers.values()]
       this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: this.fov }
       return
     }
-    const hit = this.pick(e)
-    const press = { id: e.pointerId, x: e.clientX, y: e.clientY, t0: performance.now(), hit, mode: 'pending' as 'pending' | 'look' | 'drag', timer: 0 } as NonNullable<typeof this.press>
-    // holding on a card (or a group's name) picks it up; a drag that starts at once just looks around, so scrolling never moves anything
-    if (hit) press.timer = window.setTimeout(() => this.startDrag(press, e), HOLD_MS)
-    this.press = press
+    this.press = { id: e.pointerId, x: e.clientX, y: e.clientY, t0: performance.now(), hit: this.pick(e), mode: 'pending' }
   }
-  private startDrag(p: NonNullable<typeof this.press>, e: { clientX: number; clientY: number }) {
-    if (!p.hit || p.mode !== 'pending') return
-    p.mode = 'drag'
-    const isTask = p.hit.kind === 'task'
-    const mesh = (isTask ? this.tasks : this.hubs).get(p.hit.id)?.mesh
+
+  /** Begin carrying a task or a whole group: it follows the finger on a plane facing the viewer. */
+  private startCarry(kind: 'task' | 'cluster', id: string, e: { clientX: number; clientY: number }) {
+    const mesh = kind === 'task' ? this.tasks.get(id)?.mesh : this.hubs.get(id)?.mesh
     if (!mesh) return
-    // the card slides on a plane facing the viewer through where it is now
     const dir = this.camera.getWorldDirection(new Vector3())
-    p.plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), mesh.position)
+    const plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), mesh.position)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
-    const at = this.raycaster.ray.intersectPlane(p.plane, new Vector3())
-    p.offset = at ? mesh.position.clone().sub(at) : new Vector3()
-    if (navigator.vibrate) navigator.vibrate(8)
+    const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
+    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone() }
+    if (kind === 'task') {
+      mesh.renderOrder = 6
+      mesh.scale.multiplyScalar(1.08)
+    }
+    if (navigator.vibrate) navigator.vibrate(6)
   }
+  private cancelCarry() {
+    if (!this.carry) return
+    this.carry = undefined
+    this.layout = this.content.layout
+    this.place()
+  }
+
+  /** Which group (if any) is under a carried task: where the pointer's line of sight meets a group's own plane, inside its pane. */
+  private groupUnder(e: { clientX: number; clientY: number }, except: string): { id: string; u: number; v: number } | null {
+    this.raycaster.setFromCamera(this.ndc(e), this.camera)
+    let best: { id: string; u: number; v: number; d: number } | null = null
+    for (const [id, cp] of Object.entries(this.shown)) {
+      if (id === except && false) continue
+      const bs = planeBasis(cp)
+      const plane = new Plane().setFromNormalAndCoplanarPoint(new Vector3(...bs.normal), new Vector3(cp.x, cp.y, cp.z))
+      const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
+      if (!at) continue
+      const { u, v } = localIn(cp, [at.x, at.y, at.z])
+      const pane = paneOf(cp)
+      if (u < pane.u0 || u > pane.u1 || v < pane.v0 || v > pane.v1) continue
+      const d = at.distanceTo(this.raycaster.ray.origin)
+      if (!best || d < best.d) best = { id, u, v, d }
+    }
+    return best
+  }
+
   private move = (e: PointerEvent) => {
     const prev = this.pointers.get(e.pointerId)
     if (!prev) return
@@ -566,42 +753,57 @@ export class SpatialScene {
     if (this.pinch && this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()]
       const d = Math.hypot(a.x - b.x, a.y - b.y)
-      this.fov = Math.min(MAX_FOV, Math.max(MIN_FOV, this.pinch.fov * (this.pinch.d / Math.max(10, d))))
-      this.dirty = true
+      this.setFov(this.pinch.fov * (this.pinch.d / Math.max(10, d)))
       return
     }
     const p = this.press
     if (!p || p.id !== e.pointerId) return
     if (p.mode === 'pending' && Math.hypot(e.clientX - p.x, e.clientY - p.y) > TAP_PX) {
-      clearTimeout(p.timer)
-      p.mode = 'look'
+      // anything grabbed comes with the finger at once; empty space looks around
+      if (p.hit?.kind === 'task') {
+        p.mode = 'task'
+        this.startCarry('task', p.hit.id, { clientX: p.x, clientY: p.y })
+      } else if (p.hit) {
+        p.mode = 'cluster'
+        this.startCarry('cluster', p.hit.kind === 'hub' || p.hit.kind === 'plate' ? p.hit.id : '', { clientX: p.x, clientY: p.y })
+      } else p.mode = 'look'
     }
     if (p.mode === 'look') {
       const k = this.radPerPx()
       this.tracking.touch.look((e.clientX - prev.x) * k, (e.clientY - prev.y) * k)
       this.dirty = true
-    } else if (p.mode === 'drag' && p.hit && p.plane) {
-      this.raycaster.setFromCamera(this.ndc(e), this.camera)
-      const at = this.raycaster.ray.intersectPlane(p.plane, new Vector3())
-      if (!at) return
-      at.add(p.offset ?? new Vector3())
-      const L = this.layout
-      if (p.hit.kind === 'task') {
-        const tp = L.tasks[p.hit.id]
-        const cp = tp && L.clusters[tp.c]
-        if (tp && cp) {
-          this.layout = { ...L, tasks: { ...L.tasks, [p.hit.id]: moveTask(tp, cp, [at.x, at.y, at.z]) } }
-          this.place()
-        }
-      } else {
-        const cp = L.clusters[p.hit.id]
-        if (cp) {
-          // a group moves around the room at its own distance, and keeps facing the middle
-          const moved = moveCluster(cp, [at.x, at.y, at.z])
-          this.layout = { ...L, clusters: { ...L.clusters, [p.hit.id]: moved } }
-          this.place()
-        }
+      return
+    }
+    const c = this.carry
+    if (!c) return
+    this.raycaster.setFromCamera(this.ndc(e), this.camera)
+    const at = this.raycaster.ray.intersectPlane(c.plane, new Vector3())
+    if (!at) return
+    at.add(c.offset)
+    c.pos = at
+    if (p.mode === 'task') {
+      const mesh = this.tasks.get(c.id)?.mesh
+      if (!mesh) return
+      mesh.position.copy(at)
+      const a = onCylinder([at.x, at.y, at.z])
+      mesh.rotation.set(Math.atan2(at.y, Math.hypot(at.x, at.z)), -a.a, 0)
+      // the group it would join if let go here lights up
+      const over = this.groupUnder(e, '')
+      const hover = over?.id ?? null
+      if (hover !== c.hover) {
+        c.hover = hover
+        this.place()
       }
+      this.dirty = true
+    } else {
+      // a whole group: it follows the finger around the cylinder, and the others make room for it
+      const cur = this.layout.clusters[c.id]
+      if (!cur) return
+      const moved = moveCluster(cur, [at.x, at.y, at.z])
+      const clusters = separate({ ...this.layout.clusters, [c.id]: moved }, new Set([c.id]))
+      this.layout = { ...this.layout, clusters }
+      this.shown[c.id] = clusters[c.id] // (the carried one is under the finger, not gliding)
+      this.place()
     }
   }
   private up = (e: PointerEvent) => {
@@ -609,17 +811,53 @@ export class SpatialScene {
     if (this.pointers.size < 2) this.pinch = undefined
     const p = this.press
     if (!p || p.id !== e.pointerId) return
-    clearTimeout(p.timer)
     this.press = undefined
-    if (p.mode === 'drag') {
+    const c = this.carry
+    if (c && p.mode === 'task') {
+      this.carry = undefined
+      const L = this.layout
+      const tp = L.tasks[c.id]
+      const over = this.groupUnder(e, '')
+      if (!tp) {
+        this.place()
+        return
+      }
+      if (over) {
+        const cp = this.shown[over.id]
+        const pane = paneOf(cp)
+        // it lands where it was let go (kept inside the pane); a different group means it joins that one
+        const u = Math.min(pane.u1 - WORLD.cardW / 2, Math.max(pane.u0 + WORLD.cardW / 2, over.u))
+        const v = Math.min(pane.v1 - 0.9 * K, Math.max(pane.v0 + WORLD.cardH / 2, over.v))
+        const used = new Set(Object.values(L.tasks).filter((t) => t.c === over.id && !t.free).map((t) => t.slot))
+        let slot = tp.c === over.id && !tp.free ? tp.slot : 0
+        if (tp.c !== over.id || tp.free) {
+          slot = 0
+          while (used.has(slot)) slot++
+        }
+        this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: over.id, u, v, dz: 0, slot, free: undefined } } }
+        if (over.id !== (this.content.tasks.find((t) => t.id === c.id)?.cluster ?? tp.c)) this.events.onRetag?.(c.id, over.id)
+      } else {
+        // pulled out and let go in open space: it floats there
+        const a = onCylinder([c.pos.x, c.pos.y, c.pos.z])
+        this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: { a: a.a, y: a.y } } } }
+      }
       this.events.onLayout(this.layout)
+      this.place()
+      return
+    }
+    if (c && p.mode === 'cluster') {
+      this.carry = undefined
+      this.events.onLayout(this.layout)
+      this.place()
       return
     }
     // a tap: on a card's round check it ticks, anywhere else on a card it opens; on a group's name it turns to that group
-    if (p.mode === 'pending' && p.hit && performance.now() - p.t0 < 600) {
+    if (p.mode === 'pending' && p.hit && performance.now() - p.t0 < 700) {
       if (p.hit.kind === 'hub') this.focusCluster(p.hit.id)
-      else if (p.hit.uvx < 0.2) this.events.onToggle(p.hit.id)
-      else this.events.onOpen(p.hit.id)
+      else if (p.hit.kind === 'task') {
+        if (p.hit.uvx < 0.2) this.events.onToggle(p.hit.id)
+        else this.events.onOpen(p.hit.id)
+      }
     }
   }
   private wheel = (e: WheelEvent) => {
@@ -643,3 +881,4 @@ export class SpatialScene {
   }
 }
 
+void slotAt
