@@ -13,7 +13,7 @@ import { colorVars, useTaskHue } from '../taskColor'
 import { DoneButton, useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate, effectiveUrgency } from '../../core/tasks'
-import { spanOnDay } from '../../core/schedule'
+import { spanOnDay, isFinished } from '../../core/schedule'
 import { useIsMobile, useLandscapePhone } from '../useMedia'
 import { DaySchedule } from './DaySchedule'
 import { MonthScroller, type MonthHandle, type MonthView } from './MonthScroller'
@@ -27,7 +27,7 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
   const leave = useLeaveClass(task)
-  const isDone = loggedOn ? task.log.includes(loggedOn) : task.status === 'done'
+  const isDone = loggedOn ? task.log.includes(loggedOn) : isFinished(task)
   return (
     <div
       ref={el}
@@ -61,7 +61,7 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
   const select = useStore((s) => s.select)
   const hue = useTaskHue(task)
   const pointer = useTaskDrag(task, el, () => (onOpen ? onOpen() : select(task.id)))
-  const isDone = loggedOn ? task.log.includes(loggedOn) : task.status === 'done'
+  const isDone = loggedOn ? task.log.includes(loggedOn) : isFinished(task)
   const missed = !!loggedOn && loggedOn < today() && !task.log.includes(loggedOn)
   return (
     <div
@@ -104,7 +104,7 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
 function Dot({ task, deadline, loggedOn }: { task: Task; deadline: boolean; loggedOn?: string }) {
   const folders = useStore((s) => s.folders)
   const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
-  const done = loggedOn ? task.log.includes(loggedOn) : task.status === 'done'
+  const done = loggedOn ? task.log.includes(loggedOn) : isFinished(task)
   return (
     <span
       title={`${task.title}${deadline ? ' (due)' : ''}${done ? ' (done)' : ''}`}

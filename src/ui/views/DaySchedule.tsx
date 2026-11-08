@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatClock } from '../../core/locale'
 import { repeatOf } from '../../core/recurrence'
-import { columnsFor, DAY_MIN, durationOf, formatDuration, freeGaps, hhmm, spanOnDay } from '../../core/schedule'
+import { columnsFor, DAY_MIN, durationOf, formatDuration, freeGaps, hhmm, spanOnDay, isFinished } from '../../core/schedule'
 import { today } from '../../core/dates'
 import { formatTime, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
@@ -25,7 +25,7 @@ function Block({ task, s, e, col, cols, date, preview, onPreview }: { task: Task
   const top = drag.s * PPM
   const height = Math.max((drag.e - drag.s) * PPM, MIN_PX)
   const hasEnd = durationOf(task) !== null
-  const done = repeatOf(task) ? task.log.includes(date) : task.status === 'done'
+  const done = repeatOf(task) ? task.log.includes(date) : isFinished(task)
 
   // moving (grab the block) or stretching (grab its bottom edge); a finger must rest on a block a moment before it moves, so scrolling the day never drags it
   const begin = (mode: 'move' | 'resize') => (ev: React.PointerEvent) => {

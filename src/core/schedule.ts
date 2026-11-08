@@ -102,3 +102,15 @@ export function gapAround(others: { s: number; e: number }[], s: number, e: numb
   }
   return { from: prevEnd ?? Math.min(dayFrom, s), to: nextStart ?? Math.max(dayTo, e) }
 }
+
+/** An event that has already ended (a one-off with a day: its end time, or the end of that day when it has no time). */
+export function isPastEvent(t: Pick<Task, 'kind' | 'day' | 'time' | 'endTime' | 'repeat' | 'draft'>, now = Date.now()): boolean {
+  if (t.kind !== 'event' || !t.day || t.repeat || t.draft) return false
+  const [y, m, d] = t.day.split('-').map(Number)
+  const span = spanOnDay(t)
+  const end = span ? new Date(y, m - 1, d, 0, span.e) : new Date(y, m - 1, d + 1, 0, 0)
+  return end.getTime() <= now
+}
+
+/** Done, or an event that is over: both fade away the same way, and both go when completed items are hidden. */
+export const isFinished = (t: Pick<Task, 'status' | 'kind' | 'day' | 'time' | 'endTime' | 'repeat' | 'draft'>, now = Date.now()): boolean => t.status === 'done' || isPastEvent(t, now)

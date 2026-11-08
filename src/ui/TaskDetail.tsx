@@ -140,15 +140,31 @@ function Twirl({ title, icon, summary, open, onToggle, children }: { title: stri
   )
 }
 
-/** A small box that gathers related fields under a name (When, Where, Who…), so a long form reads as a few clear parts. */
-function Box({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+/**
+ * A small box that gathers related fields under a name (When, Where, Who…), so a long form reads as a few clear parts. `fold` makes it a
+ * twirl-down for the things a kind of item rarely needs (a list does not need dates): it stays closed unless it already holds something.
+ */
+function Box({ title, icon, children, fold }: { title: string; icon: React.ReactNode; children: React.ReactNode; fold?: { used: boolean } }) {
+  const [open, setOpen] = useState(!fold || fold.used)
+  const head = (
+    <>
+      {icon}
+      {title}
+    </>
+  )
   return (
-    <section aria-label={title} className="group-box space-y-2.5 rounded-2xl p-3">
-      <h3 className="flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
-        {icon}
-        {title}
-      </h3>
-      {children}
+    <section aria-label={title} className={`group-box rounded-2xl p-3 ${open ? 'space-y-2.5' : ''}`}>
+      {fold ? (
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
+          {head}
+          <span className={`ml-auto text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
+            <IconChevron size={13} />
+          </span>
+        </button>
+      ) : (
+        <h3 className="flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">{head}</h3>
+      )}
+      {open && children}
     </section>
   )
 }
@@ -162,6 +178,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
   const update = useStore((s) => s.updateTask)
   const setStatus = useStore((s) => s.setStatus)
   const habit = task.kind === 'habit'
+  const list = task.kind === 'list'
   const [repeatOpen, setRepeatOpen] = useState(() => !!task.repeat || habit)
   return (
     <>
@@ -178,7 +195,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         </div>
       )}
       {!habit && (
-        <Box title="When" icon={<IconCalendar size={13} />}>
+        <Box title="When" icon={<IconCalendar size={13} />} fold={list ? { used: !!(task.day || task.due || task.time || task.dueTime || task.repeat) } : undefined}>
           <ScheduleFields task={task} />
           {task.kind !== 'list' && (
             <Twirl title="Repeats" icon={<IconRepeat size={13} />} summary={task.repeat ? describeRecurrence(task.repeat) : undefined} open={repeatOpen} onToggle={() => setRepeatOpen((o) => !o)}>
@@ -195,7 +212,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
           <ReminderField task={task} />
         </Box>
       )}
-      <Box title="Where" icon={<IconPin size={13} />}>
+      <Box title="Where" icon={<IconPin size={13} />} fold={list ? { used: !!task.place } : undefined}>
         <PlaceField task={task} />
       </Box>
       <AssignField task={task} />
@@ -208,7 +225,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
       />
       {/* both sliders on one line: most people never touch them (the priority grid does the fine tuning) */}
-      <Box title="Priority" icon={<IconPriority size={13} />}>
+      <Box title="Priority" icon={<IconPriority size={13} />} fold={list ? { used: task.importance !== 0.5 || task.urgency !== 0.3 } : undefined}>
         <div className="grid grid-cols-2 gap-4">
           <SoftSlider label="How much it matters" shown="Importance" compact left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
           <SoftSlider label="How urgent it is" shown="Urgency" compact left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
