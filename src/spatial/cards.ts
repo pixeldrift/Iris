@@ -56,15 +56,17 @@ export function wrapTitle(g: Pick<CanvasRenderingContext2D, 'measureText'>, text
   return lines
 }
 
-export function drawCard(canvas: HTMLCanvasElement, c: CardInfo) {
-  canvas.width = CARD_PX.w
-  canvas.height = CARD_PX.h
+/** `scale` below 1 draws a smaller texture (many tasks on screen at once: kinder to memory), with the same layout. */
+export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
+  canvas.width = Math.round(CARD_PX.w * scale)
+  canvas.height = Math.round(CARD_PX.h * scale)
   const g = canvas.getContext('2d')!
-  g.clearRect(0, 0, canvas.width, canvas.height)
+  g.setTransform(scale, 0, 0, scale, 0, 0)
+  g.clearRect(0, 0, CARD_PX.w, CARD_PX.h)
   const x = PAD
   const y = PAD
-  const w = canvas.width - PAD * 2
-  const h = canvas.height - PAD * 2
+  const w = CARD_PX.w - PAD * 2
+  const h = CARD_PX.h - PAD * 2
   g.save()
   g.globalAlpha = c.done ? 0.55 : 1
   g.shadowColor = hsl(c.hue, 45, 55, 0.35)

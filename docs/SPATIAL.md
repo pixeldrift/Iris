@@ -17,7 +17,10 @@ store, keyed by task and group id.
 | Interaction | inside `SpatialScene.ts` | tap a card: open (the existing details panel); tap its circle: tick it off; tap a group name: turn to it; hold a card or a group name, then drag: move it (a quick drag just looks around, so scrolling never moves anything); drag/pinch/wheel/arrow keys/`+`/`-`/`R`. |
 | Controller | `SpatialView.tsx` | picks the best mode, explains on first use, falls back step by step, tears down on exit. |
 | Level 5 fallback | `StaticCanvas.tsx` | no WebGL (or switched to *Simple*): the same groups and tasks on a plain canvas you pan and zoom; select, open and complete all work. |
+| Finding your way | in `SpatialScene.ts` | the Pond's soft edge dots, for the room: a small glowing dot on the frame (in the group's colour) for each group wholly out of view, on the line from the middle of the screen to it, including groups behind you; tap one to turn to it. The maths is `src/core/edges.ts`. |
 | Screen readers / keyboard | in `SpatialView.tsx` | a visually hidden list of the same tasks with open and tick buttons. |
+
+With very many tasks the card pictures are drawn smaller (over 120 tasks, then over 240) to save memory; a 300-task test opens cleanly. A one-line tip about holding to move things is shown once.
 
 `three` is the only new dependency; it is loaded only when the view is opened (a separate chunk), so the rest of the app is unaffected.
 

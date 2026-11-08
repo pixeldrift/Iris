@@ -114,11 +114,63 @@ test.describe('spatial workspace', () => {
     await page.getByRole('button', { name: 'Done', exact: true }).click()
   })
 
+  test('groups out of view get a soft dot on the frame, and tapping one turns to that group', async ({ page }) => {
+    await enter(page)
+    await page.waitForTimeout(800)
+    await expect.poll(() => page.locator('.edge-dot:not(.leaving)').count()).toBeGreaterThan(0)
+    const before = await page.locator('.edge-dot:not(.leaving)').count()
+    await page.locator('.edge-dot:not(.leaving)').first().click({ force: true }) // (it breathes, so it is never "stable")
+    await page.waitForTimeout(1200)
+    // turning toward one group puts others behind: the dots are different now (and still on the frame)
+    const on = await page.locator('.edge-dot:not(.leaving)').evaluateAll((els) => {
+      const host = els[0]?.parentElement?.getBoundingClientRect()
+      return !host || els.every((e) => {
+        const r = e.getBoundingClientRect()
+        return r.left >= host.left - 2 && r.right <= host.right + 2 && r.top >= host.top - 2 && r.bottom <= host.bottom + 2
+      })
+    })
+    expect(on).toBe(true)
+    expect(before).toBeGreaterThan(0)
+  })
+
   test('the simple view can be chosen by hand', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
     await page.getByRole('radio', { name: 'Simple' }).click()
     await expect(intro(page).locator('canvas')).toHaveCount(0)
     await expect(page.getByRole('region', { name: 'School' })).toBeVisible()
+  })
+})
+
+test.describe('a lot of tasks', () => {
+  test('300 tasks open without errors and the layout gives each its own place', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    await page.goto('/')
+    await page.locator('[data-node]').first().waitFor()
+    await page.waitForFunction(() => !!localStorage.getItem('lilac-v1'))
+    await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
+      const base = raw.state.tasks.find((x: { title: string }) => x.title === 'Pay rent')
+      const folders = raw.state.folders.map((f: { id: string }) => f.id)
+      for (let i = 0; i < 300; i++) raw.state.tasks.push({ ...base, id: `bulk-${i}`, title: `Bulk task number ${i}`, repeat: null, folderIds: [folders[i % folders.length]], personIds: [] })
+      localStorage.setItem('lilac-v1', JSON.stringify(raw))
+    })
+    await page.reload()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
+    await goto(page, 'Space')
+    await page.getByRole('button', { name: 'Use touch only' }).click()
+    await expect(intro(page).locator('canvas')).toBeVisible()
+    await page.waitForTimeout(1500)
+    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v1')!).state.layout)
+    expect(Object.keys(layout.tasks).length).toBeGreaterThan(300)
+    // no two tasks share a spot in the same group
+    const seen = new Set<string>()
+    for (const t of Object.values(layout.tasks) as { c: string; u: number; v: number }[]) {
+      const k = `${t.c}:${t.u.toFixed(2)}:${t.v.toFixed(2)}`
+      expect(seen.has(k)).toBe(false)
+      seen.add(k)
+    }
+    expect(errors).toEqual([])
   })
 })
