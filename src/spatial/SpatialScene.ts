@@ -27,7 +27,7 @@ import {
 import { edgeDots } from '../core/edges'
 import { HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
-import { freePose, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld } from './layout'
+import { freePose, fromRadius, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
 
@@ -77,6 +77,8 @@ export class SpatialScene {
   private plates = new Map<string, Mesh>()
   private links?: Mesh
   private showLinks = true
+  /** The radius of the cylinder the groups hang on (the layout itself is kept at WORLD.ring and bent to this). */
+  private radius: number = WORLD.ring
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   /** Where everything is meant to be (the stored layout, with groups pushed clear of each other). */
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -130,7 +132,8 @@ export class SpatialScene {
   setContent(c: SceneContent) {
     this.content = c
     // groups being carried keep their place under the finger until they are dropped
-    this.layout = this.carry?.kind === 'cluster' ? { ...c.layout, clusters: { ...c.layout.clusters, [this.carry.id]: this.layout.clusters[this.carry.id] ?? c.layout.clusters[this.carry.id] } } : c.layout
+    const lay = withRadius(c.layout, this.radius)
+    this.layout = this.carry?.kind === 'cluster' ? { ...lay, clusters: { ...lay.clusters, [this.carry.id]: this.layout.clusters[this.carry.id] ?? lay.clusters[this.carry.id] } } : lay
     const seen = new Set<string>()
     // (with a great many tasks the pictures are drawn smaller, to save memory)
     const scale = c.tasks.length > 240 ? 0.55 : c.tasks.length > 120 ? 0.75 : 1
@@ -228,7 +231,7 @@ export class SpatialScene {
       const tp = L.tasks[t.id]
       if (!n || !tp) continue
       if (this.carry?.kind === 'task' && this.carry.id === t.id) continue // (under the finger)
-      const fp = freePose(tp)
+      const fp = freePose(tp, this.radius)
       const cp = S[tp.c]
       if (fp) {
         n.mesh.position.set(...fp.pos)
@@ -393,6 +396,17 @@ export class SpatialScene {
   }
 
   /** Whether the connectors between a group and its subgroups are drawn. */
+  /** Hang the groups on a cylinder of this radius: the same layout, curled more around you when near and flatter when far. */
+  setRadius(r: number) {
+    this.radius = r
+    this.layout = withRadius(this.content.layout, r)
+    this.shown = { ...this.layout.clusters }
+    this.place()
+    this.dirty = true
+  }
+  getRadius() {
+    return this.radius
+  }
   setLinks(on: boolean) {
     this.showLinks = on
     this.buildLinks()
@@ -723,7 +737,7 @@ export class SpatialScene {
   private cancelCarry() {
     if (!this.carry) return
     this.carry = undefined
-    this.layout = this.content.layout
+    this.layout = withRadius(this.content.layout, this.radius)
     this.place()
   }
 
@@ -841,13 +855,13 @@ export class SpatialScene {
         const a = onCylinder([c.pos.x, c.pos.y, c.pos.z])
         this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: { a: a.a, y: a.y } } } }
       }
-      this.events.onLayout(this.layout)
+      this.events.onLayout(fromRadius(this.layout, this.radius))
       this.place()
       return
     }
     if (c && p.mode === 'cluster') {
       this.carry = undefined
-      this.events.onLayout(this.layout)
+      this.events.onLayout(fromRadius(this.layout, this.radius))
       this.place()
       return
     }

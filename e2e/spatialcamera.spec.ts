@@ -19,7 +19,7 @@ test.describe('camera background', () => {
     await page.getByRole('button', { name: 'Spatial settings' }).click()
     await page.getByRole('radio', { name: 'Camera' }).click()
     await expect(intro(page).locator('video')).toHaveCount(1)
-    await expect(page.getByText('Camera · Touch navigation', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^Camera · Touch navigation · R \d+/)).toBeVisible()
     const live = () => page.evaluate(() => (document.querySelector('video')?.srcObject as MediaStream | null)?.getTracks().some((t) => t.readyState === 'live') ?? false)
     expect(await live()).toBe(true)
     // back to the virtual room: the camera's tracks are stopped
