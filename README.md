@@ -25,9 +25,23 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
 - **Pond**: the free canvas, bubbles floating on water. Click the water to add a thought.
 - **List**: sortable rows, swipe a row to delete it, drag to tag or schedule. Each shows its group, its day and where it is.
   *My order* lets you drag a row to any spot, with a purple line showing where it lands.
-- **Progress**: stages side by side (Pending, In Progress, Completed, or your own per group, with the pencil at the top).
+- **Progress**: stages side by side (Not started, In progress, Completed, or your own per group, with the pencil at the top).
   Drag a card to another stage and drop it anywhere in the list, with a purple line showing where it lands (no spot given
-  puts it at the top); the purple + in a stage's header opens a box to add one at the top.
+  puts it at the top); the purple + in a stage's header opens a box to add one at the top. A card that is part way shows a
+  thin progress bar (and its count, like 12/20).
+  - **Percent complete.** Every task and list has a *progress* from 0 to 100% (the Progress box in its details panel). It is
+    worked out one of three ways: the **slider**; for a list, the **entries ticked off** out of all of them (the slider is then
+    read-only); or a **count** you keep yourself, *items completed* out of *total items* ("graded 12 of 20 essays", "read 30 of
+    45 chapters"), with a − / + tally counter and number boxes that open a keypad (digits, clear, backspace, Done). A count
+    sets the percent, and the percent sets the count if the slider is moved.
+  - **Column break points.** In the stage editor (the pencil), each column has a percent: the point at which an item enters it.
+    The first is always 0% and the last 100%; the ones between are yours to set (evenly spaced until you do). The percents
+    belong to the *places* in the row, not to the column names: dragging a column to reorder it leaves the percents where they
+    are. They also rise strictly, so a middle one is limited to between its neighbours.
+  - **Both ways.** Dragging a card to a column (or choosing its Stage, or ticking it done) sets its progress to that column's
+    break point (a count follows: 100% is all of them done). Changing the progress (slider, count, ticks) moves the item to
+    the column that percent reaches. With the default 0 / 50 / 100, a list with a quarter of its entries ticked is still
+    *Not started*; set the middle column's percent to 1 if "any progress means started" suits you better.
 - **Priority**: the Eisenhower plot; drag a task around to set how much it matters and how urgent it is.
 - **Calendar**: month (an endless grid: drag it to scroll, the arrows slide a whole month), week, and day (a list, or a
   schedule by the clock with events as tall as they last, drag to move or stretch). Items with no day wait under the days.

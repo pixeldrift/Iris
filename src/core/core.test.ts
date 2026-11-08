@@ -1001,3 +1001,22 @@ describe('tags in the order they were typed, and tag suggestions', () => {
     expect(suggestTags('ring @gran', { folders, people })[0].label).toBe('@Grandma Rose')
   })
 })
+
+describe('progress percentages', () => {
+  it('spreads the middle columns evenly unless told, keeping 0 first and 100 last and the rest rising', async () => {
+    const { percentsFor, stageForPercent, progressOf, percentOfCount } = await import('./progress')
+    expect(percentsFor(3)).toEqual([0, 50, 100])
+    expect(percentsFor(5)).toEqual([0, 25, 50, 75, 100])
+    expect(percentsFor(3, [9, 20, 9])).toEqual([0, 20, 100])
+    expect(percentsFor(4, [0, 70, 40, 0])).toEqual([0, 70, 71, 100]) // (never equal or out of order)
+    expect(stageForPercent(0, [0, 50, 100])).toBe(0)
+    expect(stageForPercent(49, [0, 50, 100])).toBe(0)
+    expect(stageForPercent(50, [0, 50, 100])).toBe(1)
+    expect(stageForPercent(100, [0, 50, 100])).toBe(2)
+    expect(progressOf({ status: 'done', progress: 10 })).toBe(100)
+    expect(progressOf({ status: 'doing' })).toBe(50)
+    expect(progressOf({ status: 'todo', progress: 130 })).toBe(100)
+    expect(percentOfCount(12, 20)).toBe(60)
+    expect(percentOfCount(3, 0)).toBe(0)
+  })
+})

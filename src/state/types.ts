@@ -111,7 +111,11 @@ export interface TasksSlice {
   /** Move to a stage of the item's group (by stage id). */
   setStage: (id: string, stageId: string, stages?: Stage[]) => void
   /** `stages` = the columns the index refers to (default: the item's own group's). */
-  moveToStage: (id: string, index: number, stages?: Stage[]) => void
+  moveToStage: (id: string, index: number, stages?: Stage[], keepProgress?: boolean) => void
+  /** How far along it is (0 to 100): a count follows it, and it moves to the column that percent reaches. */
+  setProgress: (id: string, percent: number) => void
+  /** A count kept by hand (done out of total) in place of a list; null clears it. It sets the progress. */
+  setTally: (id: string, tally: { done: number; total: number } | null) => void
   addToFolder: (taskId: string, folderId: string) => void
   removeFromFolder: (taskId: string, folderId: string) => void
   addPerson: (taskId: string, personId: string) => void

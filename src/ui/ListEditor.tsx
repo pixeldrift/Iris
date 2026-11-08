@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
-import { stageAfterTicks, stagesForTask } from '../core/progress'
+import { percentOfCount } from '../core/progress'
 import { IconCheckHint, IconClose, IconPlus } from './icons'
 import { SegmentedToggle } from './SegmentedToggle'
 import { checkVars, useTaskHue } from './taskColor'
@@ -24,16 +24,12 @@ export function ListEditor({ task }: { task: Task }) {
   const [touched, setTouched] = useState(false)
   const preview = task.items.length === 0 && !touched
   const items = task.items
-  const folders = useStore((s) => s.folders)
-  const move = useStore((s) => s.moveToStage)
+  const setProgress = useStore((s) => s.setProgress)
   const hue = useTaskHue(task)
   const set = (next: ListItem[]) => {
     update(task.id, { items: next })
-    // ticking things off carries the list along: first tick = In progress, last tick = Completed
-    if (task.listStyle === 'check') {
-      const to = stageAfterTicks(task, stagesForTask(task, folders), next)
-      if (to !== null) move(task.id, to)
-    }
+    // ticking things off sets how far along the list is (ticked out of all), and the list moves to the column that reaches
+    if (task.listStyle === 'check' && next.length > 0) setProgress(task.id, percentOfCount(next.filter((i) => i.done).length, next.length))
   }
   const patch = (id: string, p: Partial<ListItem>) => set(items.map((i) => (i.id === id ? { ...i, ...p } : i)))
 

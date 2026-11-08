@@ -1,7 +1,7 @@
 import { addDays, fromISO, today } from '../../core/dates'
 import { descendantIds, pathOf } from '../../core/folders'
 import { detectContactIntent, matchPerson } from '../../core/people'
-import { patchForStage, planRank, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
+import { hasProgress, patchForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { remindFromRule } from '../../core/reminders'
 import { rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
@@ -126,12 +126,19 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         const i = list.findIndex((st) => st.id === stageId)
         if (i >= 0) get().moveToStage(id, i, list)
       },
-      moveToStage: (id, i, given) => {
+      moveToStage: (id, i, given, keepProgress = false) => {
         const t = get().tasks.find((x) => x.id === id)
         if (!t) return
         const stages = given ?? stagesForTask(t, get().folders)
         const to = patchForStage(stages, i)
-        if (stageIndex(t, stages) === Math.max(0, Math.min(stages.length - 1, i)) && t.status === to.status && t.stage === to.stage) return
+        // moving between columns sets how far along it is, to that column's break point (a count follows, if there is one)
+        const percents = percentsFor(stages.length, (get().folders.find((f) => f.stages === stages) ?? get().folders.find((f) => f.id === t.folderIds[0]))?.stagePercents)
+        const at = percents[Math.max(0, Math.min(stages.length - 1, i))] ?? 0
+        const withProgress: Partial<Task> = !keepProgress && hasProgress(t.kind) ? { progress: at, ...(t.tally ? { tally: { ...t.tally, done: Math.round((t.tally.total * at) / 100) } } : {}) } : {}
+        if (stageIndex(t, stages) === Math.max(0, Math.min(stages.length - 1, i)) && t.status === to.status && t.stage === to.stage) {
+          if (Object.keys(withProgress).length && (t.progress ?? null) !== at) get().updateTask(id, withProgress)
+          return
+        }
         if (t.status === 'done' && to.status !== 'done') sound.undone()
         if (to.status === 'done' && t.status !== 'done') {
           sound.bloom()
@@ -144,7 +151,27 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
             })
           }, 1500)
         }
-        get().updateTask(id, { ...to, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null })
+        get().updateTask(id, { ...to, ...withProgress, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null })
+      },
+      setProgress: (id, pct) => {
+        const t = get().tasks.find((x) => x.id === id)
+        if (!t || !hasProgress(t.kind)) return
+        const p = Math.max(0, Math.min(100, Math.round(pct)))
+        get().updateTask(id, { progress: p, ...(t.tally ? { tally: { ...t.tally, done: Math.round((t.tally.total * p) / 100) } } : {}) })
+        // and it belongs in the column that percent reaches
+        const stages = stagesForTask(t, get().folders)
+        const percents = percentsFor(stages.length, get().folders.find((f) => f.id === t.folderIds[0])?.stagePercents)
+        const to = stageForPercent(p, percents)
+        if (stageIndex({ stage: t.stage, status: t.status }, stages) !== to) get().moveToStage(id, to, stages, true)
+      },
+      setTally: (id, tally) => {
+        const t = get().tasks.find((x) => x.id === id)
+        if (!t || !hasProgress(t.kind)) return
+        if (!tally) return get().updateTask(id, { tally: null })
+        const total = Math.max(0, Math.round(tally.total))
+        const done = Math.max(0, Math.min(total, Math.round(tally.done)))
+        get().updateTask(id, { tally: { done, total } })
+        if (total > 0) get().setProgress(id, percentOfCount(done, total))
       },
       addToFolder: (taskId, folderId) => {
         const t = get().tasks.find((x) => x.id === taskId)

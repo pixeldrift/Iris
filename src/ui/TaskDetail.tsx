@@ -12,7 +12,9 @@ import { notionImageFrom } from './photo'
 import { describeRecurrence } from '../core/recurrence'
 import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
-import { IconCalendar, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconTrash } from './icons'
+import { NumberField } from './NumberPad'
+import { progressOf } from '../core/progress'
+import { IconCalendar, IconChart, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconTrash } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { DoneButton, KindHint, KINDS, OpenPlace, STATUSES } from './shared'
 import { TagInput } from './TagInput'
@@ -170,6 +172,64 @@ function Box({ title, icon, children, fold }: { title: string; icon: React.React
 }
 
 /**
+ * How far along it is: a slider, or a count (12 of 20 essays, 30 of 45 chapters) with a tally counter and number boxes with a keypad.
+ * A list with entries works it out from the ones ticked. Whatever sets it, the item moves to the Progress column that percent reaches,
+ * and moving it to a column sets the percent.
+ */
+function ProgressBox({ task }: { task: Task }) {
+  const setProgress = useStore((s) => s.setProgress)
+  const setTally = useStore((s) => s.setTally)
+  const pct = progressOf(task)
+  const fromList = task.kind === 'list' && task.listStyle === 'check' && task.items.length > 0
+  const t = task.tally
+  return (
+    <Box title="Progress" icon={<IconChart size={13} />}>
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={pct}
+          disabled={fromList}
+          aria-label="Progress"
+          onChange={(e) => setProgress(task.id, Number(e.target.value))}
+          className="soft min-w-0 flex-1"
+          style={{ ['--fill' as string]: `${pct}%` }}
+        />
+        <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-lilac-700" aria-live="polite">
+          {pct}%
+        </span>
+      </div>
+      {fromList ? (
+        <p className="text-xs text-ink-faint">Worked out from the entries ticked off ({task.items.filter((i) => i.done).length} of {task.items.length}).</p>
+      ) : t ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button type="button" aria-label="One fewer" onClick={() => setTally(task.id, { ...t, done: t.done - 1 })} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/70 text-lg text-ink-soft shadow-sm transition active:scale-95 hover:bg-white">
+              −
+            </button>
+            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} />
+            <span className="text-sm text-ink-soft">of</span>
+            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} />
+            <button type="button" aria-label="One more" onClick={() => setTally(task.id, { ...t, done: t.done + 1 })} className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-lilac-500 text-lg text-white shadow-md shadow-lilac-500/30 transition active:scale-95 hover:bg-lilac-600">
+              +
+            </button>
+          </div>
+          <button type="button" onClick={() => setTally(task.id, null)} className="text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
+            Stop counting
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setTally(task.id, { done: Math.round((pct * 10) / 100), total: 10 })} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/60 px-3 py-1 text-xs text-lilac-700 transition hover:bg-white">
+          <IconPlus size={11} /> Count items instead
+        </button>
+      )}
+    </Box>
+  )
+}
+
+/**
  * Something to do (or be at, or keep doing), in the order people reach for things: where it belongs, when it is due, the reminder, then the
  * rest. The type only decides which of these show (it is a layout, not a category): a list adds its entries, a habit leaves out the dates
  * and opens its repeats.
@@ -212,6 +272,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
           <ReminderField task={task} />
         </Box>
       )}
+      {(task.kind === 'task' || task.kind === 'list') && <ProgressBox task={task} />}
       <Box title="Where" icon={<IconPin size={13} />} fold={list ? { used: !!task.place } : undefined}>
         <PlaceField task={task} />
       </Box>

@@ -77,6 +77,10 @@ export interface Task {
   status: TaskStatus
   /** Its column in the Progress view when its group defines custom stages (by stage id); else derived from `status`. */
   stage?: string | null
+  /** How far along it is, 0 to 100 (for things with a check box). Moving between columns and the slider keep it and the column in step. */
+  progress?: number
+  /** A count kept by hand instead of a list: `done` out of `total` (12 of 20 essays). It sets `progress`. */
+  tally?: { done: number; total: number } | null
   /** Its place in its column of the Progress view when put there by hand (lower is higher up); items without one follow, by weight. */
   rank?: number | null
   /** 0..1 soft weights. Never shown to the user as numbers. */
@@ -137,6 +141,8 @@ export interface Folder {
   sort: number
   /** Custom Progress stages for items in this group (two or more); absent = Pending / In Progress / Completed. */
   stages?: { id: string; name: string }[]
+  /** The percent at which an item enters each column, by position (so reordering the columns does not move them). First is 0, last 100. */
+  stagePercents?: number[]
   createdAt: number
 }
 
