@@ -293,7 +293,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
   )
 }
 
-/** A notion: a scribble on the back of a napkin. Where it belongs, the words (a big box), a picture. Nothing else. */
+/** An idea (once called a notion): a scribble on the back of a napkin. Where it belongs, the words (a big box), a picture. Nothing else. */
 function NotionFields({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const showToast = useStore((s) => s.showToast)

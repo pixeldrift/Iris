@@ -978,3 +978,26 @@ describe('reminderPending', () => {
     expect(reminderPending({ ...base, alerts: [10] })).toBe(true)
   })
 })
+
+describe('tags in the order they were typed, and tag suggestions', () => {
+  const { folders, people } = seedData()
+  it('keeps groups and people in typed order', async () => {
+    const { parseQuickAdd } = await import('./quickadd')
+    const sarah = people.find((p) => p.name.startsWith('Grandma'))!
+    const q = parseQuickAdd(`call @${sarah.name.split(' ')[0]} #Life`, new Date(2026, 10, 6), { folders, people })
+    expect(q.tagOrder).toEqual([sarah.id, folders.find((f) => f.name === 'Life')!.id])
+    expect(q.chips.slice(0, 2)).toEqual([`@${sarah.name.split(' ')[0]}`, '#Life'])
+  })
+  it('orders a task’s tags by when they were added', async () => {
+    const { tagsOf } = await import('./tasks')
+    expect(tagsOf({ folderIds: ['f1'], personIds: ['p1'], tagOrder: ['p1', 'f1'] }).map((x) => x.id)).toEqual(['p1', 'f1'])
+    expect(tagsOf({ folderIds: ['f1', 'f2'], personIds: ['p1'] }).map((x) => x.id)).toEqual(['f1', 'f2', 'p1'])
+  })
+  it('suggests existing groups and people while one is being typed', async () => {
+    const { suggestTags } = await import('./quickadd')
+    expect(suggestTags('buy milk #lif', { folders, people })[0]).toEqual({ label: '#Life', text: 'buy milk #Life ' })
+    expect(suggestTags('buy milk #Life', { folders, people })).toEqual([]) // (already whole)
+    expect(suggestTags('buy milk', { folders, people })).toEqual([])
+    expect(suggestTags('ring @gran', { folders, people })[0].label).toBe('@Grandma Rose')
+  })
+})

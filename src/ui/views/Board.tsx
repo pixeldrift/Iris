@@ -292,7 +292,7 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom }: { ope
         {custom && (
           <button
             onClick={async () => {
-              if (await askConfirm({ title: 'Restore the default stages?', message: 'This group goes back to Pending, In Progress and Completed. Items keep their place by status.', confirmLabel: 'Restore', cancelLabel: 'Keep mine' })) save(undefined)
+              if (await askConfirm({ title: 'Restore the default stages?', message: 'This group goes back to Not started, In progress and Completed. Items keep their place by status.', confirmLabel: 'Restore', cancelLabel: 'Keep mine' })) save(undefined)
             }}
             className="ml-auto whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink-soft transition hover:bg-white/70"
           >

@@ -524,3 +524,17 @@ body.scrubbing .glow-breathe {
 @keyframes notice-pop { 0% { transform: scale(1); opacity: 1; } 35% { transform: scale(1.04); opacity: 1; } 100% { transform: scale(0.8); opacity: 0; } }
 .notice-pop { animation: notice-pop 0.22s ease-in forwards; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .notice-pop { animation-duration: 0.01s; } }
+
+/* a tag, drawn like a small bubble: the same soft gradient and thin outline in its group's color, with a slight shadow */
+.chip-bubble {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(circle at 75% 85%, hsla(var(--h, 285), calc(70% * var(--s, 1)), 88%, 0.7), transparent 70%),
+    rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px hsla(var(--h, 285), calc(62% * var(--s, 1)), 72%, 0.65),
+    0 3px 7px -3px hsla(var(--h, 285), calc(45% * var(--s, 1)), 52%, 0.35);
+  color: hsl(var(--h, 285), calc(35% * var(--s, 1)), 32%);
+}

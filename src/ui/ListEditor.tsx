@@ -24,7 +24,7 @@ export function ListEditor({ task }: { task: Task }) {
   const hue = useTaskHue(task)
   const set = (next: ListItem[]) => {
     update(task.id, { items: next })
-    // ticking things off carries the list along: first tick = In Progress, last tick = Completed
+    // ticking things off carries the list along: first tick = In progress, last tick = Completed
     if (task.listStyle === 'check') {
       const to = stageAfterTicks(task, stagesForTask(task, folders), next)
       if (to !== null) move(task.id, to)

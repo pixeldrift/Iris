@@ -14,9 +14,9 @@ import { ExampleHint, useExampleIndex } from './ExampleHint'
 
 /** `label` names a whole column; `one` names a single item's stage. */
 export const STATUSES: { id: TaskStatus; label: string; one: string; hint: string }[] = [
-  { id: 'todo', label: 'Seeds', one: 'Seed', hint: 'Waiting to be started' },
-  { id: 'doing', label: 'Growing', one: 'Growing', hint: 'In motion' },
-  { id: 'done', label: 'Bloomed', one: 'Bloomed', hint: 'Finished' },
+  { id: 'todo', label: 'Not started', one: 'Not started', hint: 'Waiting to be started' },
+  { id: 'doing', label: 'In progress', one: 'In progress', hint: 'In motion' },
+  { id: 'done', label: 'Completed', one: 'Completed', hint: 'Finished' },
 ]
 
 /** The app-wide way to show "how many": the digits alone, in a small bubble (0 included). */
@@ -29,17 +29,17 @@ export function CountBubble({ n, className = '' }: { n: number; className?: stri
 }
 
 export const KINDS = [
-  { id: 'task', label: 'Task', hint: 'Task: something to get done.' },
-  { id: 'event', label: 'Event', hint: 'Event: a specific occurrence with a time or place.' },
-  { id: 'habit', label: 'Habit', hint: 'Habit: a repeating action with a goal of consistency.' },
-  { id: 'list', label: 'List', hint: 'List: a set of things to check off, like groceries.' },
-  { id: 'idea', label: 'Notion', hint: 'Notion: a passing thought, a link, a scribble to keep for later. No dates, no fuss.' },
+  { id: 'task', label: 'Task', hint: 'Something to get done.' },
+  { id: 'event', label: 'Event', hint: 'Happens at a set time or place.' },
+  { id: 'habit', label: 'Habit', hint: 'Repeats, aiming for consistency.' },
+  { id: 'list', label: 'List', hint: 'Things to check off, like groceries.' },
+  { id: 'idea', label: 'Idea', hint: 'A passing thought, link or scribble to keep for later. No dates, no fuss.' },
 ] as const
 
-/** One light italic line saying what the chosen type is for. */
+/** One or two light italic lines saying what the chosen type is for (always room for two, so the box never changes size as the type does). */
 export function KindHint({ kind, className = '' }: { kind: string; className?: string }) {
   const hint = KINDS.find((k) => k.id === kind)?.hint
-  return hint ? <p className={`text-xs font-light italic text-ink-soft/80 ${className}`}>{hint}</p> : null
+  return hint ? <p className={`min-h-8 text-xs font-light italic leading-4 text-ink-soft/80 ${className}`}>{hint}</p> : null
 }
 
 export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
@@ -47,7 +47,7 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
   const toggle = useStore((s) => s.toggleDone)
   const occ = repeatOf(task) ? (currentOccurrence(task, today()) ?? today()) : null
   const done = occ ? task.log.includes(occ) : task.status === 'done'
-  // a notion is a passing thought, not an obligation: nothing to tick off
+  // an idea is a passing thought, not an obligation: nothing to tick off
   if (task.kind === 'idea') return null
   return (
     <button

@@ -4,7 +4,7 @@ import { detectContactIntent, matchPerson } from '../../core/people'
 import { patchForStage, planRank, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { remindFromRule } from '../../core/reminders'
-import { rolloverDay, urgencyForDue } from '../../core/tasks'
+import { rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
 import type { Task, TaskKind, TaskStatus } from '../../core/types'
 import { firstOf } from '../../core/scope'
 import * as sound from '../../audio/engine'
@@ -77,6 +77,8 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
               if (patch.time && next.kind === 'task') next.kind = 'event'
               else if (!patch.time && next.kind === 'event') next.kind = 'task'
             }
+            // adding a repeat makes a plain task a habit (something you keep doing)
+            if (patch.repeat && !t.repeat && next.kind === 'task') next.kind = 'habit'
             return next
           }),
         })),
@@ -147,22 +149,22 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
       addToFolder: (taskId, folderId) => {
         const t = get().tasks.find((x) => x.id === taskId)
         if (!t || t.folderIds.includes(folderId)) return
-        get().updateTask(taskId, { folderIds: [...t.folderIds, folderId] })
+        get().updateTask(taskId, { folderIds: [...t.folderIds, folderId], tagOrder: [...tagsOf(t).map((x) => x.id), folderId] })
       },
       removeFromFolder: (taskId, folderId) => {
         const t = get().tasks.find((x) => x.id === taskId)
         if (!t) return
-        get().updateTask(taskId, { folderIds: t.folderIds.filter((f) => f !== folderId) })
+        get().updateTask(taskId, { folderIds: t.folderIds.filter((f) => f !== folderId), tagOrder: tagsOf(t).map((x) => x.id).filter((x) => x !== folderId) })
       },
       addPerson: (taskId, personId) => {
         const t = get().tasks.find((x) => x.id === taskId)
         if (!t || t.personIds.includes(personId)) return
-        get().updateTask(taskId, { personIds: [...t.personIds, personId] })
+        get().updateTask(taskId, { personIds: [...t.personIds, personId], tagOrder: [...tagsOf(t).map((x) => x.id), personId] })
       },
       removePerson: (taskId, personId) => {
         const t = get().tasks.find((x) => x.id === taskId)
         if (!t) return
-        get().updateTask(taskId, { personIds: t.personIds.filter((p) => p !== personId) })
+        get().updateTask(taskId, { personIds: t.personIds.filter((p) => p !== personId), tagOrder: tagsOf(t).map((x) => x.id).filter((x) => x !== personId) })
       },
       setDue: (taskId, due, dueTime) => {
         const t = get().tasks.find((x) => x.id === taskId)

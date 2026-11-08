@@ -11,7 +11,7 @@ test.describe('Progress view', () => {
     await page.getByRole('button', { name: 'Menu', exact: true }).click()
     await goto(page, 'Progress')
     for (let i = 0; i < 12; i++) {
-      await page.getByRole('button', { name: 'Add a task to Pending', exact: true }).click()
+      await page.getByRole('button', { name: 'Add a task to Not started', exact: true }).click()
       await page.locator('[data-stage] input').fill(`Long list item ${i}`)
       await page.keyboard.press('Enter')
     }
@@ -24,9 +24,9 @@ test.describe('Progress view', () => {
 
   test('the + opens a box in the column, and Enter turns it into the new item at the top', async ({ page }) => {
     await goto(page, 'Progress')
-    const pending = section(page, 'Pending')
+    const pending = section(page, 'Not started')
     await expect(pending.getByRole('textbox')).toHaveCount(0) // (no box always sitting there)
-    await pending.getByRole('button', { name: 'Add a task to Pending', exact: true }).click()
+    await pending.getByRole('button', { name: 'Add a task to Not started', exact: true }).click()
     await pending.getByRole('textbox').fill('Top of the list')
     await page.keyboard.press('Enter')
     await expect(pending.getByRole('textbox')).toHaveCount(0)
@@ -35,14 +35,14 @@ test.describe('Progress view', () => {
 
   test('dropping on a column shows its border and a line where it lands, and puts it there (top by default)', async ({ page }) => {
     await goto(page, 'Progress')
-    const doing = section(page, 'In Progress')
+    const doing = section(page, 'In progress')
     const cards = doing.locator('[data-card-id]')
     const n = await cards.count()
     expect(n).toBeGreaterThan(2)
-    const first = section(page, 'Pending').locator('[data-card-id]').first()
+    const first = section(page, 'Not started').locator('[data-card-id]').first()
     const title = (await first.innerText()).split('\n')[0]
     const b = (await first.boundingBox())!
-    // pick it up and carry it to between the second and third cards of In Progress
+    // pick it up and carry it to between the second and third cards of In progress
     const c2 = (await cards.nth(1).boundingBox())!
     const target = { x: c2.x + c2.width / 2, y: c2.y + c2.height + 4 }
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
@@ -61,11 +61,11 @@ test.describe('Progress view', () => {
 
   test('with no spot given (dropped on the heading), the item goes to the top', async ({ page }) => {
     await goto(page, 'Progress')
-    const doing = section(page, 'In Progress')
-    const first = section(page, 'Pending').locator('[data-card-id]').first()
+    const doing = section(page, 'In progress')
+    const first = section(page, 'Not started').locator('[data-card-id]').first()
     const title = (await first.innerText()).split('\n')[0]
     const b = (await first.boundingBox())!
-    const h = (await doing.getByRole('heading', { name: 'In Progress' }).boundingBox())!
+    const h = (await doing.getByRole('heading', { name: 'In progress' }).boundingBox())!
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
     await page.mouse.down()
     await page.mouse.move(b.x + 30, b.y + 30, { steps: 4 })
@@ -83,8 +83,8 @@ test.describe('Progress view', () => {
     await expect(page.getByRole('button', { name: 'Move up' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Add stage' }).click()
     const names = () => page.getByLabel(/^Stage \d+ name$/).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value))
-    expect(await names()).toEqual(['Pending', 'In Progress', 'New stage', 'Completed'])
-    // carry "New stage" up above "Pending"
+    expect(await names()).toEqual(['Not started', 'In progress', 'New stage', 'Completed'])
+    // carry "New stage" up above "Not started"
     const grip = (await page.getByRole('button', { name: 'Move New stage', exact: true }).boundingBox())!
     const top = (await page.getByLabel('Stage 1 name').boundingBox())!
     await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)

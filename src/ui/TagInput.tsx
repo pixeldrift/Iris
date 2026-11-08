@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { tint } from '../core/color'
 import { pathLabel } from '../core/folders'
+import { tagsOf } from '../core/tasks'
 import { fuzzyRank, fuzzyScore, sameName } from '../core/fuzzy'
 import { useStore } from '../state/store'
 import { IconClose, IconPlus } from './icons'
@@ -75,20 +76,20 @@ export function TagInput({ taskId }: { taskId: string }) {
   return (
     <div ref={wrapRef} className="relative">
       <div className="well flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
-        {task.folderIds.map((fid) => {
-          const f = folders.find((x) => x.id === fid)
-          if (!f) return null
-          return (
-            <Chip key={fid} hue={f.hue} title={pathLabel(folders, fid)} onRemove={() => removeFromFolder(task.id, fid)}>
-              {f.name}
-            </Chip>
-          )
-        })}
-        {task.personIds.map((pid) => {
-          const p = people.find((x) => x.id === pid)
+        {tagsOf(task).map((tag) => {
+          if (tag.kind === 'folder') {
+            const f = folders.find((x) => x.id === tag.id)
+            if (!f) return null
+            return (
+              <Chip key={tag.id} hue={f.hue} title={pathLabel(folders, tag.id)} onRemove={() => removeFromFolder(task.id, tag.id)}>
+                {f.name}
+              </Chip>
+            )
+          }
+          const p = people.find((x) => x.id === tag.id)
           if (!p) return null
           return (
-            <Chip key={pid} hue={p.hue} onRemove={() => removePerson(task.id, pid)}>
+            <Chip key={tag.id} hue={p.hue} onRemove={() => removePerson(task.id, tag.id)}>
               @{p.name.split(' ')[0]}
             </Chip>
           )
@@ -118,8 +119,9 @@ export function TagInput({ taskId }: { taskId: string }) {
               e.preventDefault()
               choose(cursor)
             } else if (e.key === 'Backspace' && !q) {
-              if (task.personIds.length) removePerson(task.id, task.personIds[task.personIds.length - 1])
-              else if (task.folderIds.length) removeFromFolder(task.id, task.folderIds[task.folderIds.length - 1])
+              const last = tagsOf(task).at(-1)
+              if (last?.kind === 'person') removePerson(task.id, last.id)
+              else if (last) removeFromFolder(task.id, last.id)
             } else if (e.key === 'Escape') {
               setQ('')
               setOpen(false)
@@ -173,11 +175,7 @@ export function TagInput({ taskId }: { taskId: string }) {
 
 function Chip({ hue, title, onRemove, children }: { hue: number; title?: string; onRemove: () => void; children: React.ReactNode }) {
   return (
-    <span
-      className="pop-in inline-flex items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs"
-      style={{ background: `${tint(hue, 70, 88, .8)}`, color: `${tint(hue, 35, 32)}` }}
-      title={title}
-    >
+    <span className="chip-bubble pop-in inline-flex items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs" style={{ ['--h' as string]: hue < 0 ? 0 : hue, ['--s' as string]: hue < 0 ? 0 : 1 }} title={title}>
       {children}
       <button className="rounded-full p-0.5 opacity-50 transition hover:bg-white/60 hover:opacity-100" onClick={onRemove} aria-label="Remove tag">
         <IconClose size={11} />
