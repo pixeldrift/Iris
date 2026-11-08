@@ -17,7 +17,7 @@ test.describe('views and filters are two different things', () => {
   test('the views fold into a row of icons and back', async ({ page }) => {
     await page.getByRole('button', { name: 'Collapse Views' }).click()
     const row = page.getByRole('group', { name: 'Views' })
-    await expect(row.getByRole('button')).toHaveCount(7)
+    await expect(row.getByRole('button')).toHaveCount(8)
     await row.getByRole('button', { name: 'Timeline' }).click()
     await expect(page.getByRole('heading', { name: 'Timeline', level: 2 })).toBeVisible()
     await page.getByRole('button', { name: 'Expand Views' }).click()

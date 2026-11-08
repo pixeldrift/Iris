@@ -19,7 +19,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
-  const { environment, tracking: trackPref, render, seen } = useSpatial()
+  const { environment, tracking: trackPref, render, seen, tipSeen } = useSpatial()
   const stored = useSpatial((s) => s.layout)
   const setLayout = useSpatial((s) => s.setLayout)
   const prefs = useSpatial((s) => s.set)
@@ -310,6 +310,11 @@ export default function SpatialView() {
               <span />
             )}
           </div>
+          {!note && !tipSeen && !simple && (
+            <button type="button" onClick={() => prefs({ tipSeen: true })} className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">
+              Hold a task, then drag, to move it. Tap a group’s name to turn to it. <span className="text-lilac-600">Got it</span>
+            </button>
+          )}
           {note && (
             <p role="status" className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur" onClick={() => setNote(null)}>
               {note}

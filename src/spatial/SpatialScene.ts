@@ -7,6 +7,7 @@ import type { EnvironmentProvider } from './environment'
 import { moveCluster, moveTask, taskWorld, lookAt } from './layout'
 import { WORLD, type SpatialLayoutData } from './types'
 import type { SpatialTracking } from './tracking'
+import { edgeDots } from '../core/edges'
 
 export interface SceneCluster extends HubInfo {
   id: string
@@ -62,6 +63,8 @@ export class SpatialScene {
   private press?: { id: number; x: number; y: number; t0: number; hit: { kind: 'task' | 'hub'; id: string; uvx: number } | null; mode: 'pending' | 'look' | 'drag'; timer: number; plane?: Plane; offset?: Vector3 }
   private pinch?: { d: number; fov: number }
   private disposed = false
+  /** Soft glowing dots on the frame for groups out of view (the Pond's edge dots, here for the room around you). */
+  private dotEls = new Map<string, HTMLButtonElement>()
 
   constructor(
     private host: HTMLElement,
@@ -98,7 +101,9 @@ export class SpatialScene {
     const seen = new Set<string>()
     for (const t of c.tasks) {
       seen.add(t.id)
-      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}`
+      // (with a great many tasks the pictures are drawn smaller, to save memory)
+      const scale = c.tasks.length > 240 ? 0.55 : c.tasks.length > 120 ? 0.75 : 1
+      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${scale}`
       let n = this.tasks.get(t.id)
       if (!n) {
         const cv = document.createElement('canvas')
@@ -114,7 +119,7 @@ export class SpatialScene {
         this.tasks.set(t.id, n)
       }
       if (n.key !== key) {
-        drawCard(n.tex.image as HTMLCanvasElement, t)
+        drawCard(n.tex.image as HTMLCanvasElement, t, scale)
         n.tex.needsUpdate = true
         n.key = key
       }
@@ -306,6 +311,8 @@ export class SpatialScene {
     el.removeEventListener('pointercancel', this.up)
     el.removeEventListener('wheel', this.wheel)
     el.removeEventListener('keydown', this.key)
+    for (const d of this.dotEls.values()) d.remove()
+    this.dotEls.clear()
     for (const [id, n] of [...this.tasks]) this.drop(this.tasks, id, n)
     for (const [id, n] of [...this.hubs]) this.drop(this.hubs, id, n)
     for (const p of this.plates.values()) {
@@ -351,6 +358,66 @@ export class SpatialScene {
       this.camera.updateProjectionMatrix()
       this.env?.tick?.(now)
       this.renderer.render(this.scene, this.camera)
+      this.updateDots()
+    }
+  }
+
+  /** One dot per group wholly out of view, riding the frame where a line from the middle of the screen to it crosses (fades in and out). */
+  private updateDots() {
+    const W = this.host.clientWidth
+    const H = this.host.clientHeight
+    const v = new Vector3()
+    const pts = this.content.clusters.flatMap((c) => {
+      const cp = this.layout.clusters[c.id]
+      if (!cp) return []
+      v.set(cp.x, cp.y, cp.z)
+      const cam = v.clone().applyMatrix4(this.camera.matrixWorldInverse)
+      let sx: number
+      let sy: number
+      if (cam.z < 0) {
+        const p = v.clone().project(this.camera)
+        sx = ((p.x + 1) / 2) * W
+        sy = ((1 - p.y) / 2) * H
+      } else {
+        // behind the viewer: the way round is the way it lies in the screen's own plane
+        const len = Math.hypot(cam.x, cam.y) || 1
+        sx = W / 2 + (cam.x / len) * 5000
+        sy = H / 2 - (cam.y / len) * 5000
+      }
+      return [{ id: c.id, x: sx, y: sy, r: 60, hue: c.hue }]
+    })
+    const dots = edgeDots(pts, { scale: 1, tx: 0, ty: 0 }, W, H, { inset: 14 })
+    const now = new Set(dots.map((d) => d.id))
+    for (const d of dots) {
+      let el = this.dotEls.get(d.id)
+      if (!el) {
+        el = document.createElement('button')
+        el.type = 'button'
+        el.className = 'edge-dot'
+        el.setAttribute('aria-label', 'A group out of view this way: turn to it')
+        el.title = 'A group out of view this way'
+        Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '24px', height: '24px', translate: '-50% -50%', borderRadius: '9999px' })
+        const id = d.id
+        el.addEventListener('click', () => this.focusCluster(id))
+        el.addEventListener('pointerdown', (e) => e.stopPropagation())
+        this.host.appendChild(el)
+        this.dotEls.set(d.id, el)
+      }
+      el.classList.remove('leaving')
+      el.style.setProperty('--h', String(Math.max(0, d.hue)))
+      el.style.setProperty('--s', d.hue < 0 ? '0' : '1')
+      el.style.left = `${d.x}px`
+      el.style.top = `${d.y}px`
+    }
+    for (const [id, el] of this.dotEls) {
+      if (now.has(id) || el.classList.contains('leaving')) continue
+      el.classList.add('leaving')
+      window.setTimeout(() => {
+        if (el.classList.contains('leaving')) {
+          el.remove()
+          if (this.dotEls.get(id) === el) this.dotEls.delete(id)
+        }
+      }, 450)
     }
   }
 
