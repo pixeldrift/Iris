@@ -100,6 +100,37 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
       typed.push({ id: hit.id, chip: `@${hit.name.split(' ')[0]}`, at: input.toLowerCase().indexOf(r.m[0].trim().toLowerCase()) })
     } else if (!hit) unknown.push(r.m[0].trim())
   }
+  // people from the address book named without an @: a capitalised whole name (or first name) in what is left of the line.
+  // A first name shared by several people is only taken for a favourite (and only if just one of them is); the name stays in the title.
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pool = ctx.people.filter((p) => !p.isMe && !out.personIds.includes(p.id) && p.name.trim())
+  const firstOf = (p: Person) => p.name.trim().split(/\s+/)[0]
+  const found = (word: string) => {
+    const m = new RegExp(`(^|[^\\w])(${esc(word)})(?![\\w])`, 'i').exec(` ${t} `)
+    return m && /^\p{Lu}/u.test(m[2]) ? m[2] : null
+  }
+  const named: Person[] = []
+  for (const p of [...pool].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || b.name.length - a.name.length)) {
+    if (named.length >= 3 || out.personIds.includes(p.id)) continue
+    const full = p.name.trim()
+    if (full.includes(' ') && found(full)) {
+      named.push(p)
+      out.personIds.push(p.id)
+      continue
+    }
+    const first = firstOf(p)
+    if (first.length < 3 || !found(first)) continue
+    const same = pool.filter((x) => firstOf(x).toLowerCase() === first.toLowerCase())
+    const favs = same.filter((x) => x.favorite)
+    if (same.length > 1 && !(favs.length === 1 && favs[0].id === p.id)) continue
+    named.push(p)
+    out.personIds.push(p.id)
+  }
+  for (const p of named) {
+    const word = p.name.includes(' ') && found(p.name.trim()) ? p.name.trim() : firstOf(p)
+    typed.push({ id: p.id, chip: `@${firstOf(p)}`, at: Math.max(0, input.indexOf(word)) })
+  }
+
   // the tags go in the order they were typed, whichever kind they are
   typed.sort((a, b) => a.at - b.at)
   for (const x of typed) {
