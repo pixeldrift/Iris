@@ -62,11 +62,11 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
           tabIndex={0}
           onPointerDown={(e) => onPointerDown(e, true)}
           onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
-          className={`pad relative grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
-          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), padding: r >= 26 ? 'calc(var(--r) * 0.34 * 1px) calc(var(--r) * 0.14 * 1px) calc(var(--r) * 0.46 * 1px)' : 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
+          className={`pad ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : ''} relative grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
+          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), ...(task.image ? { '--photo': `url("${task.image}")` } : {}), padding: r >= 26 ? 'calc(var(--r) * 0.34 * 1px) calc(var(--r) * 0.14 * 1px) calc(var(--r) * 0.46 * 1px)' : 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
           title={task.title}
         >
-          {r >= 14 && (
+          {r >= 14 && !!task.title && (
             <TitleFit text={task.title} font="calc(var(--r) * 0.26 * 1px)" lineHeight={1.1} />
           )}
           {<BubbleChrome task={task} r={r} minExtras={36} floor={58} />}

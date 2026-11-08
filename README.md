@@ -155,7 +155,14 @@ occurrence is ticked off in turn, and you're encouraged for consistency streaks.
 Events have as many reminders as you like before they start. Other items get separate reminders for the day and for the deadline.
 
 **Quick add.** Type naturally ("Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am", "remind me to call mom at 5pm");
-"Lunch with Sam at Panera" adds a place; the preview shows what it understood.
+"Lunch with Sam at Panera" adds a place; the preview shows what it understood. People in your address book are tagged by
+name without typing an @ ("Call Sarah about the order"): a capitalised first or full name, favourites first (a first name shared by
+several people is only taken when exactly one of them is a favourite, or when the full name is typed); the name stays in the title.
+`#` and `@` offer the groups and people that exist as you type (Tab takes the first).
+
+**Pictures.** Any item can have a picture (the Picture box in its details, or the picture button in quick add): it fills the item's
+bubble, tinted with the group's colour unless *Tint the picture with the group's color* is switched off, in which case the bubble's
+thin outer ring still takes the colour. An item may have no title at all, so a photo can be the whole reminder, or just decorate the pond.
 
 **Moving clusters.** In a *Gather by* view, drag a bubble slowly and its whole cluster follows on a rubber
 band, nudging others aside. Flick it fast to snap it free, then drop it on another cluster to re-tag it
@@ -181,7 +188,7 @@ add the sharing tables and columns.
 
 **Settings** Accessed under your user account menu (the title stays put while the options scroll): *Soundscape* (audio, volume,
 drops, task sounds, pops, ambient chimes); *Look & Feel* (colour, menu spacing, and the Pond's bubble scaling, drifting and
-bloomed tasks); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips,
+bloomed tasks); *Views* (a folded list: uncheck the views you do not use and they leave the sidebar, though at least one stays); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips,
 *Push Notifications*); *Region* (date format, time format, time zone); demo data; and your data, account and connections.
 Add your profile image and contact details.
 

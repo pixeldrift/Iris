@@ -97,6 +97,8 @@ export interface Task {
   dueTime?: string | null
   /** A notion's picture, a small JPEG as a data URL. */
   image?: string
+  /** With a picture: false = leave it untinted (the bubble's outer ring still takes the group's color). Absent or true = tinted. */
+  imageTint?: boolean
   /** The day you plan to do it. Optional and separate from `due`; falls back to `due`. */
   day: string | null
   /** Carry over to the next day when not finished. Defaults to on. */

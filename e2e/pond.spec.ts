@@ -65,16 +65,21 @@ test.describe('the pond', () => {
   })
 
   test('every bubble has its checkbox at the bottom centre and its type icon at the top', async ({ page }) => {
-    const ok = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>('[data-node] .pad')].every((pad) => {
+    // (events and ideas have no check box: they are not things to do)
+    const res = await page.evaluate(() => {
+      let checks = 0
+      const ok = [...document.querySelectorAll<HTMLElement>('[data-node] .pad')].every((pad) => {
         const r = pad.getBoundingClientRect()
         const check = pad.querySelector<HTMLElement>('button[aria-label*="done" i], button[aria-label*="Mark"]')
-        if (!check) return false
+        if (!check) return true
+        checks++
         const c = check.getBoundingClientRect()
         return Math.abs(c.left + c.width / 2 - (r.left + r.width / 2)) < 2 && c.top + c.height / 2 > r.top + r.height * 0.7
-      }),
-    )
-    expect(ok).toBe(true)
+      })
+      return { ok, checks }
+    })
+    expect(res.ok).toBe(true)
+    expect(res.checks).toBeGreaterThan(5)
   })
 
   test('Frame all zooms until the bubbles fill the width or the height, with just a little margin', async ({ page }) => {

@@ -6,13 +6,14 @@ import { create } from 'zustand'
 import { useStore } from '../state/store'
 import { drop } from '../audio/engine'
 import { useExit } from './anim'
-import { IconChevronDown, IconClose, KindIcon } from './icons'
+import { IconChevronDown, IconClose, IconImage, KindIcon } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { TaskFields } from './TaskDetail'
 import { KindHint, KINDS } from './shared'
 import type { TaskKind } from '../core/types'
 import { parseQuickAdd, suggestTags } from '../core/quickadd'
 import { askNotify } from './notify'
+import { notionImageFrom } from './photo'
 import { useLandscapePhone } from './useMedia'
 
 /** Where a new item should land in the pond (fractions of the canvas); none = somewhere near the middle. */
@@ -148,15 +149,31 @@ export function NewTask() {
     ...(q?.tagOrder.length || startIn?.length || preset?.personIds?.length ? { tagOrder: [...new Set([...(startIn ?? []), ...(preset?.personIds ?? []), ...(q?.tagOrder ?? [])])] } : {}),
   })
 
+  /** The item being made, as a draft the full editor works on (made now if it is not yet). */
+  const ensureDraft = (): string => {
+    if (draftId) return draftId
+    const q = parsed
+    const clean = q?.title || title.trim()
+    const id = add({ title: clean, kind: shownKind, ...spot.current, ...fieldsFrom(q), draft: true })
+    setDraftId(id)
+    setTitle(clean) // what was understood (day, time, repeat...) now lives in the fields below, not in the line
+    return id
+  }
   const expand = () => {
     if (more) return setMore(false)
-    if (!draftId) {
-      const q = parsed
-      const clean = q?.title || title.trim()
-      setDraftId(add({ title: clean, kind: shownKind, ...spot.current, ...fieldsFrom(q), draft: true }))
-      setTitle(clean) // what was understood (day, time, repeat...) now lives in the fields below, not in the line
-    }
+    ensureDraft()
     setMore(true)
+  }
+  // a photo is enough to make an item: it needs no title
+  const photo = useRef<HTMLInputElement>(null)
+  const takePhoto = async (file: File) => {
+    try {
+      const image = await notionImageFrom(file)
+      update(ensureDraft(), { image })
+      setMore(true)
+    } catch (err) {
+      showToast((err as Error).message)
+    }
   }
 
   const deleteTask = useStore((s) => s.deleteTask)
@@ -170,7 +187,7 @@ export function NewTask() {
 
   /** Put the item in place. `quiet` is for closing the box without pressing Add: nothing opens, and a toast offers Undo. */
   const place = (quiet = false) => {
-    if (!title.trim()) return closeCompose()
+    if (!title.trim() && !draft?.image) return closeCompose()
     drop(0)
     const name = title.trim()
     const done = (id: string) => {
@@ -178,7 +195,7 @@ export function NewTask() {
       const made = useStore.getState().tasks.find((x) => x.id === id)
       if (made?.due && made.kind !== 'idea') useStore.getState().setDue(id, made.due, made.dueTime ?? null)
       finish(id, quiet)
-      if (quiet) showToast(`Added “${(parsed?.title || name).slice(0, 40)}”`, { label: 'Undo', run: () => deleteTask(id) })
+      if (quiet) showToast(name || parsed?.title ? `Added “${(parsed?.title || name).slice(0, 40)}”` : 'Added your picture', { label: 'Undo', run: () => deleteTask(id) })
     }
     if (draftId && draft) {
       update(draftId, { title: name, draft: false })
@@ -247,6 +264,7 @@ export function NewTask() {
         }}
         className={`glass glass-strong relative flex max-h-full w-full flex-col ${land ? 'max-w-3xl rounded-[1.5rem] p-3' : 'max-w-md rounded-[2rem] p-4'} ${closing ? 'pop-out' : 'box-spring'}`}
       >
+        <input ref={photo} type="file" accept="image/*" hidden aria-label="Choose a photo" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void takePhoto(f) }} />
         {land ? (
           // turned sideways, with the keyboard up, a second row would fall below the box: one row, the type a dropdown, Add at the far right
           <>
@@ -267,7 +285,10 @@ export function NewTask() {
                 {suggest}
               </div>
               <KindMenu value={shownKind} onChange={changeKind} />
-              <button
+              <button type="button" onClick={() => photo.current?.click()} aria-label="Add a picture" title="Add a picture (it can be the whole reminder)" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60 hover:text-ink">
+                <IconImage size={17} />
+              </button>
+                            <button
                 type="button"
                 onClick={expand}
                 aria-expanded={more}
@@ -329,7 +350,10 @@ export function NewTask() {
         )}
         <div className="mt-2.5 flex items-center gap-2">
           <KindToggle value={shownKind} onChange={changeKind} />
-          {/* expanded: Cancel and Add live in a bar pinned to the bottom instead */}
+          <button type="button" onClick={() => photo.current?.click()} aria-label="Add a picture" title="Add a picture (it can be the whole reminder)" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60 hover:text-ink">
+            <IconImage size={17} />
+          </button>
+                    {/* expanded: Cancel and Add live in a bar pinned to the bottom instead */}
           {!(more && draft) && (
             <button type="submit" className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm text-white shadow shadow-lilac-500/30">
               + Add
