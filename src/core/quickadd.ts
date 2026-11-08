@@ -27,9 +27,16 @@ export interface QuickAdd {
   /** Where it happens: "at Main St", "at home". */
   place?: string
   chips: string[]
+  /** The same chips with a key each (`date`, `time`, `remind`, `repeat`, `before`, `place`, `tag:<id>`), so one can be taken away. */
+  detected: { key: string; label: string }[]
   /** The #groups and @people found, in the order they were typed (their ids). */
   tagOrder: string[]
 }
+
+/** The last word of a place named in lower case ("downtown clinic"). */
+const PLACE_WORDS = 'clinic|hospital|surgery|pharmacy|drugstore|dentist|dentists|doctor|doctors|vet|park|playground|cafe|café|coffee shop|restaurant|diner|bar|pub|bakery|school|college|campus|university|office|gym|studio|library|museum|theatre|theater|cinema|church|temple|mosque|synagogue|store|shop|market|supermarket|mall|salon|barber|bank|station|airport|terminal|hotel|house|apartment|flat|building|hall|center|centre|lab|court|field|pool|rink|garage|warehouse|post office|city hall|town hall|classroom|auditorium|cafeteria|beach|farm|garden|kitchen'
+/** Verbs that go with "at" without it naming a place. */
+const LOOKS_AT = new Set(['look', 'looks', 'looking', 'looked', 'stare', 'staring', 'glance', 'laugh', 'laughing', 'smile', 'aim', 'point', 'guess', 'shout', 'yell', 'wink'])
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 const DAY_ABBR = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
@@ -60,9 +67,21 @@ function to24(h: number, ap: string | undefined, hadMinutes: boolean): number | 
 }
 
 /** Read a line of text the way a person means it: dates, times, repeats, #folders, @people, reminders. */
-export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]; people: Person[] }): QuickAdd {
+export function parseQuickAdd(
+  input: string,
+  now: Date,
+  ctx: { folders: Folder[]; people: Person[] },
+  /** `skip`: detections the person removed (by key), whose words go back to the title; `keepTitle`: leave the title as typed, fields and all. */
+  opts: { skip?: readonly string[]; keepTitle?: boolean } = {},
+): QuickAdd {
+  const skip = new Set(opts.skip ?? [])
+  const takeK = (key: string, text: string, re: RegExp) => (skip.has(key) ? { m: null as RegExpMatchArray | null, rest: text } : take(text, re))
+  const chip = (key: string, label: string) => {
+    out.chips.push(label)
+    out.detected.push({ key, label })
+  }
   let t = ` ${input.trim()} `.replace(/\s+/g, ' ')
-  const out: QuickAdd = { title: '', folderIds: [], personIds: [], chips: [], tagOrder: [] }
+  const out: QuickAdd = { title: '', folderIds: [], personIds: [], chips: [], detected: [], tagOrder: [] }
   const typed: { id: string; chip: string; at: number }[] = []
   const todayISO = toISO(now)
   let remindMode = false
@@ -84,7 +103,8 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     t = r.rest
     const q = r.m[1].trim().toLowerCase()
     const hit = ctx.folders.find((f) => pathOf(ctx.folders, f.id).map((x) => x.name).join('/').toLowerCase() === q || f.name.toLowerCase() === q) ?? ctx.folders.find((f) => fuzzyScore(q, f.name) >= 0.8)
-    if (hit && !out.folderIds.includes(hit.id)) {
+    if (hit && skip.has(`tag:${hit.id}`)) unknown.push(r.m[0].trim()) // taken away: its words stay in the title
+    else if (hit && !out.folderIds.includes(hit.id)) {
       out.folderIds.push(hit.id)
       typed.push({ id: hit.id, chip: `#${hit.name}`, at: input.toLowerCase().indexOf(r.m[0].trim().toLowerCase()) })
     } else if (!hit) unknown.push(r.m[0].trim()) // unknown: leave it in the title
@@ -95,7 +115,8 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     t = r.rest
     const q = r.m[1].trim().toLowerCase()
     const hit = ctx.people.find((p) => p.name.toLowerCase() === q) ?? ctx.people.find((p) => p.name.toLowerCase().split(' ')[0] === q) ?? ctx.people.find((p) => fuzzyScore(q, p.name) >= 0.8)
-    if (hit && !out.personIds.includes(hit.id)) {
+    if (hit && skip.has(`tag:${hit.id}`)) unknown.push(r.m[0].trim())
+    else if (hit && !out.personIds.includes(hit.id)) {
       out.personIds.push(hit.id)
       typed.push({ id: hit.id, chip: `@${hit.name.split(' ')[0]}`, at: input.toLowerCase().indexOf(r.m[0].trim().toLowerCase()) })
     } else if (!hit) unknown.push(r.m[0].trim())
@@ -103,7 +124,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
   // people from the address book named without an @: a capitalised whole name (or first name) in what is left of the line.
   // A first name shared by several people is only taken for a favourite (and only if just one of them is); the name stays in the title.
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const pool = ctx.people.filter((p) => !p.isMe && !out.personIds.includes(p.id) && p.name.trim())
+  const pool = ctx.people.filter((p) => !p.isMe && !out.personIds.includes(p.id) && !skip.has(`tag:${p.id}`) && p.name.trim())
   const firstOf = (p: Person) => p.name.trim().split(/\s+/)[0]
   const found = (word: string) => {
     const m = new RegExp(`(^|[^\\w])(${esc(word)})(?![\\w])`, 'i').exec(` ${t} `)
@@ -134,7 +155,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
   // the tags go in the order they were typed, whichever kind they are
   typed.sort((a, b) => a.at - b.at)
   for (const x of typed) {
-    out.chips.push(x.chip)
+    chip(`tag:${x.id}`, x.chip)
     out.tagOrder.push(x.id)
   }
   if (unknown.length) t += ` ${unknown.join(' ')}`
@@ -142,15 +163,15 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
   // "remind me a day before" / "a week in advance": relative to the item's own date, so no time is asked for
   let before: number | null = null
   const WORDS: Record<string, number> = { a: 1, the: 1, one: 1, '1': 1, two: 2, '2': 2, three: 3, '3': 3 }
-  r = take(t, /\s(?:remind me|alert me|notify me|reminder)(?:\s+to)?\s+(?:(a|the|one|1|two|2|three|3)\s+)?(day|week)s?\s+(?:before|in advance|ahead of time|ahead|earlier|prior)(?=\s|$)/i)
-  if (!r.m) r = take(t, /\s(?:(a|the|one|1|two|2|three|3)\s+)?(day|week)s?\s+(?:in advance|ahead of time|ahead|earlier|prior)(?=\s|$)/i)
+  r = takeK('before', t, /\s(?:remind me|alert me|notify me|reminder)(?:\s+to)?\s+(?:(a|the|one|1|two|2|three|3)\s+)?(day|week)s?\s+(?:before|in advance|ahead of time|ahead|earlier|prior)(?=\s|$)/i)
+  if (!r.m) r = takeK('before', t, /\s(?:(a|the|one|1|two|2|three|3)\s+)?(day|week)s?\s+(?:in advance|ahead of time|ahead|earlier|prior)(?=\s|$)/i)
   if (r.m) {
     before = (WORDS[(r.m[1] ?? 'a').toLowerCase()] ?? 1) * (r.m[2].toLowerCase() === 'week' ? 7 : 1)
     t = r.rest
   }
 
   // "remind me (to) ..." / "alarm": what follows is when to nudge, not when it happens
-  r = take(t, /\s(?:remind me|reminder|alarm)(?:\s+to)?\s/i)
+  r = takeK('remind', t, /\s(?:remind me|reminder|alarm)(?:\s+to)?\s/i)
   if (r.m) {
     remindMode = true
     t = r.rest
@@ -162,45 +183,45 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     const m = s.match(/(\d{1,2})(?:st|nd|rd|th)?/)
     return m ? Math.min(31, Number(m[1])) : undefined
   }
-  r = take(t, /\severy\s+(?:month|monthly)\s+on\s+the\s+(\d{1,2}(?:st|nd|rd|th)?)\b/i)
+  r = takeK('repeat', t, /\severy\s+(?:month|monthly)\s+on\s+the\s+(\d{1,2}(?:st|nd|rd|th)?)\b/i)
   if (r.m) rec = { freq: 'monthly', interval: 1, monthDay: monthDay(r.m[1]), from: todayISO }
   if (!rec) {
-    r = take(t, /\s(?:monthly|every month)(?:\s+on\s+the\s+(\d{1,2}(?:st|nd|rd|th)?))?\b/i)
+    r = takeK('repeat', t, /\s(?:monthly|every month)(?:\s+on\s+the\s+(\d{1,2}(?:st|nd|rd|th)?))?\b/i)
     if (r.m) rec = { freq: 'monthly', interval: 1, monthDay: r.m[1] ? monthDay(r.m[1]) : undefined, from: todayISO }
   }
   if (!rec) {
     // every third tuesday, every last friday
-    r = take(t, new RegExp(`\\severy\\s+(first|second|third|fourth|last|1st|2nd|3rd|4th)\\s+${DAY_RE}\\b`, 'i'))
+    r = takeK('repeat', t, new RegExp(`\\severy\\s+(first|second|third|fourth|last|1st|2nd|3rd|4th)\\s+${DAY_RE}\\b`, 'i'))
     if (r.m) {
       const nth = ({ first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3, fourth: 4, '4th': 4, last: -1 } as Record<string, number>)[r.m[1].toLowerCase()]
       rec = { freq: 'monthly', interval: 1, byDay: [weekdayOf(r.m[2])], nth, from: todayISO }
     }
   }
   if (!rec) {
-    r = take(t, /\severy\s+weekdays?\b/i)
+    r = takeK('repeat', t, /\severy\s+weekdays?\b/i)
     if (r.m) rec = { freq: 'weekly', interval: 1, byDay: [1, 2, 3, 4, 5], from: todayISO }
   }
   if (!rec) {
-    r = take(t, /\severy\s+weekends?\b/i)
+    r = takeK('repeat', t, /\severy\s+weekends?\b/i)
     if (r.m) rec = { freq: 'weekly', interval: 1, byDay: [0, 6], from: todayISO }
   }
   if (!rec) {
     // every mon, every mon/wed/fri, every tuesday and thursday, mondays
-    r = take(t, new RegExp(`\\severy\\s+(?:other\\s+)?(${DAY_RE}(?:\\s*(?:,|/|and|&)\\s*${DAY_RE})*)\\b`, 'i'))
+    r = takeK('repeat', t, new RegExp(`\\severy\\s+(?:other\\s+)?(${DAY_RE}(?:\\s*(?:,|/|and|&)\\s*${DAY_RE})*)\\b`, 'i'))
     if (r.m) {
       const days = [...r.m[1].toLowerCase().matchAll(new RegExp(DAY_RE, 'g'))].map((x) => weekdayOf(x[0]))
       rec = { freq: 'weekly', interval: /every\s+other/i.test(r.m[0]) ? 2 : 1, byDay: [...new Set(days)].sort(), from: todayISO }
     }
   }
   if (!rec) {
-    r = take(t, /\severy\s+(?:(other)|(\d+))?\s*(day|week|month|year)s?\b/i)
+    r = takeK('repeat', t, /\severy\s+(?:(other)|(\d+))?\s*(day|week|month|year)s?\b/i)
     if (r.m) {
       const n = r.m[1] ? 2 : r.m[2] ? Number(r.m[2]) : 1
       rec = { freq: ({ day: 'daily', week: 'weekly', month: 'monthly', year: 'yearly' } as const)[r.m[3].toLowerCase() as 'day'], interval: n, from: todayISO }
     }
   }
   if (!rec) {
-    r = take(t, /\s(daily|weekly|annually|yearly|nightly)\b/i)
+    r = takeK('repeat', t, /\s(daily|weekly|annually|yearly|nightly)\b/i)
     if (r.m) rec = { freq: ({ daily: 'daily', nightly: 'daily', weekly: 'weekly', annually: 'yearly', yearly: 'yearly' } as const)[r.m[1].toLowerCase() as 'daily'], interval: 1, from: todayISO }
   }
   if (rec) t = r.rest
@@ -208,7 +229,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
   // time ranges and times: 3-4:30pm, 3pm to 5pm, 15:30, at 3, noon
   let start: string | undefined
   let end: string | undefined
-  r = take(t, /\s(?:at\s+|from\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to|until|till)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?(?=\s|$)/i)
+  r = takeK('time', t, /\s(?:at\s+|from\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to|until|till)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?(?=\s|$)/i)
   if (r.m && (r.m[3] || r.m[6] || r.m[2] || r.m[5])) {
     const ap2 = r.m[6] ?? r.m[3]
     const ap1 = r.m[3] ?? (r.m[6] && Number(r.m[1]) <= Number(r.m[4]) ? r.m[6] : undefined)
@@ -221,14 +242,14 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!start) {
-    r = take(t, /\s(?:at\s+|@\s*)?(noon|midnight)\b/i)
+    r = takeK('time', t, /\s(?:at\s+|@\s*)?(noon|midnight)\b/i)
     if (r.m) {
       start = r.m[1].toLowerCase() === 'noon' ? '12:00' : '00:00'
       t = r.rest
     }
   }
   if (!start) {
-    r = take(t, /\s(?:at\s+|@\s*)?(\d{1,2}):(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?(?=\s|$)/i)
+    r = takeK('time', t, /\s(?:at\s+|@\s*)?(\d{1,2}):(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?(?=\s|$)/i)
     if (r.m) {
       const h = to24(Number(r.m[1]), r.m[3]?.replace(/\./g, ''), true)
       if (h !== null && Number(r.m[2]) < 60) {
@@ -238,7 +259,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!start) {
-    r = take(t, /\s(?:at\s+|@\s*)?(\d{1,2})\s*(am|pm|a\.m\.|p\.m\.)(?=\s|$)/i)
+    r = takeK('time', t, /\s(?:at\s+|@\s*)?(\d{1,2})\s*(am|pm|a\.m\.|p\.m\.)(?=\s|$)/i)
     if (r.m) {
       const h = to24(Number(r.m[1]), r.m[2].replace(/\./g, ''), false)
       if (h !== null) {
@@ -248,7 +269,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!start) {
-    r = take(t, /\sat\s+(\d{1,2})(?=\s|$)/i) // a bare "at 3"
+    r = takeK('time', t, /\sat\s+(\d{1,2})(?=\s|$)/i) // a bare "at 3"
     if (r.m) {
       const h = to24(Number(r.m[1]), undefined, false)
       if (h !== null) {
@@ -269,7 +290,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     while (fromISO(mon).getDay() !== 1) mon = addDays(mon, 1)
     return addDays(mon, (wd + 6) % 7)
   }
-  r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(today|tonight|tomorrow|tmrw|tmr|yesterday)\b(?!['’]\w)/i)
+  r = takeK('date', t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(today|tonight|tomorrow|tmrw|tmr|yesterday)\b(?!['’]\w)/i)
   if (r.m) {
     dueMode = !!r.m[1]
     const w = r.m[2].toLowerCase()
@@ -277,7 +298,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     t = r.rest
   }
   if (!date) {
-    r = take(t, /\s(?:(due|by|before|until)\s+)?in\s+(\d+|a|an|one|two|three)\s+(day|week|month)s?\b/i)
+    r = takeK('date', t, /\s(?:(due|by|before|until)\s+)?in\s+(\d+|a|an|one|two|three)\s+(day|week|month)s?\b/i)
     if (r.m) {
       dueMode = !!r.m[1]
       const n = ({ a: 1, an: 1, one: 1, two: 2, three: 3 } as Record<string, number>)[r.m[2].toLowerCase()] ?? Number(r.m[2])
@@ -290,7 +311,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!date) {
-    r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?next\s+week\b/i)
+    r = takeK('date', t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?next\s+week\b/i)
     if (r.m) {
       dueMode = !!r.m[1]
       date = nextWeekday(1, false)
@@ -298,7 +319,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!date) {
-    r = take(t, new RegExp(`\\s(?:(due|by|before|until)\\s+)?(?:on\\s+)?(?:(next|this)\\s+)?${DAY_RE}\\b(?!['’]\\w)`, 'i'))
+    r = takeK('date', t, new RegExp(`\\s(?:(due|by|before|until)\\s+)?(?:on\\s+)?(?:(next|this)\\s+)?${DAY_RE}\\b(?!['’]\\w)`, 'i'))
     if (r.m && !rec) {
       dueMode = !!r.m[1]
       date = nextWeekday(weekdayOf(r.m[3]), r.m[2]?.toLowerCase() === 'next')
@@ -306,7 +327,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     } else if (r.m && rec) t = r.rest // "every friday" was already read as the repeat; a stray day name is dropped with it
   }
   if (!date) {
-    r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(\d{4})-(\d{2})-(\d{2})\b/i)
+    r = takeK('date', t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(\d{4})-(\d{2})-(\d{2})\b/i)
     if (r.m) {
       dueMode = !!r.m[1]
       date = `${r.m[2]}-${r.m[3]}-${r.m[4]}`
@@ -314,7 +335,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!date) {
-    r = take(t, new RegExp(`\\s(?:(due|by|before|until)\\s+)?(?:on\\s+)?(?:${MONTH_RE}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?|(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${MONTH_RE})\\b`, 'i'))
+    r = takeK('date', t, new RegExp(`\\s(?:(due|by|before|until)\\s+)?(?:on\\s+)?(?:${MONTH_RE}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?|(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${MONTH_RE})\\b`, 'i'))
     if (r.m) {
       dueMode = !!r.m[1]
       const mon = monthOf((r.m[2] ?? r.m[5]) as string)
@@ -326,7 +347,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!date) {
-    r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(\d{1,2})\/(\d{1,2})\b(?!\/)/i)
+    r = takeK('date', t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(\d{1,2})\/(\d{1,2})\b(?!\/)/i)
     // month first by default (US); day first when the date style is set that way
     const [mm, dd] = dayFirst() ? [Number(r.m?.[3]), Number(r.m?.[2])] : [Number(r.m?.[2]), Number(r.m?.[3])]
     if (r.m && mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
@@ -340,7 +361,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
 
   // "remind me tomorrow evening": a part of the day stands for a sensible hour
   if (remindMode && !start) {
-    r = take(t, /\s(?:in the\s+|this\s+)?(morning|afternoon|evening|tonight|noon|midday|night)\b/i)
+    r = takeK('time', t, /\s(?:in the\s+|this\s+)?(morning|afternoon|evening|tonight|noon|midday|night)\b/i)
     if (r.m) {
       start = { morning: '09:00', afternoon: '14:00', evening: '18:00', tonight: '20:00', night: '20:00', noon: '12:00', midday: '12:00' }[r.m[1].toLowerCase()]
       t = r.rest
@@ -354,25 +375,28 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     const [y, mo, d] = day.split('-').map(Number)
     if (date || start) out.remindAt = new Date(y, mo - 1, d, h, m).getTime()
     out.kind = out.kind ?? 'task'
-    if (out.remindAt) out.chips.push(`Remind ${formatDate(day, { weekday: true })}${start ? ` · ${formatTime(start)}` : ''}`)
+    if (out.remindAt) chip('remind', `Remind ${formatDate(day, { weekday: true })}${start ? ` · ${formatTime(start)}` : ''}`)
   } else {
     if (date) {
       // a date on its own is when it is due; with a time of day it is a time to be somewhere or do it (a day and a start)
       const asDue = dueMode || !start
       if (asDue) out.due = date
       else out.day = date
-      out.chips.push(asDue ? `Due ${formatDate(date, { weekday: true })}${dueMode && start ? ` · ${formatTime(start)}` : ''}` : formatDate(date, { weekday: true }))
+      chip('date', asDue ? `Due ${formatDate(date, { weekday: true })}${dueMode && start ? ` · ${formatTime(start)}` : ''}` : formatDate(date, { weekday: true }))
     }
     if (start && dueMode && date) {
       out.dueTime = start // "due friday 6pm": the deadline has a time; nothing is scheduled at it
     } else if (start) {
       out.time = start
       if (end) out.endTime = end
-      out.chips.push(end ? `${formatTime(start)} – ${formatTime(end)}` : formatTime(start))
-      if (!out.kind) out.kind = 'event'
-      if (!out.day && !rec) {
-        out.day = start <= hhmm(now.getHours(), now.getMinutes()) ? addDays(todayISO, 1) : todayISO
+      // a time with no day is for today (tomorrow, when that time has already gone by): the day is shown as a chip of its own
+      if (!out.day && !rec && !skip.has('date')) {
+        const gone = start <= hhmm(now.getHours(), now.getMinutes())
+        out.day = gone ? addDays(todayISO, 1) : todayISO
+        chip('date', gone ? 'Tomorrow' : 'Today')
       }
+      chip('time', end ? `${formatTime(start)} – ${formatTime(end)}` : formatTime(start))
+      if (!out.kind) out.kind = 'event'
     }
   }
   if (rec) {
@@ -380,35 +404,42 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     if (out.kind !== 'event' && !out.kind) out.kind = start ? 'event' : 'habit'
     if (start && !out.day) out.day = rec.from
     out.repeat = rec
-    out.chips.push(describeRecurrence(rec))
+    chip('repeat', describeRecurrence(rec))
   }
 
   if (before !== null && !remindMode) {
     out.remindBefore = before
     const at = remindFromRule({ day: out.day ?? null, due: out.due ?? null, time: out.time ?? null }, before, now.getTime())
     if (at) out.remindAt = at
-    out.chips.push(`Remind ${before === 1 ? 'a day' : before === 7 ? 'a week' : `${before} days`} before`)
+    chip('before', `Remind ${before === 1 ? 'a day' : before === 7 ? 'a week' : `${before} days`} before`)
   }
 
   // "at Main St", "at Joe's Cafe", "at home": a trailing "at" that is not a time is a place. Only a name starting with a capital letter (as typed) or a
   // common place word counts, so "look at the budget" stays a title.
   if (!remindMode) {
     const left = (rest: string) => rest.replace(/\s+/g, ' ').trim()
-    let pl = take(t, /\s+at\s+(?!\d)((?:[A-Z][\w'’&.-]*)(?:\s+(?:[A-Z][\w'’&.-]*|\d+[A-Za-z]?|the|of|and|&))*)\s*$/)
-    if (!pl.m) pl = take(t, /\s+at\s+(home|work|school|campus|church|the (?:office|gym|park|store|library|doctor'?s?|dentist'?s?))\s*$/i)
+    let pl = takeK('place', t, /\s+at\s+(?!\d)((?:[A-Z][\w'’&.-]*)(?:\s+(?:[A-Z][\w'’&.-]*|\d+[A-Za-z]?|the|of|and|&))*)\s*$/)
+    const atAt = t.toLowerCase().lastIndexOf(' at ')
+    const before = atAt < 0 ? '' : (t.slice(0, atAt).trim().split(/\s+/).pop()?.toLowerCase() ?? '')
+    if (!pl.m && !LOOKS_AT.has(before)) pl = takeK('place', t, /\s+at\s+(home|work|school|campus|church|the (?:office|gym|park|store|library|doctor'?s?|dentist'?s?))\s*$/i)
+    // a place named in lower case ("at downtown clinic", "at the pharmacy"): it must end in a word for somewhere you go, and the word
+    // before "at" must not be one that looks AT things ("look at the park")
+    if (!pl.m && !LOOKS_AT.has(before)) pl = takeK('place', t, new RegExp(`\\s+at\\s+(?!\\d)((?:(?:the|a|an|our|my)\\s+)?(?:[\\w'’&.-]+\\s+){0,3}(?:${PLACE_WORDS})s?)\\s*$`, 'i'))
     if (pl.m && left(pl.rest)) {
       out.place = pl.m[1].trim()
-      out.chips.push(`At ${out.place}`)
+      chip('place', `At ${out.place}`)
       t = pl.rest
     }
   }
 
-  out.title = t
-    .replace(/\s+/g, ' ')
-    .replace(/^\s*(?:to|on|at|by|for|due|from|every|the)\s+/i, '')
-    .replace(/\s+(?:on|at|by|for|due|from|every|next|this|in|until|till|before|to|and|the)\s*$/i, '')
-    .replace(/\s+(?:on|at|by|for|due|from|every|next|this|in|until|till|before|to|and|the)\s*$/i, '')
-    .trim()
+  out.title = opts.keepTitle
+    ? input.replace(/\s+/g, ' ').trim() // as typed
+    : t
+        .replace(/\s+/g, ' ')
+        .replace(/^\s*(?:to|on|at|by|for|due|from|every|the)\s+/i, '')
+        .replace(/\s+(?:on|at|by|for|due|from|every|next|this|in|until|till|before|to|and|the)\s*$/i, '')
+        .replace(/\s+(?:on|at|by|for|due|from|every|next|this|in|until|till|before|to|and|the)\s*$/i, '')
+        .trim()
   void MONTHS
   void DAY_NAMES
   return out

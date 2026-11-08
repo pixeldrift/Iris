@@ -155,7 +155,11 @@ occurrence is ticked off in turn, and you're encouraged for consistency streaks.
 Events have as many reminders as you like before they start. Other items get separate reminders for the day and for the deadline.
 
 **Quick add.** Type naturally ("Dentist friday 2:30pm #Health", "Yoga every mon/wed/fri 7am", "remind me to call mom at 5pm");
-"Lunch with Sam at Panera" adds a place; the preview shows what it understood. People in your address book are tagged by
+"Lunch with Sam at Panera" adds a place ("at Central Park", or in lower case when it ends in somewhere you go: "at downtown
+clinic", "at the pharmacy"; "look at the budget" stays a title). What it understood shows as chips, each with a small x that takes
+that one away (its words go back into the title); the larger x clears them all; *Keep as typed* leaves the title exactly as typed
+while what was understood still applies. Otherwise the title is the item: "at 5pm remind me to pick up the kids" becomes *pick up the
+kids* with a reminder for 5 pm today. A time with no day is for today (tomorrow, if that time has already gone by), shown as its own chip. People in your address book are tagged by
 name without typing an @ ("Call Sarah about the order"): a capitalised first or full name, favourites first (a first name shared by
 several people is only taken when exactly one of them is a favourite, or when the full name is typed); the name stays in the title.
 `#` and `@` offer the groups and people that exist as you type (Tab takes the first). A day that owns something is never taken for

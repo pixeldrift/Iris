@@ -1067,3 +1067,45 @@ describe('quick add and possessive day names', () => {
     expect(q.due ?? q.day).toBeTruthy()
   })
 })
+
+describe('quick add: places, a bare time, removed detections, titles as typed', () => {
+  const parse = async (text: string, opts?: { skip?: string[]; keepTitle?: boolean }, now = new Date(2026, 10, 6, 10, 0)) =>
+    (await import('./quickadd')).parseQuickAdd(text, now, { folders: [], people: [] }, opts)
+  it('finds a place named in lower case, or with capitals', async () => {
+    expect((await parse('Check-up at downtown clinic')).place).toBe('downtown clinic')
+    expect((await parse('Walk at Central Park')).place).toBe('Central Park')
+    expect((await parse('Pick up a prescription at the pharmacy')).place).toBe('the pharmacy')
+    expect((await parse('look at the park')).place).toBeUndefined()
+    expect((await parse('look at the budget')).place).toBeUndefined()
+    expect((await parse('Check-up at downtown clinic')).title).toBe('Check-up')
+  })
+  it('turns "at 5pm remind me to pick up the kids" into a reminder for 5pm today', async () => {
+    const q = await parse('at 5pm remind me to pick up the kids')
+    expect(q.title).toBe('pick up the kids')
+    expect(q.remindAt).toBe(new Date(2026, 10, 6, 17, 0).getTime())
+  })
+  it('gives a time with no day today (tomorrow once it has passed), as a chip of its own', async () => {
+    const q = await parse('Call the bank at 3pm')
+    expect(q.time).toBe('15:00')
+    expect(q.day).toBe('2026-11-06')
+    expect(q.detected.map((d) => d.key)).toEqual(['date', 'time'])
+    expect(q.detected[0].label).toBe('Today')
+    const late = await parse('Call the bank at 8am')
+    expect(late.day).toBe('2026-11-07')
+    expect(late.detected[0].label).toBe('Tomorrow')
+  })
+  it('a removed detection leaves its words in the title and its field unset', async () => {
+    const q = await parse('Lunch with the team at Panera friday 12pm', { skip: ['place'] })
+    expect(q.place).toBeUndefined()
+    expect(q.title).toContain('at Panera')
+    const noTime = await parse('Dentist friday 2:30pm', { skip: ['time'] })
+    expect(noTime.time).toBeUndefined()
+    expect(noTime.title).toContain('2:30pm')
+  })
+  it('keeps the title exactly as typed while still reading the fields', async () => {
+    const q = await parse('Dentist friday 2:30pm at downtown clinic', { keepTitle: true })
+    expect(q.title).toBe('Dentist friday 2:30pm at downtown clinic')
+    expect(q.time).toBe('14:30')
+    expect(q.place).toBe('downtown clinic')
+  })
+})

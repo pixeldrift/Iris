@@ -62,6 +62,44 @@ test.describe('quick add understanding', () => {
     expect(t.due ?? null).toBeNull()
   })
 
+  test('detected pieces have their own x, "keep as typed" keeps the title but not the cleaning, and the big x clears all', async ({ page }) => {
+    await goto(page, 'List')
+    // a place in lower case, then taken away with its x: its words go back to the title
+    await page.keyboard.press('n')
+    await page.keyboard.type('Check-up at downtown clinic')
+    await expect(page.getByText('At downtown clinic')).toBeVisible()
+    await page.getByRole('button', { name: 'Remove At downtown clinic' }).click()
+    await expect(page.getByText('At downtown clinic')).toHaveCount(0)
+    await page.getByLabel('New item').focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => !!(await taskNamed(page, 'Check-up at downtown clinic'))).toBe(true)
+    expect((await taskNamed(page, 'Check-up at downtown clinic'))!.place).toBe('')
+    await page.getByRole('button', { name: 'Done', exact: true }).click() // (the new item opened in the panel)
+    // a reminder: the words around it are not the title
+    await page.keyboard.press('n')
+    await page.keyboard.type('at 5pm remind me to pick up the kids')
+    await expect(page.getByRole('group', { name: 'What was understood' })).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => !!(await taskNamed(page, 'pick up the kids'))?.remindAt).toBe(true)
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    // keep as typed: the title stays as typed, the time is still set
+    await page.keyboard.press('n')
+    await page.keyboard.type('Orthodontist friday 2:30pm')
+    await page.getByRole('button', { name: 'Keep as typed' }).click()
+    await page.getByLabel('New item').focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await taskNamed(page, 'Orthodontist friday 2:30pm'))?.time).toBe('14:30')
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    // the big x clears everything it understood
+    await page.keyboard.press('n')
+    await page.keyboard.type('Swim lesson saturday 9am')
+    await page.getByRole('button', { name: 'Clear everything it understood' }).click()
+    await page.getByLabel('New item').focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => !!(await taskNamed(page, 'Swim lesson saturday 9am'))).toBe(true)
+    expect((await taskNamed(page, 'Swim lesson saturday 9am'))!.time ?? null).toBeNull()
+  })
+
   test('the setting is in Settings', async ({ page }) => {
     await page.getByRole('button', { name: 'My settings' }).click()
     await page.getByRole('dialog').getByRole('radio', { name: 'Suggest' }).click()
