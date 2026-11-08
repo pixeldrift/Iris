@@ -16,7 +16,7 @@ test.describe('spatial workspace', () => {
     await expect(page.getByText('Look around your tasks')).toBeVisible()
     await page.getByRole('button', { name: 'Start looking around' }).click() // (a desktop browser has no motion: it falls back to touch)
     await expect(intro(page).locator('canvas')).toBeVisible()
-    await expect(page.getByText(/^Touch navigation · R \d+/)).toBeVisible({ timeout: 6000 })
+    await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible({ timeout: 6000 })
     await expect(page.getByRole('button', { name: 'Recenter' })).toBeVisible()
     // the tasks are all there for the keyboard and screen readers
     await expect(page.getByRole('list', { name: 'Tasks in your workspace' }).getByRole('button', { name: 'Pay rent' }).first()).toBeAttached()
@@ -37,7 +37,7 @@ test.describe('spatial workspace', () => {
     expect(Object.keys(layout.tasks).length).toBeGreaterThan(5)
     expect(Object.keys(layout.clusters).length).toBeGreaterThan(1)
     const before = JSON.stringify(layout)
-    await page.getByRole('button', { name: 'Back', exact: true }).click()
+    await goto(page, 'Pond')
     await expect(page.locator('[data-node]').first()).toBeVisible() // (the pond again)
     await goto(page, 'Space')
     await page.getByRole('button', { name: 'Use touch only' }).click()
@@ -49,7 +49,6 @@ test.describe('spatial workspace', () => {
     const list = page.getByRole('list', { name: 'Tasks in your workspace' })
     await list.getByRole('button', { name: 'Mark done: Call grandma' }).dispatchEvent('click')
     await expect(list.getByRole('button', { name: 'Call grandma' })).toHaveCount(0) // (completed ones leave, as in the other views)
-    await page.getByRole('button', { name: 'Back', exact: true }).click()
     await goto(page, 'List')
     await expect(page.getByText('Call grandma', { exact: true })).toHaveCount(0)
   })
@@ -60,7 +59,7 @@ test.describe('spatial workspace', () => {
     })
     await enter(page, 'Start looking around')
     await expect(page.getByText(/Motion tracking was not allowed/)).toBeVisible()
-    await expect(page.getByText(/^Touch navigation · R \d+/)).toBeVisible()
+    await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible()
     await expect(intro(page).locator('canvas')).toBeVisible()
   })
 
@@ -83,7 +82,7 @@ test.describe('spatial workspace', () => {
       setInterval(() => window.dispatchEvent(new DOE('deviceorientation', { alpha: (a += 0.5) % 360, beta: 90, gamma: 0 }) as unknown as Event), 30)
     })
     await enter(page, 'Start looking around')
-    await expect(page.getByText(/^Motion tracking · R \d+/)).toBeVisible({ timeout: 6000 })
+    await expect(page.getByText('Motion tracking', { exact: true })).toBeVisible({ timeout: 6000 })
     await page.getByRole('button', { name: 'Recenter' }).click()
     await page.setViewportSize({ width: 390, height: 700 }) // (turning the phone changes the window; it must stay put)
     await page.setViewportSize({ width: 700, height: 390 })
@@ -91,7 +90,7 @@ test.describe('spatial workspace', () => {
     // and turning it off falls back to touch
     await page.getByRole('button', { name: 'Spatial settings' }).click()
     await page.getByRole('radio', { name: 'Touch only' }).click()
-    await expect(page.getByText(/^Touch navigation · R \d+/)).toBeVisible()
+    await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible()
   })
 
   test('without WebGL it is a flat canvas that still works: open and tick tasks, zoom and pan', async ({ page }) => {
@@ -169,20 +168,30 @@ test.describe('spatial workspace', () => {
     await expect(slider).toHaveValue('50')
   })
 
-  test('the radius slider (in the settings) bends the wall, shows on the readout, and its dot puts it back', async ({ page }) => {
+  test('the radius slider (in the settings) starts at 150 and its dot puts it back', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
     const slider = page.getByRole('slider', { name: 'Radius' })
-    await expect(slider).toHaveValue('80')
-    await slider.fill('40')
-    await expect(page.getByText(/ · R 40 · /)).toBeVisible()
+    await expect(slider).toHaveValue('150')
+    await slider.fill('60')
+    await expect(slider).toHaveValue('60')
     await page.getByRole('button', { name: 'Back to the usual radius' }).click()
-    await expect(page.getByText(/ · R 80 · /)).toBeVisible()
+    await expect(slider).toHaveValue('150')
+  })
+
+  test('fit, clean up and the 3D / Flat switch are always on the canvas', async ({ page }) => {
+    await enter(page)
+    for (const n of ['Fit all', 'Clean up', 'Recenter']) await expect(page.getByRole('button', { name: n })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Flat' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0)
+    await page.getByRole('radio', { name: 'Flat' }).click()
+    for (const n of ['Fit all', 'Clean up']) await expect(page.getByRole('button', { name: n })).toBeVisible()
+    await page.getByRole('radio', { name: '3D' }).click()
+    await expect(intro(page).locator('canvas')).toBeVisible()
   })
 
   test('the flat view can be chosen by hand', async ({ page }) => {
     await enter(page)
-    await page.getByRole('button', { name: 'Spatial settings' }).click()
     await page.getByRole('radio', { name: 'Flat' }).click()
     await expect(intro(page).locator('canvas')).toHaveCount(0)
     await expect(page.getByRole('region', { name: 'School' })).toBeVisible()

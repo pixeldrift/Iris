@@ -15,7 +15,7 @@ const HEAD = 40
  * The flat canvas, with no 3D and no sensors: the same groups laid out as the same org chart, on a canvas you drag around and pinch (or
  * scroll) to zoom. Selecting, opening and completing all work. It is also where the workspace lands when 3D is unavailable.
  */
-export function StaticCanvas({ content, layout }: { content: SpatialContent; layout: SpatialLayoutData }) {
+export function StaticCanvas({ content, layout, fitTick = 0 }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number }) {
   const select = useStore((s) => s.select)
   const toggle = useStore((s) => s.toggleDone)
   const box = useRef<HTMLDivElement>(null)
@@ -59,6 +59,10 @@ export function StaticCanvas({ content, layout }: { content: SpatialContent; lay
     const k = Math.min(1.4, Math.max(0.2, Math.min((r.width - pad * 2) / (bounds.x1 - bounds.x0), (r.height - pad * 2) / (bounds.y1 - bounds.y0))))
     setV({ k, x: (r.width - (bounds.x1 - bounds.x0) * k) / 2 - bounds.x0 * k, y: (r.height - (bounds.y1 - bounds.y0) * k) / 2 - bounds.y0 * k })
   }
+  useEffect(() => {
+    if (fitTick) fit()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitTick])
   const fitted = useRef(false)
   useLayoutEffect(() => {
     if (fitted.current || !places.size) return
@@ -146,9 +150,10 @@ export function StaticCanvas({ content, layout }: { content: SpatialContent; lay
           if (!p) return null
           return (
             <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w }} aria-label={c.name}>
-              <h3 className="mb-2 flex items-center justify-between rounded-full px-3.5 py-1.5 font-display text-lg font-bold italic text-white shadow-md" style={{ background: `hsl(${Math.max(0, c.hue)},55%,56%)` }}>
+              <div className="absolute -inset-3 -z-10 rounded-[2rem] border" style={{ background: `hsl(${Math.max(0, c.hue)},60%,84%,0.3)`, borderColor: `hsl(${Math.max(0, c.hue)},55%,72%,0.5)` }} aria-hidden />
+              <h3 className="mb-2 flex items-center gap-2 px-1 font-display text-2xl font-bold italic" style={{ color: `hsl(${Math.max(0, c.hue)},50%,36%)`, textShadow: '0 0 8px rgba(255,255,255,0.95)' }}>
                 {c.name}
-                <span className="rounded-full bg-white/90 px-2 text-xs not-italic" style={{ color: `hsl(${Math.max(0, c.hue)},45%,32%)` }}>
+                <span className="rounded-full px-2 text-xs not-italic" style={{ background: `hsl(${Math.max(0, c.hue)},60%,90%)` }}>
                   {c.count}
                 </span>
               </h3>
@@ -186,9 +191,6 @@ export function StaticCanvas({ content, layout }: { content: SpatialContent; lay
         </button>
         <button type="button" aria-label="Zoom out" onClick={() => zoomAt(1 / 1.2, centre().x, centre().y)} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-lg shadow">
           −
-        </button>
-        <button type="button" aria-label="Fit all" onClick={fit} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-xs shadow">
-          Fit
         </button>
       </div>
     </div>

@@ -84,6 +84,6 @@ feel and drift, camera in a home-screen app, GPU/battery/heat. Those need a pass
 
 ## Org-chart layout, radius and flat canvas
 - New layouts are drawn like an org chart: each group centred over its subgroups on the row below; top-level groups side by side across ~110 degrees, wrapping into bands. Panes stand upright (no lean).
-- **Radius** (Settings, default 80) is the cylinder the wall hangs on. Sizes and arc-length spacing never change: a smaller radius wraps the wall around you, a larger one flattens it. **View angle** and pinch zoom the lens. The status pill shows `R <radius> · <angle> · ×<scale>` for tuning.
+- **Radius** (Settings, default 150) is the cylinder the wall hangs on. Sizes and arc-length spacing never change: a smaller radius wraps the wall around you, a larger one flattens it. **View angle** and pinch zoom the lens. 3D / Flat, Recenter, Fit all and Clean up are always on the canvas.
 - **Flat** has no 3D or sensors: the same org chart on a plain canvas with connector curves; drag to pan, pinch or scroll to zoom, Fit button.
 - Stored layout key is now `lilac-spatial-v3` (old arrangements start afresh).

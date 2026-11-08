@@ -7,7 +7,7 @@ import { useStore } from '../state/store'
 import { useVisibleTasks } from '../ui/useVisible'
 import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
-import { IconChevron, IconCube, IconSliders } from '../ui/icons'
+import { IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
@@ -24,6 +24,7 @@ export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   const { environment, tracking: trackPref, render, seen, tipSeen, links, radius } = useSpatial()
   const [fov, setFov] = useState<number>(FOV.start)
+  const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
   const setLayout = useSpatial((s) => s.setLayout)
   const prefs = useSpatial((s) => s.set)
@@ -188,14 +189,13 @@ export default function SpatialView() {
   /* ---------- what is shown ---------- */
   const where = env === 'camera' ? 'Camera' : env === 'panorama' ? 'Panorama' : ''
   const how = simple ? 'Flat view' : status.source === 'motion' ? 'Motion tracking' : 'Touch navigation'
-  const readout = simple ? '' : ` · R ${radius} · ${Math.round(fov)}° · ×${(FOV.start / fov).toFixed(1)}`
-  const statusText = (simple || !where ? how : `${where} · ${how}`) + readout
+  const statusText = simple || !where ? how : `${where} · ${how}`
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
       <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" />
-      {phase === 'running' && simple && <StaticCanvas content={content} layout={stored} />}
+      {phase === 'running' && simple && <StaticCanvas content={content} layout={stored} fitTick={fitTick} />}
 
       {phase === 'intro' && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 p-5 backdrop-blur-sm">
@@ -230,12 +230,7 @@ export default function SpatialView() {
       {phase === 'running' && (
         <>
           <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between">
-            <button type="button" onClick={exit} className="pointer-events-auto flex items-center gap-1 rounded-full bg-white/80 py-1.5 pl-2 pr-3.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
-              <span className="rotate-180">
-                <IconChevron size={15} />
-              </span>
-              Back
-            </button>
+            <span />
             <button ref={menuBtn} type="button" aria-label="Spatial settings" aria-expanded={menu} onClick={() => setMenu((o) => !o)} className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-white/80 text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
               <IconSliders size={17} />
             </button>
@@ -311,21 +306,12 @@ export default function SpatialView() {
                   </div>
                 </div>
               )}
-              <div>
-                Drawing
-                <div className="mt-1">
-                  <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }]} onChange={(r) => prefs({ render: r })} />
-                </div>
-              </div>
               {!simple && (
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
                   Faint curves between groups and their subgroups
                   <input type="checkbox" checked={links} onChange={(e) => prefs({ links: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
                 </label>
               )}
-              <button type="button" onClick={() => useSpatial.getState().resetLayout()} className="rounded-full bg-white/70 px-3 py-1.5 text-ink-soft transition hover:bg-white">
-                Tidy everything back into place
-              </button>
             </div>
           </Popover>
           <input
@@ -343,18 +329,27 @@ export default function SpatialView() {
             }}
           />
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex items-end justify-between gap-2">
-            {!simple ? (
-              <span className="pointer-events-auto flex gap-1.5">
+            <span className="pointer-events-auto flex flex-wrap items-center gap-1.5">
+              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }]} onChange={(r) => prefs({ render: r })} />
+              {!simple && (
                 <button type="button" onClick={() => scene.current?.recenter()} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
                   Recenter
                 </button>
-                <button type="button" onClick={() => scene.current?.frameAll()} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
-                  Fit all
-                </button>
-              </span>
-            ) : (
-              <span />
-            )}
+              )}
+              <button type="button" onClick={() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll())} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
+                Fit all
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  useSpatial.getState().resetLayout()
+                  setTimeout(() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll()), 400)
+                }}
+                className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white"
+              >
+                Clean up
+              </button>
+            </span>
             <span role="status" className="rounded-full bg-white/75 px-3 py-1 text-xs text-ink-soft shadow backdrop-blur">
               {statusText}
             </span>

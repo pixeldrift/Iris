@@ -398,11 +398,13 @@ export class SpatialScene {
   /** Whether the connectors between a group and its subgroups are drawn. */
   /** Hang the groups on a cylinder of this radius: the same layout, curled more around you when near and flatter when far. */
   setRadius(r: number) {
+    const changed = Math.abs(r - this.radius) > 1e-9
     this.radius = r
     this.layout = withRadius(this.content.layout, r)
     this.shown = { ...this.layout.clusters }
     this.place()
     this.dirty = true
+    if (changed) this.frameAll(true) // (a new radius changes how big everything looks, so fit it again)
   }
   getRadius() {
     return this.radius
@@ -499,7 +501,7 @@ export class SpatialScene {
     const pit0 = (minP + maxP) / 2
     const aspect = Math.max(0.2, this.camera.aspect)
     const needH = Math.max(maxY - minY, 2 * Math.atan(Math.tan((maxP - minP) / 2) * aspect)) * 1.1
-    const fov = Math.min(FOV.max, Math.max(FOV.start, (needH * 180) / Math.PI))
+    const fov = Math.min(FOV.max, Math.max(FOV.min + 5, (needH * 180) / Math.PI))
     const t = this.tracking.touch
     if (instant) {
       t.set(-yaw0 - this.tracking.sensorYaw(), pit0)

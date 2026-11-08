@@ -207,34 +207,33 @@ export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo) {
   canvas.height = HUB_PX.h
   const g = canvas.getContext('2d')!
   g.clearRect(0, 0, canvas.width, canvas.height)
-  const x = 8
-  const y = 14
-  const w = canvas.width - 16
-  const h = canvas.height - 28
-  roundRect(g, x, y, w, h, h / 2)
-  const fill = g.createLinearGradient(x, y, x + w, y)
-  fill.addColorStop(0, hsl(hub.hue, 55, 52, 1))
-  fill.addColorStop(1, hsl(hub.hue, 55, 60, 1))
-  g.fillStyle = fill
-  g.shadowColor = hsl(hub.hue, 50, 45, 0.4)
-  g.shadowBlur = 12
-  g.fill()
-  g.shadowColor = 'transparent'
-  g.fillStyle = '#fff'
+  // the pond's group name: bold italic serif in the group's own colour, no bubble behind it, a soft white glow to keep it readable
+  const x = 22
+  const mid = canvas.height / 2
   g.textBaseline = 'middle'
-  g.font = `italic 700 34px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
-  const label = wrapTitle(g, hub.name, w - 90, 1)[0] ?? hub.name
-  g.fillText(label, x + 26, y + h / 2 + 1)
-  // the count in a small round chip
-  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
+  g.font = `italic 700 58px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
   const n = String(hub.count)
+  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
   const cw = Math.max(34, g.measureText(n).width + 18)
-  roundRect(g, x + w - cw - 14, y + h / 2 - 17, cw, 34, 17)
-  g.fillStyle = 'rgba(255,255,255,0.9)'
+  g.font = `italic 700 58px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
+  const label = wrapTitle(g, hub.name, canvas.width - x - cw - 50, 1)[0] ?? hub.name
+  const ink = hub.hue < 0 ? 'hsl(270,20%,38%)' : hsl(hub.hue, 50, 36, 1)
+  g.shadowColor = 'rgba(255,255,255,0.95)'
+  g.shadowBlur = 8
+  g.fillStyle = ink
+  g.fillText(label, x, mid + 1)
+  g.fillText(label, x, mid + 1)
+  g.shadowColor = 'transparent'
+  // the count in a small pale chip after the name
+  const tw = g.measureText(label).width
+  const cx = x + tw + 16
+  roundRect(g, cx, mid - 17, cw, 34, 17)
+  g.fillStyle = hub.hue < 0 ? 'rgba(235,232,240,0.9)' : hsl(hub.hue, 60, 90, 0.95)
   g.fill()
-  g.fillStyle = hsl(hub.hue, 45, 32, 1)
+  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
+  g.fillStyle = ink
   g.textAlign = 'center'
-  g.fillText(n, x + w - cw / 2 - 14, y + h / 2 + 1)
+  g.fillText(n, cx + cw / 2, mid + 1)
   g.textAlign = 'left'
 }
 
@@ -251,7 +250,7 @@ export function drawPlate(wUnits: number, hUnits: number, hue: number, hover = f
   c.height = h
   const g = c.getContext('2d')!
   const pad = 6
-  const radius = Math.min(1.25 * PX, (Math.min(w, h) - pad * 2) / 2)
+  const radius = Math.min(2.4 * PX, (Math.min(w, h) - pad * 2) / 2)
   roundRect(g, pad, pad, w - pad * 2, h - pad * 2, radius)
   g.fillStyle = hue < 0 ? 'rgba(236,236,236,0.34)' : hsl(hue, 60, 84, hover ? 0.62 : 0.3)
   g.fill()

@@ -343,4 +343,4 @@ export function fromRadius(l: SpatialLayoutData, r: number): SpatialLayoutData {
   return { clusters, tasks }
 }
 /** The radius the testing slider offers (the default is the reference radius). */
-export const RADIUS = { start: WORLD.ring, min: 25, max: 200 }
+export const RADIUS = { start: 150, min: 25, max: 250 }
