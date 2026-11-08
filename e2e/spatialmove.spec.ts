@@ -12,7 +12,7 @@ async function enter(page: import('@playwright/test').Page) {
 }
 const pt = (page: import('@playwright/test').Page, kind: string, id: string) => page.evaluate(([k, i]) => (window as unknown as { __space: { screenPoint: (k: string, i: string) => Pt } }).__space.screenPoint(k, i), [kind, id])
 const empty = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __space: { emptyPoint: () => Pt } }).__space.emptyPoint())
-const stored = (page: import('@playwright/test').Page) => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v4')!).state.layout)
+const stored = (page: import('@playwright/test').Page) => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v5')!).state.layout)
 const drag = async (page: import('@playwright/test').Page, a: { x: number; y: number }, b: { x: number; y: number }) => {
   await page.mouse.move(a.x, a.y)
   await page.mouse.down()

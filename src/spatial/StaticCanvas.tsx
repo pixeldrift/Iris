@@ -141,9 +141,9 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
             const a = places.get(c.parent as string)!
             const b = places.get(c.id)!
             const x0 = a.x + a.w / 2
-            const y0 = a.y + a.h
             const x1 = b.x + b.w / 2
             const y1 = b.y
+            const y0 = Math.min(a.y + a.h, y1 - 24) // (always downhill: never ends above where it starts)
             const m = (y0 + y1) / 2
             return <path key={c.id} d={`M${x0},${y0} C${x0},${m} ${x1},${m} ${x1},${y1}`} fill="none" stroke={`hsl(${Math.max(0, c.hue)},50%,62%)`} strokeWidth={2.5} strokeLinecap="round" opacity={0.7} />
           })}

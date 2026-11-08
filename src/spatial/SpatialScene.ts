@@ -366,10 +366,16 @@ export class SpatialScene {
       const cb = planeBasis(cp)
       const ps = pp.scale ?? 1
       const cs = cp.scale ?? 1
-      // from just under the group (below its pane) to just above the subgroup's name
+      // from just under the group's box (or its name, when folded) to just above the subgroup's name
       const prow = pp.rows ?? 1
-      const p0 = new Vector3(...[0, 1, 2].map((i) => [pp.x, pp.y, pp.z][i] + pb.up[i] * -((prow * (WORLD.cardH + WORLD.gap) + 0.55 * K) * ps)) as [number, number, number])
-      const p3 = new Vector3(...[0, 1, 2].map((i) => [cp.x, cp.y, cp.z][i] + cb.up[i] * (0.95 * K * cs)) as [number, number, number])
+      const pc = this.content.clusters.find((c) => c.id === h.parent)
+      const below = pc?.collapsed ? 0.45 * K : prow * (WORLD.cardH + WORLD.gap) + 0.5 * K
+      const at = (c: ClusterPlacement, b: ReturnType<typeof planeBasis>, v: number) => new Vector3(c.x + b.up[0] * v, c.y + b.up[1] * v, c.z + b.up[2] * v)
+      const p0 = at(pp, pb, -below * ps)
+      const p3 = at(cp, cb, 0.34 * K * cs)
+      // a branch always runs downhill: if the subgroup's name is not clearly lower than where this one leaves, it leaves from higher up
+      const drop = (p0.y - p3.y) / Math.max(0.2, pb.up[1])
+      if (drop < 0.5 * K * ps) p0.addScaledVector(new Vector3(pb.up[0], pb.up[1], pb.up[2]), (0.5 * K * ps - drop) * Math.max(0.2, pb.up[1]))
       const d = p0.distanceTo(p3)
       // a gentle S: it leaves heading down, arrives heading down, with a sideways sway so it reads as grown, not ruled
       const side = new Vector3(pb.right[0], pb.right[1], pb.right[2]).multiplyScalar(((cp.a - pp.a) * pp.r) * 0.18)

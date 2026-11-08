@@ -52,7 +52,7 @@ export const useSpatial = create<SpatialState>()(
       resetLayout: () => set({ layout: { clusters: {}, tasks: {} } }),
     }),
     {
-      name: 'lilac-spatial-v4',
+      name: 'lilac-spatial-v5',
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
       partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, radius: s.radius, collapsed: s.collapsed }),
     },

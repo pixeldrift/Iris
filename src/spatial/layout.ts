@@ -36,7 +36,7 @@ export const slotAt = (slot: number, cols: number) => ({ u: ((slot % cols) - (co
 /** Groups start in a wide, shallow wall within 55 degrees either side of straight ahead (110 in all), so nothing begins behind the viewer. */
 export const START_SPAN = (Math.PI * 11) / 18
 const MARGIN = 1.1 * K // clear space between neighbouring groups
-const TIER_HEAD = 1.1 * K // a group's name, and the gap above its cards
+const TIER_HEAD = 2.3 * K // a group's name, and the gap above its cards
 
 const widthOf = (cols: number) => cols * cellW + MARGIN
 const heightOf = (rows: number) => rows * cellH + TIER_HEAD
