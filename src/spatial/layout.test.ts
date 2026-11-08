@@ -27,7 +27,7 @@ describe('spatial layout', () => {
   it('puts clusters on a ring around the viewer, facing the middle, the first ones straight ahead', () => {
     const l = ensureLayout(empty, input({ one: ['a'] }))
     const c = l.clusters.one
-    expect(Math.hypot(c.x, c.z)).toBeCloseTo(4.4, 1)
+    expect(Math.hypot(c.x, c.z)).toBeCloseTo(9, 1)
     expect(c.z).toBeLessThan(0) // in front (down -Z)
     expect(Math.abs(c.x)).toBeLessThan(1)
     // facing the middle: the plane's normal points back toward the origin
@@ -51,16 +51,18 @@ describe('spatial layout', () => {
     const second = ensureLayout(first, input({ school: ['a'], home: ['b'], life: ['c'] }))
     expect(second.clusters.school).toEqual(first.clusters.school)
     expect(second.clusters.home).toEqual(first.clusters.home)
-    expect(second.clusters.life.a).toBeGreaterThan(first.clusters.home.a)
+    // on the same row to the right if there is room, otherwise on a new row below
+    const life = second.clusters.life
+    expect(life.a > first.clusters.home.a || life.y < first.clusters.home.y).toBe(true)
   })
-  it('puts a subgroup a little nearer than its parent, and links it', () => {
+  it('puts a subgroup on the same cylinder as its parent (never looming over it), and links it', () => {
     const inp = input({ school: ['a'], eng: ['b'] })
     inp.clusters = [
       { id: 'school', parent: null, depth: 0, order: 0 },
       { id: 'eng', parent: 'school', depth: 1, order: 1 },
     ]
     const l = ensureLayout(empty, inp)
-    expect(l.clusters.eng.r).toBeLessThan(l.clusters.school.r)
+    expect(l.clusters.eng.r).toBeCloseTo(l.clusters.school.r, 5)
     expect(l.clusters.eng.parent).toBe('school')
   })
   it('re-slots a task that moves to another group, and moves clusters and tasks by world position', () => {
@@ -75,5 +77,49 @@ describe('spatial layout', () => {
     expect(t2.u).toBeCloseTo(0.7, 5)
     expect(t2.v).toBeCloseTo(-0.9, 5)
     expect(lookAt(c2).yaw).toBeCloseTo(-Math.PI / 4, 5)
+  })
+
+  it('starts every group within a 90-degree stretch straight ahead (none behind the viewer), on rows below when there are many', () => {
+    const many: Record<string, string[]> = {}
+    for (let i = 0; i < 12; i++) many[`g${i}`] = Array.from({ length: 1 + (i % 5) }, (_, k) => `t${i}-${k}`)
+    const l = ensureLayout(empty, input(many))
+    for (const c of Object.values(l.clusters)) {
+      expect(Math.abs(c.a)).toBeLessThanOrEqual(Math.PI / 4 + 1e-6)
+      expect(c.z).toBeLessThan(0) // in front
+    }
+    expect(Math.max(...Object.values(l.clusters).map((c) => c.tier ?? 0))).toBeGreaterThan(0)
+  })
+  it('never lets two groups (or their cards) overlap', () => {
+    const many: Record<string, string[]> = {}
+    for (let i = 0; i < 14; i++) many[`g${i}`] = Array.from({ length: 1 + ((i * 7) % 11) }, (_, k) => `t${i}-${k}`)
+    const inp = input(many)
+    // two of them are subgroups (nearer)
+    inp.clusters = inp.clusters.map((c, i) => (i === 3 || i === 8 ? { ...c, parent: 'g0', depth: 1 } : c))
+    const l = ensureLayout(empty, inp)
+    const cellW = 3 + 0.24
+    const cellH = 1 + 0.24
+    const boxes = Object.entries(l.clusters).map(([id, c]) => {
+      const n = many[id].length
+      const rows = Math.ceil(n / c.cols)
+      const half = (c.cols * cellW) / 2
+      const tx = Math.cos(c.ry)
+      const tz = -Math.sin(c.ry)
+      return { id, ax: c.x - tx * half, az: c.z - tz * half, bx: c.x + tx * half, bz: c.z + tz * half, top: c.y + 0.5, bottom: c.y - rows * cellH }
+    })
+    const ccw = (ax: number, az: number, bx: number, bz: number, cx: number, cz: number) => (cz - az) * (bx - ax) > (bz - az) * (cx - ax)
+    const cross = (p: (typeof boxes)[number], q: (typeof boxes)[number]) => ccw(p.ax, p.az, q.ax, q.az, q.bx, q.bz) !== ccw(p.bx, p.bz, q.ax, q.az, q.bx, q.bz) && ccw(p.ax, p.az, p.bx, p.bz, q.ax, q.az) !== ccw(p.ax, p.az, p.bx, p.bz, q.bx, q.bz)
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const verticalOverlap = boxes[i].top > boxes[j].bottom && boxes[j].top > boxes[i].bottom
+        if (verticalOverlap) expect(cross(boxes[i], boxes[j])).toBe(false)
+      }
+  })
+  it('adds a new group under the old ones when a row is full, without moving anything', () => {
+    const base: Record<string, string[]> = { a: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'], b: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'] }
+    const first = ensureLayout(empty, input(base))
+    const next = ensureLayout(first, input({ ...base, c: ['c1', 'c2'], d: ['d1'] }))
+    for (const id of ['a', 'b']) expect(next.clusters[id]).toEqual(first.clusters[id])
+    expect(Math.abs(next.clusters.c.a)).toBeLessThanOrEqual(Math.PI / 4 + 1e-6)
+    expect(next.clusters.c.z).toBeLessThan(0)
   })
 })

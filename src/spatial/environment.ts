@@ -61,7 +61,7 @@ function skyCanvas(): HTMLCanvasElement {
 
 function skySphere(map: Texture): Mesh {
   map.colorSpace = SRGBColorSpace
-  const m = new Mesh(new SphereGeometry(40, 48, 24), new MeshBasicMaterial({ map, side: BackSide, depthWrite: false, fog: false }))
+  const m = new Mesh(new SphereGeometry(120, 48, 24), new MeshBasicMaterial({ map, side: BackSide, depthWrite: false, fog: false }))
   m.scale.x = -1 // (seen from inside, so the picture is not mirrored)
   m.renderOrder = -10
   return m
@@ -88,18 +88,18 @@ export class VirtualEnvironment implements EnvironmentProvider {
     rg.addColorStop(1, 'rgba(255,255,255,0)')
     g.fillStyle = rg
     g.fillRect(0, 0, 256, 256)
-    this.floor = new Mesh(new CircleGeometry(9, 48), new MeshBasicMaterial({ map: new CanvasTexture(f), transparent: true, depthWrite: false, side: DoubleSide }))
+    this.floor = new Mesh(new CircleGeometry(24, 48), new MeshBasicMaterial({ map: new CanvasTexture(f), transparent: true, depthWrite: false, side: DoubleSide }))
     this.floor.rotation.x = -Math.PI / 2
-    this.floor.position.y = -1.7
+    this.floor.position.y = -6
     scene.add(this.floor)
     // dust, drifting very slowly, for depth
     const n = 160
     const pos = new Float32Array(n * 3)
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2
-      const r = 2 + Math.random() * 10
+      const r = 4 + Math.random() * 22
       pos[i * 3] = Math.sin(a) * r
-      pos[i * 3 + 1] = (Math.random() - 0.4) * 6
+      pos[i * 3 + 1] = (Math.random() - 0.4) * 14
       pos[i * 3 + 2] = -Math.cos(a) * r
     }
     const geo = new BufferGeometry()
@@ -113,7 +113,7 @@ export class VirtualEnvironment implements EnvironmentProvider {
     sr.addColorStop(1, 'rgba(255,255,255,0)')
     sg.fillStyle = sr
     sg.fillRect(0, 0, 64, 64)
-    this.dust = new Points(geo, new PointsMaterial({ size: 0.08, map: new CanvasTexture(sp), color: new Color('#ffffff'), transparent: true, opacity: 0.55, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true }))
+    this.dust = new Points(geo, new PointsMaterial({ size: 0.12, map: new CanvasTexture(sp), color: new Color('#ffffff'), transparent: true, opacity: 0.45, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true }))
     scene.add(this.dust)
     return true
   }

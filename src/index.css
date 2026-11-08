@@ -578,3 +578,16 @@ body.scrubbing .glow-breathe {
 @keyframes edge-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes edge-breathe { 0%, 100% { transform: scale(0.92); } 50% { transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { .edge-dot { animation: edge-in 0.45s ease-out forwards; } }
+
+/* The app is not a document: dragging across it never highlights text or images. Text boxes (and anything marked .select-text) still select. */
+html, body, #root {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select, [contenteditable='true'], .select-text, .select-text * {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+img { -webkit-user-drag: none; user-drag: none; }

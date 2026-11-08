@@ -43,7 +43,7 @@ const TAP_PX = 8
 export class SpatialScene {
   private renderer: WebGLRenderer
   private scene = new Scene()
-  private camera = new PerspectiveCamera(62, 1, 0.1, 120)
+  private camera = new PerspectiveCamera(62, 1, 0.1, 300)
   private raycaster = new Raycaster()
   private tasks = new Map<string, Node>()
   private hubs = new Map<string, Node>()
@@ -177,12 +177,12 @@ export class SpatialScene {
       const cp = L.clusters[h.id]
       const n = this.hubs.get(h.id)
       if (!cp || !n) continue
-      n.mesh.position.set(cp.x, cp.y + 0.05, cp.z)
+      n.mesh.position.set(cp.x, cp.y, cp.z)
       n.mesh.rotation.set(0, cp.ry, 0)
       // the plate: a faint pane the group's cards sit on
       const mine = this.content.tasks.filter((t) => L.tasks[t.id]?.c === h.id)
-      let top = 0.25
-      let bottom = -0.5
+      let top = 0.55
+      let bottom = -1
       let left = -WORLD.cardW / 2
       let right = WORLD.cardW / 2
       for (const t of mine) {
@@ -199,12 +199,12 @@ export class SpatialScene {
         this.plates.set(h.id, plate)
       }
       ;(plate.material as MeshBasicMaterial).color = new Color(`hsl(${Math.max(0, hueOf.get(h.id) ?? 285)}, ${hueOf.get(h.id)! < 0 ? 0 : 70}%, 70%)`)
-      const w = right - left + 0.3
-      const hh = top - bottom + 0.3
+      const w = right - left + 0.6
+      const hh = top - bottom + 0.6
       plate.scale.set(w, hh, 1)
       const cx = (left + right) / 2
       const cy = (top + bottom) / 2
-      plate.position.set(cp.x + Math.cos(cp.ry) * cx + Math.sin(cp.ry) * -0.02, cp.y + cy, cp.z + -Math.sin(cp.ry) * cx + Math.cos(cp.ry) * -0.02)
+      plate.position.set(cp.x + Math.cos(cp.ry) * cx + Math.sin(cp.ry) * -0.06, cp.y + cy, cp.z + -Math.sin(cp.ry) * cx + Math.cos(cp.ry) * -0.06)
       plate.rotation.set(0, cp.ry, 0)
       plateSeen.add(h.id)
     }
@@ -396,7 +396,7 @@ export class SpatialScene {
         el.className = 'edge-dot'
         el.setAttribute('aria-label', 'A group out of view this way: turn to it')
         el.title = 'A group out of view this way'
-        Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '24px', height: '24px', translate: '-50% -50%', borderRadius: '9999px' })
+        Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '16px', height: '16px', translate: '-50% -50%', borderRadius: '9999px' })
         const id = d.id
         el.addEventListener('click', () => this.focusCluster(id))
         el.addEventListener('pointerdown', (e) => e.stopPropagation())

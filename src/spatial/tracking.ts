@@ -55,20 +55,13 @@ export class SensorTracking {
   private haveRef = false
   private last = 0
   private running = false
-  private compassFix = 0
   private cb?: (alive: boolean) => void
-  private handler = (e: DeviceOrientationEvent) => {
+  private handler = (e: DeviceOrientationEvent) => this.ingest(e)
+  /** One reading from the sensor (public so it can be tested with made-up readings). */
+  ingest(e: Pick<DeviceOrientationEvent, 'alpha' | 'beta' | 'gamma'>) {
     if (e.alpha === null || e.beta === null || e.gamma === null) return
     const angle = (typeof screen !== 'undefined' && screen.orientation?.angle) || (typeof window !== 'undefined' ? ((window as unknown as { orientation?: number }).orientation ?? 0) : 0)
     orientationToQuaternion(e.alpha, e.beta, e.gamma, angle, this.target)
-    // iOS also reports a compass heading: a slow nudge of the yaw toward it stops the heading wandering over a long session
-    const heading = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading
-    const acc = (e as unknown as { webkitCompassAccuracy?: number }).webkitCompassAccuracy
-    if (typeof heading === 'number' && (acc === undefined || (acc >= 0 && acc < 25))) {
-      const want = -heading * deg
-      const diff = Math.atan2(Math.sin(want - yawOf(this.target)), Math.cos(want - yawOf(this.target)))
-      this.compassFix = this.haveRef ? this.compassFix + diff * 0.02 : diff
-    }
     const first = this.last === 0
     this.last = performance.now()
     if (!this.haveRef) this.recenter()
@@ -113,7 +106,6 @@ export class SensorTracking {
   /** Forget the heading: "ahead" is wherever the device points now (the up/down tilt is kept). */
   recenter() {
     this.yawRef = yawOf(this.target)
-    this.compassFix = 0
     this.haveRef = true
   }
   get quality(): TrackingQuality {
@@ -125,7 +117,7 @@ export class SensorTracking {
   read(out = new Quaternion()): Quaternion {
     const angle = this.smooth.angleTo(this.target)
     this.smooth.slerp(this.target, Math.min(0.85, 0.08 + angle * 5))
-    out.setFromAxisAngle(YAXIS, -(this.yawRef + this.compassFix)).multiply(this.smooth)
+    out.setFromAxisAngle(YAXIS, -this.yawRef).multiply(this.smooth)
     return out
   }
 }

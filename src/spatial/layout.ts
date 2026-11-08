@@ -25,21 +25,28 @@ export interface LayoutInput {
   allClusterIds: ReadonlySet<string>
 }
 
-const colsFor = (n: number) => Math.max(1, Math.min(4, Math.ceil(Math.sqrt(Math.max(1, n) * 1.4))))
+const colsFor = (n: number) => Math.max(1, Math.min(3, Math.ceil(Math.sqrt(Math.max(1, n) * 1.4))))
 const cellW = WORLD.cardW + WORLD.gap
 const cellH = WORLD.cardH + WORLD.gap
 const slotAt = (slot: number, cols: number) => ({ u: ((slot % cols) - (cols - 1) / 2) * cellW, v: -(Math.floor(slot / cols) + 1) * cellH })
 
-/** A cluster's place on the ring: faces the middle, with its grid roughly level with the eyes. */
-/** Neighbouring clusters sit at different heights (level, high, low), so the whole sphere in front of a tall phone is used. */
-const STAGGER = [0, 1.05, -0.85]
-function place(a: number, r: number, cols: number, rows: number, parent: string | null, index = 0): ClusterPlacement {
-  return { x: r * Math.sin(a), y: (rows * cellH) / 2 + 0.2 + STAGGER[index % STAGGER.length], z: -r * Math.cos(a), ry: -a, a, r, cols, parent }
+/** Groups start within a quarter turn either side of straight ahead (90 degrees in all), so nothing begins behind the viewer. */
+export const START_SPAN = Math.PI / 2
+const MARGIN = 1.8 // clear space between neighbouring groups
+const TIER_HEAD = 2.3 // a group's name, and the gap above its cards
+
+const widthOf = (cols: number) => cols * cellW + MARGIN
+const heightOf = (rows: number) => rows * cellH + TIER_HEAD
+
+/** A cluster's place on the cylinder: faces the middle; `top` is where its name sits. */
+function place(a: number, r: number, cols: number, top: number, parent: string | null, tier: number): ClusterPlacement {
+  return { x: r * Math.sin(a), y: top, z: -r * Math.cos(a), ry: -a, a, r, cols, parent, tier }
 }
 
 /**
  * Give every shown cluster and task a place. Anything that already has one keeps it (so adding, completing or removing things
- * never moves what is left); new clusters take the next free stretch of the ring, new tasks the first free slot in their grid.
+ * never moves what is left). New groups are laid out left to right across a 90-degree stretch straight ahead, then on further rows
+ * below (never round behind the viewer); new tasks take the first free slot in their group's grid.
  */
 export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): SpatialLayoutData {
   const clusters: Record<string, ClusterPlacement> = {}
@@ -50,29 +57,72 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
 
   const byCluster = new Map<string, LayoutTask[]>()
   for (const t of input.tasks) byCluster.set(t.cluster, [...(byCluster.get(t.cluster) ?? []), t])
+  const rowsOf = (id: string, cols: number) => Math.max(1, Math.ceil((byCluster.get(id)?.length ?? 1) / cols))
 
-  // new clusters, in tree order: a stretch of the ring each, side by side, subgroups a little nearer than their parents
-  const arcOf = (cols: number) => cols * cellW + 0.9
   const fresh = input.clusters.filter((c) => !clusters[c.id]).sort((a, b) => a.order - b.order)
   if (fresh.length) {
-    const taken = Object.values(clusters).map((c) => c.a)
-    // an empty room starts centred on straight ahead; otherwise new ones go on after the furthest right
-    const placed = fresh.reduce<{ id: string; w: number; cols: number; rows: number }[]>((acc, c) => {
-      const n = byCluster.get(c.id)?.length ?? 1
-      const cols = colsFor(n)
-      acc.push({ id: c.id, w: arcOf(cols), cols, rows: Math.ceil(n / cols) })
-      return acc
-    }, [])
-    const ringOf = (c: LayoutCluster) => WORLD.ring - c.depth * 0.7
-    const total = placed.reduce((s, p) => s + p.w / WORLD.ring, 0)
-    let a = taken.length ? Math.max(...taken) + 0.35 : -total / 2
-    for (const p of placed) {
-      const c = fresh.find((x) => x.id === p.id)!
-      const r = ringOf(c)
-      const span = p.w / r
-      clusters[p.id] = place(a + span / 2, r, p.cols, p.rows, c.parent, Object.keys(clusters).length)
-      a += span
+    const had = Object.entries(clusters)
+    const sized = fresh.map((c) => {
+      const cols = colsFor(byCluster.get(c.id)?.length ?? 1)
+      const r = WORLD.ring // one cylinder for all of them (a nearer subgroup would loom over, and overlap, the group in front of it); a line joins it to its group
+      return { c, cols, r, rows: rowsOf(c.id, cols), span: widthOf(cols) / r }
+    })
+    // which row and angle each new group takes
+    let tier = 0
+    let cursor = -START_SPAN / 2
+    let rowCount = 0
+    let belowAll = 0
+    if (had.length) {
+      tier = Math.max(...had.map(([, p]) => p.tier ?? 0))
+      const row = had.filter(([, p]) => (p.tier ?? 0) === tier)
+      rowCount = row.length
+      cursor = Math.max(...row.map(([, p]) => p.a + widthOf(p.cols) / (2 * p.r)))
+      belowAll = Math.min(...had.map(([id, p]) => p.y - heightOf(rowsOf(id, p.cols)))) // just under the lowest group so far
     }
+    const lastTier = tier
+    const placed: { id: string; a: number; r: number; cols: number; rows: number; tier: number; parent: string | null; span: number }[] = []
+    for (const s of sized) {
+      if (rowCount > 0 && cursor + s.span > START_SPAN / 2 + 1e-9) {
+        // no room left on this row: start the next one below
+        tier++
+        cursor = -START_SPAN / 2
+        rowCount = 0
+      }
+      placed.push({ id: s.c.id, a: cursor + s.span / 2, r: s.r, cols: s.cols, rows: s.rows, tier, parent: s.c.parent, span: s.span })
+      cursor += s.span
+      rowCount++
+    }
+    // a brand-new layout centres each row in the stretch straight ahead (a single group sits dead ahead)
+    if (!had.length) {
+      for (const t of new Set(placed.map((p) => p.tier))) {
+        const row = placed.filter((p) => p.tier === t)
+        const shift = (START_SPAN - row.reduce((sum, p) => sum + p.span, 0)) / 2
+        for (const p of row) p.a += shift
+      }
+    }
+    // heights: each row is as tall as its tallest group; a brand-new layout is centred on eye level, later groups go under the old ones
+    const tiers = [...new Set(placed.map((p) => p.tier))].sort((x, y) => x - y)
+    const tierH = new Map(tiers.map((t) => [t, Math.max(...placed.filter((p) => p.tier === t).map((p) => heightOf(p.rows)))]))
+    const tierTop = new Map<number, number>()
+    if (had.length) {
+      const lastTop = Math.max(...had.filter(([, p]) => (p.tier ?? 0) === lastTier).map(([, p]) => p.y))
+      let y = belowAll
+      for (const t of tiers) {
+        if (t === lastTier) tierTop.set(t, lastTop)
+        else {
+          tierTop.set(t, y)
+          y -= tierH.get(t)!
+        }
+      }
+    } else {
+      const total = tiers.reduce((sum, t) => sum + tierH.get(t)!, 0)
+      let y = total / 2 + 0.6
+      for (const t of tiers) {
+        tierTop.set(t, y)
+        y -= tierH.get(t)!
+      }
+    }
+    for (const p of placed) clusters[p.id] = place(p.a, p.r, p.cols, tierTop.get(p.tier) as number, p.parent, p.tier)
   }
   // a cluster's parent link follows the tree
   for (const c of input.clusters) if (clusters[c.id]) clusters[c.id] = { ...clusters[c.id], parent: c.parent }
@@ -122,4 +172,4 @@ export function moveTask(t: TaskPlacement, c: ClusterPlacement, world: Vec3): Ta
 }
 
 /** The heading (radians) and height to look at to face a cluster. */
-export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - 0.5, Math.hypot(c.x, c.z)) })
+export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - 1.2, Math.hypot(c.x, c.z)) })
