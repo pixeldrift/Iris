@@ -1,6 +1,8 @@
 # Lilac roadmap
 
 ## Recently shipped
+Progress (percent complete): a slider, a count (12 of 20) with a tally and keypad, or a list's ticks; break points for the Progress
+columns that move items both ways (see *Progress* in the README);
 Web Push reminders that reach you when the app is closed (tested on two real phones, both installed to the Home Screen, with the app closed);
 sharing a group (first cut: see *Collaboration*);
 list ordering ("My order") and "at <place>" in quick add; Progress view with stages you can edit and drop-anywhere ordering; the

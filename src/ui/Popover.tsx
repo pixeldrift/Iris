@@ -37,6 +37,7 @@ export function Popover({
     const down = (e: PointerEvent) => {
       const t = e.target as Node
       if (box.current?.contains(t) || anchor.current?.contains(t)) return
+      if ((t as Element).closest?.('[data-pop]')) return // a popover opened from inside this one (a keypad on a field) is part of it
       if ((t as Element).closest?.('[data-input-proxy]')) return // the typing bar for a sideways phone belongs to whatever is open
       onClose()
     }
@@ -109,6 +110,7 @@ export function Popover({
   return createPortal(
     <div
       ref={box}
+      data-pop
       style={style}
       // a portal still bubbles through the React tree: keep clicks in here from reaching the row or card it hangs off
       onClick={(e) => e.stopPropagation()}

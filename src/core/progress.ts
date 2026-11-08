@@ -81,3 +81,44 @@ export function planRank(list: { id: string; rank?: number | null }[], at: numbe
   for (let k = placed; k < i; k++) patches[list[k].id] = last += RANK_GAP
   return { rank: last + RANK_GAP, patches }
 }
+
+/** Left alone, the second column starts at 1% (any progress at all gets an item out of the first) and the rest are spread evenly up to 100. */
+const defaultPercent = (i: number, n: number): number => (i <= 1 ? 1 : Math.round(1 + ((i - 1) * 99) / (n - 2)))
+
+/**
+ * The percent at which an item enters each column, by position. The first is always 0 and the last 100; the ones between are the
+ * numbers given (kept strictly rising and inside their neighbours) or, left alone, 1% for the second and evenly spaced after it. The percents belong to the places
+ * in the row, not to the columns' names, so dragging a column to a new spot does not carry its percent along.
+ */
+export function percentsFor(n: number, given?: number[] | null): number[] {
+  if (n <= 1) return [0]
+  const out: number[] = []
+  for (let i = 0; i < n; i++) {
+    if (i === 0) out.push(0)
+    else if (i === n - 1) out.push(100)
+    else {
+      const want = given && typeof given[i] === 'number' ? Math.round(given[i]) : defaultPercent(i, n)
+      // strictly above the one before, and leaving room for those still to come
+      out.push(Math.max(out[i - 1] + 1, Math.min(want, 100 - (n - 1 - i))))
+    }
+  }
+  return out
+}
+
+/** The column (by position) an item at this percent belongs in. */
+export function stageForPercent(p: number, percents: number[]): number {
+  let at = 0
+  percents.forEach((x, i) => {
+    if (p >= x) at = i
+  })
+  return at
+}
+
+/** How far along an item is, 0 to 100: finished is 100, otherwise what was set (an item put "in progress" with no number reads 50). */
+export const progressOf = (t: Pick<Task, 'status' | 'progress'>): number => (t.status === 'done' ? 100 : Math.max(0, Math.min(100, Math.round(t.progress ?? (t.status === 'doing' ? 50 : 0)))))
+
+/** Done out of total as a percent (0 when there is no total). */
+export const percentOfCount = (done: number, total: number): number => (total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0)
+
+/** Kinds that have a check box, and so a progress. */
+export const hasProgress = (kind: string): boolean => kind === 'task' || kind === 'list'

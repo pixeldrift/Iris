@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { orderInStage, patchForStage, stageIndex, stagesOf, topRank, type Stage } from '../../core/progress'
+import { hasProgress, orderInStage, patchForStage, percentsFor, progressOf, stageIndex, stagesOf, topRank, type Stage } from '../../core/progress'
+import { NumberField } from '../NumberPad'
 import { sortTasks, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
@@ -38,6 +39,14 @@ function Card({ task }: { task: Task }) {
         <span className="absolute right-1 top-2 grid h-5 place-items-center">
           <GripHandle compact onPointerDown={onPointerDown} />
         </span>
+        {hasProgress(task.kind) && task.status !== 'done' && progressOf(task) > 0 && (
+          <div className="mt-1 flex items-center gap-1.5 pl-7" title={`${progressOf(task)}% done`}>
+            <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/60" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressOf(task)} aria-label="Progress">
+              <span className="absolute inset-y-0 left-0 rounded-full bg-lilac-400" style={{ width: `${progressOf(task)}%` }} />
+            </span>
+            <span className="text-[0.65rem] tabular-nums text-ink-faint">{task.tally ? `${task.tally.done}/${task.tally.total}` : `${progressOf(task)}%`}</span>
+          </div>
+        )}
         <div className="mt-0.5 flex flex-wrap items-center gap-1 pl-7 empty:hidden">
           <DueChip task={task} />
           <PlaceChip task={task} />
@@ -80,7 +89,7 @@ export function Board() {
             <button ref={anchor} onClick={() => setEditor((o) => !o)} aria-haspopup="dialog" aria-expanded={editor} aria-label="Edit stages" title="Edit stages" className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-lilac-600">
               <IconPencil size={13} />
             </button>
-            <StagesEditor open={editor} onClose={() => setEditor(false)} anchor={anchor} folderId={folder.id} stages={stages} custom={!!folder.stages} />
+            <StagesEditor open={editor} onClose={() => setEditor(false)} anchor={anchor} folderId={folder.id} stages={stages} custom={!!folder.stages} given={folder.stagePercents} />
           </>
         )}
       </div>
@@ -221,9 +230,12 @@ function NewItem({ name, onAdd, onDone }: { name: string; onAdd: (title: string)
 }
 
 /** Rename, reorder (drag the handles), add and remove a group's stages. The last one is "done": reaching it completes an item. */
-function StagesEditor({ open, onClose, anchor, folderId, stages, custom }: { open: boolean; onClose: () => void; anchor: React.RefObject<HTMLElement | null>; folderId: string; stages: Stage[]; custom: boolean }) {
+function StagesEditor({ open, onClose, anchor, folderId, stages, custom, given }: { open: boolean; onClose: () => void; anchor: React.RefObject<HTMLElement | null>; folderId: string; stages: Stage[]; custom: boolean; given?: number[] }) {
   const update = useStore((s) => s.updateFolder)
-  const save = (next: Stage[] | undefined) => update(folderId, { stages: next })
+  // the percent at which an item enters each column belongs to the place in the row, so reordering the names leaves the percents where they are
+  const percents = percentsFor(stages.length, given)
+  const save = (next: Stage[] | undefined, nextPercents: number[] | undefined = next ? percents : undefined) => update(folderId, { stages: next, stagePercents: next ? nextPercents : undefined })
+  const setPercent = (p: number, v: number) => save(stages, percents.map((x, k) => (k === p ? v : x)))
   const set = (i: number, name: string) => save(stages.map((s, k) => (k === i ? { ...s, name } : s)))
   const listRef = useRef<HTMLUListElement>(null)
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null)
@@ -262,12 +274,22 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom }: { ope
     <Popover open={open} onClose={onClose} anchor={anchor} className="w-80 p-3">
       <div className="px-1 pb-2 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">Stages, first to last</div>
       <ul ref={listRef} className="space-y-1.5">
-        {shown.map((s) => {
+        {shown.map((s, p) => {
           const i = stages.findIndex((x) => x.id === s.id)
           return (
             <li key={s.id} className={`flex items-center gap-1 rounded-xl transition ${drag && stages[drag.from].id === s.id ? 'bg-white/70 shadow-md' : ''}`}>
+              {/* the percent at which an item enters this place in the row: fixed at 0 and 100 for the first and last */}
+              <span className="flex w-14 shrink-0 items-center justify-end gap-0.5 text-sm tabular-nums text-ink-soft">
+                {p === 0 || p === stages.length - 1 ? (
+                  <span className="px-1 text-ink-faint">{p === 0 ? 0 : 100}%</span>
+                ) : (
+                  <>
+                    <NumberField label={`Stage ${p + 1} starts at percent`} value={percents[p]} min={percents[p - 1] + 1} max={percents[p + 1] - 1} className="!h-7 !min-w-[2.6rem] !text-sm" onChange={(v) => setPercent(p, v)} />%
+                  </>
+                )}
+              </span>
               <input value={s.name} onChange={(e) => set(i, e.target.value)} aria-label={`Stage ${i + 1} name`} className="well min-w-0 flex-1 rounded-lg px-2.5 py-1 text-sm" />
-              <button onClick={() => save(stages.filter((_, k) => k !== i))} disabled={stages.length <= 2} aria-label={`Remove ${s.name}`} className="grid h-7 w-7 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-[#b04a6e] disabled:opacity-30">
+              <button onClick={() => save(stages.filter((_, k) => k !== i), percents.filter((_, k) => k !== Math.min(i, percents.length - 2)))} disabled={stages.length <= 2} aria-label={`Remove ${s.name}`} className="grid h-7 w-7 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-[#b04a6e] disabled:opacity-30">
                 <IconClose size={12} />
               </button>
               <span data-grip onPointerDown={begin(i)} role="button" aria-label={`Move ${s.name}`} title="Drag to reorder" className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center">
@@ -282,8 +304,12 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom }: { ope
           onClick={() => {
             // a new stage goes just before the last one, which always means "done"
             const next = [...stages]
-            next.splice(Math.max(1, next.length - 1), 0, { id: uid(), name: 'New stage' })
-            save(next)
+            const at = Math.max(1, next.length - 1)
+            next.splice(at, 0, { id: uid(), name: 'New stage' })
+            // its percent sits half way between the ones either side of it
+            const np = [...percents]
+            np.splice(at, 0, Math.round((percents[at - 1] + 100) / 2))
+            save(next, np)
           }}
           className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-lilac-500 px-3.5 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600"
         >
@@ -300,7 +326,7 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom }: { ope
           </button>
         )}
       </div>
-      <p className="px-1 pt-2.5 text-[0.7rem] text-ink-faint">The last stage is “done” and tasks moved here are automatically checked off.</p>
+      <p className="px-1 pt-2.5 text-[0.7rem] text-ink-faint">The percent is where an item enters that stage: moving a card sets its progress to it, and an item whose progress reaches it moves there. The last stage is “done” (100%), and tasks moved here are automatically checked off.</p>
     </Popover>
   )
 }
