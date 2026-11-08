@@ -13,6 +13,7 @@ import { SegmentedToggle } from './SegmentedToggle'
 import { askNotify, notifyState } from './notify'
 import { useEffect, useRef, useState } from 'react'
 import { IconChevron, IconClose } from './icons'
+import { DefaultDot } from './DefaultDot'
 import { orderedViews, VIEWS } from './viewList'
 import { GripDots } from './shared'
 
@@ -101,21 +102,6 @@ export function NotificationsRow({ compact = false }: { compact?: boolean }) {
 }
 
 /** A small dot under a slider marking its default; tapping it puts the slider back there. */
-function DefaultDot({ at, onReset, color, label }: { at: number; onReset: () => void; color: string; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onReset}
-      aria-label={label}
-      title={label}
-      className="absolute bottom-[-0.15rem] z-20 grid h-3.5 w-3.5 -translate-x-1/2 place-items-center"
-      style={{ left: `calc(0.55rem + (100% - 1.1rem) * ${at})` }}
-    >
-      <span className="block h-1.5 w-1.5 rounded-full transition-transform hover:scale-150" style={{ background: color }} />
-    </button>
-  )
-}
-
 /** The date style as a drop-down in the app's own look (a field that opens a small list), not the browser's. */
 function DateFormatPick({ value, onChange }: { value: Settings['dateFormat']; onChange: (v: Settings['dateFormat']) => void }) {
   const [open, setOpen] = useState(false)

@@ -106,7 +106,7 @@ test.describe('spatial workspace', () => {
     await goto(page, 'Space')
     await page.getByRole('button', { name: /^Start/ }).first().click()
     await expect(intro(page).locator('canvas')).toHaveCount(0)
-    await expect(page.getByText('Simple view', { exact: true })).toBeVisible()
+    await expect(page.getByText('Flat view', { exact: true })).toBeVisible()
     await expect(page.getByRole('region', { name: 'School' })).toBeVisible()
     await page.getByRole('button', { name: 'Zoom in' }).click()
     await page.getByRole('button', { name: /Lab report/ }).first().click()
@@ -158,23 +158,21 @@ test.describe('spatial workspace', () => {
     expect(await page.locator('.edge-dot:not(.leaving)').count()).toBeLessThan(zoomed)
   })
 
-  test('a slider down the right side sets how far away the wall is (the cylinder the groups are pinned to)', async ({ page }) => {
-    await enter(page)
-    const slider = page.getByRole('slider', { name: 'Wall distance' })
-    await expect(slider).toBeVisible()
-    await slider.fill('8')
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(8)
-    await slider.fill('60')
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(60)
-    await expect(intro(page).locator('canvas')).toBeVisible()
-    await slider.dblclick() // (double-tap resets)
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.radius)).toBe(22.5)
-  })
-
-  test('the simple view can be chosen by hand', async ({ page }) => {
+  test('the view angle slider (in the settings) sets the lens, and its dot puts it back', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
-    await page.getByRole('radio', { name: 'Simple' }).click()
+    const slider = page.getByRole('slider', { name: 'View angle' })
+    await expect(slider).toBeVisible()
+    await slider.fill('30')
+    await expect(slider).toHaveValue('30')
+    await page.getByRole('button', { name: 'Back to the usual view angle' }).click()
+    await expect(slider).toHaveValue('60')
+  })
+
+  test('the flat view can be chosen by hand', async ({ page }) => {
+    await enter(page)
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    await page.getByRole('radio', { name: 'Flat' }).click()
     await expect(intro(page).locator('canvas')).toHaveCount(0)
     await expect(page.getByRole('region', { name: 'School' })).toBeVisible()
   })

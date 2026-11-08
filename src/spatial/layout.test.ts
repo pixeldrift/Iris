@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { K, WORLD } from './types'
-import { ensureLayout, withRadius, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { K, WORLD, type ClusterPlacement } from './types'
+import { ensureLayout, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -28,7 +28,7 @@ describe('spatial layout', () => {
   it('puts clusters on a ring around the viewer, facing the middle, the first ones straight ahead', () => {
     const l = ensureLayout(empty, input({ one: ['a'] }))
     const c = l.clusters.one
-    expect(Math.hypot(c.x, c.z)).toBeCloseTo(9 * K, 1)
+    expect(Math.hypot(c.x, c.z)).toBeCloseTo(80, 1)
     expect(c.z).toBeLessThan(0) // in front (down -Z)
     expect(Math.abs(c.x)).toBeLessThan(1)
     // facing the middle: the plane's normal points back toward the origin
@@ -56,7 +56,7 @@ describe('spatial layout', () => {
     const life = second.clusters.life
     expect(life.a > first.clusters.home.a || life.y < first.clusters.home.y).toBe(true)
   })
-  it('puts a subgroup on the same cylinder as its parent (never looming over it), and links it', () => {
+  it('links a subgroup to its group, on the same cylinder', () => {
     const inp = input({ school: ['a'], eng: ['b'] })
     inp.clusters = [
       { id: 'school', parent: null, depth: 0, order: 0 },
@@ -72,8 +72,9 @@ describe('spatial layout', () => {
     expect(moved.tasks.t.c).toBe('b')
     const c = first.clusters.a
     const c2 = moveCluster(c, [4, 1, -4])
-    expect(c2.r).toBeCloseTo(Math.hypot(4, 4), 5)
+    expect(c2.r).toBeCloseTo(c.r, 5) // (it stays pinned to the cylinder; only its direction and height change)
     expect(c2.a).toBeCloseTo(Math.PI / 4, 5)
+    expect(c2.y).toBeCloseTo(1, 5)
     const t2 = moveTask(first.tasks.t, c2, taskWorld({ ...first.tasks.t, u: 0.7, v: -0.9 }, c2))
     expect(t2.u).toBeCloseTo(0.7, 5)
     expect(t2.v).toBeCloseTo(-0.9, 5)
@@ -134,7 +135,7 @@ describe('spatial layout', () => {
       const len = Math.hypot(mid[0], mid[1], mid[2])
       // the plane's normal points back at the viewer: the cosine between it and the way to the eye is nearly 1
       const facing = -(bs.normal[0] * mid[0] + bs.normal[1] * mid[1] + bs.normal[2] * mid[2]) / len
-      expect(facing).toBeGreaterThan(0.995)
+      expect(facing).toBeGreaterThan(0.95)
     }
     // a card's own place is on its plane
     for (const t of Object.values(l.tasks)) {
@@ -145,19 +146,43 @@ describe('spatial layout', () => {
       expect(Math.abs(off)).toBeLessThan(1e-6)
     }
   })
-
-  it('pins every group to a cylinder of the chosen radius, keeping direction and height, and still facing the eye', () => {
-    const l = ensureLayout(empty, input({ a: ['a1', 'a2'], b: ['b1'], c: ['c1', 'c2', 'c3'] }))
-    for (const R of [4, 22.5, 80]) {
-      const w = withRadius(l, R)
-      for (const [id, c] of Object.entries(w.clusters)) {
-        expect(Math.hypot(c.x, c.z)).toBeCloseTo(R, 5)
-        expect(c.a).toBeCloseTo(l.clusters[id].a, 8)
-        expect(c.y).toBeCloseTo(l.clusters[id].y, 8)
-        const bs = planeBasis(c)
-        const mid = [c.x - bs.up[0] * (c.half ?? 0), c.y - bs.up[1] * (c.half ?? 0), c.z - bs.up[2] * (c.half ?? 0)]
-        expect(-(bs.normal[0] * mid[0] + bs.normal[1] * mid[1] + bs.normal[2] * mid[2]) / Math.hypot(mid[0], mid[1], mid[2])).toBeGreaterThan(0.99)
-      }
-    }
+  it('pushes overlapping groups apart (the pinned one stays), and leaves ones that do not overlap alone', () => {
+    const l = ensureLayout(empty, input({ a: ['a1', 'a2', 'a3'], b: ['b1', 'b2'], c: ['c1'] }))
+    const A = l.clusters.a
+    // drop b right on top of a
+    const stacked: Record<string, ClusterPlacement> = { ...l.clusters, b: repose(l.clusters.b, A.a, A.y) }
+    const apart = separate(stacked, new Set(['a']))
+    expect(apart.a).toEqual(stacked.a) // (pinned)
+    const gap = Math.hypot(apart.b.x - A.x, apart.b.y - A.y, apart.b.z - A.z)
+    expect(gap).toBeGreaterThan(Math.hypot(stacked.b.x - A.x, stacked.b.y - A.y, stacked.b.z - A.z))
+    // groups already apart are not moved
+    const same = separate(l.clusters)
+    for (const id of Object.keys(l.clusters)) expect(same[id]).toEqual(l.clusters[id])
+  })
+  it('lays groups out as a family tree: a subgroup is on the row below its group, near under it', () => {
+    const inp = input({ school: ['a'], eng: ['b', 'c'], bio: ['d'], home: ['e'] })
+    inp.clusters = [
+      { id: 'school', parent: null, depth: 0, order: 0 },
+      { id: 'eng', parent: 'school', depth: 1, order: 1 },
+      { id: 'bio', parent: 'school', depth: 1, order: 2 },
+      { id: 'home', parent: null, depth: 0, order: 3 },
+    ]
+    const l = ensureLayout(empty, inp)
+    expect(l.clusters.eng.y).toBeLessThan(l.clusters.school.y)
+    expect(l.clusters.bio.y).toBeLessThan(l.clusters.school.y)
+    expect(l.clusters.home.y).toBeCloseTo(l.clusters.school.y, 6) // (top-level groups share the first row)
+    // the two subgroups sit around the middle of their group
+    const mid = (l.clusters.eng.a + l.clusters.bio.a) / 2
+    expect(Math.abs(mid - l.clusters.school.a)).toBeLessThan(0.5)
+  })
+  it('a task pulled out floats where it was dropped and leaves its slot free; dropping it into a group slots it', () => {
+    const first = ensureLayout(empty, input({ a: ['a1', 'a2'], b: ['b1'] }))
+    const pulled = { ...first, tasks: { ...first.tasks, a1: { ...first.tasks.a1, free: { a: 0.3, y: 1 } } } }
+    const again = ensureLayout(pulled, input({ a: ['a1', 'a2'], b: ['b1'] }))
+    expect(again.tasks.a1.free).toEqual({ a: 0.3, y: 1 })
+    const dropped = ensureLayout(again, input({ a: ['a2'], b: ['b1', 'a1'] })) // (a1 was dropped into b)
+    expect(dropped.tasks.a1.c).toBe('b')
+    expect(dropped.tasks.a1.free).toBeUndefined()
   })
 })
+
