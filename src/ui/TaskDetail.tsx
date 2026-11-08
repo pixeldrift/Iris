@@ -143,7 +143,7 @@ function Twirl({ title, icon, summary, open, onToggle, children }: { title: stri
 /** A small box that gathers related fields under a name (When, Where, Who…), so a long form reads as a few clear parts. */
 function Box({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="space-y-2.5 rounded-2xl bg-white/35 p-3">
+    <section aria-label={title} className="group-box space-y-2.5 rounded-2xl p-3">
       <h3 className="flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
         {icon}
         {title}

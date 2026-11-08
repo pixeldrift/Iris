@@ -538,3 +538,12 @@ body.scrubbing .glow-breathe {
     0 3px 7px -3px hsla(var(--h, 285), calc(45% * var(--s, 1)), 52%, 0.35);
   color: hsl(var(--h, 285), calc(35% * var(--s, 1)), 32%);
 }
+
+/* the grouping boxes of the task panel: a touch more body than the glass behind them, a very light 1px line and a soft glow */
+.group-box {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgb(var(--lr-300) / 0.28),
+    0 2px 10px -2px rgb(var(--lr-400) / 0.22);
+}
