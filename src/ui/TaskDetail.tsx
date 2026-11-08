@@ -143,29 +143,21 @@ function Twirl({ title, icon, summary, open, onToggle, children }: { title: stri
 }
 
 /**
- * A small box that gathers related fields under a name (When, Where, Who…), so a long form reads as a few clear parts. `fold` makes it a
- * twirl-down for the things a kind of item rarely needs (a list does not need dates): it stays closed unless it already holds something.
+ * A small box that gathers related fields under a name (When, Where, Who…), so a long form reads as a few clear parts. Every box folds
+ * away: the whole title row is the button, with an arrow. `startOpen` is false for the things a kind of item rarely needs (a list does
+ * not need dates) unless they already hold something.
  */
-function Box({ title, icon, children, fold }: { title: string; icon: React.ReactNode; children: React.ReactNode; fold?: { used: boolean } }) {
-  const [open, setOpen] = useState(!fold || fold.used)
-  const head = (
-    <>
-      {icon}
-      {title}
-    </>
-  )
+function Box({ title, icon, children, startOpen = true }: { title: string; icon: React.ReactNode; children: React.ReactNode; startOpen?: boolean }) {
+  const [open, setOpen] = useState(startOpen)
   return (
     <section aria-label={title} className={`group-box rounded-2xl p-3 ${open ? 'space-y-2.5' : ''}`}>
-      {fold ? (
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
-          {head}
-          <span className={`ml-auto text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
-            <IconChevron size={13} />
-          </span>
-        </button>
-      ) : (
-        <h3 className="flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">{head}</h3>
-      )}
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
+        {icon}
+        {title}
+        <span className={`ml-auto text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
+          <IconChevron size={13} />
+        </span>
+      </button>
       {open && children}
     </section>
   )
@@ -182,6 +174,7 @@ function ProgressBox({ task }: { task: Task }) {
   const pct = progressOf(task)
   const fromList = task.kind === 'list' && task.listStyle === 'check' && task.items.length > 0
   const t = task.tally
+  const setStatus = useStore((s) => s.setStatus)
   return (
     <Box title="Progress" icon={<IconChart size={13} />}>
       <div className="flex items-center gap-3">
@@ -200,6 +193,22 @@ function ProgressBox({ task }: { task: Task }) {
         <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-lilac-700" aria-live="polite">
           {pct}%
         </span>
+      </div>
+      {/* the stage is the same fact as the percent, so it sits right under it */}
+      <div>
+        <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
+        <div className="flex gap-1.5">
+          {STATUSES.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setStatus(task.id, s.id)}
+              title={s.hint}
+              className={`flex-1 whitespace-nowrap rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
+            >
+              {s.one}
+            </button>
+          ))}
+        </div>
       </div>
       {fromList ? (
         <p className="text-xs text-ink-faint">Worked out from the entries ticked off ({task.items.filter((i) => i.done).length} of {task.items.length}).</p>
@@ -236,7 +245,6 @@ function ProgressBox({ task }: { task: Task }) {
  */
 function TaskLayout({ task, links }: { task: Task; links: { href: string; label: string; who: string }[] }) {
   const update = useStore((s) => s.updateTask)
-  const setStatus = useStore((s) => s.setStatus)
   const habit = task.kind === 'habit'
   const list = task.kind === 'list'
   const [repeatOpen, setRepeatOpen] = useState(() => !!task.repeat || habit)
@@ -255,10 +263,10 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         </div>
       )}
       {!habit && (
-        <Box title="When" icon={<IconCalendar size={13} />} fold={list ? { used: !!(task.day || task.due || task.time || task.dueTime || task.repeat) } : undefined}>
+        <Box title="When" icon={<IconCalendar size={13} />} startOpen={!list || !!(task.day || task.due || task.time || task.dueTime || task.repeat)}>
           <ScheduleFields task={task} />
           {task.kind !== 'list' && (
-            <Twirl title="Repeats" icon={<IconRepeat size={13} />} summary={task.repeat ? describeRecurrence(task.repeat) : undefined} open={repeatOpen} onToggle={() => setRepeatOpen((o) => !o)}>
+            <Twirl title="Repeat" icon={<IconRepeat size={13} />} summary={task.repeat ? describeRecurrence(task.repeat) : undefined} open={repeatOpen} onToggle={() => setRepeatOpen((o) => !o)}>
               <RepeatField task={task} />
               {!!task.repeat && <RecentStrip task={task} />}
             </Twirl>
@@ -266,14 +274,13 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         </Box>
       )}
       {habit && (
-        <Box title="Repeats" icon={<IconRepeat size={13} />}>
+        <Box title="Repeat" icon={<IconRepeat size={13} />}>
           <RepeatField task={task} />
           <RecentStrip task={task} />
           <ReminderField task={task} />
         </Box>
       )}
-      {(task.kind === 'task' || task.kind === 'list') && <ProgressBox task={task} />}
-      <Box title="Where" icon={<IconPin size={13} />} fold={list ? { used: !!task.place } : undefined}>
+      <Box title="Where" icon={<IconPin size={13} />} startOpen={!list || !!task.place}>
         <PlaceField task={task} />
       </Box>
       <AssignField task={task} />
@@ -285,29 +292,13 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         rows={3}
         className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
       />
+      {(task.kind === 'task' || task.kind === 'list') && <ProgressBox task={task} />}
       {/* both sliders on one line: most people never touch them (the priority grid does the fine tuning) */}
-      <Box title="Priority" icon={<IconPriority size={13} />} fold={list ? { used: task.importance !== 0.5 || task.urgency !== 0.3 } : undefined}>
+      <Box title="Priority" icon={<IconPriority size={13} />} startOpen={!list || task.importance !== 0.5 || task.urgency !== 0.3}>
         <div className="grid grid-cols-2 gap-4">
           <SoftSlider label="How much it matters" shown="Importance" compact left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
           <SoftSlider label="How urgent it is" shown="Urgency" compact left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
         </div>
-        {!habit && (
-          <div>
-            <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
-            <div className="flex gap-1.5">
-              {STATUSES.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setStatus(task.id, s.id)}
-                  title={s.hint}
-                  className={`flex-1 whitespace-nowrap rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
-                >
-                  {s.one}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </Box>
     </>
   )

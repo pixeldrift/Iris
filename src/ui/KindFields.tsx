@@ -16,7 +16,7 @@ import { askNotify } from './notify'
 import { ALERT_CHOICES, alertLabel, nextAlertChoice } from '../core/reminders'
 
 /**
- * When it happens: a day and a time (From), and what it runs until (a deadline: Until), each with a date and an optional time. Under them
+ * When it happens: a day and a time (Day), and a Deadline, each with a date and an optional time. Under them
  * the duration (a start and a duration are an end), the free-room buttons, and the switch for carrying it over when the day passes.
  */
 export function ScheduleFields({ task }: { task: Task }) {
@@ -37,12 +37,12 @@ export function ScheduleFields({ task }: { task: Task }) {
   return (
     <div className="space-y-2.5">
       <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-end gap-2">
-        <DatePicker label={<><DateMark kind="scheduled" />From</>} value={task.day} onChange={(v) => update(task.id, { day: v })} />
+        <DatePicker label={<><DateMark kind="scheduled" />Day</>} value={task.day} onChange={(v) => update(task.id, { day: v })} />
         <TimePicker label="Time" value={task.time} onChange={(v) => update(task.id, patchStart(task, v))} />
       </div>
       {task.time ? <EventAlerts task={task} /> : task.day ? <ReminderField task={task} which="do" label="Remind me that day" /> : null}
       <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-end gap-2">
-        <DatePicker label={<><DateMark kind="deadline" />Until</>} value={task.due} onChange={(v) => setDue(task.id, v)} />
+        <DatePicker label={<><DateMark kind="deadline" />Deadline</>} value={task.due} onChange={(v) => setDue(task.id, v)} />
         <TimePicker label="Time" value={task.dueTime ?? null} onChange={(v) => setDue(task.id, task.due, v)} placeholder="Any time" />
       </div>
       {task.due && <ReminderField task={task} which="due" label="Remind me" />}
@@ -179,7 +179,7 @@ const NTHS = [
 /** A plain preset (every day / week / month / year) versus anything more particular, which opens the Custom controls. */
 const isCustom = (r: Recurrence) => !!r.custom || r.interval > 1 || (r.freq === 'weekly' && (r.byDay?.length ?? 0) > 1) || !!r.nth
 
-/** "Repeats": any task can repeat; the pond shows one bubble and each occurrence is ticked off in turn. */
+/** "Repeat": any task can repeat; the pond shows one bubble and each occurrence is ticked off in turn. */
 export function RepeatField({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const r = repeatOf(task)
@@ -210,7 +210,7 @@ export function RepeatField({ task }: { task: Task }) {
 
   return (
     <div>
-      <SegmentedToggle label="Repeats" value={active} options={PRESETS.filter((f) => f.id !== 'none' || task.kind !== 'habit')} onChange={choose} />
+      <SegmentedToggle label="Repeat" value={active} options={PRESETS.filter((f) => f.id !== 'none' || task.kind !== 'habit')} onChange={choose} />
       {r && active === 'custom' && (
         <div className="mt-2.5 space-y-2.5 rounded-2xl bg-white/35 p-3">
           <div className="flex items-center gap-2 text-sm text-ink-soft">
