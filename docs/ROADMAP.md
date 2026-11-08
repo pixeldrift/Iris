@@ -10,6 +10,17 @@ multi-select filters and the views/filters split in the sidebar; auto urgency; t
 Delete modes, stats and a play limit; a tidier Settings. (The README describes each.)
 
 ## Next, in order
+0. **Progress (percent complete). (Being built now.)** Every item with a check box gets a *progress* from 0 to 100%, worked out in
+   whichever way suits it, and the Progress view's columns follow it both ways:
+   - **Column break points.** In the stage editor (where a group's columns are named and ordered) each column gets an optional
+     percent, the point where an item enters that column: the first is 0, the last is 100, the ones between can be set (evenly
+     spaced if left alone). The percents belong to the *places* in the row, not to the names: dragging a column to reorder it
+     does not carry its percent along.
+   - **Both ways.** Dragging a card to another column sets its progress to that column's break point; changing an item's
+     progress moves it to the column it now belongs in.
+   - **Where the number comes from.** A slider; or, for a list, the entries ticked off out of all of them; or a count you set
+     yourself, *completed* out of *total* ("graded 12 of 20 essays", "read 30 of 45 chapters"), with number boxes and a tally
+     counter (+ / −, and a keypad for typing the number in).
 1. **Sharing and assigning, per group. (The headline feature: see *Collaboration* below.)** Share a group with someone, as you
    would share a note in iOS: you both see and edit its tasks, and you can **assign a task to a person**, who is told and can
    filter to what is theirs. People asked for this first.
