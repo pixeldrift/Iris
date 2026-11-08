@@ -11,10 +11,10 @@ test.describe('dates, reminders and a place on the details card', () => {
     await page.keyboard.press('n')
     await page.keyboard.type('Plan the garden')
     await page.keyboard.press('Enter')
-    // the boxes: When (From and Until, each a date and a time), Where, Priority
+    // the boxes: When (Day and Deadline, each a date and a time), Where, Priority
     await expect(page.getByRole('region', { name: 'When' })).toBeVisible()
-    await expect(page.getByText(/^From/).first()).toBeAttached()
-    await expect(page.getByText(/^Until/).first()).toBeAttached()
+    await expect(page.getByText(/^Day/).first()).toBeAttached()
+    await expect(page.getByText(/^Deadline/).first()).toBeAttached()
     await expect(page.getByRole('region', { name: 'Where' })).toBeVisible()
     await expect(page.getByText('Duration')).toBeVisible()
     await expect(page.getByText('Carry over')).toBeVisible()
@@ -24,8 +24,8 @@ test.describe('dates, reminders and a place on the details card', () => {
     // a place, for a plain task too
     await page.getByRole('textbox', { name: 'Where' }).fill('Back garden')
     await expect.poll(async () => (await taskNamed(page, 'Plan the garden'))?.place).toBe('Back garden')
-    // Until, and its reminder
-    await page.getByText(/^Until/).locator('xpath=..').getByRole('button').first().click()
+    // the deadline, and its reminder
+    await page.getByText(/^Deadline/).locator('xpath=..').getByRole('button').first().click()
     await page.locator('div.fixed.z-\\[150\\]').getByRole('button', { name: new RegExp(`^${new Date(Date.now() + 3 * 86400_000).getDate()}$`) }).first().click()
     await page.getByRole('button', { name: 'Remind me', exact: true }).click()
     await page.getByRole('radiogroup', { name: 'Remind me' }).getByRole('radio', { name: 'This evening' }).click()

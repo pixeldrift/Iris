@@ -48,7 +48,7 @@ test.describe('quick add hints, tags and repeats', () => {
     await page.keyboard.press('Enter')
     const dialog = page.getByLabel('Task details')
     expect((await taskNamed(page, 'Stretch'))?.kind).toBe('task')
-    await dialog.getByRole('button', { name: /^Repeats/ }).click()
+    await dialog.getByRole('button', { name: /^Repeat/ }).click()
     await dialog.getByRole('radio', { name: 'Daily' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Stretch'))?.kind).toBe('habit')
   })
