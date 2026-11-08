@@ -170,7 +170,7 @@ function ViewsPicker() {
           <IconChevron size={14} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="text-sm">Views in the sidebar</span>
+          <span className="text-sm">Sidebar menu</span>
           <span className="block text-[0.7rem] text-ink-faint">{shown.length === VIEWS.length ? 'all shown' : `${shown.length} of ${VIEWS.length} shown`}: uncheck the ones you do not use, drag to reorder</span>
         </span>
       </button>
@@ -362,13 +362,11 @@ export function SettingsDialog() {
               <span>Relaxed</span>
             </div>
           </div>
+          <ViewsPicker />
           <div className="mt-1 border-t border-white/50" />
           <Row k="sizeByPriority" label="Bubbles scale by importance" hint="bubble size in Pond and Priority views" />
           <Row k="drift" label="Gentle drifting" hint="floating on the water" />
           <Row k="showDone" label="Show completed tasks" hint="finished tasks stay visible" />
-        </Group>
-        <Group title="Views">
-          <ViewsPicker />
         </Group>
         <Group title="App options">
           <div className="space-y-1.5 px-2 py-1.5">
