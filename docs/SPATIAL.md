@@ -93,3 +93,6 @@ A group's name sits outside and above its box (the box is only the contents): a 
 
 ## Folding and spring-loaded groups
 Folding a group (the twirl) hides its subgroups too and leaves only its name, with the count of everything inside; groups with no tasks of their own show no box. A task or group carried over a folded name lights it, and after a short linger (0.7 s) it opens so you can see where you are dropping; it closes again afterwards unless the drop went into it. A task let go on a name joins that group; a group let go on a name moves inside it (over a box it only makes room). Other groups stay put while one is carried and make room when it is let go.
+
+## Flat has the same moves as 3D
+Drag a task onto a group's box or name (a folded name opens after a short linger), or out into the open to leave it floating; drag a group by its name or box to move it (others make room when it is let go), or onto another name to put it inside; tap a name to turn to it; the twirl folds. Pan on empty canvas, pinch or scroll to zoom. Tests: `e2e/flatmove.spec.ts`.

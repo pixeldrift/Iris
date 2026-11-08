@@ -9,7 +9,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
-import { canReparent } from '../core/folders'
+import { reparentGroup, retagTask } from './actions'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { RADIUS } from './layout'
@@ -143,22 +143,10 @@ export default function SpatialView() {
         onLayout: (l) => setLayout(l),
         onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
         // a group let go over another group's name goes inside it
-        onReparent: (id, parent) => {
-          const st = useStore.getState()
-          if (id !== 'none' && parent !== 'none' && canReparent(st.folders, id, parent)) st.moveFolder(id, parent)
-        },
+        onReparent: reparentGroup,
         onFov: (f) => setFov(Math.round(f)),
         // a task dropped into another group joins it (and leaves the one it was in)
-        onRetag: (id, clusterId) => {
-          const st = useStore.getState()
-          const t = st.tasks.find((x) => x.id === id)
-          if (!t) return
-          const have = new Set(st.folders.map((f) => f.id))
-          const cur = t.folderIds.find((x) => have.has(x))
-          let ids = t.folderIds.filter((x) => x !== cur)
-          if (clusterId !== 'none') ids = [clusterId, ...ids.filter((x) => x !== clusterId)]
-          st.updateTask(id, { folderIds: ids })
-        },
+        onRetag: retagTask,
       })
     } catch {
       // the graphics could not start after all: fall back to the flat canvas
