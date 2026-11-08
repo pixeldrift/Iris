@@ -22,7 +22,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
-  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius } = useSpatial()
+  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius, collapsed } = useSpatial()
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -55,8 +55,9 @@ export default function SpatialView() {
   const envRef = useRef<EnvironmentProvider | null>(null)
   const panoUrl = useRef<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const live = useRef(content)
-  live.current = content
+  const shownContent = useMemo(() => ({ ...content, clusters: content.clusters.map((c) => ({ ...c, collapsed: !!collapsed[c.id] })) }), [content, collapsed])
+  const live = useRef(shownContent)
+  live.current = shownContent
 
   /* ---------- starting: the first call must be inside the tap (iOS asks for motion permission only from one) ---------- */
   const begin = useCallback(
@@ -124,6 +125,7 @@ export default function SpatialView() {
         onOpen: (id) => select(id),
         onToggle: (id) => toggleDone(id),
         onLayout: (l) => setLayout(l),
+        onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
         onFov: (f) => setFov(Math.round(f)),
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: (id, clusterId) => {
@@ -167,8 +169,8 @@ export default function SpatialView() {
   }, [phase, simple])
 
   useEffect(() => {
-    scene.current?.setContent(content)
-  }, [content])
+    scene.current?.setContent(shownContent)
+  }, [shownContent])
   useEffect(() => {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
@@ -195,7 +197,7 @@ export default function SpatialView() {
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
       <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" />
-      {phase === 'running' && simple && <StaticCanvas content={content} layout={stored} fitTick={fitTick} />}
+      {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} />}
 
       {phase === 'intro' && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 p-5 backdrop-blur-sm">

@@ -59,7 +59,7 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
   })
   const clusters: SceneCluster[] = layoutClusters.map((c) => {
     const f = folders.find((x) => x.id === c.id)
-    return { id: c.id, parent: c.parent, name: f?.name ?? 'Unsorted', hue: f?.hue ?? 285, count: counts.get(c.id) ?? 0, depth: c.depth }
+    return { id: c.id, parent: c.parent, name: f?.name ?? 'Unsorted', hue: f?.hue ?? 285, shape: f?.shape, count: counts.get(c.id) ?? 0, depth: c.depth }
   })
   const tasks: SceneTask[] = visible.map((t) => {
     const date = plannedDate(t)

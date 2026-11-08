@@ -36,7 +36,7 @@ export const slotAt = (slot: number, cols: number) => ({ u: ((slot % cols) - (co
 /** Groups start in a wide, shallow wall within 55 degrees either side of straight ahead (110 in all), so nothing begins behind the viewer. */
 export const START_SPAN = (Math.PI * 11) / 18
 const MARGIN = 1.1 * K // clear space between neighbouring groups
-const TIER_HEAD = 1.9 * K // a group's name, and the gap above its cards
+const TIER_HEAD = 1.1 * K // a group's name, and the gap above its cards
 
 const widthOf = (cols: number) => cols * cellW + MARGIN
 const heightOf = (rows: number) => rows * cellH + TIER_HEAD
@@ -313,7 +313,7 @@ export function localIn(c: ClusterPlacement, world: Vec3): { u: number; v: numbe
 export function paneOf(c: ClusterPlacement): { u0: number; u1: number; v0: number; v1: number } {
   const w = (c.cols * cellW + MARGIN * 0.5) / 2
   const rows = c.rows ?? 1
-  return { u0: -w, u1: w, v0: -(rows * cellH + 0.4 * K), v1: 0.9 * K }
+  return { u0: -w, u1: w, v0: -(rows * cellH + 0.4 * K), v1: -0.3 * K }
 }
 
 /** The heading (radians) and height to look at to face a cluster (its middle). */

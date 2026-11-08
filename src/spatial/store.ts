@@ -19,6 +19,9 @@ interface SpatialState {
   links: boolean
   /** The radius of the cylinder the groups hang on (a testing control). */
   radius: number
+  /** Groups folded down to just their names. */
+  collapsed: Record<string, true>
+  toggleCollapsed: (id: string) => void
   setLayout: (l: SpatialLayoutData) => void
   set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'render' | 'seen' | 'tipSeen' | 'links' | 'radius'>>) => void
   /** Forget where things were put (they are laid out afresh). */
@@ -36,14 +39,22 @@ export const useSpatial = create<SpatialState>()(
       tipSeen: false,
       links: true,
       radius: RADIUS.start,
+      collapsed: {},
+      toggleCollapsed: (id) =>
+        set((s) => {
+          const c = { ...s.collapsed }
+          if (c[id]) delete c[id]
+          else c[id] = true
+          return { collapsed: c }
+        }),
       setLayout: (layout) => set({ layout }),
       set: (p) => set(p),
       resetLayout: () => set({ layout: { clusters: {}, tasks: {} } }),
     }),
     {
-      name: 'lilac-spatial-v3',
+      name: 'lilac-spatial-v4',
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
-      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, radius: s.radius }),
+      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, radius: s.radius, collapsed: s.collapsed }),
     },
   ),
 )

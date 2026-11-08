@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { checkVars } from '../ui/taskColor'
 import type { SpatialContent } from './content'
+import { Flower } from '../ui/Flower'
+import { useSpatial } from './store'
 import { cellW, ensureLayout } from './layout'
 import { K, type SpatialLayoutData } from './types'
 
@@ -18,6 +20,7 @@ const HEAD = 40
 export function StaticCanvas({ content, layout, fitTick = 0 }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number }) {
   const select = useStore((s) => s.select)
   const toggle = useStore((s) => s.toggleDone)
+  const toggleCollapsed = useSpatial((s) => s.toggleCollapsed)
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
   const pts = useRef(new Map<number, { x: number; y: number }>())
@@ -150,14 +153,17 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           if (!p) return null
           return (
             <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w }} aria-label={c.name}>
-              <div className="absolute -inset-3 -z-10 rounded-[2rem] border" style={{ background: `hsl(${Math.max(0, c.hue)},60%,84%,0.3)`, borderColor: `hsl(${Math.max(0, c.hue)},55%,72%,0.5)` }} aria-hidden />
-              <h3 className="mb-2 flex items-center gap-2 px-1 font-display text-2xl font-bold italic" style={{ color: `hsl(${Math.max(0, c.hue)},50%,36%)`, textShadow: '0 0 8px rgba(255,255,255,0.95)' }}>
+              <h3 className="mb-2 flex items-center gap-1.5 px-1 font-display text-2xl font-bold italic" style={{ color: `hsl(${Math.max(0, c.hue)},50%,36%)`, textShadow: '0 0 8px rgba(255,255,255,0.95)' }}>
+                <button type="button" aria-expanded={!c.collapsed} aria-label={`${c.collapsed ? 'Show' : 'Fold'} ${c.name}`} onClick={() => toggleCollapsed(c.id)} className="grid h-6 w-5 shrink-0 place-items-center text-[0.7rem] not-italic opacity-75">
+                  {c.collapsed ? '▸' : '▾'}
+                </button>
+                <Flower hue={c.hue} shape={c.shape} size={22} />
                 {c.name}
                 <span className="rounded-full px-2 text-xs not-italic" style={{ background: `hsl(${Math.max(0, c.hue)},60%,90%)` }}>
                   {c.count}
                 </span>
               </h3>
-              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))` }}>
+              <div className={`grid gap-2 rounded-[2rem] border p-3 ${c.collapsed ? 'hidden' : ''}`} style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))`, background: `hsl(${Math.max(0, c.hue)},60%,84%,0.3)`, borderColor: `hsl(${Math.max(0, c.hue)},55%,72%,0.5)` }}>
                 {content.tasks
                   .filter((t) => t.cluster === c.id)
                   .map((t) => {

@@ -1,4 +1,6 @@
 import { CanvasTexture, SRGBColorSpace } from 'three'
+import { flowerMarkup } from '../ui/Flower'
+import type { FlowerShape } from '../core/types'
 
 // Drawing a task (or a group's name) onto a small canvas, to be a texture in the 3D scene. The look follows the pond's bubbles: a soft
 // gradient, a thin outline in the group's colour, a round check.
@@ -197,36 +199,68 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
 export interface HubInfo {
   name: string
   hue: number
+  shape?: FlowerShape
   count: number
   depth: number
+  /** Folded down to just its name. */
+  collapsed?: boolean
 }
-export const HUB_PX = { w: 384, h: 96 }
+export const HUB_PX = { w: 512, h: 96 }
 
-export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo) {
+/** A group's flower, drawn once from its SVG and kept (it calls back when it has loaded, so the name can be drawn again). */
+const flowers = new Map<string, HTMLImageElement>()
+export function flowerImage(hue: number, shape: FlowerShape | undefined, onLoad: () => void): HTMLImageElement | undefined {
+  const key = `${shape ?? 'blossom'}:${hue}`
+  const have = flowers.get(key)
+  if (have) return have.complete && have.naturalWidth ? have : undefined
+  const img = new Image()
+  img.onload = onLoad
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(flowerMarkup(hue, shape ?? 'blossom', 96))}`
+  flowers.set(key, img)
+  return undefined
+}
+
+export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo, onFlower: () => void = () => {}) {
   canvas.width = HUB_PX.w
   canvas.height = HUB_PX.h
   const g = canvas.getContext('2d')!
   g.clearRect(0, 0, canvas.width, canvas.height)
-  // the pond's group name: bold italic serif in the group's own colour, no bubble behind it, a soft white glow to keep it readable
-  const x = 22
+  // the pond's group name: bold italic serif in the group's own colour, no bubble behind it, a soft white glow to keep it readable.
+  // In front: a twirl (down when open, right when folded) and the group's flower; after it, the count in a small pale chip.
   const mid = canvas.height / 2
-  g.textBaseline = 'middle'
-  g.font = `italic 700 58px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
-  const n = String(hub.count)
-  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
-  const cw = Math.max(34, g.measureText(n).width + 18)
-  g.font = `italic 700 58px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
-  const label = wrapTitle(g, hub.name, canvas.width - x - cw - 50, 1)[0] ?? hub.name
   const ink = hub.hue < 0 ? 'hsl(270,20%,38%)' : hsl(hub.hue, 50, 36, 1)
+  g.fillStyle = ink
+  g.beginPath()
+  if (hub.collapsed) {
+    g.moveTo(14, mid - 11)
+    g.lineTo(14, mid + 11)
+    g.lineTo(32, mid)
+  } else {
+    g.moveTo(10, mid - 7)
+    g.lineTo(34, mid - 7)
+    g.lineTo(22, mid + 12)
+  }
+  g.closePath()
+  g.globalAlpha = 0.75
+  g.fill()
+  g.globalAlpha = 1
+  const fl = flowerImage(hub.hue, hub.shape, onFlower)
+  if (fl) g.drawImage(fl, 50, mid - 24, 48, 48)
+  const x = 108
+  g.textBaseline = 'middle'
+  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
+  const n = String(hub.count)
+  const cw = Math.max(34, g.measureText(n).width + 18)
+  g.font = `italic 700 54px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
+  const label = wrapTitle(g, hub.name, canvas.width - x - cw - 30, 1)[0] ?? hub.name
   g.shadowColor = 'rgba(255,255,255,0.95)'
   g.shadowBlur = 8
   g.fillStyle = ink
   g.fillText(label, x, mid + 1)
   g.fillText(label, x, mid + 1)
   g.shadowColor = 'transparent'
-  // the count in a small pale chip after the name
   const tw = g.measureText(label).width
-  const cx = x + tw + 16
+  const cx = x + tw + 14
   roundRect(g, cx, mid - 17, cw, 34, 17)
   g.fillStyle = hub.hue < 0 ? 'rgba(235,232,240,0.9)' : hsl(hub.hue, 60, 90, 0.95)
   g.fill()

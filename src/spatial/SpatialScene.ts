@@ -54,6 +54,8 @@ export interface SceneEvents {
   onLayout(layout: SpatialLayoutData): void
   /** The lens changed (a zoom, a fit): the horizontal angle in degrees. */
   onFov?(fov: number): void
+  /** The twirl on a group's name was tapped. */
+  onCollapse?(id: string): void
 }
 
 interface Node {
@@ -64,6 +66,7 @@ interface Node {
 type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number }
 
 /** The horizontal field of view of the lens, in degrees. */
+const HUB_W = 1.5 * WORLD.cardW
 export const FOV = { min: 20, max: 100, start: 50 }
 const TAP_PX = 6
 
@@ -166,13 +169,13 @@ export class SpatialScene {
     const hubSeen = new Set<string>()
     for (const h of c.clusters) {
       hubSeen.add(h.id)
-      const key = `${h.name}|${h.hue}|${h.count}`
+      const key = `${h.name}|${h.hue}|${h.count}|${h.shape}|${h.collapsed ? 1 : 0}`
       let n = this.hubs.get(h.id)
       if (!n) {
         const cv = document.createElement('canvas')
         const tex = new CanvasTexture(cv)
         tex.colorSpace = SRGBColorSpace
-        const mesh = new Mesh(new PlaneGeometry(WORLD.cardW * 1.15, (WORLD.cardW * 1.15 * HUB_PX.h) / HUB_PX.w), new MeshBasicMaterial({ map: tex, transparent: true, side: DoubleSide, depthWrite: false }))
+        const mesh = new Mesh(new PlaneGeometry(HUB_W, (HUB_W * HUB_PX.h) / HUB_PX.w), new MeshBasicMaterial({ map: tex, transparent: true, side: DoubleSide, depthWrite: false }))
         mesh.userData = { kind: 'hub', id: h.id }
         mesh.rotation.order = 'YXZ'
         mesh.renderOrder = 3
@@ -181,7 +184,11 @@ export class SpatialScene {
         this.hubs.set(h.id, n)
       }
       if (n.key !== key) {
-        drawHub(n.tex.image as HTMLCanvasElement, h)
+        const hub = n
+        drawHub(n.tex.image as HTMLCanvasElement, h, () => {
+          hub.key = ''
+          this.setContent(this.content)
+        })
         n.tex.needsUpdate = true
         n.key = key
       }
@@ -231,6 +238,11 @@ export class SpatialScene {
       const tp = L.tasks[t.id]
       if (!n || !tp) continue
       if (this.carry?.kind === 'task' && this.carry.id === t.id) continue // (under the finger)
+      if (this.content.clusters.find((c) => c.id === tp.c)?.collapsed && !tp.free) {
+        n.mesh.visible = false
+        continue
+      }
+      n.mesh.visible = true
       const fp = freePose(tp, this.radius)
       const cp = S[tp.c]
       if (fp) {
@@ -252,7 +264,6 @@ export class SpatialScene {
       const cp = S[h.id]
       const n = this.hubs.get(h.id)
       if (!cp || !n) continue
-      n.mesh.position.set(cp.x, cp.y, cp.z)
       n.mesh.rotation.set(cp.rx ?? 0, cp.ry, 0)
       n.mesh.scale.setScalar(cp.scale ?? 1)
       // the pane its cards sit on: grown to hold every card in its grid (and drawn at its own proportions, with round corners)
@@ -266,6 +277,14 @@ export class SpatialScene {
         left = Math.min(left, tp.u - WORLD.cardW / 2 - 0.4 * K)
         right = Math.max(right, tp.u + WORLD.cardW / 2 + 0.4 * K)
         bottom = Math.min(bottom, tp.v - WORLD.cardH / 2 - 0.4 * K)
+      }
+      // the name sits just above the box, along its left edge (outside it: the box is only the contents)
+      {
+        const bs0 = planeBasis(cp)
+        const s0 = cp.scale ?? 1
+        const hu = (left + HUB_W / 2) * s0
+        const hv = (pane.v1 + 0.28 * K) * s0
+        n.mesh.position.set(cp.x + bs0.right[0] * hu + bs0.up[0] * hv, cp.y + bs0.right[1] * hu + bs0.up[1] * hv, cp.z + bs0.right[2] * hu + bs0.up[2] * hv)
       }
       let plate = this.plates.get(h.id)
       if (!plate) {
@@ -295,6 +314,7 @@ export class SpatialScene {
       const back = -0.06 * K
       plate.position.set(cp.x + bs.right[0] * cx + bs.up[0] * cy + bs.normal[0] * back, cp.y + bs.right[1] * cx + bs.up[1] * cy + bs.normal[1] * back, cp.z + bs.right[2] * cx + bs.up[2] * cy + bs.normal[2] * back)
       plate.rotation.set(cp.rx ?? 0, cp.ry, 0)
+      plate.visible = !h.collapsed
       plateSeen.add(h.id)
     }
     for (const [id, p] of this.plates) {
@@ -372,7 +392,7 @@ export class SpatialScene {
         const toEye = pts[i].clone().negate().normalize()
         const across = new Vector3().crossVectors(tan, toEye).normalize()
         // thick in the middle, a little tapered at the ends
-        const w = (0.11 * K) * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
+        const w = 0.1 * K * (0.75 + 0.25 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
         for (const sgn of [-1, 1]) {
           const q = pts[i].clone().addScaledVector(across, sgn * w)
           pos.push(q.x, q.y, q.z)
@@ -693,7 +713,7 @@ export class SpatialScene {
   /** What is under the finger: a task first, then a group's name, then the pane of a group. */
   private pick(e: { clientX: number; clientY: number }): Hit | null {
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
-    const objs = [...this.tasks.values(), ...this.hubs.values()].map((n) => n.mesh).concat([...this.plates.values()])
+    const objs = [...this.tasks.values(), ...this.hubs.values()].map((n) => n.mesh).concat([...this.plates.values()]).filter((o) => o.visible)
     const hits = this.raycaster.intersectObjects(objs, false)
     const rank = { task: 0, hub: 1, plate: 2 } as const
     let best: (typeof hits)[number] | undefined
@@ -843,7 +863,7 @@ export class SpatialScene {
         const pane = paneOf(cp)
         // it lands where it was let go (kept inside the pane); a different group means it joins that one
         const u = Math.min(pane.u1 - WORLD.cardW / 2, Math.max(pane.u0 + WORLD.cardW / 2, over.u))
-        const v = Math.min(pane.v1 - 0.9 * K, Math.max(pane.v0 + WORLD.cardH / 2, over.v))
+        const v = Math.min(pane.v1 - WORLD.cardH / 2 - 0.1 * K, Math.max(pane.v0 + WORLD.cardH / 2, over.v))
         const used = new Set(Object.values(L.tasks).filter((t) => t.c === over.id && !t.free).map((t) => t.slot))
         let slot = tp.c === over.id && !tp.free ? tp.slot : 0
         if (tp.c !== over.id || tp.free) {
@@ -869,7 +889,10 @@ export class SpatialScene {
     }
     // a tap: on a card's round check it ticks, anywhere else on a card it opens; on a group's name it turns to that group
     if (p.mode === 'pending' && p.hit && performance.now() - p.t0 < 700) {
-      if (p.hit.kind === 'hub') this.focusCluster(p.hit.id)
+      if (p.hit.kind === 'hub') {
+        if (p.hit.uvx < 0.1) this.events.onCollapse?.(p.hit.id)
+        else this.focusCluster(p.hit.id)
+      }
       else if (p.hit.kind === 'task') {
         if (p.hit.uvx < 0.2) this.events.onToggle(p.hit.id)
         else this.events.onOpen(p.hit.id)
