@@ -128,6 +128,7 @@ export default function SpatialView() {
     }
     scene.current = sc
     sc.setContent(live.current)
+    sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
     const onVis = () => {
       if (document.visibilityState === 'hidden') sc.pause()
@@ -297,9 +298,14 @@ export default function SpatialView() {
           />
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex items-end justify-between gap-2">
             {!simple ? (
-              <button type="button" onClick={() => scene.current?.recenter()} className="pointer-events-auto whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
-                Recenter
-              </button>
+              <span className="pointer-events-auto flex gap-1.5">
+                <button type="button" onClick={() => scene.current?.recenter()} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
+                  Recenter
+                </button>
+                <button type="button" onClick={() => scene.current?.frameAll()} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
+                  Fit all
+                </button>
+              </span>
             ) : (
               <span />
             )}

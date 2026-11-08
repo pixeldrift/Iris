@@ -25,22 +25,28 @@ export interface LayoutInput {
   allClusterIds: ReadonlySet<string>
 }
 
-const colsFor = (n: number) => Math.max(1, Math.min(3, Math.ceil(Math.sqrt(Math.max(1, n) * 1.4))))
+const colsFor = (n: number) => Math.max(1, Math.min(2, Math.ceil(Math.sqrt(Math.max(1, n) * 1.4))))
 const cellW = WORLD.cardW + WORLD.gap
 const cellH = WORLD.cardH + WORLD.gap
 const slotAt = (slot: number, cols: number) => ({ u: ((slot % cols) - (cols - 1) / 2) * cellW, v: -(Math.floor(slot / cols) + 1) * cellH })
 
-/** Groups start within a quarter turn either side of straight ahead (90 degrees in all), so nothing begins behind the viewer. */
-export const START_SPAN = Math.PI / 2
-const MARGIN = 1.8 * K // clear space between neighbouring groups
-const TIER_HEAD = 2.3 * K // a group's name, and the gap above its cards
+/** Groups start in a wide, shallow wall within 70 degrees either side of straight ahead (140 in all, a few phone screens across), so nothing begins behind the viewer. */
+export const START_SPAN = (Math.PI * 7) / 9
+const MARGIN = 1.1 * K // clear space between neighbouring groups
+const TIER_HEAD = 1.9 * K // a group's name, and the gap above its cards
 
 const widthOf = (cols: number) => cols * cellW + MARGIN
 const heightOf = (rows: number) => rows * cellH + TIER_HEAD
 
-/** A cluster's place on the cylinder: faces the middle; `top` is where its name sits. */
-function place(a: number, r: number, cols: number, top: number, parent: string | null, tier: number): ClusterPlacement {
-  return { x: r * Math.sin(a), y: top, z: -r * Math.cos(a), ry: -a, a, r, cols, parent, tier }
+/** A cluster's place on the cylinder: faces the eye; `top` is where its name sits, `rows` sizes its grid. */
+function place(a: number, r: number, cols: number, top: number, parent: string | null, tier: number, rows = 1): ClusterPlacement {
+  const half = (rows * cellH) / 2
+  return tilt({ x: r * Math.sin(a), y: top, z: -r * Math.cos(a), ry: -a, a, r, cols, parent, tier, half })
+}
+/** Lean a group toward the eye: it faces the origin from where it is, both across and up or down. */
+function tilt(c: ClusterPlacement): ClusterPlacement {
+  const mid = c.y - (c.half ?? 0)
+  return { ...c, rx: Math.atan2(mid, Math.hypot(c.x, c.z)) }
 }
 
 /**
@@ -122,7 +128,7 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
         y -= tierH.get(t)!
       }
     }
-    for (const p of placed) clusters[p.id] = place(p.a, p.r, p.cols, tierTop.get(p.tier) as number, p.parent, p.tier)
+    for (const p of placed) clusters[p.id] = place(p.a, p.r, p.cols, tierTop.get(p.tier) as number, p.parent, p.tier, p.rows)
   }
   // a cluster's parent link follows the tree
   for (const c of input.clusters) if (clusters[c.id]) clusters[c.id] = { ...clusters[c.id], parent: c.parent }
@@ -149,27 +155,35 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
 
 export type Vec3 = [number, number, number]
 
-/** Where a task is in the world: its cluster's place, then across and down in the cluster's own plane. */
-export function taskWorld(t: TaskPlacement, c: ClusterPlacement): Vec3 {
-  const rx = Math.cos(c.ry)
-  const rz = -Math.sin(c.ry)
-  const nx = Math.sin(c.ry)
-  const nz = Math.cos(c.ry)
-  return [c.x + rx * t.u + nx * t.dz, c.y + t.v, c.z + rz * t.u + nz * t.dz]
+/** The directions of a group's plane in the world: across, up the card face, and out toward the viewer. */
+export function planeBasis(c: Pick<ClusterPlacement, 'ry' | 'rx'>): { right: Vec3; up: Vec3; normal: Vec3 } {
+  const th = c.rx ?? 0
+  const sy = Math.sin(c.ry)
+  const cy = Math.cos(c.ry)
+  const st = Math.sin(th)
+  const ct = Math.cos(th)
+  // the rotation is the turn about the vertical (ry) applied after the tilt (rx): the plane's own axes are carried along
+  return { right: [cy, 0, -sy], up: [st * sy, ct, st * cy], normal: [ct * sy, -st, ct * cy] }
 }
 
-/** Move a cluster (and so everything in it): its ring position follows, and it keeps facing the middle. */
+/** Where a task is in the world: its cluster's place, then across and down (and out) in the cluster's own plane. */
+export function taskWorld(t: TaskPlacement, c: ClusterPlacement): Vec3 {
+  const { right, up, normal } = planeBasis(c)
+  return [c.x + right[0] * t.u + up[0] * t.v + normal[0] * t.dz, c.y + right[1] * t.u + up[1] * t.v + normal[1] * t.dz, c.z + right[2] * t.u + up[2] * t.v + normal[2] * t.dz]
+}
+
+/** Move a cluster (and so everything in it): its ring position follows, and it keeps facing the eye. */
 export function moveCluster(c: ClusterPlacement, to: Vec3): ClusterPlacement {
   const a = Math.atan2(to[0], -to[2])
-  return { ...c, x: to[0], y: to[1], z: to[2], a, r: Math.hypot(to[0], to[2]), ry: -a }
+  return tilt({ ...c, x: to[0], y: to[1], z: to[2], a, r: Math.hypot(to[0], to[2]), ry: -a })
 }
 
 /** Move a task within its cluster: `world` is turned back into the cluster's own across/down. */
 export function moveTask(t: TaskPlacement, c: ClusterPlacement, world: Vec3): TaskPlacement {
-  const dx = world[0] - c.x
-  const dz = world[2] - c.z
-  return { ...t, u: dx * Math.cos(c.ry) + dz * -Math.sin(c.ry), v: world[1] - c.y }
+  const { right, up } = planeBasis(c)
+  const d: Vec3 = [world[0] - c.x, world[1] - c.y, world[2] - c.z]
+  return { ...t, u: d[0] * right[0] + d[1] * right[1] + d[2] * right[2], v: d[0] * up[0] + d[1] * up[1] + d[2] * up[2] }
 }
 
-/** The heading (radians) and height to look at to face a cluster. */
-export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - 1.2 * K, Math.hypot(c.x, c.z)) })
+/** The heading (radians) and height to look at to face a cluster (its middle). */
+export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - (c.half ?? 0), Math.hypot(c.x, c.z)) })
