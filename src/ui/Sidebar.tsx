@@ -16,7 +16,7 @@ import { AccountRow } from './Account'
 import { Tip } from './Tip'
 import { IconAll, IconInbox, IconBook, IconPlus } from './icons'
 
-import { VIEWS } from './viewList'
+import { orderedViews, VIEWS } from './viewList'
 import { Disclosure, Gap, rowBase } from './sidebar/parts'
 import { askName } from './NameDialog'
 import { ScopeRow, Section, weekMonths } from './sidebar/Section'
@@ -34,7 +34,10 @@ export { VIEWS }
 /** The views not hidden in the settings (always at least one). */
 export function useShownViews() {
   const hidden = useStore((s) => s.settings.hiddenViews)
-  return VIEWS.filter((v) => !hidden.includes(v.id)).length ? VIEWS.filter((v) => !hidden.includes(v.id)) : VIEWS
+  const order = useStore((s) => s.settings.viewOrder)
+  const all = useMemo(() => orderedViews(order), [order])
+  const shown = all.filter((v) => !hidden.includes(v.id))
+  return shown.length ? shown : all
 }
 
 function ViewSwitcher() {

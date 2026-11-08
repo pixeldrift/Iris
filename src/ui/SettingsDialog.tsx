@@ -13,7 +13,8 @@ import { SegmentedToggle } from './SegmentedToggle'
 import { askNotify, notifyState } from './notify'
 import { useEffect, useRef, useState } from 'react'
 import { IconChevron, IconClose } from './icons'
-import { VIEWS } from './viewList'
+import { orderedViews, VIEWS } from './viewList'
+import { GripDots } from './shared'
 
 const useSettingsDialog = create<{ open: boolean }>(() => ({ open: false }))
 export const openSettings = () => useSettingsDialog.setState({ open: true })
@@ -141,9 +142,41 @@ function DateFormatPick({ value, onChange }: { value: Settings['dateFormat']; on
 /** Which views show in the sidebar: folded away until wanted, so it does not take up the page. At least one always stays. */
 function ViewsPicker() {
   const hidden = useStore((s) => s.settings.hiddenViews)
+  const order = useStore((s) => s.settings.viewOrder)
   const set = useStore((s) => s.setSetting)
   const [open, setOpen] = useState(false)
-  const shown = VIEWS.filter((v) => !hidden.includes(v.id))
+  const all = orderedViews(order)
+  const shown = all.filter((v) => !hidden.includes(v.id))
+  const listRef = useRef<HTMLUListElement>(null)
+  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null)
+  const move = <T,>(a: T[], from: number, to: number) => {
+    const n = [...a]
+    n.splice(to, 0, n.splice(from, 1)[0])
+    return n
+  }
+  /** Carry a view by its handle; the rows rearrange as it passes them, and letting go keeps the order. */
+  const begin = (from: number) => (e: React.PointerEvent) => {
+    e.preventDefault()
+    const rows = [...(listRef.current?.children ?? [])].map((r) => (r as HTMLElement).getBoundingClientRect())
+    let to = from
+    const onMove = (ev: PointerEvent) => {
+      const i = rows.findIndex((r) => ev.clientY < r.bottom)
+      to = i < 0 ? rows.length - 1 : i
+      setDrag({ from, to })
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      setDrag(null)
+      if (to !== from) set('viewOrder', move(all, from, to).map((v) => v.id))
+    }
+    setDrag({ from, to })
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
+  const rows = drag ? move(all, drag.from, drag.to) : all
   return (
     <div className="px-1">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left transition hover:bg-white/50">
@@ -152,17 +185,18 @@ function ViewsPicker() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="text-sm">Views in the sidebar</span>
-          <span className="block text-[0.7rem] text-ink-faint">{shown.length === VIEWS.length ? 'all shown' : `${shown.length} of ${VIEWS.length} shown`}: uncheck the ones you do not use</span>
+          <span className="block text-[0.7rem] text-ink-faint">{shown.length === VIEWS.length ? 'all shown' : `${shown.length} of ${VIEWS.length} shown`}: uncheck the ones you do not use, drag to reorder</span>
         </span>
       </button>
       {open && (
-        <ul className="mb-1 ml-6 mt-1 space-y-0.5">
-          {VIEWS.map((v) => {
+        <ul ref={listRef} className="mb-1 ml-6 mt-1 space-y-0.5">
+          {rows.map((v) => {
             const on = !hidden.includes(v.id)
             const last = on && shown.length === 1
+            const at = all.findIndex((x) => x.id === v.id)
             return (
-              <li key={v.id}>
-                <label className={`flex items-center gap-2.5 rounded-lg px-1.5 py-1 text-sm transition hover:bg-white/50 ${last ? 'opacity-60' : 'cursor-pointer'}`}>
+              <li key={v.id} className={`flex items-center gap-1 rounded-lg transition ${drag && all[drag.from].id === v.id ? 'bg-white/70 shadow-md' : ''}`}>
+                <label className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-1 text-sm transition hover:bg-white/50 ${last ? 'opacity-60' : 'cursor-pointer'}`}>
                   <input type="checkbox" checked={on} disabled={last} onChange={() => set('hiddenViews', on ? [...hidden, v.id] : hidden.filter((x) => x !== v.id))} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
                   <span className="text-lilac-600">
                     <v.icon size={16} />
@@ -170,6 +204,9 @@ function ViewsPicker() {
                   {v.label}
                   <span className="text-[0.7rem] text-ink-faint">{v.hint}</span>
                 </label>
+                <span data-grip onPointerDown={begin(at)} role="button" aria-label={`Move ${v.label}`} title="Drag to reorder" className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center">
+                  <GripDots />
+                </span>
               </li>
             )
           })}

@@ -196,7 +196,7 @@ add the sharing tables and columns.
 
 **Settings** Accessed under your user account menu (the title stays put while the options scroll): *Soundscape* (audio, volume,
 drops, task sounds, pops, ambient chimes); *Look & Feel* (colour, menu spacing, and the Pond's bubble scaling, drifting and
-bloomed tasks); *Views* (a folded list: uncheck the views you do not use and they leave the sidebar, though at least one stays); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips,
+bloomed tasks); *Views* (a folded list: uncheck the views you do not use and they leave the sidebar, though at least one stays, and drag the handles to put them in the order you like: the order is set here, not in the menu itself, so it is not shuffled by accident); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips,
 *Push Notifications*); *Region* (date format, time format, time zone); demo data; and your data, account and connections.
 Add your profile image and contact details.
 

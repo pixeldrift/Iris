@@ -15,13 +15,41 @@ Delete modes, stats and a play limit; a tidier Settings. (The README describes e
 1. **Sharing and assigning, per group. (The headline feature: see *Collaboration* below.)** Share a group with someone, as you
    would share a note in iOS: you both see and edit its tasks, and you can **assign a task to a person**, who is told and can
    filter to what is theirs. People asked for this first.
-2. **Blended bubbles** (a gradient of a bubble's groups): a small visual win to slot in alongside.
-3. **Attachments and dropping things onto the pond** (images first; the storage choice is worth a design chat), then
+2. **A structured canvas view ("Map"): the whole of your tasks in one navigable place, compact and readable.** The Pond is for
+   feeling and play, but a bubble's text is sized by its circle, so it takes a lot of room and is hard to read. This view is the
+   serious counterpart: still one large canvas you pan and zoom (same gestures as the Pond), but laid out like an org chart or
+   family tree, with the group hierarchy drawn as structure and tasks as dense one-line cards. *(Planned; the design is below.)*
+   - **Shape.** Groups are containers (nested, with the hierarchy from the sidebar: School › English 101), laid out left to right
+     like a tree with connectors, or as nested columns that wrap like masonry (a toggle; start with columns, they are the
+     densest). Each group's header shows its colour, name, a count and a progress ring; the tasks inside are compact cards:
+     check box, title (up to two lines, real text size, never scaled by importance), then small chips for due date, place pin,
+     people avatars, a thin progress bar (and 12/20 counts). Same colour language as the rest of the app.
+   - **Semantic zoom.** Far out: group tiles only (name, count, progress ring, the next due item), so a whole life fits on one
+     screen. Mid: compact rows. Close: full cards with notes, list entries and the picture. Double-click or pinch into a group to
+     zoom to it; a mini-map and *Fit all* keep you oriented; the breadcrumb and sidebar filter apply, so you can map just one group.
+   - **Collapse and focus.** Every group folds (its state remembered, like the task panel's boxes); a single-click on a header
+     focuses it and dims the rest. Search highlights matches and dims everything else (as in the Pond).
+   - **Direct manipulation.** Drag a card to another group to retag it (the same drop targets as the sidebar), drag within a
+     group to reorder (the same "My order" ranks as the List), tap to open the details panel. Shared groups and assigned tasks
+     show their person marks and avatars.
+   - **Lenses** (what the structure is drawn from): *by group* (the default), *by person* (a family-tree style of who is
+     doing what, using assignments and tags), *by stage* (swimlanes of the Progress columns, with percent-complete), and *by
+     time* (this week, next week, later). Same cards, different grouping.
+   - **Density.** Compact, comfortable and roomy settings; completed items and past events follow *Show completed tasks*.
+   - **How it is built.** A pure, tested layout in `src/core` (`layoutMap`: groups, tasks and options in; boxes and connectors
+     out, so it ports to the Swift app) plus a DOM renderer on a transformed canvas (fine to roughly a thousand cards; far
+     zoom draws tiles only, never the cards), reusing the Pond's pan and zoom, the folder tree, the drag and drop targets and
+     the List's row components.
+   - **Order of work.** (1) Nested columns, compact cards, pan/zoom, fit all, collapse; (2) drag to retag and reorder, semantic
+     zoom, mini-map; (3) tree connectors and the by-person lens; (4) stage swimlanes and the by-time lens. Open questions:
+     the name (Map, Atlas, Board), and whether the by-person lens should start from the address book or from shared members.
+3. **Blended bubbles** (a gradient of a bubble's groups): a small visual win to slot in alongside.
+4. **Attachments and dropping things onto the pond** (images first; the storage choice is worth a design chat), then
    **Overview goals**.
-4. **Accounts you can rely on:** email verification and password reset (needs an email provider). Needed before inviting
+5. **Accounts you can rely on:** email verification and password reset (needs an email provider). Needed before inviting
    people into shared groups at any scale, and for email invitations.
-5. **Calendar sync** (CalDAV, Google), now that accounts and sync are live.
-6. **Themes**, then the **native Swift port** of `src/core`.
+6. **Calendar sync** (CalDAV, Google), now that accounts and sync are live.
+7. **Themes**, then the **native Swift port** of `src/core`.
 
 Also worth a pass on real devices: the recent calendar touch behaviour (drag-scrolling, the unscheduled tray, sideways phone), and sharing between two real accounts.
 

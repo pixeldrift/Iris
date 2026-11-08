@@ -32,6 +32,8 @@ export interface Settings {
   quickAdd: 'auto' | 'suggest' | 'off'
   /** Views left out of the sidebar (ones you do not use). At least one always stays. */
   hiddenViews: ViewId[]
+  /** The order of the views in the sidebar (set by dragging in Settings, not in the menu itself). */
+  viewOrder: ViewId[]
   /** Switching to another view also clears the filter (back to Everything), instead of keeping it. */
   viewsClearFilters: boolean
   /** Pop mode's running totals (kept on this device). */
