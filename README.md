@@ -37,11 +37,11 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
   - **Column break points.** In the stage editor (the pencil), each column has a percent: the point at which an item enters it.
     The first is always 0% and the last 100%; the ones between are yours to set (evenly spaced until you do). The percents
     belong to the *places* in the row, not to the column names: dragging a column to reorder it leaves the percents where they
-    are. They also rise strictly, so a middle one is limited to between its neighbours.
+    are. They also rise strictly, so a middle one is limited to between its neighbours. Left alone, the second column starts at
+    1% (any progress at all gets an item out of Not started), and any others are spread evenly up to 100.
   - **Both ways.** Dragging a card to a column (or choosing its Stage, or ticking it done) sets its progress to that column's
     break point (a count follows: 100% is all of them done). Changing the progress (slider, count, ticks) moves the item to
-    the column that percent reaches. With the default 0 / 50 / 100, a list with a quarter of its entries ticked is still
-    *Not started*; set the middle column's percent to 1 if "any progress means started" suits you better.
+    the column that percent reaches. With the default 0 / 1 / 100, the first tick of a list, or any count above zero, starts it.
 - **Priority**: the Eisenhower plot; drag a task around to set how much it matters and how urgent it is.
 - **Calendar**: month (an endless grid: drag it to scroll, the arrows slide a whole month), week, and day (a list, or a
   schedule by the clock with events as tall as they last, drag to move or stretch). Items with no day wait under the days.

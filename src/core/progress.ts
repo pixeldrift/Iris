@@ -82,9 +82,12 @@ export function planRank(list: { id: string; rank?: number | null }[], at: numbe
   return { rank: last + RANK_GAP, patches }
 }
 
+/** Left alone, the second column starts at 1% (any progress at all gets an item out of the first) and the rest are spread evenly up to 100. */
+const defaultPercent = (i: number, n: number): number => (i <= 1 ? 1 : Math.round(1 + ((i - 1) * 99) / (n - 2)))
+
 /**
  * The percent at which an item enters each column, by position. The first is always 0 and the last 100; the ones between are the
- * numbers given (kept strictly rising and inside their neighbours) or, left alone, evenly spaced. The percents belong to the places
+ * numbers given (kept strictly rising and inside their neighbours) or, left alone, 1% for the second and evenly spaced after it. The percents belong to the places
  * in the row, not to the columns' names, so dragging a column to a new spot does not carry its percent along.
  */
 export function percentsFor(n: number, given?: number[] | null): number[] {
@@ -94,7 +97,7 @@ export function percentsFor(n: number, given?: number[] | null): number[] {
     if (i === 0) out.push(0)
     else if (i === n - 1) out.push(100)
     else {
-      const want = given && typeof given[i] === 'number' ? Math.round(given[i]) : Math.round((i * 100) / (n - 1))
+      const want = given && typeof given[i] === 'number' ? Math.round(given[i]) : defaultPercent(i, n)
       // strictly above the one before, and leaving room for those still to come
       out.push(Math.max(out[i - 1] + 1, Math.min(want, 100 - (n - 1 - i))))
     }

@@ -26,7 +26,7 @@ test.describe('progress: percent complete, a count, and the columns', () => {
     await pad2.getByRole('button', { name: '2', exact: true }).click()
     await pad2.getByRole('button', { name: 'Done' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(60)
-    expect((await taskNamed(page, 'Grade essays'))?.status).toBe('doing') // (60 is past the In progress break point, 50)
+    expect((await taskNamed(page, 'Grade essays'))?.status).toBe('doing') // (60 is past the In progress break point, 1)
     // the + counter
     await dialog.getByRole('button', { name: 'One more' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.tally?.done).toBe(13)
@@ -41,9 +41,9 @@ test.describe('progress: percent complete, a count, and the columns', () => {
     await dialog.getByRole('button', { name: 'Not started' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(0)
     await dialog.getByRole('button', { name: 'In progress' }).click()
-    await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(50)
-    await slider.fill('20')
-    await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.status).toBe('todo') // (20 is below the break point)
+    await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(1) // (the break point to get out of Not started)
+    await slider.fill('0')
+    await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.status).toBe('todo')
   })
 
   test('a list works its percent out from the entries ticked', async ({ page }) => {
