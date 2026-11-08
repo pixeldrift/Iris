@@ -169,6 +169,7 @@ test.describe('a phone turned sideways', () => {
       }
       expect(aside.x).toBeLessThan(1) // the menu's glass starts at the screen's edge either way
       await page.getByRole('button', { name: 'Hide the menu' }).click()
+      await page.waitForTimeout(700) // (the menu slides away)
       const logo = (await page.getByRole('button', { name: 'Show the menu' }).boundingBox())!
       if (notchLeft) expect(logo.x).toBeGreaterThanOrEqual(40) // the shortcuts stay out from under the notch
       else expect(logo.x).toBeLessThan(20)

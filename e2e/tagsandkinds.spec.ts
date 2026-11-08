@@ -27,6 +27,14 @@ test.describe('quick add hints, tags and repeats', () => {
     await expect(page.getByLabel('New item')).toHaveValue('Water the plants #Life ')
   })
 
+  test('a capitalised name from the address book is tagged without typing the @', async ({ page }) => {
+    await page.keyboard.press('n')
+    await page.keyboard.type('Plan the visit with Grandma')
+    await expect(page.getByText('@Grandma', { exact: true })).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await taskNamed(page, 'Plan the visit with Grandma'))?.personIds?.length).toBe(1)
+  })
+
   test('tags added in the panel stay in the order they were added', async ({ page }) => {
     await page.keyboard.press('n')
     await page.keyboard.type('Ring about the garden')

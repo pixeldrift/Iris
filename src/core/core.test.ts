@@ -1021,3 +1021,32 @@ describe('progress percentages', () => {
     expect(percentOfCount(3, 0)).toBe(0)
   })
 })
+
+describe('people named in quick add without an @', () => {
+  const person = (id: string, name: string, favorite = false) => ({ id, name, favorite, hue: 285, phone: '', email: '', address: '', notes: '', createdAt: 0 }) as never
+  const parse = async (text: string, people: unknown[]) => (await import('./quickadd')).parseQuickAdd(text, new Date(2026, 10, 6), { folders: [], people: people as never })
+  it('tags a capitalised first or full name, and leaves the name in the title', async () => {
+    const people = [person('a', 'Sarah Lee'), person('b', 'Tom Hart')]
+    const q = await parse('Call Sarah about the order', people)
+    expect(q.personIds).toEqual(['a'])
+    expect(q.chips).toContain('@Sarah')
+    expect(q.title).toBe('Call Sarah about the order')
+    expect((await parse('Lunch with Tom Hart tomorrow', people)).personIds).toEqual(['b'])
+  })
+  it('ignores words that are not capitalised, and short names', async () => {
+    const people = [person('a', 'Mark Lee'), person('b', 'Jo Kim')]
+    expect((await parse('mark the exam', people)).personIds).toEqual([])
+    expect((await parse('Ask Jo about it', people)).personIds).toEqual([])
+  })
+  it('puts favourites first when a first name is shared, and skips it when it cannot tell', async () => {
+    expect((await parse('Text Sam', [person('a', 'Sam Lee'), person('b', 'Sam Roe', true)])).personIds).toEqual(['b'])
+    expect((await parse('Text Sam', [person('a', 'Sam Lee'), person('b', 'Sam Roe')])).personIds).toEqual([])
+    expect((await parse('Text Sam Lee', [person('a', 'Sam Lee'), person('b', 'Sam Roe')])).personIds).toEqual(['a'])
+  })
+  it('does not tag someone twice when they were also typed with an @, and keeps the order typed', async () => {
+    const people = [person('a', 'Sarah Lee'), person('b', 'Tom Hart')]
+    const q = await parse('Ask Tom and @Sarah', people)
+    expect(q.personIds.sort()).toEqual(['a', 'b'])
+    expect(q.tagOrder).toEqual(['b', 'a'])
+  })
+})

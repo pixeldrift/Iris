@@ -28,6 +28,8 @@ export interface Settings {
   priorityScale: number
   /** Labels that appear when you hover (or tap) an icon. */
   tooltips: boolean
+  /** Views left out of the sidebar (ones you do not use). At least one always stays. */
+  hiddenViews: ViewId[]
   /** Switching to another view also clears the filter (back to Everything), instead of keeping it. */
   viewsClearFilters: boolean
   /** Pop mode's running totals (kept on this device). */

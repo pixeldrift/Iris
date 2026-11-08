@@ -364,3 +364,10 @@ export const IconClock = (p: P) => (
     <path d="M12 7.5V12l3 2" />
   </Svg>
 )
+export const IconImage = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+    <circle cx="9" cy="10" r="1.6" />
+    <path d="m4.5 17 4.5-4.5 3.5 3.5 3-3 4 4" />
+  </Svg>
+)

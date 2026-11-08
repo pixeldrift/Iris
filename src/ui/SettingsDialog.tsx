@@ -12,7 +12,8 @@ import { openDanger } from './DangerZone'
 import { SegmentedToggle } from './SegmentedToggle'
 import { askNotify, notifyState } from './notify'
 import { useEffect, useRef, useState } from 'react'
-import { IconClose } from './icons'
+import { IconChevron, IconClose } from './icons'
+import { VIEWS } from './viewList'
 
 const useSettingsDialog = create<{ open: boolean }>(() => ({ open: false }))
 export const openSettings = () => useSettingsDialog.setState({ open: true })
@@ -134,6 +135,47 @@ function DateFormatPick({ value, onChange }: { value: Settings['dateFormat']; on
         </div>
       </Popover>
     </>
+  )
+}
+
+/** Which views show in the sidebar: folded away until wanted, so it does not take up the page. At least one always stays. */
+function ViewsPicker() {
+  const hidden = useStore((s) => s.settings.hiddenViews)
+  const set = useStore((s) => s.setSetting)
+  const [open, setOpen] = useState(false)
+  const shown = VIEWS.filter((v) => !hidden.includes(v.id))
+  return (
+    <div className="px-1">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left transition hover:bg-white/50">
+        <span className={`text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
+          <IconChevron size={14} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="text-sm">Views in the sidebar</span>
+          <span className="block text-[0.7rem] text-ink-faint">{shown.length === VIEWS.length ? 'all shown' : `${shown.length} of ${VIEWS.length} shown`}: uncheck the ones you do not use</span>
+        </span>
+      </button>
+      {open && (
+        <ul className="mb-1 ml-6 mt-1 space-y-0.5">
+          {VIEWS.map((v) => {
+            const on = !hidden.includes(v.id)
+            const last = on && shown.length === 1
+            return (
+              <li key={v.id}>
+                <label className={`flex items-center gap-2.5 rounded-lg px-1.5 py-1 text-sm transition hover:bg-white/50 ${last ? 'opacity-60' : 'cursor-pointer'}`}>
+                  <input type="checkbox" checked={on} disabled={last} onChange={() => set('hiddenViews', on ? [...hidden, v.id] : hidden.filter((x) => x !== v.id))} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+                  <span className="text-lilac-600">
+                    <v.icon size={16} />
+                  </span>
+                  {v.label}
+                  <span className="text-[0.7rem] text-ink-faint">{v.hint}</span>
+                </label>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -300,6 +342,9 @@ export function SettingsDialog() {
           <Row k="sizeByPriority" label="Bubbles scale by importance" hint="bubble size in Pond and Priority views" />
           <Row k="drift" label="Gentle drifting" hint="floating on the water" />
           <Row k="showDone" label="Show completed tasks" hint="finished tasks stay visible" />
+        </Group>
+        <Group title="Views">
+          <ViewsPicker />
         </Group>
         <Group title="App options">
           <Row k="viewsClearFilters" label="Switching views resets filters" hint="start every view from Everything" />

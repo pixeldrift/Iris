@@ -547,3 +547,19 @@ body.scrubbing .glow-breathe {
     0 0 0 1px rgb(var(--lr-300) / 0.28),
     0 2px 10px -2px rgb(var(--lr-400) / 0.22);
 }
+
+/* a bubble with a picture: the picture fills it, tinted with the group's color (unless switched off) under a soft highlight; the thin
+   outer ring and shadow of .pad keep the group's color either way, and a title is lifted off the picture with a pale glow */
+.pad-photo {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(160deg, hsla(var(--h, 285), calc(70% * var(--s, 1)), 88%, 0.5), hsla(var(--h, 285), calc(70% * var(--s, 1)), 62%, 0.4)),
+    var(--photo) center / cover no-repeat;
+  background-clip: border-box;
+}
+.pad-photo.untinted {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 55%),
+    var(--photo) center / cover no-repeat;
+}
+.pad-photo [data-title], .pad-photo p, .pad-photo span { text-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.9); }

@@ -4,7 +4,6 @@ import { childrenOf, descendantIds } from '../core/folders'
 import { MAX_FAVORITES } from '../core/people'
 import { hasPart, pickOnly } from '../core/scope'
 import { taskOnDate } from '../core/recurrence'
-import type { ViewId } from '../core/types'
 import { useStore } from '../state/store'
 import { useDnd, useDropTarget } from './dnd'
 import { Logo } from './Decor'
@@ -15,8 +14,9 @@ import { useFlip } from './flip'
 import { SPRING } from './lift'
 import { AccountRow } from './Account'
 import { Tip } from './Tip'
-import { IconAll, IconBoard, IconCalendar, IconChart, IconInbox, IconBook, IconList, IconPlus, IconPond, IconPriority, IconTimeline } from './icons'
+import { IconAll, IconInbox, IconBook, IconPlus } from './icons'
 
+import { VIEWS } from './viewList'
 import { Disclosure, Gap, rowBase } from './sidebar/parts'
 import { askName } from './NameDialog'
 import { ScopeRow, Section, weekMonths } from './sidebar/Section'
@@ -24,22 +24,21 @@ import { PersonRow } from './sidebar/PersonRow'
 import { useFolderSlot } from './sidebar/folderSlot'
 import { FolderNode } from './sidebar/FolderNode'
 
-export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof IconPond }[] = [
-  { id: 'pond', label: 'Pond', hint: 'Freeform', icon: IconPond },
-  { id: 'list', label: 'List', hint: 'Sortable', icon: IconList },
-  { id: 'board', label: 'Progress', hint: 'Stages', icon: IconBoard },
-  { id: 'priority', label: 'Priority', hint: 'Eisenhower', icon: IconPriority },
-  { id: 'calendar', label: 'Calendar', hint: 'Schedule', icon: IconCalendar },
-  { id: 'timeline', label: 'Timeline', hint: 'Gantt', icon: IconTimeline },
-  { id: 'overview', label: 'Overview', hint: 'Stats', icon: IconChart },
-]
+export { VIEWS }
 
 
 /**
  * How you look: the views, as a purple card of their own (white on purple), apart from the filters below it. Folded away with
  * the arrow it becomes a row of icons, the same shortcuts the sideways layout keeps when its menu is tucked in.
  */
+/** The views not hidden in the settings (always at least one). */
+export function useShownViews() {
+  const hidden = useStore((s) => s.settings.hiddenViews)
+  return VIEWS.filter((v) => !hidden.includes(v.id)).length ? VIEWS.filter((v) => !hidden.includes(v.id)) : VIEWS
+}
+
 function ViewSwitcher() {
+  const shown = useShownViews()
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
   const folded = useStore((s) => s.sidebar.collapsed.includes('views'))
@@ -56,7 +55,7 @@ function ViewSwitcher() {
       </div>
       {folded ? (
         <div className="flex justify-between px-0.5 pb-0.5" role="group" aria-label="Views">
-          {VIEWS.map((v) => (
+          {shown.map((v) => (
             <button
               key={v.id}
               onClick={() => setView(v.id)}
@@ -70,7 +69,7 @@ function ViewSwitcher() {
           ))}
         </div>
       ) : (
-        VIEWS.map((v) => (
+        shown.map((v) => (
           <button key={v.id} onClick={() => setView(v.id)} aria-pressed={view === v.id} className={`${rowBase} ${view === v.id ? 'bg-white font-medium text-lilac-700 shadow-md' : 'text-white hover:bg-white/15'}`}>
             <v.icon />
             {v.label}
@@ -88,8 +87,13 @@ const SIDEBAR_MIN = 240
 const SIDEBAR_MAX = 560
 
 export function Sidebar() {
+  const shown = useShownViews()
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
+  // a view that is hidden is never the one being looked at: fall back to the first one that is shown
+  useEffect(() => {
+    if (!shown.some((v) => v.id === view)) setView(shown[0].id)
+  }, [shown, view, setView])
   const scope = useStore((s) => s.scope)
   const setScope = useStore((s) => s.setScope)
   const allTasks = useStore((s) => s.tasks)
@@ -429,7 +433,7 @@ export function Sidebar() {
             <span aria-hidden className="my-px h-px w-5 shrink-0 bg-ink-faint/30" />
             {/* the views are purple here too, as in the open menu: white icons, the current one a white disc */}
             <div className="flex shrink-0 flex-col items-center gap-0.5 rounded-full bg-gradient-to-b from-lilac-400 to-lilac-600 p-0.5 shadow-md shadow-lilac-500/30">
-              {VIEWS.map((v) => (
+              {shown.map((v) => (
                 <button
                   key={v.id}
                   type="button"

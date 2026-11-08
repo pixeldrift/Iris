@@ -14,7 +14,7 @@ import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
 import { progressOf } from '../core/progress'
-import { IconCalendar, IconChart, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconTrash } from './icons'
+import { IconCalendar, IconChart, IconImage, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconTrash } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { DoneButton, KindHint, KINDS, OpenPlace, STATUSES } from './shared'
 import { TagInput } from './TagInput'
@@ -305,6 +305,9 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
       <Box title="Where" icon={<IconPin size={13} />} startOpen={!list || !!task.place}>
         <PlaceField task={task} />
       </Box>
+      <Box title="Picture" icon={<IconImage size={13} />} startOpen={!!task.image || !list}>
+        <PictureField task={task} />
+      </Box>
       <AssignField task={task} />
       <textarea
         value={task.notes}
@@ -326,29 +329,30 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
   )
 }
 
-/** An idea (once called a notion): a scribble on the back of a napkin. Where it belongs, the words (a big box), a picture. Nothing else. */
-function NotionFields({ task }: { task: Task }) {
+/**
+ * A picture for any item: it becomes the background of its bubble (tinted with the group's colour unless "Tint" is switched off, in which
+ * case the bubble's outer ring still takes the colour). An item can have no title at all: the picture is then the reminder.
+ */
+function PictureField({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const showToast = useStore((s) => s.showToast)
   const input = useRef<HTMLInputElement>(null)
+  const tinted = task.imageTint !== false
   return (
-    <>
-      <TagInput taskId={task.id} />
-      <textarea
-        value={task.notes}
-        onChange={(e) => update(task.id, { notes: e.target.value })}
-        placeholder="Jot it down: a thought, a link, something to remember…"
-        aria-label="Notes"
-        rows={9}
-        className="well w-full resize-y rounded-2xl px-3.5 py-3 text-sm leading-relaxed"
-      />
+    <div className="space-y-2">
       {task.image ? (
-        <div className="relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
-          <img src={task.image} alt="" draggable={false} className="max-h-72 w-full object-contain" />
-          <button type="button" onClick={() => update(task.id, { image: undefined })} aria-label="Remove the picture" className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/85 text-ink-soft shadow transition hover:text-[#b04a6e]">
-            <IconClose size={13} />
-          </button>
-        </div>
+        <>
+          <div className="relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
+            <img src={task.image} alt="" draggable={false} className="max-h-72 w-full object-contain" />
+            <button type="button" onClick={() => update(task.id, { image: undefined, imageTint: undefined })} aria-label="Remove the picture" className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/85 text-ink-soft shadow transition hover:text-[#b04a6e]">
+              <IconClose size={13} />
+            </button>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 px-1 text-sm text-ink-soft">
+            <input type="checkbox" checked={tinted} onChange={(e) => update(task.id, { imageTint: e.target.checked ? undefined : false })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+            Tint the picture with the group’s color
+          </label>
+        </>
       ) : (
         <button type="button" onClick={() => input.current?.click()} className="glass-soft flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm text-lilac-700 transition hover:bg-white/80">
           <IconPlus size={14} /> Add a picture
@@ -371,6 +375,25 @@ function NotionFields({ task }: { task: Task }) {
           }
         }}
       />
+    </div>
+  )
+}
+
+/** An idea (once called a notion): a scribble on the back of a napkin. Where it belongs, the words (a big box), a picture. Nothing else. */
+function NotionFields({ task }: { task: Task }) {
+  const update = useStore((s) => s.updateTask)
+  return (
+    <>
+      <TagInput taskId={task.id} />
+      <textarea
+        value={task.notes}
+        onChange={(e) => update(task.id, { notes: e.target.value })}
+        placeholder="Jot it down: a thought, a link, something to remember…"
+        aria-label="Notes"
+        rows={9}
+        className="well w-full resize-y rounded-2xl px-3.5 py-3 text-sm leading-relaxed"
+      />
+      <PictureField task={task} />
     </>
   )
 }
