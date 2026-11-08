@@ -3,7 +3,13 @@
 // tracking quality, never which sensor (or, one day, ARKit) produced them.
 
 /** What a unit of the world means: one unit is about one metre. The viewer's eyes are at the origin, looking down -Z. */
-export const WORLD = { eye: 0, ring: 9, cardW: 3, cardH: 1, gap: 0.24 } as const
+/**
+ * Everything is drawn big and far (the wall is a distant, gently curved cylinder), and the camera looks at it through a narrow lens, so
+ * perspective stays gentle: cards at the sides of the wall are hardly more slanted than those in the middle. `K` scales the whole room
+ * (apparent sizes do not change with it; it just keeps the cards far from the eye).
+ */
+export const K = 2.5
+export const WORLD = { eye: 0, ring: 9 * K, cardW: 3 * K, cardH: 1 * K, gap: 0.24 * K } as const
 
 /** Optional reference for future AR: where in a real room this was pinned (never filled by sensor readings). */
 export interface SpatialAnchor {

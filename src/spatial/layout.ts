@@ -1,7 +1,7 @@
 // SpatialLayout: turns the task map (groups and their tasks) into places in 3D, and keeps those places steady. Pure, with no
 // rendering and no sensors, so every renderer (touch, motion, camera, and later ARKit) reads the same layout.
 
-import { WORLD, type ClusterPlacement, type SpatialLayoutData, type TaskPlacement } from './types'
+import { K, WORLD, type ClusterPlacement, type SpatialLayoutData, type TaskPlacement } from './types'
 
 export interface LayoutCluster {
   id: string
@@ -32,8 +32,8 @@ const slotAt = (slot: number, cols: number) => ({ u: ((slot % cols) - (cols - 1)
 
 /** Groups start within a quarter turn either side of straight ahead (90 degrees in all), so nothing begins behind the viewer. */
 export const START_SPAN = Math.PI / 2
-const MARGIN = 1.8 // clear space between neighbouring groups
-const TIER_HEAD = 2.3 // a group's name, and the gap above its cards
+const MARGIN = 1.8 * K // clear space between neighbouring groups
+const TIER_HEAD = 2.3 * K // a group's name, and the gap above its cards
 
 const widthOf = (cols: number) => cols * cellW + MARGIN
 const heightOf = (rows: number) => rows * cellH + TIER_HEAD
@@ -116,7 +116,7 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
       }
     } else {
       const total = tiers.reduce((sum, t) => sum + tierH.get(t)!, 0)
-      let y = total / 2 + 0.6
+      let y = total / 2 + 0.6 * K
       for (const t of tiers) {
         tierTop.set(t, y)
         y -= tierH.get(t)!
@@ -172,4 +172,4 @@ export function moveTask(t: TaskPlacement, c: ClusterPlacement, world: Vec3): Ta
 }
 
 /** The heading (radians) and height to look at to face a cluster. */
-export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - 1.2, Math.hypot(c.x, c.z)) })
+export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - 1.2 * K, Math.hypot(c.x, c.z)) })

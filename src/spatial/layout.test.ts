@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { K } from './types'
 import { ensureLayout, lookAt, moveCluster, moveTask, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
@@ -27,7 +28,7 @@ describe('spatial layout', () => {
   it('puts clusters on a ring around the viewer, facing the middle, the first ones straight ahead', () => {
     const l = ensureLayout(empty, input({ one: ['a'] }))
     const c = l.clusters.one
-    expect(Math.hypot(c.x, c.z)).toBeCloseTo(9, 1)
+    expect(Math.hypot(c.x, c.z)).toBeCloseTo(9 * K, 1)
     expect(c.z).toBeLessThan(0) // in front (down -Z)
     expect(Math.abs(c.x)).toBeLessThan(1)
     // facing the middle: the plane's normal points back toward the origin
@@ -96,15 +97,15 @@ describe('spatial layout', () => {
     // two of them are subgroups (nearer)
     inp.clusters = inp.clusters.map((c, i) => (i === 3 || i === 8 ? { ...c, parent: 'g0', depth: 1 } : c))
     const l = ensureLayout(empty, inp)
-    const cellW = 3 + 0.24
-    const cellH = 1 + 0.24
+    const cellW = (3 + 0.24) * K
+    const cellH = (1 + 0.24) * K
     const boxes = Object.entries(l.clusters).map(([id, c]) => {
       const n = many[id].length
       const rows = Math.ceil(n / c.cols)
       const half = (c.cols * cellW) / 2
       const tx = Math.cos(c.ry)
       const tz = -Math.sin(c.ry)
-      return { id, ax: c.x - tx * half, az: c.z - tz * half, bx: c.x + tx * half, bz: c.z + tz * half, top: c.y + 0.5, bottom: c.y - rows * cellH }
+      return { id, ax: c.x - tx * half, az: c.z - tz * half, bx: c.x + tx * half, bz: c.z + tz * half, top: c.y + 0.5 * K, bottom: c.y - rows * cellH }
     })
     const ccw = (ax: number, az: number, bx: number, bz: number, cx: number, cz: number) => (cz - az) * (bx - ax) > (bz - az) * (cx - ax)
     const cross = (p: (typeof boxes)[number], q: (typeof boxes)[number]) => ccw(p.ax, p.az, q.ax, q.az, q.bx, q.bz) !== ccw(p.bx, p.bz, q.ax, q.az, q.bx, q.bz) && ccw(p.ax, p.az, p.bx, p.bz, q.ax, q.az) !== ccw(p.ax, p.az, p.bx, p.bz, q.bx, q.bz)

@@ -5,7 +5,7 @@ import { CanvasTexture, DoubleSide, LineBasicMaterial, LineSegments, BufferGeome
 import { HUB_PX, drawCard, drawPlate, drawHub, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { moveCluster, moveTask, taskWorld, lookAt } from './layout'
-import { WORLD, type SpatialLayoutData } from './types'
+import { K, WORLD, type SpatialLayoutData } from './types'
 import type { SpatialTracking } from './tracking'
 import { edgeDots } from '../core/edges'
 
@@ -35,15 +35,17 @@ interface Node {
   tex: CanvasTexture
   key: string
 }
-const MIN_FOV = 28
-const MAX_FOV = 95
+/** The horizontal field of view of the lens, in degrees: narrow by default (a distant wall seen through a telephoto, so it stays flat). */
+const MIN_FOV = 14
+const MAX_FOV = 80
+const START_FOV = 40
 const HOLD_MS = 380
 const TAP_PX = 8
 
 export class SpatialScene {
   private renderer: WebGLRenderer
   private scene = new Scene()
-  private camera = new PerspectiveCamera(62, 1, 0.1, 300)
+  private camera = new PerspectiveCamera(40, 1, 0.1 * K, 300 * K)
   private raycaster = new Raycaster()
   private tasks = new Map<string, Node>()
   private hubs = new Map<string, Node>()
@@ -58,7 +60,7 @@ export class SpatialScene {
   private dirty = true
   private lastQ = ''
   private ro?: ResizeObserver
-  private fov = 62
+  private fov = START_FOV
   private focusTween?: { t0: number; from: [number, number]; to: [number, number] }
   private pointers = new Map<number, { x: number; y: number }>()
   private press?: { id: number; x: number; y: number; t0: number; hit: { kind: 'task' | 'hub'; id: string; uvx: number } | null; mode: 'pending' | 'look' | 'drag'; timer: number; plane?: Plane; offset?: Vector3 }
@@ -182,8 +184,8 @@ export class SpatialScene {
       n.mesh.rotation.set(0, cp.ry, 0)
       // the plate: a faint pane the group's cards sit on
       const mine = this.content.tasks.filter((t) => L.tasks[t.id]?.c === h.id)
-      let top = 0.55
-      let bottom = -1
+      let top = 0.55 * K
+      let bottom = -1 * K
       let left = -WORLD.cardW / 2
       let right = WORLD.cardW / 2
       for (const t of mine) {
@@ -199,8 +201,8 @@ export class SpatialScene {
         this.scene.add(plate)
         this.plates.set(h.id, plate)
       }
-      const w = right - left + 0.9
-      const hh = top - bottom + 0.9
+      const w = right - left + 0.9 * K
+      const hh = top - bottom + 0.9 * K
       // the pane is drawn at its own proportions, so its corners are equally round whatever its size (nothing is a hard square)
       const pm = plate.material as MeshBasicMaterial
       const pkey = `${w.toFixed(1)}x${hh.toFixed(1)}|${hueOf.get(h.id)}`
@@ -213,7 +215,7 @@ export class SpatialScene {
       plate.scale.set(w, hh, 1)
       const cx = (left + right) / 2
       const cy = (top + bottom) / 2
-      plate.position.set(cp.x + Math.cos(cp.ry) * cx + Math.sin(cp.ry) * -0.06, cp.y + cy, cp.z + -Math.sin(cp.ry) * cx + Math.cos(cp.ry) * -0.06)
+      plate.position.set(cp.x + Math.cos(cp.ry) * cx + Math.sin(cp.ry) * -0.06 * K, cp.y + cy, cp.z + -Math.sin(cp.ry) * cx + Math.cos(cp.ry) * -0.06 * K)
       plate.rotation.set(0, cp.ry, 0)
       plateSeen.add(h.id)
     }
@@ -231,7 +233,7 @@ export class SpatialScene {
       const pp = h.parent ? L.clusters[h.parent] : null
       if (!cp || !pp || !this.showLinks) continue
       const len = Math.hypot(cp.x - pp.x, cp.y - pp.y, cp.z - pp.z)
-      const lift = Math.min(2.5, len * 0.22)
+      const lift = Math.min(2.5 * K, len * 0.22)
       let prev: [number, number, number] | null = null
       for (let i = 0; i <= 16; i++) {
         const t = i / 16
@@ -378,9 +380,9 @@ export class SpatialScene {
       this.dirty = false
       this.camera.quaternion.set(pose.q[0], pose.q[1], pose.q[2], pose.q[3])
       if (pose.position) this.camera.position.set(...pose.position)
-      // a tall window (a phone upright) is widened to keep a useful span from side to side, within reason
+      // the lens is described by its horizontal angle; the vertical one follows the window's shape
       const asp = this.camera.aspect
-      this.camera.fov = asp >= 1 ? this.fov : Math.min(100, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI)
+      this.camera.fov = Math.max(8, Math.min(100, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
       this.camera.updateProjectionMatrix()
       this.env?.tick?.(now)
       this.renderer.render(this.scene, this.camera)
