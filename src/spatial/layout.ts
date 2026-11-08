@@ -33,8 +33,8 @@ export const cellW = WORLD.cardW + WORLD.gap
 export const cellH = WORLD.cardH + WORLD.gap
 export const slotAt = (slot: number, cols: number) => ({ u: ((slot % cols) - (cols - 1) / 2) * cellW, v: -(Math.floor(slot / cols) + 1) * cellH })
 
-/** Groups start in a wide, shallow wall within 70 degrees either side of straight ahead (140 in all), so nothing begins behind the viewer. */
-export const START_SPAN = (Math.PI * 7) / 9
+/** Groups start in a wide, shallow wall within 55 degrees either side of straight ahead (110 in all), so nothing begins behind the viewer. */
+export const START_SPAN = (Math.PI * 11) / 18
 const MARGIN = 1.1 * K // clear space between neighbouring groups
 const TIER_HEAD = 1.9 * K // a group's name, and the gap above its cards
 
@@ -45,7 +45,7 @@ const heightOf = (rows: number) => rows * cellH + TIER_HEAD
 export function tilt(c: ClusterPlacement): ClusterPlacement {
   const mid = c.y - (c.half ?? 0)
   // leaning most of the way to face the eye keeps text from being seen at a steep angle without every pane looking rolled over
-  return { ...c, rx: 0.65 * Math.atan2(mid, Math.hypot(c.x, c.z)) }
+  return { ...c, rx: 0.3 * Math.atan2(mid, Math.hypot(c.x, c.z)) }
 }
 
 /** The same group at another angle on the cylinder and height (its other numbers follow). */

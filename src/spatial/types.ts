@@ -9,7 +9,7 @@
  * (apparent sizes do not change with it; it just keeps the cards far from the eye). The wall is 80 units away.
  */
 export const K = 80 / 9
-export const WORLD = { eye: 0, ring: 9 * K, cardW: 2.4 * K, cardH: 0.8 * K, gap: 0.2 * K } as const
+export const WORLD = { eye: 0, ring: 9 * K, cardW: 1.9 * K, cardH: 0.66 * K, gap: 0.2 * K } as const
 
 /** Optional reference for future AR: where in a real room this was pinned (never filled by sensor readings). */
 export interface SpatialAnchor {

@@ -64,7 +64,7 @@ interface Node {
 type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number }
 
 /** The horizontal field of view of the lens, in degrees. */
-export const FOV = { min: 20, max: 100, start: 60 }
+export const FOV = { min: 20, max: 100, start: 50 }
 const TAP_PX = 6
 
 export class SpatialScene {
@@ -369,7 +369,7 @@ export class SpatialScene {
         const toEye = pts[i].clone().negate().normalize()
         const across = new Vector3().crossVectors(tan, toEye).normalize()
         // thick in the middle, a little tapered at the ends
-        const w = (0.34 * K) * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
+        const w = (0.11 * K) * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
         for (const sgn of [-1, 1]) {
           const q = pts[i].clone().addScaledVector(across, sgn * w)
           pos.push(q.x, q.y, q.z)
@@ -484,7 +484,7 @@ export class SpatialScene {
     const yaw0 = (minY + maxY) / 2
     const pit0 = (minP + maxP) / 2
     const aspect = Math.max(0.2, this.camera.aspect)
-    const needH = Math.max(maxY - minY, 2 * Math.atan(Math.tan((maxP - minP) / 2) * aspect)) * 1.12
+    const needH = Math.max(maxY - minY, 2 * Math.atan(Math.tan((maxP - minP) / 2) * aspect)) * 1.1
     const fov = Math.min(FOV.max, Math.max(FOV.start, (needH * 180) / Math.PI))
     const t = this.tracking.touch
     if (instant) {

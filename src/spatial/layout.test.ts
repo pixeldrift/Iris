@@ -86,7 +86,7 @@ describe('spatial layout', () => {
     for (let i = 0; i < 12; i++) many[`g${i}`] = Array.from({ length: 1 + (i % 5) }, (_, k) => `t${i}-${k}`)
     const l = ensureLayout(empty, input(many))
     for (const c of Object.values(l.clusters)) {
-      expect(Math.abs(c.a)).toBeLessThanOrEqual((Math.PI * 7) / 18 + 1e-6)
+      expect(Math.abs(c.a)).toBeLessThanOrEqual((Math.PI * 11) / 36 + 1e-6)
       expect(c.z).toBeLessThan(0) // in front
     }
     expect(Math.max(...Object.values(l.clusters).map((c) => c.tier ?? 0))).toBeGreaterThan(0)
@@ -121,7 +121,7 @@ describe('spatial layout', () => {
     const first = ensureLayout(empty, input(base))
     const next = ensureLayout(first, input({ ...base, c: ['c1', 'c2'], d: ['d1'] }))
     for (const id of ['a', 'b']) expect(next.clusters[id]).toEqual(first.clusters[id])
-    expect(Math.abs(next.clusters.c.a)).toBeLessThanOrEqual((Math.PI * 7) / 18 + 1e-6)
+    expect(Math.abs(next.clusters.c.a)).toBeLessThanOrEqual((Math.PI * 11) / 36 + 1e-6)
     expect(next.clusters.c.z).toBeLessThan(0)
   })
 
@@ -135,7 +135,7 @@ describe('spatial layout', () => {
       const len = Math.hypot(mid[0], mid[1], mid[2])
       // the plane's normal points back at the viewer: the cosine between it and the way to the eye is nearly 1
       const facing = -(bs.normal[0] * mid[0] + bs.normal[1] * mid[1] + bs.normal[2] * mid[2]) / len
-      expect(facing).toBeGreaterThan(0.95)
+      expect(facing).toBeGreaterThan(0.85)
     }
     // a card's own place is on its plane
     for (const t of Object.values(l.tasks)) {
