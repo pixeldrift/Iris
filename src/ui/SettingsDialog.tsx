@@ -263,6 +263,7 @@ export function SettingsDialog() {
   const hue = useStore((s) => s.settings.themeHue)
   const dateFormat = useStore((s) => s.settings.dateFormat)
   const clockFormat = useStore((s) => s.settings.clockFormat)
+  const quickAdd = useStore((s) => s.settings.quickAdd)
   const sound = useStore((s) => s.settings.sound)
   const volume = useStore((s) => s.settings.volume)
   const setSetting = useStore((s) => s.setSetting)
@@ -347,6 +348,25 @@ export function SettingsDialog() {
           <ViewsPicker />
         </Group>
         <Group title="App options">
+          <div className="space-y-1.5 px-2 py-1.5">
+            <div>
+              <span className="text-sm">Quick add understands</span>
+              <span className="block text-[0.7rem] text-ink-faint">dates, times, people and groups in what you type</span>
+            </div>
+            <SegmentedToggle
+              label="Quick add understanding"
+              value={quickAdd}
+              options={[
+                { id: 'auto', label: 'Automatically' },
+                { id: 'suggest', label: 'Suggest' },
+                { id: 'off', label: 'Off' },
+              ]}
+              onChange={(v) => setSetting('quickAdd', v)}
+            />
+            <span className="block text-[0.7rem] text-ink-faint">
+              {quickAdd === 'auto' ? 'Applied as you type, with a button to keep it as typed.' : quickAdd === 'suggest' ? 'Shown as a suggestion you tap to use; nothing is applied until you do.' : 'Your words are kept exactly as typed.'}
+            </span>
+          </div>
           <Row k="viewsClearFilters" label="Switching views resets filters" hint="start every view from Everything" />
           <Row k="autoUrgency" label="Automatic urgency" hint="increase urgency as deadline nears" />
           <Row k="limitPlay" label="Limit play time" hint="3 minutes of play at a time, then a break" />

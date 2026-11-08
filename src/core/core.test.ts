@@ -1050,3 +1050,20 @@ describe('people named in quick add without an @', () => {
     expect(q.tagOrder).toEqual(['b', 'a'])
   })
 })
+
+describe('quick add and possessive day names', () => {
+  const parse = async (text: string) => (await import('./quickadd')).parseQuickAdd(text, new Date(2026, 10, 6), { folders: [], people: [] })
+  it('does not read a day that owns something ("Monday’s lesson plan") as a date', async () => {
+    for (const t of ['prepare Monday’s lesson plan', "prepare Monday's lesson plan", 'review tomorrow’s agenda', 'grade Friday’s quiz']) {
+      const q = await parse(t)
+      expect(q.day ?? null).toBeNull()
+      expect(q.due ?? null).toBeNull()
+      expect(q.title).toBe(t)
+    }
+  })
+  it('still reads a plain day', async () => {
+    const q = await parse('prepare the lesson plan on Monday')
+    expect(q.title).toBe('prepare the lesson plan')
+    expect(q.due ?? q.day).toBeTruthy()
+  })
+})

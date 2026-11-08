@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tooltips: true,
   viewsClearFilters: false,
   hiddenViews: [],
+  quickAdd: 'auto',
   popStats: { popped: 0, points: 0, best: 0, games: 0, ms: 0 },
   limitPlay: true,
   autoUrgency: true,

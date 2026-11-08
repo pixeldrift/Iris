@@ -28,6 +28,8 @@ export interface Settings {
   priorityScale: number
   /** Labels that appear when you hover (or tap) an icon. */
   tooltips: boolean
+  /** Quick add: apply what it understands (dates, people, groups) as you type, only suggest it (you tap to use it), or not try at all. */
+  quickAdd: 'auto' | 'suggest' | 'off'
   /** Views left out of the sidebar (ones you do not use). At least one always stays. */
   hiddenViews: ViewId[]
   /** Switching to another view also clears the filter (back to Everything), instead of keeping it. */

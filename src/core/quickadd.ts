@@ -269,7 +269,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     while (fromISO(mon).getDay() !== 1) mon = addDays(mon, 1)
     return addDays(mon, (wd + 6) % 7)
   }
-  r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(today|tonight|tomorrow|tmrw|tmr|yesterday)\b/i)
+  r = take(t, /\s(?:(due|by|before|until)\s+)?(?:on\s+)?(today|tonight|tomorrow|tmrw|tmr|yesterday)\b(?!['’]\w)/i)
   if (r.m) {
     dueMode = !!r.m[1]
     const w = r.m[2].toLowerCase()
@@ -298,7 +298,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     }
   }
   if (!date) {
-    r = take(t, new RegExp(`\\s(?:(due|by|before|until)\\s+)?(?:on\\s+)?(?:(next|this)\\s+)?${DAY_RE}\\b`, 'i'))
+    r = take(t, new RegExp(`\\s(?:(due|by|before|until)\\s+)?(?:on\\s+)?(?:(next|this)\\s+)?${DAY_RE}\\b(?!['’]\\w)`, 'i'))
     if (r.m && !rec) {
       dueMode = !!r.m[1]
       date = nextWeekday(weekdayOf(r.m[3]), r.m[2]?.toLowerCase() === 'next')

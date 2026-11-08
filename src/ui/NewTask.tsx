@@ -98,6 +98,8 @@ export function NewTask() {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<TaskKind | null>(null) // null = let what you type decide
   const [plain, setPlain] = useState(false) // "keep as typed": ignore dates, tags and repeats
+  const mode = useStore((s) => s.settings.quickAdd)
+  const [accepted, setAccepted] = useState(false) // in suggest-only mode: the person tapped "Use"
   const [more, setMore] = useState(false) // the full details editor, opened in place
   const [draftId, setDraftId] = useState<string | null>(null)
   const draft = useStore((s) => (draftId ? s.tasks.find((t) => t.id === draftId) : undefined))
@@ -112,7 +114,11 @@ export function NewTask() {
     return () => window.clearInterval(t)
   }, [open])
   const spot = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 })
-  const parsed = useMemo(() => (plain || more || !title.trim() ? null : parseQuickAdd(title, new Date(), { folders, people })), [title, plain, more, folders, people])
+  // what it understands is applied ('auto'), applied only once accepted ('suggest'), or never tried ('off')
+  const applying = mode === 'auto' ? !plain : mode === 'suggest' ? accepted : false
+  const understood = useMemo(() => (mode === 'off' || more || !title.trim() ? null : parseQuickAdd(title, new Date(), { folders, people })), [title, mode, more, folders, people])
+  const parsed = applying ? understood : null
+  const suggested = mode === 'suggest' && !accepted && understood && understood.chips.length > 0 ? understood : null
   const shownKind: TaskKind = draft?.kind ?? kind ?? parsed?.kind ?? 'task'
 
   // a task being set up in the full editor is real data (so every field works) but hidden until it is placed
@@ -222,7 +228,7 @@ export function NewTask() {
   const dismiss = () => place(true)
 
   // autocorrect for #groups and @people: the ones that exist, offered while the name is being typed (Tab takes the first)
-  const sug = useMemo(() => suggestTags(title, { folders, people }), [title, folders, people])
+  const sug = useMemo(() => (mode === 'off' ? [] : suggestTags(title, { folders, people })), [title, mode, folders, people])
   const take = (text: string) => {
     setTitle(text)
     if (draftId) update(draftId, { title: text })
@@ -336,6 +342,20 @@ export function NewTask() {
             <IconClose size={16} />
           </button>
         </div>
+        {suggested && (
+          // suggest-only: nothing is applied until it is tapped, so there is nothing to undo
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
+            <span className="text-xs text-ink-faint">Suggested:</span>
+            {suggested.chips.map((c) => (
+              <span key={c} className="rounded-full border border-dashed border-lilac-300 px-2.5 py-0.5 text-xs text-ink-soft">
+                {c}
+              </span>
+            ))}
+            <button type="button" onClick={() => (setAccepted(true), ref.current?.focus())} className="rounded-full bg-lilac-100 px-2.5 py-0.5 text-xs font-medium text-lilac-700 transition hover:bg-lilac-200">
+              Use
+            </button>
+          </div>
+        )}
         {parsed && parsed.chips.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
             {parsed.chips.map((c) => (
@@ -343,7 +363,7 @@ export function NewTask() {
                 {c}
               </span>
             ))}
-            <button type="button" onClick={() => setPlain(true)} className="text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
+            <button type="button" onClick={() => (mode === 'suggest' ? setAccepted(false) : setPlain(true))} className="text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
               Keep as typed
             </button>
           </div>
