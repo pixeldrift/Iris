@@ -1109,3 +1109,31 @@ describe('quick add: places, a bare time, removed detections, titles as typed', 
     expect(q.place).toBe('downtown clinic')
   })
 })
+
+describe('edge markers for off-screen items', () => {
+  it('points from the border toward what is off screen, merging neighbours and ignoring what is in view', async () => {
+    const { edgeMarkers } = await import('./edges')
+    const view = { scale: 1, tx: 0, ty: 0 }
+    const pts = [
+      { id: 'in', x: 300, y: 200, r: 40, hue: 10 }, // on screen
+      { id: 'right1', x: 1500, y: 195, r: 40, hue: 20 },
+      { id: 'right2', x: 1600, y: 210, r: 40, hue: 20 }, // close to the first along the border: one marker
+      { id: 'below', x: 400, y: 1500, r: 40, hue: 30 },
+    ]
+    const m = edgeMarkers(pts, view, 800, 400)
+    expect(m).toHaveLength(2)
+    const right = m.find((x) => x.ids.includes('right1'))!
+    expect(right.count).toBe(2)
+    expect(right.x).toBeGreaterThan(700) // on the right border
+    expect(Math.abs(right.angle)).toBeLessThan(15) // pointing right
+    expect(right.nearest.id).toBe('right1')
+    const below = m.find((x) => x.ids.includes('below'))!
+    expect(below.y).toBeGreaterThan(350)
+    expect(below.angle).toBeGreaterThan(60)
+    expect(below.angle).toBeLessThan(120) // pointing down
+  })
+  it('has nothing to say when everything is in view', async () => {
+    const { edgeMarkers } = await import('./edges')
+    expect(edgeMarkers([{ id: 'a', x: 100, y: 100, r: 30, hue: 0 }], { scale: 1, tx: 0, ty: 0 }, 800, 400)).toEqual([])
+  })
+})

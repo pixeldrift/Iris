@@ -18,6 +18,7 @@ import { Strays, type StrayField } from '../pond/Strays'
 import { PlayTimer, PopGameBar } from '../pond/PopGameBar'
 import { usePlayLimit } from '../pond/usePlayLimit'
 import { bubbleHue } from '../pond/hue'
+import { edgeMarkers, type EdgeMarker } from '../../core/edges'
 import { usePopGame } from '../pond/usePopGame'
 import { paletteOf } from '../../core/popgame'
 import { Lily } from '../pond/Lily'
@@ -76,6 +77,9 @@ export function Pond() {
   const running = useRef(false)
   const grabbed = useRef(0)
   const [offscreen, setOffscreen] = useState(false)
+  const [markers, setMarkers] = useState<EdgeMarker[]>([])
+  const markerSig = useRef('')
+  const hueById = useRef(new Map<string, number>())
   const [labels, setLabels] = useState<{ key: string; label: string; x: number; y: number; hue?: number; path?: { id: string; name: string }[] }[]>([])
   const labelsRef = useRef(labels)
 
@@ -199,6 +203,7 @@ export function Pond() {
   const playful = popMode === 'fun' || popMode === 'game'
   const addPopStats = useStore((st) => st.addPopStats)
   const hues = useMemo(() => visible.map((t) => bubbleHue(t, folders)), [visible, folders])
+  hueById.current = new Map(visible.map((t, i) => [t.id, hues[i]]))
   const palette = useMemo(() => paletteOf(hues), [hues])
   // the game's colours: the commonest among the bubbles, topped up so there are always at least four to play with
   const gamePalette = useMemo(() => {
@@ -271,6 +276,13 @@ export function Pond() {
       }
     }
     setOffscreen((p) => (p === off ? p : off))
+    // and a soft marker on the border for each direction something lies in
+    const next = off ? edgeMarkers([...nodes.current.values()].map((n) => ({ id: n.sim.id, x: n.sim.x, y: n.sim.y, r: n.sim.r, hue: hueById.current.get(n.sim.id) ?? 285 })), v, W, H) : []
+    const sig = next.map((m) => `${Math.round(m.x / 3)},${Math.round(m.y / 3)},${m.count},${Math.round(m.distance / 40)},${m.hue}`).join('|')
+    if (sig !== markerSig.current) {
+      markerSig.current = sig
+      setMarkers(next)
+    }
   }, [])
 
   const applyView = useCallback(
@@ -967,6 +979,29 @@ export function Pond() {
       <div data-ui className="absolute bottom-3 right-3 z-10">
         <ZoomControl onZoom={(f) => zoomAbout(f, w / 2, h / 2)} />
       </div>
+      {/* off-screen bubbles: a soft glowing dot on the border for each direction, with an arrowhead pointing the way (tap to go there) */}
+      {!playful &&
+        markers.map((m) => (
+          <button
+            key={`${m.ids[0]}-${m.count}`}
+            data-ui
+            type="button"
+            onClick={() => {
+              const { w: W, h: H } = dims.current
+              const v = view.current
+              view.current = { scale: v.scale, tx: W / 2 - m.nearest.x * v.scale, ty: H / 2 - m.nearest.y * v.scale }
+              applyView(true)
+            }}
+            aria-label={m.count === 1 ? 'One more bubble this way: go there' : `${m.count} more bubbles this way: go there`}
+            title={m.count === 1 ? 'One more bubble this way' : `${m.count} more bubbles this way`}
+            className="edge-marker group absolute z-[5] grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center"
+            style={{ left: m.x, top: m.y, opacity: Math.max(0.55, 1 - m.distance / 2400), ['--h' as string]: Math.max(0, m.hue), ['--s' as string]: m.hue < 0 ? 0 : 1 }}
+          >
+            <span className="edge-glow" />
+            <span className="edge-arrow" style={{ transform: `rotate(${m.angle}deg) translateX(14px)` }} />
+            {m.count > 1 && <span className="relative text-[0.62rem] font-semibold leading-none text-white drop-shadow">{m.count}</span>}
+          </button>
+        ))}
       <div data-ui className="absolute bottom-3 left-3 z-10">
         <Tip label="Frame all bubbles">
           <button

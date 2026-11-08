@@ -27,6 +27,8 @@ Delete modes, stats and a play limit; a tidier Settings. (The README describes e
    - **Semantic zoom.** Far out: group tiles only (name, count, progress ring, the next due item), so a whole life fits on one
      screen. Mid: compact rows. Close: full cards with notes, list entries and the picture. Double-click or pinch into a group to
      zoom to it; a mini-map and *Fit all* keep you oriented; the breadcrumb and sidebar filter apply, so you can map just one group.
+   - **Finding your way.** Like the Pond's edge pointers (a soft glowing dot on the border, with an arrowhead, for each direction
+     something lies in off screen), the Map keeps the mini-map and the same edge markers, so nothing is ever lost off the edge.
    - **Collapse and focus.** Every group folds (its state remembered, like the task panel's boxes); a single-click on a header
      focuses it and dims the rest. Search highlights matches and dims everything else (as in the Pond).
    - **Direct manipulation.** Drag a card to another group to retag it (the same drop targets as the sidebar), drag within a

@@ -563,3 +563,29 @@ body.scrubbing .glow-breathe {
     var(--photo) center / cover no-repeat;
 }
 .pad-photo [data-title], .pad-photo p, .pad-photo span { text-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.9); }
+
+/* pointers to what is off screen: a soft glowing dot in the colour of the nearest bubble, an arrowhead just outside it pointing the way */
+.edge-marker { transition: opacity 0.3s; }
+.edge-glow {
+  position: absolute;
+  inset: 6px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #fff, hsl(var(--h, 285), calc(70% * var(--s, 1)), 66%) 70%);
+  box-shadow: 0 0 10px 3px hsla(var(--h, 285), calc(70% * var(--s, 1)), 62%, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  animation: edge-breathe 2.8s ease-in-out infinite;
+}
+.edge-marker:hover .edge-glow { box-shadow: 0 0 14px 5px hsla(var(--h, 285), calc(70% * var(--s, 1)), 62%, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.9) inset; }
+.edge-arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin: -5px 0 0 -4px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 9px solid hsl(var(--h, 285), calc(55% * var(--s, 1)), 52%);
+  opacity: 0.85;
+}
+@keyframes edge-breathe { 0%, 100% { transform: scale(0.92); } 50% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .edge-glow { animation: none; } }
