@@ -1,6 +1,6 @@
 import { addDays, fromISO, MONTHS, toISO } from './dates'
 import { dayFirst, formatDate } from './locale'
-import { fuzzyScore } from './fuzzy'
+import { fuzzyRank, fuzzyScore } from './fuzzy'
 import { pathOf } from './folders'
 import { describeRecurrence } from './recurrence'
 import { remindFromRule } from './reminders'
@@ -27,6 +27,8 @@ export interface QuickAdd {
   /** Where it happens: "at Main St", "at home". */
   place?: string
   chips: string[]
+  /** The #groups and @people found, in the order they were typed (their ids). */
+  tagOrder: string[]
 }
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -60,7 +62,8 @@ function to24(h: number, ap: string | undefined, hadMinutes: boolean): number | 
 /** Read a line of text the way a person means it: dates, times, repeats, #folders, @people, reminders. */
 export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]; people: Person[] }): QuickAdd {
   let t = ` ${input.trim()} `.replace(/\s+/g, ' ')
-  const out: QuickAdd = { title: '', folderIds: [], personIds: [], chips: [] }
+  const out: QuickAdd = { title: '', folderIds: [], personIds: [], chips: [], tagOrder: [] }
+  const typed: { id: string; chip: string; at: number }[] = []
   const todayISO = toISO(now)
   let remindMode = false
   let dueMode = false
@@ -83,7 +86,7 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     const hit = ctx.folders.find((f) => pathOf(ctx.folders, f.id).map((x) => x.name).join('/').toLowerCase() === q || f.name.toLowerCase() === q) ?? ctx.folders.find((f) => fuzzyScore(q, f.name) >= 0.8)
     if (hit && !out.folderIds.includes(hit.id)) {
       out.folderIds.push(hit.id)
-      out.chips.push(`#${hit.name}`)
+      typed.push({ id: hit.id, chip: `#${hit.name}`, at: input.toLowerCase().indexOf(r.m[0].trim().toLowerCase()) })
     } else if (!hit) unknown.push(r.m[0].trim()) // unknown: leave it in the title
   }
   for (;;) {
@@ -94,8 +97,14 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
     const hit = ctx.people.find((p) => p.name.toLowerCase() === q) ?? ctx.people.find((p) => p.name.toLowerCase().split(' ')[0] === q) ?? ctx.people.find((p) => fuzzyScore(q, p.name) >= 0.8)
     if (hit && !out.personIds.includes(hit.id)) {
       out.personIds.push(hit.id)
-      out.chips.push(`@${hit.name.split(' ')[0]}`)
+      typed.push({ id: hit.id, chip: `@${hit.name.split(' ')[0]}`, at: input.toLowerCase().indexOf(r.m[0].trim().toLowerCase()) })
     } else if (!hit) unknown.push(r.m[0].trim())
+  }
+  // the tags go in the order they were typed, whichever kind they are
+  typed.sort((a, b) => a.at - b.at)
+  for (const x of typed) {
+    out.chips.push(x.chip)
+    out.tagOrder.push(x.id)
   }
   if (unknown.length) t += ` ${unknown.join(' ')}`
 
@@ -372,4 +381,31 @@ export function parseQuickAdd(input: string, now: Date, ctx: { folders: Folder[]
   void MONTHS
   void DAY_NAMES
   return out
+}
+
+/**
+ * Autocorrect for tags: while a #group or @person is being typed at the end of the line, the existing ones it could be
+ * (typos allowed), each with the text the line would become if it were taken.
+ */
+export function suggestTags(text: string, ctx: { folders: Folder[]; people: Person[] }): { label: string; text: string }[] {
+  const at = Math.max(text.lastIndexOf('#'), text.lastIndexOf('@'))
+  if (at < 0 || (at > 0 && !/\s/.test(text[at - 1]))) return []
+  const mark = text[at]
+  const token = text.slice(at + 1)
+  const q = token.trim()
+  if (!q || token.length > 28 || /[#@]/.test(token)) return []
+  const before = text.slice(0, at)
+  const make = (label: string, name: string) => ({ label, text: `${before}${mark}${name} ` })
+  if (mark === '#') {
+    const leaf = q.split('/').pop()!.trim()
+    if (!leaf) return []
+    return fuzzyRank(leaf, ctx.folders, (f) => f.name, 0.5)
+      .filter((f) => f.name.toLowerCase() !== q.toLowerCase())
+      .slice(0, 3)
+      .map((f) => make(`#${f.name}`, f.name))
+  }
+  return fuzzyRank(q, ctx.people, (p) => p.name, 0.5)
+    .filter((p) => p.name.toLowerCase() !== q.toLowerCase())
+    .slice(0, 3)
+    .map((p) => make(`@${p.name}`, p.name))
 }

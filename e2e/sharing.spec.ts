@@ -81,9 +81,11 @@ test('sharing a group: invite a connection, they join and are given a task, then
 
   // Bob is given the task (any member can be picked), and Ann is told nothing here but Bob is told when Ann gives it
   await bob.getByText('Book flights').first().click({ force: true }) // (a drifting bubble is never still)
-  await expect(bob.getByLabel('Assigned to')).toBeVisible()
-  await bob.getByLabel('Assigned to').selectOption({ label: 'Me' })
-  await expect(bob.getByLabel('Assigned to')).not.toHaveValue('')
+  const assigned = bob.getByRole('group', { name: 'Assigned to' })
+  await expect(assigned).toBeVisible()
+  await assigned.getByRole('button', { name: 'Add' }).click()
+  await bob.getByRole('button', { name: 'Me', exact: true }).click()
+  await expect(assigned.getByText('Me', { exact: true })).toBeVisible()
   await bob.keyboard.press('Escape')
 
   // Ann removes Bob with no copy: the group is gone from his side

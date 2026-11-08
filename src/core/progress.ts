@@ -8,8 +8,8 @@ export interface Stage {
 
 /** Every group starts with these three; a group can define its own (Research, First draft, Editing, Submitted…). */
 export const DEFAULT_STAGES: Stage[] = [
-  { id: 'todo', name: 'Pending' },
-  { id: 'doing', name: 'In Progress' },
+  { id: 'todo', name: 'Not started' },
+  { id: 'doing', name: 'In progress' },
   { id: 'done', name: 'Completed' },
 ]
 
@@ -26,7 +26,7 @@ export function stageIndex(t: Pick<Task, 'stage' | 'status'>, stages: Stage[]): 
   return t.status === 'done' ? stages.length - 1 : t.status === 'doing' ? Math.min(1, stages.length - 2) : 0
 }
 
-/** Pending at the start, Completed at the end, In Progress for everything between. */
+/** Not started at the start, Completed at the end, In progress for everything between. */
 export const statusAtStage = (i: number, n: number): TaskStatus => (i >= n - 1 ? 'done' : i <= 0 ? 'todo' : 'doing')
 
 /** The fields that change when an item moves to stage `i`. */

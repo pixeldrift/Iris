@@ -11,23 +11,22 @@ test.describe('dates, reminders and a place on the details card', () => {
     await page.keyboard.press('n')
     await page.keyboard.type('Plan the garden')
     await page.keyboard.press('Enter')
-    // what matters first: where it belongs, when it is due, and the reminder
-    await expect(page.getByText(/^Due/).first()).toBeAttached()
-    await expect(page.getByRole('button', { name: 'Remind me', exact: true })).toBeVisible()
-    await expect(page.getByText(/^Do on/)).toHaveCount(0)
-    await expect(page.getByText(/^Due by/)).toHaveCount(0)
-    // the separate day to work on it (and the timeline start) are folded away until wanted
+    // the boxes: When (From and Until, each a date and a time), Where, Priority
+    await expect(page.getByRole('region', { name: 'When' })).toBeVisible()
+    await expect(page.getByText(/^From/).first()).toBeAttached()
+    await expect(page.getByText(/^Until/).first()).toBeAttached()
+    await expect(page.getByRole('region', { name: 'Where' })).toBeVisible()
+    await expect(page.getByText('Duration')).toBeVisible()
+    await expect(page.getByText('Carry over')).toBeVisible()
+    // there is no separate timeline start any more, and no reminder until there is a day
     await expect(page.getByText(/^Timeline start/)).toHaveCount(0)
-    await expect(page.getByText(/^Work on it on/)).toHaveCount(0)
-    await page.getByRole('button', { name: /Plan a day to work on it/ }).click()
-    await expect(page.getByText(/^Work on it on/)).toBeAttached()
-    await expect(page.getByText(/^Timeline start/)).toBeAttached()
-    // that day's own reminder only appears once there is a day
     await expect(page.getByRole('button', { name: 'Remind me that day' })).toHaveCount(0)
     // a place, for a plain task too
-    await page.getByLabel('Where').fill('Back garden')
+    await page.getByRole('textbox', { name: 'Where' }).fill('Back garden')
     await expect.poll(async () => (await taskNamed(page, 'Plan the garden'))?.place).toBe('Back garden')
-    // the reminder
+    // Until, and its reminder
+    await page.getByText(/^Until/).locator('xpath=..').getByRole('button').first().click()
+    await page.locator('div.fixed.z-\\[150\\]').getByRole('button', { name: new RegExp(`^${new Date(Date.now() + 3 * 86400_000).getDate()}$`) }).first().click()
     await page.getByRole('button', { name: 'Remind me', exact: true }).click()
     await page.getByRole('radiogroup', { name: 'Remind me' }).getByRole('radio', { name: 'This evening' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Plan the garden'))?.dueRemindAt).toBeTruthy()
@@ -68,14 +67,14 @@ test('a place shows on the list row and the bubble, and opens in a map (or as a 
   await page.keyboard.press('n')
   await page.keyboard.type('Water the beans')
   await page.keyboard.press('Enter')
-  await page.getByLabel('Where').fill('12 Oak St, Springfield')
+  await page.getByRole('textbox', { name: 'Where' }).fill('12 Oak St, Springfield')
   const map = page.getByRole('link', { name: 'Show on a map' })
   await expect(map).toHaveAttribute('href', /google\.com\/maps\/search\/\?api=1&query=12%20Oak%20St/)
   await expect(map).toHaveAttribute('target', '_blank')
   // on its row in the list
   await expect(page.locator('[data-lift-id^="task:"]', { hasText: 'Water the beans' }).getByText('12 Oak St, Springfield')).toBeVisible()
   // a link opens as itself
-  await page.getByLabel('Where').fill('https://meet.example.com/room-9')
+  await page.getByRole('textbox', { name: 'Where' }).fill('https://meet.example.com/room-9')
   await expect(page.getByRole('link', { name: 'Open the link' })).toHaveAttribute('href', 'https://meet.example.com/room-9')
   // and the pond's bubble carries a pin
   await goto(page, 'Pond')

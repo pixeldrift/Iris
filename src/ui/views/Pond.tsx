@@ -905,7 +905,7 @@ export function Pond() {
       )}
       {visible.length > 0 && !phone && (
         <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden pl-32 pr-40 text-left text-xs text-ink-faint/80 sm:block">
-          {popMode === 'delete' ? 'Delete mode: popping a bubble deletes its task · undo brings it back' : popMode === 'fun' ? 'Fun mode: pop away, nothing is deleted' : popMode === 'game' ? 'Pop game: watch the colours, then pop them in the same order' : 'Click the water to add (near a group, to add to it) · drag to wander · scroll or pinch to zoom · drop a lily on a group to tag it'}
+          {popMode === 'delete' ? 'Delete mode: popping a bubble deletes its task · undo brings it back' : popMode === 'fun' ? 'Fun mode: pop away, nothing is deleted' : popMode === 'game' ? 'Pop game: watch the colours, then pop them in the same order' : 'Click the water to add (near a group, to add to it) · drag to wander · scroll or pinch to zoom'}
         </p>
       )}
 

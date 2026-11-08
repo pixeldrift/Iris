@@ -22,8 +22,10 @@ export function ReminderHost() {
     const check = () => {
       const st = useStore.getState()
       const now = Date.now()
-      const due = dueReminders(st.tasks, now)
-      const alerts = dueAlerts(st.tasks, now, (t) => eventStartsFor(t, now))
+      // a task open in the details panel is still being set up (a time half-chosen is not a time): its reminders wait for Done
+      const ready = st.tasks.filter((t) => t.id !== st.selectedId)
+      const due = dueReminders(ready, now)
+      const alerts = dueAlerts(ready, now, (t) => eventStartsFor(t, now))
       if (!due.length && !alerts.length) return
       suppressHistory(() => useStore.setState((s) => ({
         tasks: s.tasks.map((t) => {
@@ -66,6 +68,10 @@ export function ReminderHost() {
     const wake = () => document.visibilityState === 'visible' && check()
     document.addEventListener('visibilitychange', wake)
     window.addEventListener('focus', wake)
+    // closing the panel registers what was set
+    const unsub = useStore.subscribe((s, prev) => {
+      if (prev.selectedId && s.selectedId !== prev.selectedId) check()
+    })
     // tapping a system notification brings the app forward and opens the task
     const onMsg = (e: MessageEvent) => {
       if (e.data?.type === 'open-task' && e.data.id) {
@@ -76,6 +82,7 @@ export function ReminderHost() {
     navigator.serviceWorker?.addEventListener('message', onMsg)
     return () => {
       window.clearInterval(timer)
+      unsub()
       document.removeEventListener('visibilitychange', wake)
       window.removeEventListener('focus', wake)
       navigator.serviceWorker?.removeEventListener('message', onMsg)

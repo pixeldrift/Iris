@@ -17,7 +17,7 @@ test.describe('every text box has a name', () => {
     await page.keyboard.press('n')
     expect(await unnamed(page)).toEqual([])
     await page.getByRole('button', { name: 'More details' }).click()
-    for (const k of ['Task', 'Event', 'Habit', 'List', 'Notion']) {
+    for (const k of ['Task', 'Event', 'Habit', 'List', 'Idea']) {
       await page.getByRole('radio', { name: k, exact: true }).click()
       expect(await unnamed(page), k).toEqual([])
     }

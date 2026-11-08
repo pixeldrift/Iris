@@ -6,18 +6,22 @@ import { habitStreak } from '../core/tasks'
 import type { Recurrence, Task } from '../core/types'
 import { useRef, useState } from 'react'
 import { useStore } from '../state/store'
-import { DatePicker } from './DatePicker'
+import { DateMark, DatePicker } from './DatePicker'
+import { ReminderField } from './ReminderField'
 import { DurationPicker, TimePicker } from './TimePicker'
-import { OpenPlace } from './shared'
 import { durationOf, gapAround, hhmm, patchDuration, patchStart, spanOnDay } from '../core/schedule'
-import { IconBell, IconClose, IconPlus, IconRepeat } from './icons'
+import { IconBell, IconClose, IconPlus } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { askNotify } from './notify'
 import { ALERT_CHOICES, alertLabel, nextAlertChoice } from '../core/reminders'
 
-/** The day it is scheduled for, optionally with a start and end (or a duration): one fact told three ways. */
-export function ScheduleFields({ task, dateLabel = 'Date' }: { task: Task; dateLabel?: React.ReactNode }) {
+/**
+ * When it happens: a day and a time (From), and what it runs until (a deadline: Until), each with a date and an optional time. Under them
+ * the duration (a start and a duration are an end), the free-room buttons, and the switch for carrying it over when the day passes.
+ */
+export function ScheduleFields({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
+  const setDue = useStore((s) => s.setDue)
   const tasks = useStore((s) => s.tasks)
   // the free room around this event on its day: out to the events either side of it
   const mine = spanOnDay(task)
@@ -31,59 +35,56 @@ export function ScheduleFields({ task, dateLabel = 'Date' }: { task: Task; dateL
   const canFitStart = !!gap && gap.from < mine!.s
   const canFitEnd = !!gap && gap.to > mine!.e
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <DatePicker label={dateLabel} value={task.day} onChange={(v) => update(task.id, { day: v })} />
-        <span />
-        {/* start, end and duration are one fact told three ways: moving the start carries the end along, and end and duration follow each other */}
-        <TimePicker label="Starts" value={task.time} onChange={(v) => update(task.id, patchStart(task, v))} />
-        <TimePicker label="Ends" value={task.endTime} onChange={(v) => update(task.id, { endTime: v })} />
-        <DurationPicker label="Duration" value={durationOf(task)} disabled={!task.time} onChange={(m) => update(task.id, patchDuration(task, m))} />
-        {task.time && (
-          // stretch to the free time either side: out to the neighbouring events (or 8 am and 6 pm when nothing is nearer)
-          <div className="col-span-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={!canFitStart}
-              onClick={() => update(task.id, { time: hhmm(gap!.from), endTime: task.endTime ?? hhmm(mine!.e) })}
-              className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition enabled:hover:bg-lilac-100/80 disabled:opacity-40"
-            >
-              ⇤ Start as early as fits
-            </button>
-            <button
-              type="button"
-              disabled={!canFitEnd}
-              onClick={() => update(task.id, { endTime: hhmm(gap!.to) })}
-              className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition enabled:hover:bg-lilac-100/80 disabled:opacity-40"
-            >
-              End as late as fits ⇥
-            </button>
-          </div>
-        )}
+    <div className="space-y-2.5">
+      <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-end gap-2">
+        <DatePicker label={<><DateMark kind="scheduled" />From</>} value={task.day} onChange={(v) => update(task.id, { day: v })} />
+        <TimePicker label="Time" value={task.time} onChange={(v) => update(task.id, patchStart(task, v))} />
       </div>
-    </div>
-  )
-}
-
-/** An event: the schedule, where, and its reminders. */
-export function EventFields({ task }: { task: Task }) {
-  const update = useStore((s) => s.updateTask)
-  return (
-    <div className="space-y-3">
-      <ScheduleFields task={task} />
-      <label className="block text-xs font-medium text-ink-soft">
-        Where
-        <span className="mt-1 flex items-center gap-1.5">
-          <input
-            value={task.place}
-            onChange={(e) => update(task.id, { place: e.target.value })}
-            placeholder="A place, a room, a link…"
-            className="well min-w-0 flex-1 rounded-xl px-3 py-2 text-sm font-normal text-ink placeholder:text-ink-faint"
-          />
-          <OpenPlace place={task.place} />
-        </span>
-      </label>
-      <EventAlerts task={task} />
+      {task.time ? <EventAlerts task={task} /> : task.day ? <ReminderField task={task} which="do" label="Remind me that day" /> : null}
+      <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-end gap-2">
+        <DatePicker label={<><DateMark kind="deadline" />Until</>} value={task.due} onChange={(v) => setDue(task.id, v)} />
+        <TimePicker label="Time" value={task.dueTime ?? null} onChange={(v) => setDue(task.id, task.due, v)} placeholder="Any time" />
+      </div>
+      {task.due && <ReminderField task={task} which="due" label="Remind me" />}
+      <div className="grid grid-cols-2 items-end gap-3">
+        <DurationPicker label="Duration" value={durationOf(task)} disabled={!task.time} onChange={(m) => update(task.id, patchDuration(task, m))} />
+        <div className="text-xs font-medium text-ink-soft">
+          <span className="block">Carry over</span>
+          <button
+            type="button"
+            onClick={() => update(task.id, { rollover: !task.rollover })}
+            aria-pressed={task.rollover}
+            title="If the day passes without it done, move it to the next day"
+            className="glass-soft mt-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-sm font-normal text-ink"
+          >
+            {task.rollover ? 'On' : 'Off'}
+            <span className={`relative h-4 w-7 shrink-0 rounded-full transition ${task.rollover ? 'bg-lilac-500' : 'bg-ink-faint/40'}`}>
+              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${task.rollover ? 'left-[0.85rem]' : 'left-0.5'}`} />
+            </span>
+          </button>
+        </div>
+      </div>
+      {task.time && (
+        // stretch to the free time either side: out to the neighbouring events (or 8 am and 6 pm when nothing is nearer)
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={!canFitStart}
+            onClick={() => update(task.id, { time: hhmm(gap!.from), endTime: task.endTime ?? hhmm(mine!.e) })}
+            className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition enabled:hover:bg-lilac-100/80 disabled:opacity-40"
+          >
+            ⇤ Start as early as fits
+          </button>
+          <button
+            type="button"
+            disabled={!canFitEnd}
+            onClick={() => update(task.id, { endTime: hhmm(gap!.to) })}
+            className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition enabled:hover:bg-lilac-100/80 disabled:opacity-40"
+          >
+            End as late as fits ⇥
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -209,9 +210,6 @@ export function RepeatField({ task }: { task: Task }) {
 
   return (
     <div>
-      <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-ink-soft">
-        <IconRepeat size={13} /> Repeats
-      </span>
       <SegmentedToggle label="Repeats" value={active} options={PRESETS.filter((f) => f.id !== 'none' || task.kind !== 'habit')} onChange={choose} />
       {r && active === 'custom' && (
         <div className="mt-2.5 space-y-2.5 rounded-2xl bg-white/35 p-3">

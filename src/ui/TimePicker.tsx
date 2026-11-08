@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { formatDuration } from '../core/schedule'
 import { formatTime } from '../core/tasks'
+import { IconClock, IconStopwatch } from './icons'
 import { Popover } from './Popover'
 
 const HOURS = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']
@@ -87,7 +88,10 @@ export function TimePicker({ label, value, onChange, placeholder = '–None–' 
 
   return (
     <div className="block text-xs font-medium text-ink-soft">
-      {label}
+      <span className="inline-flex items-center gap-1">
+        <IconClock size={12} />
+        {label}
+      </span>
       <button
         ref={btn}
         type="button"
@@ -138,7 +142,10 @@ export function DurationPicker({ label, value, onChange, disabled = false }: { l
   const m = Math.round(((value ?? 0) % 60) / 5) * 5
   return (
     <div className="block text-xs font-medium text-ink-soft">
-      {label}
+      <span className="inline-flex items-center gap-1">
+        <IconStopwatch size={12} />
+        {label}
+      </span>
       <button
         ref={btn}
         type="button"

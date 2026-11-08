@@ -12,7 +12,7 @@ export interface Group {
   path?: { id: string; name: string }[]
 }
 
-const KIND_LABELS = { task: 'Tasks', event: 'Events', habit: 'Habits', list: 'Lists', idea: 'Notions' } as const
+const KIND_LABELS = { task: 'Tasks', event: 'Events', habit: 'Habits', list: 'Lists', idea: 'Ideas' } as const
 
 function bucket(
   t: Task,

@@ -152,3 +152,17 @@ export function formatTime(hhmm: string): string {
 
 /** Consecutive occurrences done (a habit's streak). */
 export const habitStreak = (t: Task, now = today()): number => repeatStreak(t, now)
+
+/** Everyone a task is given to (the older single `assigneeId` counts too). */
+export const assigneesOf = (t: Pick<Task, 'assigneeIds' | 'assigneeId'>): string[] => t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])
+
+/** Does the task have a reminder, a deadline reminder or an alert still waiting to go off? */
+export const reminderPending = (t: Pick<Task, 'remindAt' | 'reminded' | 'dueRemindAt' | 'dueReminded' | 'alerts'>): boolean =>
+  (t.remindAt !== null && !t.reminded) || (t.dueRemindAt != null && !t.dueReminded) || (t.alerts?.length ?? 0) > 0
+
+/** A task's group and person tags in the order they were added (ones with no recorded order follow: groups, then people). */
+export function tagsOf(t: Pick<Task, 'folderIds' | 'personIds' | 'tagOrder'>): { kind: 'folder' | 'person'; id: string }[] {
+  const all = [...t.folderIds.map((id) => ({ kind: 'folder' as const, id })), ...t.personIds.map((id) => ({ kind: 'person' as const, id }))]
+  const rank = new Map((t.tagOrder ?? []).map((id, i) => [id, i]))
+  return all.map((x, i) => ({ x, i })).sort((a, b) => (rank.get(a.x.id) ?? 1e6) - (rank.get(b.x.id) ?? 1e6) || a.i - b.i).map((o) => o.x)
+}

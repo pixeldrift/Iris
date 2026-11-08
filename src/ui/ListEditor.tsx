@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
 import { stageAfterTicks, stagesForTask } from '../core/progress'
@@ -14,17 +14,22 @@ const STYLES: { id: ListStyle; label: string }[] = [
   { id: 'number', label: 'Numbers' },
 ]
 
+const EXAMPLES = ['Milk', 'Bread', 'Eggs']
+
 /** The entries of a list task: tick them, rename them, add more. Numbers are automatic. */
 export function ListEditor({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const add = useRef<HTMLInputElement>(null)
+  // an empty list shows three example entries (a preview of what a list looks like) until it is tapped to edit, which clears them
+  const [touched, setTouched] = useState(false)
+  const preview = task.items.length === 0 && !touched
   const items = task.items
   const folders = useStore((s) => s.folders)
   const move = useStore((s) => s.moveToStage)
   const hue = useTaskHue(task)
   const set = (next: ListItem[]) => {
     update(task.id, { items: next })
-    // ticking things off carries the list along: first tick = In Progress, last tick = Completed
+    // ticking things off carries the list along: first tick = In progress, last tick = Completed
     if (task.listStyle === 'check') {
       const to = stageAfterTicks(task, stagesForTask(task, folders), next)
       if (to !== null) move(task.id, to)
@@ -45,6 +50,16 @@ export function ListEditor({ task }: { task: Task }) {
         <span className="text-xs font-medium text-ink-soft">Marked with</span>
         <SegmentedToggle label="Marked with" value={task.listStyle} options={STYLES} onChange={(v) => update(task.id, { listStyle: v })} />
       </div>
+      {preview && (
+        <ul aria-label="Example entries" onClick={() => (setTouched(true), requestAnimationFrame(() => add.current?.focus()))} className="mt-2 cursor-text space-y-1 opacity-50">
+          {EXAMPLES.map((e, n) => (
+            <li key={e} className="flex items-center gap-2 px-0.5 py-1 text-sm italic">
+              {task.listStyle === 'check' ? <span aria-hidden className="h-[1.15rem] w-[1.15rem] shrink-0 rounded-full border border-lilac-300" /> : <span aria-hidden className="w-[1.15rem] shrink-0 text-center tabular-nums text-lilac-500">{task.listStyle === 'bullet' ? '•' : `${n + 1}.`}</span>}
+              {e}
+            </li>
+          ))}
+        </ul>
+      )}
       <ul className="mt-2 space-y-1">
         {items.map((it, n) => (
           <li key={it.id} className="group flex items-center gap-2">
@@ -86,6 +101,7 @@ export function ListEditor({ task }: { task: Task }) {
           ref={add}
           aria-label="Add item"
           placeholder="Add an item…"
+          onFocus={() => setTouched(true)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()

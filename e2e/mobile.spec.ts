@@ -219,6 +219,7 @@ test.describe('a phone turned sideways', () => {
     await page.mouse.click(bub.x + bub.width / 2, bub.y + bub.height * 0.35) // (the bubbles drift, so a plain click would wait for them to hold still)
     const panel = page.getByRole('region', { name: 'Task details' }).or(page.locator('section[aria-label="Task details"]'))
     await expect(panel).toBeVisible()
+    await page.waitForTimeout(800) // (the panel slides in)
     const p = (await panel.boundingBox())!
     expect(Math.abs((await page.locator('main').boundingBox())!.width - main.width)).toBeLessThan(2) // nothing squeezed
     // the notch is on the left: the panel has no safe-area padding of its own

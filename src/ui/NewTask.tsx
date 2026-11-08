@@ -11,7 +11,7 @@ import { MenuItem, Popover } from './Popover'
 import { TaskFields } from './TaskDetail'
 import { KindHint, KINDS } from './shared'
 import type { TaskKind } from '../core/types'
-import { parseQuickAdd } from '../core/quickadd'
+import { parseQuickAdd, suggestTags } from '../core/quickadd'
 import { askNotify } from './notify'
 import { useLandscapePhone } from './useMedia'
 
@@ -145,6 +145,7 @@ export function NewTask() {
     ...(q?.repeat ? { repeat: q.repeat } : {}),
     ...(q?.folderIds.length || startIn?.length ? { folderIds: [...new Set([...(startIn ?? []), ...(q?.folderIds ?? [])])] } : {}),
     ...(q?.personIds.length || preset?.personIds?.length ? { personIds: [...new Set([...(preset?.personIds ?? []), ...(q?.personIds ?? [])])] } : {}),
+    ...(q?.tagOrder.length || startIn?.length || preset?.personIds?.length ? { tagOrder: [...new Set([...(startIn ?? []), ...(preset?.personIds ?? []), ...(q?.tagOrder ?? [])])] } : {}),
   })
 
   const expand = () => {
@@ -203,6 +204,24 @@ export function NewTask() {
    */
   const dismiss = () => place(true)
 
+  // autocorrect for #groups and @people: the ones that exist, offered while the name is being typed (Tab takes the first)
+  const sug = useMemo(() => suggestTags(title, { folders, people }), [title, folders, people])
+  const take = (text: string) => {
+    setTitle(text)
+    if (draftId) update(draftId, { title: text })
+    ref.current?.focus()
+  }
+  const suggest = sug.length > 0 && (
+    <div role="listbox" aria-label="Suggestions" className="glass glass-strong absolute inset-x-0 top-full z-30 mt-1 rounded-2xl p-1.5 shadow-xl">
+      {sug.map((s, i) => (
+        <button key={s.label} type="button" role="option" aria-selected={i === 0} onMouseDown={(e) => e.preventDefault()} onClick={() => take(s.text)} className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm transition hover:bg-lilac-100/80 ${i === 0 ? 'bg-lilac-100/60' : ''}`}>
+          <span className="truncate">{s.label}</span>
+          {i === 0 && <span className="ml-auto text-[0.65rem] text-ink-faint">Tab</span>}
+        </button>
+      ))}
+    </div>
+  )
+
   const changeKind = (k: TaskKind) => {
     setKind(k)
     if (draftId) update(draftId, { kind: k })
@@ -219,7 +238,13 @@ export function NewTask() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.key === 'Escape' && closeCompose()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') closeCompose()
+          else if (e.key === 'Tab' && !e.shiftKey && sug.length && e.target === ref.current) {
+            e.preventDefault()
+            take(sug[0].text)
+          }
+        }}
         className={`glass glass-strong relative flex max-h-full w-full flex-col ${land ? 'max-w-3xl rounded-[1.5rem] p-3' : 'max-w-md rounded-[2rem] p-4'} ${closing ? 'pop-out' : 'box-spring'}`}
       >
         {land ? (
@@ -239,6 +264,7 @@ export function NewTask() {
                   className="well w-full rounded-2xl px-3.5 py-1.5 font-display text-lg"
                 />
                 {!title && <ExampleHint index={hint} className="left-3.5 right-3 font-display text-lg" />}
+                {suggest}
               </div>
               <KindMenu value={shownKind} onChange={changeKind} />
               <button
@@ -283,6 +309,7 @@ export function NewTask() {
             {!title && (
               <ExampleHint index={hint} className="left-3.5 right-3 font-display text-xl" />
             )}
+            {suggest}
           </div>
           <button type="button" onClick={closeCompose} className="grid h-8 w-8 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-ink" aria-label="Close">
             <IconClose size={16} />
@@ -291,7 +318,7 @@ export function NewTask() {
         {parsed && parsed.chips.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
             {parsed.chips.map((c) => (
-              <span key={c} className="rounded-full bg-lilac-100 px-2.5 py-0.5 text-xs text-lilac-700">
+              <span key={c} className="chip-bubble rounded-full px-2.5 py-0.5 text-xs">
                 {c}
               </span>
             ))}
@@ -330,12 +357,12 @@ export function NewTask() {
           </>
         )}
         {more && draft && (
-          <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1 pt-2" style={{ paddingBottom: "calc(0.25rem + var(--kb, 0px) * 0.5)" }}>
+          <div className="scroll-soft -mx-1 mt-1 min-h-0 flex-1 space-y-4 overflow-y-auto px-1 pt-2" style={{ paddingBottom: 'calc(var(--kb, 0px) * 0.5)' }}>
             <TaskFields task={draft} withKind={false} />
           </div>
         )}
         {more && draft && (
-          <div className="-mx-4 -mb-4 mt-2 flex shrink-0 items-center gap-2 border-t border-white/60 px-4 py-3">
+          <div className="-mx-4 -mb-4 flex shrink-0 items-center gap-2 border-t border-white/60 px-4 py-3">
             <button type="button" onClick={closeCompose} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
               Cancel
             </button>
