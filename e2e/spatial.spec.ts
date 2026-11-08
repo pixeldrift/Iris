@@ -16,7 +16,7 @@ test.describe('spatial workspace', () => {
     await expect(page.getByText('Look around your tasks')).toBeVisible()
     await page.getByRole('button', { name: 'Start looking around' }).click() // (a desktop browser has no motion: it falls back to touch)
     await expect(intro(page).locator('canvas')).toBeVisible()
-    await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible({ timeout: 6000 })
+    await expect(page.getByText(/^Touch navigation · R \d+/)).toBeVisible({ timeout: 6000 })
     await expect(page.getByRole('button', { name: 'Recenter' })).toBeVisible()
     // the tasks are all there for the keyboard and screen readers
     await expect(page.getByRole('list', { name: 'Tasks in your workspace' }).getByRole('button', { name: 'Pay rent' }).first()).toBeAttached()
@@ -33,7 +33,7 @@ test.describe('spatial workspace', () => {
     await page.mouse.wheel(0, -300)
     await page.getByRole('button', { name: 'Recenter' }).click()
     // places are stored by id, apart from the tasks
-    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2') ?? 'null')?.state?.layout)
+    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v3') ?? 'null')?.state?.layout)
     expect(Object.keys(layout.tasks).length).toBeGreaterThan(5)
     expect(Object.keys(layout.clusters).length).toBeGreaterThan(1)
     const before = JSON.stringify(layout)
@@ -41,7 +41,7 @@ test.describe('spatial workspace', () => {
     await expect(page.locator('[data-node]').first()).toBeVisible() // (the pond again)
     await goto(page, 'Space')
     await page.getByRole('button', { name: 'Use touch only' }).click()
-    await expect.poll(async () => JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.layout))).toBe(before)
+    await expect.poll(async () => JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v3')!).state.layout))).toBe(before)
   })
 
   test('a task completed from the workspace is completed everywhere, and one added appears', async ({ page }) => {
@@ -60,7 +60,7 @@ test.describe('spatial workspace', () => {
     })
     await enter(page, 'Start looking around')
     await expect(page.getByText(/Motion tracking was not allowed/)).toBeVisible()
-    await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^Touch navigation · R \d+/)).toBeVisible()
     await expect(intro(page).locator('canvas')).toBeVisible()
   })
 
@@ -83,7 +83,7 @@ test.describe('spatial workspace', () => {
       setInterval(() => window.dispatchEvent(new DOE('deviceorientation', { alpha: (a += 0.5) % 360, beta: 90, gamma: 0 }) as unknown as Event), 30)
     })
     await enter(page, 'Start looking around')
-    await expect(page.getByText('Motion tracking', { exact: true })).toBeVisible({ timeout: 6000 })
+    await expect(page.getByText(/^Motion tracking · R \d+/)).toBeVisible({ timeout: 6000 })
     await page.getByRole('button', { name: 'Recenter' }).click()
     await page.setViewportSize({ width: 390, height: 700 }) // (turning the phone changes the window; it must stay put)
     await page.setViewportSize({ width: 700, height: 390 })
@@ -91,7 +91,7 @@ test.describe('spatial workspace', () => {
     // and turning it off falls back to touch
     await page.getByRole('button', { name: 'Spatial settings' }).click()
     await page.getByRole('radio', { name: 'Touch only' }).click()
-    await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^Touch navigation · R \d+/)).toBeVisible()
   })
 
   test('without WebGL it is a flat canvas that still works: open and tick tasks, zoom and pan', async ({ page }) => {
@@ -140,7 +140,7 @@ test.describe('spatial workspace', () => {
     const box = page.getByRole('checkbox', { name: /Faint curves/ })
     await expect(box).toBeChecked()
     await box.uncheck()
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.links)).toBe(false)
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v3')!).state.links)).toBe(false)
     await expect(intro(page).locator('canvas')).toBeVisible()
   })
 
@@ -167,6 +167,17 @@ test.describe('spatial workspace', () => {
     await expect(slider).toHaveValue('30')
     await page.getByRole('button', { name: 'Back to the usual view angle' }).click()
     await expect(slider).toHaveValue('50')
+  })
+
+  test('the radius slider (in the settings) bends the wall, shows on the readout, and its dot puts it back', async ({ page }) => {
+    await enter(page)
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    const slider = page.getByRole('slider', { name: 'Radius' })
+    await expect(slider).toHaveValue('80')
+    await slider.fill('40')
+    await expect(page.getByText(/ · R 40 · /)).toBeVisible()
+    await page.getByRole('button', { name: 'Back to the usual radius' }).click()
+    await expect(page.getByText(/ · R 80 · /)).toBeVisible()
   })
 
   test('the flat view can be chosen by hand', async ({ page }) => {
@@ -198,7 +209,7 @@ test.describe('a lot of tasks', () => {
     await page.getByRole('button', { name: 'Use touch only' }).click()
     await expect(intro(page).locator('canvas')).toBeVisible()
     await page.waitForTimeout(1500)
-    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.layout)
+    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v3')!).state.layout)
     expect(Object.keys(layout.tasks).length).toBeGreaterThan(300)
     // no two tasks share a spot in the same group
     const seen = new Set<string>()

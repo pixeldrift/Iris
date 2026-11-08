@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { K, WORLD, type ClusterPlacement } from './types'
-import { ensureLayout, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { ensureLayout, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -125,7 +125,7 @@ describe('spatial layout', () => {
     expect(next.clusters.c.z).toBeLessThan(0)
   })
 
-  it('leans each group toward the eye so none is seen at a steep angle, and keeps its cards on that tilted plane', () => {
+  it('stands each group upright facing the eye, so none is seen at a steep angle, and keeps its cards on that tilted plane', () => {
     const many: Record<string, string[]> = {}
     for (let i = 0; i < 9; i++) many[`g${i}`] = Array.from({ length: 4 }, (_, k) => `t${i}-${k}`)
     const l = ensureLayout(empty, input(many))
@@ -135,7 +135,7 @@ describe('spatial layout', () => {
       const len = Math.hypot(mid[0], mid[1], mid[2])
       // the plane's normal points back at the viewer: the cosine between it and the way to the eye is nearly 1
       const facing = -(bs.normal[0] * mid[0] + bs.normal[1] * mid[1] + bs.normal[2] * mid[2]) / len
-      expect(facing).toBeGreaterThan(0.85)
+      expect(facing).toBeGreaterThan(0.8)
     }
     // a card's own place is on its plane
     for (const t of Object.values(l.tasks)) {
@@ -145,6 +145,39 @@ describe('spatial layout', () => {
       const off = (w[0] - c.x) * bs.normal[0] + (w[1] - c.y) * bs.normal[1] + (w[2] - c.z) * bs.normal[2]
       expect(Math.abs(off)).toBeLessThan(1e-6)
     }
+  })
+  it('bends the same layout to another radius without changing sizes or overlap, and back again', () => {
+    const l = ensureLayout(empty, input({ a: ['a1', 'a2', 'a3'], b: ['b1', 'b2'], c: ['c1'] }))
+    for (const r of [30, 80, 150]) {
+      const v = withRadius(l, r)
+      const back = fromRadius(v, r)
+      for (const [id, c] of Object.entries(v.clusters)) {
+        expect(c.r).toBe(r)
+        expect(Math.hypot(c.x, c.z)).toBeCloseTo(r, 6)
+        expect(back.clusters[id].a).toBeCloseTo(l.clusters[id].a, 9)
+        // arc length (what the spacing is measured in) does not change
+        expect(c.a * c.r).toBeCloseTo(l.clusters[id].a * l.clusters[id].r, 6)
+        expect(c.rx ?? 0).toBe(0)
+      }
+    }
+  })
+  it('draws a tree like an org chart: each group is centred over its subgroups, on the row below it', () => {
+    const l = ensureLayout(empty, {
+      clusters: [
+        { id: 'p', parent: null, depth: 0, order: 0 },
+        { id: 'c1', parent: 'p', depth: 1, order: 1 },
+        { id: 'c2', parent: 'p', depth: 1, order: 2 },
+        { id: 'q', parent: null, depth: 0, order: 3 },
+      ],
+      tasks: ['p', 'c1', 'c2', 'q'].map((c) => ({ id: `t-${c}`, cluster: c })),
+      allTaskIds: new Set(['t-p', 't-c1', 't-c2', 't-q']),
+      allClusterIds: new Set(['p', 'c1', 'c2', 'q']),
+    })
+    const { p, c1, c2, q } = l.clusters
+    expect(p.a).toBeCloseTo((c1.a + c2.a) / 2, 6)
+    expect(c1.y).toBeLessThan(p.y)
+    expect(c1.y).toBeCloseTo(c2.y, 6)
+    expect(q.y).toBeCloseTo(p.y, 6)
   })
   it('pushes overlapping groups apart (the pinned one stays), and leaves ones that do not overlap alone', () => {
     const l = ensureLayout(empty, input({ a: ['a1', 'a2', 'a3'], b: ['b1', 'b2'], c: ['c1'] }))

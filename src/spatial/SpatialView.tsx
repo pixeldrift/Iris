@@ -11,6 +11,7 @@ import { IconChevron, IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
+import { RADIUS } from './layout'
 import { DefaultDot } from '../ui/DefaultDot'
 import { CameraEnvironment, PanoramaEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
 import { SpatialScene } from './SpatialScene'
@@ -21,7 +22,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
-  const { environment, tracking: trackPref, render, seen, tipSeen, links } = useSpatial()
+  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius } = useSpatial()
   const [fov, setFov] = useState<number>(FOV.start)
   const stored = useSpatial((s) => s.layout)
   const setLayout = useSpatial((s) => s.setLayout)
@@ -170,6 +171,9 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
+  useEffect(() => {
+    scene.current?.setRadius(radius)
+  }, [radius, phase, simple])
   // leaving: stop the sensors
   useEffect(
     () => () => {
@@ -184,13 +188,14 @@ export default function SpatialView() {
   /* ---------- what is shown ---------- */
   const where = env === 'camera' ? 'Camera' : env === 'panorama' ? 'Panorama' : ''
   const how = simple ? 'Flat view' : status.source === 'motion' ? 'Motion tracking' : 'Touch navigation'
-  const statusText = simple || !where ? how : `${where} · ${how}`
+  const readout = simple ? '' : ` · R ${radius} · ${Math.round(fov)}° · ×${(FOV.start / fov).toFixed(1)}`
+  const statusText = (simple || !where ? how : `${where} · ${how}`) + readout
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
       <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" />
-      {phase === 'running' && simple && <StaticCanvas content={content} />}
+      {phase === 'running' && simple && <StaticCanvas content={content} layout={stored} />}
 
       {phase === 'intro' && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 p-5 backdrop-blur-sm">
@@ -267,6 +272,19 @@ export default function SpatialView() {
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
                     <span>Closer</span>
                     <span>Wider</span>
+                  </div>
+                </div>
+              )}
+              {!simple && (
+                <div>
+                  Radius <span className="font-normal text-ink-faint">{radius}</span>
+                  <div className="relative mt-1 pb-1">
+                    <input type="range" min={RADIUS.min} max={RADIUS.max} step={1} value={radius} aria-label="Radius" onChange={(e) => prefs({ radius: Number(e.target.value) })} className="soft relative z-10" />
+                    <DefaultDot at={(RADIUS.start - RADIUS.min) / (RADIUS.max - RADIUS.min)} color="#a39cb0" label="Back to the usual radius" onReset={() => prefs({ radius: RADIUS.start })} />
+                  </div>
+                  <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
+                    <span>Wraps around you</span>
+                    <span>Flat wall</span>
                   </div>
                 </div>
               )}

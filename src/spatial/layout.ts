@@ -41,11 +41,12 @@ const TIER_HEAD = 1.9 * K // a group's name, and the gap above its cards
 const widthOf = (cols: number) => cols * cellW + MARGIN
 const heightOf = (rows: number) => rows * cellH + TIER_HEAD
 
-/** Lean a group toward the eye: it faces the origin from where it is, both across and up or down. */
+/** A group's plane stands upright, facing the eye across (a gentle wall, not rolled over). */
 export function tilt(c: ClusterPlacement): ClusterPlacement {
   const mid = c.y - (c.half ?? 0)
   // leaning most of the way to face the eye keeps text from being seen at a steep angle without every pane looking rolled over
-  return { ...c, rx: 0.3 * Math.atan2(mid, Math.hypot(c.x, c.z)) }
+  void mid
+  return { ...c, rx: 0 }
 }
 
 /** The same group at another angle on the cylinder and height (its other numbers follow). */
@@ -140,49 +141,72 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
       const cols = colsFor(inGrid.get(c.id)?.length ?? 1)
       return { c, cols, rows: rowsOf(c.id, cols), r: WORLD.ring, span: widthOf(cols) / WORLD.ring }
     })
-    const angleOf = new Map<string, number>(had.map(([id, p]) => [id, p.a]))
     if (!had.length) {
-      // a brand-new layout: rows by depth (a tree, top to bottom), each row centred and tidied under the groups above it
-      const levels = [...new Set(sized.map((s) => s.c.depth))].sort((x, y) => x - y)
-      const rowsOut: { depth: number; items: typeof sized }[] = []
-      for (const d of levels) {
-        let row: typeof sized = []
-        let used = 0
-        for (const s of sized.filter((x) => x.c.depth === d)) {
-          if (row.length && used + s.span > START_SPAN) {
-            rowsOut.push({ depth: d, items: row })
-            row = []
-            used = 0
-          }
-          row.push(s)
-          used += s.span
-        }
-        if (row.length) rowsOut.push({ depth: d, items: row })
+      // a brand-new layout, drawn like an org chart: each group centred over its subgroups, which sit on the row below it. Top-level
+      // groups go side by side across the stretch ahead; when they would run past it, the next ones start a new band underneath.
+      const arc = START_SPAN * WORLD.ring
+      const byId = new Map(sized.map((s) => [s.c.id, s]))
+      const kids = new Map<string, typeof sized>()
+      const roots: typeof sized = []
+      for (const s of sized) {
+        const par = s.c.parent && byId.has(s.c.parent) ? s.c.parent : null
+        if (par) kids.set(par, [...(kids.get(par) ?? []), s])
+        else roots.push(s)
       }
-      const heights = rowsOut.map((r) => Math.max(...r.items.map((s) => heightOf(s.rows))))
-      let y = heights.reduce((a, b) => a + b, 0) / 2 + 0.6 * K
-      rowsOut.forEach((row, tier) => {
-        const total = row.items.reduce((s, i) => s + i.span, 0)
-        // centred to begin with, then each pulled toward the middle of its group above (never overlapping its neighbour)
-        let cursor = -total / 2
-        const pos = row.items.map((s) => {
-          const c = cursor + s.span / 2
-          cursor += s.span
-          return c
+      const width = (s: (typeof sized)[number]): number => Math.max(widthOf(s.cols), (kids.get(s.c.id) ?? []).reduce((t, k) => t + width(k), 0))
+      const bands: (typeof sized)[] = []
+      let band: typeof sized = []
+      let used = 0
+      for (const r of roots) {
+        const w = width(r)
+        if (band.length && used + w > arc) {
+          bands.push(band)
+          band = []
+          used = 0
+        }
+        band.push(r)
+        used += w
+      }
+      if (band.length) bands.push(band)
+      // rows: every group at the same depth in a band shares a row, as tall as its tallest
+      type Spot = { s: (typeof sized)[number]; x: number; level: number }
+      const spots: Spot[][] = []
+      const levelH: number[][] = []
+      for (const roots of bands) {
+        const list: Spot[] = []
+        const total = roots.reduce((t, r) => t + width(r), 0)
+        const lay = (s: (typeof sized)[number], left: number, level: number) => {
+          const w = width(s)
+          list.push({ s, x: left + w / 2, level })
+          let at = left + (w - (kids.get(s.c.id) ?? []).reduce((t, k) => t + width(k), 0)) / 2
+          for (const k of kids.get(s.c.id) ?? []) {
+            lay(k, at, level + 1)
+            at += width(k)
+          }
+        }
+        let at = -total / 2
+        for (const r of roots) {
+          lay(r, at, 0)
+          at += width(r)
+        }
+        const hs: number[] = []
+        for (const sp of list) hs[sp.level] = Math.max(hs[sp.level] ?? 0, heightOf(sp.s.rows))
+        spots.push(list)
+        levelH.push(hs)
+      }
+      const GAP = 0.6 * K
+      const totalH = levelH.reduce((t, hs) => t + hs.reduce((a, b) => a + b, 0), 0) + GAP * (bands.length - 1)
+      let y = totalH / 2 + 0.6 * K
+      let tier = 0
+      bands.forEach((_, bi) => {
+        const rowY: number[] = []
+        levelH[bi].forEach((h, lv) => {
+          rowY[lv] = y
+          y -= h
         })
-        const want = row.items.map((s, i) => (s.c.parent && angleOf.has(s.c.parent) ? (angleOf.get(s.c.parent) as number) : pos[i]))
-        const x = [...want]
-        for (let i = 1; i < x.length; i++) x[i] = Math.max(x[i], x[i - 1] + (row.items[i - 1].span + row.items[i].span) / 2)
-        // keep the whole row inside the stretch ahead
-        const over = Math.max(0, x[x.length - 1] + row.items[x.length - 1].span / 2 - START_SPAN / 2)
-        for (let i = 0; i < x.length; i++) x[i] -= over
-        const under = Math.max(0, -START_SPAN / 2 - (x[0] - row.items[0].span / 2))
-        for (let i = 0; i < x.length; i++) x[i] += under
-        row.items.forEach((s, i) => {
-          clusters[s.c.id] = place(x[i], s.r, s.cols, s.rows, y, s.c.parent, tier, s.c.depth)
-          angleOf.set(s.c.id, x[i])
-        })
-        y -= heights[tier]
+        for (const sp of spots[bi]) clusters[sp.s.c.id] = place(sp.x / WORLD.ring, sp.s.r, sp.s.cols, sp.s.rows, rowY[sp.level], sp.s.c.parent, tier + sp.level, sp.s.c.depth)
+        tier += levelH[bi].length
+        y -= GAP
       })
     } else {
       // later groups: on the row of their depth if there is one, else a new row under everything; under their group where possible
@@ -257,9 +281,9 @@ export function taskWorld(t: TaskPlacement, c: ClusterPlacement): Vec3 {
 }
 
 /** A task pulled out of its group floats on the cylinder, a little in front of the groups; this is where, and how it faces. */
-export function freePose(t: TaskPlacement): { pos: Vec3; ry: number; rx: number } | null {
+export function freePose(t: TaskPlacement, radius: number = WORLD.ring): { pos: Vec3; ry: number; rx: number } | null {
   if (!t.free) return null
-  const r = WORLD.ring * 0.94
+  const r = radius * 0.94
   return { pos: [r * Math.sin(t.free.a), t.free.y, -r * Math.cos(t.free.a)], ry: -t.free.a, rx: Math.atan2(t.free.y, r) }
 }
 /** The angle and height on the cylinder of a point in the world (where a dropped task floats). */
@@ -294,3 +318,29 @@ export function paneOf(c: ClusterPlacement): { u0: number; u1: number; v0: numbe
 
 /** The heading (radians) and height to look at to face a cluster (its middle). */
 export const lookAt = (c: ClusterPlacement): { yaw: number; pitch: number } => ({ yaw: -c.a, pitch: Math.atan2(c.y - (c.half ?? 0) * (c.scale ?? 1), Math.hypot(c.x, c.z)) })
+
+
+/**
+ * The cylinder's radius is a surface to hang the layout on: sizes and arc-length spacing stay the same, so a smaller radius only curls
+ * the wall around you more and a larger one flattens it. The stored layout is always at the reference radius; these convert both ways.
+ */
+export function withRadius(l: SpatialLayoutData, r: number): SpatialLayoutData {
+  if (Math.abs(r - WORLD.ring) < 1e-9) return l
+  const k = WORLD.ring / r
+  const clusters: Record<string, ClusterPlacement> = {}
+  for (const [id, c] of Object.entries(l.clusters)) clusters[id] = repose({ ...c, r }, c.a * k, c.y)
+  const tasks: Record<string, TaskPlacement> = {}
+  for (const [id, t] of Object.entries(l.tasks)) tasks[id] = t.free ? { ...t, free: { a: t.free.a * k, y: t.free.y } } : t
+  return { clusters, tasks }
+}
+export function fromRadius(l: SpatialLayoutData, r: number): SpatialLayoutData {
+  if (Math.abs(r - WORLD.ring) < 1e-9) return l
+  const k = r / WORLD.ring
+  const clusters: Record<string, ClusterPlacement> = {}
+  for (const [id, c] of Object.entries(l.clusters)) clusters[id] = repose({ ...c, r: WORLD.ring }, c.a * k, c.y)
+  const tasks: Record<string, TaskPlacement> = {}
+  for (const [id, t] of Object.entries(l.tasks)) tasks[id] = t.free ? { ...t, free: { a: t.free.a * k, y: t.free.y } } : t
+  return { clusters, tasks }
+}
+/** The radius the testing slider offers (the default is the reference radius). */
+export const RADIUS = { start: WORLD.ring, min: 25, max: 200 }
