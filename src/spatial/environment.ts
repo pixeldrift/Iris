@@ -59,6 +59,23 @@ function skyCanvas(): HTMLCanvasElement {
   return c
 }
 
+/**
+ * A picture made quieter so it never competes with the bubbles: desaturated, a little less contrast, softly blurred, and washed with
+ * the app's cream.
+ */
+export function mutedCanvas(src: CanvasImageSource, w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = Math.min(2048, w)
+  c.height = Math.round((c.width * h) / w)
+  const g = c.getContext('2d')!
+  g.filter = 'saturate(0.45) contrast(0.82) blur(5px)'
+  g.drawImage(src, -10, -10, c.width + 20, c.height + 20) // (a little over, so the blur does not fade at the edges)
+  g.filter = 'none'
+  g.fillStyle = 'rgba(250,245,236,0.34)'
+  g.fillRect(0, 0, c.width, c.height)
+  return c
+}
+
 function skySphere(map: Texture): Mesh {
   map.colorSpace = SRGBColorSpace
   const m = new Mesh(new SphereGeometry(120, 48, 24), new MeshBasicMaterial({ map, side: BackSide, depthWrite: false, fog: false }))
@@ -143,7 +160,10 @@ export class PanoramaEnvironment implements EnvironmentProvider {
   async start(_host: HTMLElement, scene: Scene): Promise<boolean> {
     this.scene = scene
     try {
-      this.tex = await new TextureLoader().loadAsync(this.url)
+      const raw = await new TextureLoader().loadAsync(this.url)
+      const img = raw.image as HTMLImageElement
+      this.tex = new CanvasTexture(mutedCanvas(img, img.naturalWidth || img.width, img.naturalHeight || img.height))
+      raw.dispose()
     } catch {
       return false
     }
@@ -166,6 +186,7 @@ export class PanoramaEnvironment implements EnvironmentProvider {
 export class CameraEnvironment implements EnvironmentProvider {
   readonly kind = 'camera' as const
   private video?: HTMLVideoElement
+  private wash?: HTMLDivElement
   private stream?: MediaStream
   onLost?: () => void
   async start(host: HTMLElement): Promise<boolean> {
@@ -180,8 +201,13 @@ export class CameraEnvironment implements EnvironmentProvider {
     v.muted = true
     v.autoplay = true
     v.srcObject = this.stream
-    Object.assign(v.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover', zIndex: '0', pointerEvents: 'none' })
-    host.insertBefore(v, host.firstChild)
+    // the picture is made quieter (desaturated, a little less contrast, softly blurred) and washed with the app's cream, so the bubbles stand out
+    Object.assign(v.style, { position: 'absolute', inset: '-12px', width: 'calc(100% + 24px)', height: 'calc(100% + 24px)', objectFit: 'cover', zIndex: '0', pointerEvents: 'none', filter: 'saturate(0.45) contrast(0.82) blur(5px)' })
+    const wash = document.createElement('div')
+    Object.assign(wash.style, { position: 'absolute', inset: '0', background: 'rgba(250,245,236,0.34)', zIndex: '0', pointerEvents: 'none' })
+    host.insertBefore(wash, host.firstChild)
+    host.insertBefore(v, wash)
+    this.wash = wash
     this.video = v
     for (const t of this.stream.getTracks()) t.onended = () => this.onLost?.()
     try {
@@ -201,6 +227,8 @@ export class CameraEnvironment implements EnvironmentProvider {
       this.video.srcObject = null
       this.video.remove()
     }
+    this.wash?.remove()
+    this.wash = undefined
     this.stream = undefined
     this.video = undefined
   }

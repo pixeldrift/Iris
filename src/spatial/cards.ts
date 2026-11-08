@@ -1,3 +1,5 @@
+import { CanvasTexture, SRGBColorSpace } from 'three'
+
 // Drawing a task (or a group's name) onto a small canvas, to be a texture in the 3D scene. The look follows the pond's bubbles: a soft
 // gradient, a thin outline in the group's colour, a round check.
 
@@ -14,6 +16,23 @@ export interface CardInfo {
 
 export const CARD_PX = { w: 384, h: 128 }
 const PAD = 8
+/** The app's cream (--color-cream-50 / --color-cream-100), for blending the cards' gradient into the same background. */
+const CREAM_LIGHT = '#fffdf9'
+const CREAM = [250, 245, 236]
+/** A tint of the group's colour, blended toward the cream (opaque). */
+function mixCream(hue: number): string {
+  const tint = hue < 0 ? [236, 236, 236] : hslToRgb(hue, 0.62, 0.9)
+  const k = 0.62 // how much of the tint (the rest is cream)
+  return `rgb(${Math.round(tint[0] * k + CREAM[0] * (1 - k))},${Math.round(tint[1] * k + CREAM[1] * (1 - k))},${Math.round(tint[2] * k + CREAM[2] * (1 - k))})`
+}
+function hslToRgb(h: number, s: number, l: number): number[] {
+  const a = s * Math.min(l, 1 - l)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))))
+  }
+  return [f(0), f(8), f(4)]
+}
 const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h < 0 ? 0 : h},${h < 0 ? 0 : s}%,${l}%,${a})`
 
 function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -68,14 +87,16 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const w = CARD_PX.w - PAD * 2
   const h = CARD_PX.h - PAD * 2
   g.save()
-  g.globalAlpha = c.done ? 0.55 : 1
+  // opaque, like a bubble you can read at a glance (only a ticked-off one goes see-through)
+  g.globalAlpha = c.done ? 0.5 : 1
   g.shadowColor = hsl(c.hue, 45, 55, 0.35)
   g.shadowBlur = 10
   g.shadowOffsetY = 3
-  roundRect(g, x, y, w, h, 34)
+  roundRect(g, x, y, w, h, 46)
+  // the usual soft gradient, blended with the app's cream background so it keeps the same look
   const fill = g.createLinearGradient(x, y, x + w, y + h)
-  fill.addColorStop(0, 'rgba(255,255,255,0.97)')
-  fill.addColorStop(1, hsl(c.hue, 70, 91, 0.97))
+  fill.addColorStop(0, CREAM_LIGHT)
+  fill.addColorStop(1, mixCream(c.hue))
   g.fillStyle = fill
   g.fill()
   g.shadowColor = 'transparent'
@@ -84,7 +105,7 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   g.stroke()
   if (c.image) {
     g.save()
-    roundRect(g, x, y, w, h, 34)
+    roundRect(g, x, y, w, h, 46)
     g.clip()
     g.globalAlpha = 0.22
     g.drawImage(c.image, x, y, w, h)
@@ -170,8 +191,8 @@ export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo) {
   const h = canvas.height - 28
   roundRect(g, x, y, w, h, h / 2)
   const fill = g.createLinearGradient(x, y, x + w, y)
-  fill.addColorStop(0, hsl(hub.hue, 55, 52, 0.96))
-  fill.addColorStop(1, hsl(hub.hue, 55, 60, 0.96))
+  fill.addColorStop(0, hsl(hub.hue, 55, 52, 1))
+  fill.addColorStop(1, hsl(hub.hue, 55, 60, 1))
   g.fillStyle = fill
   g.shadowColor = hsl(hub.hue, 50, 45, 0.4)
   g.shadowBlur = 12
@@ -193,4 +214,29 @@ export function drawHub(canvas: HTMLCanvasElement, hub: HubInfo) {
   g.textAlign = 'center'
   g.fillText(n, x + w - cw / 2 - 14, y + h / 2 + 1)
   g.textAlign = 'left'
+}
+
+/**
+ * The pane behind a group's cards, drawn at the pane's own proportions (48 px a unit) with large round corners, a soft tint of the
+ * group's colour blended into the cream, a fine outline and a faint glow, so nothing is a hard square.
+ */
+export function drawPlate(wUnits: number, hUnits: number, hue: number): CanvasTexture {
+  const PX = 48
+  const w = Math.max(32, Math.round(wUnits * PX))
+  const h = Math.max(32, Math.round(hUnits * PX))
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const g = c.getContext('2d')!
+  const pad = 6
+  const radius = Math.min(1.25 * PX, (Math.min(w, h) - pad * 2) / 2)
+  roundRect(g, pad, pad, w - pad * 2, h - pad * 2, radius)
+  g.fillStyle = hue < 0 ? 'rgba(236,236,236,0.34)' : hsl(hue, 60, 84, 0.3)
+  g.fill()
+  g.lineWidth = 3
+  g.strokeStyle = hue < 0 ? 'rgba(200,200,200,0.55)' : hsl(hue, 55, 72, 0.5)
+  g.stroke()
+  const t = new CanvasTexture(c)
+  t.colorSpace = SRGBColorSpace
+  return t
 }

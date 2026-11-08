@@ -1,8 +1,8 @@
 // SpatialScene: draws the layout with Three.js. It knows nothing of where the camera pose comes from (it is given a TrackingProvider) or
 // of what is behind (an EnvironmentProvider), and it never edits tasks: it reports taps and moves, and the caller decides what they mean.
 
-import { CanvasTexture, Color, DoubleSide, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Plane, Raycaster, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, LinearMipmapLinearFilter } from 'three'
-import { HUB_PX, drawCard, drawHub, type CardInfo, type HubInfo } from './cards'
+import { CanvasTexture, DoubleSide, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Plane, Raycaster, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, LinearMipmapLinearFilter } from 'three'
+import { HUB_PX, drawCard, drawPlate, drawHub, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { moveCluster, moveTask, taskWorld, lookAt } from './layout'
 import { WORLD, type SpatialLayoutData } from './types'
@@ -194,13 +194,21 @@ export class SpatialScene {
       }
       let plate = this.plates.get(h.id)
       if (!plate) {
-        plate = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ transparent: true, opacity: 0.16, side: DoubleSide, depthWrite: false }))
+        plate = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ transparent: true, side: DoubleSide, depthWrite: false }))
         this.scene.add(plate)
         this.plates.set(h.id, plate)
       }
-      ;(plate.material as MeshBasicMaterial).color = new Color(`hsl(${Math.max(0, hueOf.get(h.id) ?? 285)}, ${hueOf.get(h.id)! < 0 ? 0 : 70}%, 70%)`)
-      const w = right - left + 0.6
-      const hh = top - bottom + 0.6
+      const w = right - left + 0.9
+      const hh = top - bottom + 0.9
+      // the pane is drawn at its own proportions, so its corners are equally round whatever its size (nothing is a hard square)
+      const pm = plate.material as MeshBasicMaterial
+      const pkey = `${w.toFixed(1)}x${hh.toFixed(1)}|${hueOf.get(h.id)}`
+      if (plate.userData.key !== pkey) {
+        pm.map?.dispose()
+        pm.map = drawPlate(w, hh, hueOf.get(h.id) ?? 285)
+        pm.needsUpdate = true
+        plate.userData.key = pkey
+      }
       plate.scale.set(w, hh, 1)
       const cx = (left + right) / 2
       const cy = (top + bottom) / 2
