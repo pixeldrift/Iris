@@ -49,6 +49,7 @@ export class SpatialScene {
   private hubs = new Map<string, Node>()
   private plates = new Map<string, Mesh>()
   private links?: LineSegments
+  private showLinks = true
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
   private env?: EnvironmentProvider
@@ -223,12 +224,22 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
       this.plates.delete(id)
     }
-    // lines from a group's hub to each of its subgroups' hubs
+    // a faint curve from a group to each of its subgroups (a straight line reads as a hard seam across the room), behind everything
     const pts: number[] = []
     for (const h of this.content.clusters) {
       const cp = L.clusters[h.id]
       const pp = h.parent ? L.clusters[h.parent] : null
-      if (cp && pp) pts.push(pp.x, pp.y, pp.z, cp.x, cp.y, cp.z)
+      if (!cp || !pp || !this.showLinks) continue
+      const len = Math.hypot(cp.x - pp.x, cp.y - pp.y, cp.z - pp.z)
+      const lift = Math.min(2.5, len * 0.22)
+      let prev: [number, number, number] | null = null
+      for (let i = 0; i <= 16; i++) {
+        const t = i / 16
+        const arc = Math.sin(t * Math.PI) * lift
+        const pt: [number, number, number] = [pp.x + (cp.x - pp.x) * t, pp.y + (cp.y - pp.y) * t + arc, pp.z + (cp.z - pp.z) * t]
+        if (prev) pts.push(...prev, ...pt)
+        prev = pt
+      }
     }
     if (this.links) {
       this.scene.remove(this.links)
@@ -239,10 +250,17 @@ export class SpatialScene {
     if (pts.length) {
       const g = new BufferGeometry()
       g.setAttribute('position', new Float32BufferAttribute(pts, 3))
-      this.links = new LineSegments(g, new LineBasicMaterial({ color: 0xb69be0, transparent: true, opacity: 0.55 }))
+      this.links = new LineSegments(g, new LineBasicMaterial({ color: 0xc4b0e6, transparent: true, opacity: 0.28, depthWrite: false }))
+      this.links.renderOrder = -5
       this.scene.add(this.links)
     }
     this.dirty = true
+  }
+
+  /** Whether the faint curves between a group and its subgroups are drawn. */
+  setLinks(on: boolean) {
+    this.showLinks = on
+    this.place()
   }
 
   /** Changes of background are done one after another, so a quick second choice can never leave an earlier camera running. */

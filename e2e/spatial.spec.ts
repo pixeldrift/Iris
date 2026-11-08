@@ -133,6 +133,16 @@ test.describe('spatial workspace', () => {
     expect(before).toBeGreaterThan(0)
   })
 
+  test('the faint curves between groups and subgroups can be switched off', async ({ page }) => {
+    await enter(page)
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    const box = page.getByRole('checkbox', { name: /Faint curves/ })
+    await expect(box).toBeChecked()
+    await box.uncheck()
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.links)).toBe(false)
+    await expect(intro(page).locator('canvas')).toBeVisible()
+  })
+
   test('the simple view can be chosen by hand', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
