@@ -19,7 +19,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
-  const { environment, tracking: trackPref, render, seen, tipSeen } = useSpatial()
+  const { environment, tracking: trackPref, render, seen, tipSeen, links } = useSpatial()
   const stored = useSpatial((s) => s.layout)
   const setLayout = useSpatial((s) => s.setLayout)
   const prefs = useSpatial((s) => s.set)
@@ -150,6 +150,9 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setContent(content)
   }, [content])
+  useEffect(() => {
+    scene.current?.setLinks(links)
+  }, [links, phase, simple])
 
   // leaving: stop the sensors
   useEffect(
@@ -267,6 +270,12 @@ export default function SpatialView() {
                   <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Simple' }]} onChange={(r) => prefs({ render: r })} />
                 </div>
               </div>
+              {!simple && (
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
+                  Faint curves between groups and their subgroups
+                  <input type="checkbox" checked={links} onChange={(e) => prefs({ links: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+                </label>
+              )}
               <button type="button" onClick={() => useSpatial.getState().resetLayout()} className="rounded-full bg-white/70 px-3 py-1.5 text-ink-soft transition hover:bg-white">
                 Tidy everything back into place
               </button>

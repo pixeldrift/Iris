@@ -1030,7 +1030,7 @@ export function Pond() {
             }}
             aria-label="A bubble out of view this way: go there"
             title="A bubble out of view this way"
-            className={`edge-dot absolute z-[5] h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full ${d.leaving ? 'leaving' : ''}`}
+            className={`edge-dot absolute z-[5] h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full ${d.leaving ? 'leaving' : ''}`}
             style={{ ['--h' as string]: Math.max(0, d.hue), ['--s' as string]: d.hue < 0 ? 0 : 1 }}
           />
         ))}

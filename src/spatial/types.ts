@@ -3,7 +3,7 @@
 // tracking quality, never which sensor (or, one day, ARKit) produced them.
 
 /** What a unit of the world means: one unit is about one metre. The viewer's eyes are at the origin, looking down -Z. */
-export const WORLD = { eye: 0, ring: 4.4, cardW: 1.5, cardH: 0.5, gap: 0.12 } as const
+export const WORLD = { eye: 0, ring: 9, cardW: 3, cardH: 1, gap: 0.24 } as const
 
 /** Optional reference for future AR: where in a real room this was pinned (never filled by sensor readings). */
 export interface SpatialAnchor {
@@ -23,6 +23,8 @@ export interface ClusterPlacement {
   r: number
   /** How many cards wide its grid is. */
   cols: number
+  /** Which row of groups it is on (0 = the first, then below it). */
+  tier?: number
   parent: string | null
   scale?: number
   anchor?: SpatialAnchor

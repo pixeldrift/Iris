@@ -1,8 +1,8 @@
 // SpatialScene: draws the layout with Three.js. It knows nothing of where the camera pose comes from (it is given a TrackingProvider) or
 // of what is behind (an EnvironmentProvider), and it never edits tasks: it reports taps and moves, and the caller decides what they mean.
 
-import { CanvasTexture, Color, DoubleSide, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Plane, Raycaster, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, LinearMipmapLinearFilter } from 'three'
-import { HUB_PX, drawCard, drawHub, type CardInfo, type HubInfo } from './cards'
+import { CanvasTexture, DoubleSide, LineBasicMaterial, LineSegments, BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Plane, Raycaster, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer, LinearMipmapLinearFilter } from 'three'
+import { HUB_PX, drawCard, drawPlate, drawHub, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { moveCluster, moveTask, taskWorld, lookAt } from './layout'
 import { WORLD, type SpatialLayoutData } from './types'
@@ -43,12 +43,13 @@ const TAP_PX = 8
 export class SpatialScene {
   private renderer: WebGLRenderer
   private scene = new Scene()
-  private camera = new PerspectiveCamera(62, 1, 0.1, 120)
+  private camera = new PerspectiveCamera(62, 1, 0.1, 300)
   private raycaster = new Raycaster()
   private tasks = new Map<string, Node>()
   private hubs = new Map<string, Node>()
   private plates = new Map<string, Mesh>()
   private links?: LineSegments
+  private showLinks = true
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
   private env?: EnvironmentProvider
@@ -177,12 +178,12 @@ export class SpatialScene {
       const cp = L.clusters[h.id]
       const n = this.hubs.get(h.id)
       if (!cp || !n) continue
-      n.mesh.position.set(cp.x, cp.y + 0.05, cp.z)
+      n.mesh.position.set(cp.x, cp.y, cp.z)
       n.mesh.rotation.set(0, cp.ry, 0)
       // the plate: a faint pane the group's cards sit on
       const mine = this.content.tasks.filter((t) => L.tasks[t.id]?.c === h.id)
-      let top = 0.25
-      let bottom = -0.5
+      let top = 0.55
+      let bottom = -1
       let left = -WORLD.cardW / 2
       let right = WORLD.cardW / 2
       for (const t of mine) {
@@ -194,17 +195,25 @@ export class SpatialScene {
       }
       let plate = this.plates.get(h.id)
       if (!plate) {
-        plate = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ transparent: true, opacity: 0.16, side: DoubleSide, depthWrite: false }))
+        plate = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ transparent: true, side: DoubleSide, depthWrite: false }))
         this.scene.add(plate)
         this.plates.set(h.id, plate)
       }
-      ;(plate.material as MeshBasicMaterial).color = new Color(`hsl(${Math.max(0, hueOf.get(h.id) ?? 285)}, ${hueOf.get(h.id)! < 0 ? 0 : 70}%, 70%)`)
-      const w = right - left + 0.3
-      const hh = top - bottom + 0.3
+      const w = right - left + 0.9
+      const hh = top - bottom + 0.9
+      // the pane is drawn at its own proportions, so its corners are equally round whatever its size (nothing is a hard square)
+      const pm = plate.material as MeshBasicMaterial
+      const pkey = `${w.toFixed(1)}x${hh.toFixed(1)}|${hueOf.get(h.id)}`
+      if (plate.userData.key !== pkey) {
+        pm.map?.dispose()
+        pm.map = drawPlate(w, hh, hueOf.get(h.id) ?? 285)
+        pm.needsUpdate = true
+        plate.userData.key = pkey
+      }
       plate.scale.set(w, hh, 1)
       const cx = (left + right) / 2
       const cy = (top + bottom) / 2
-      plate.position.set(cp.x + Math.cos(cp.ry) * cx + Math.sin(cp.ry) * -0.02, cp.y + cy, cp.z + -Math.sin(cp.ry) * cx + Math.cos(cp.ry) * -0.02)
+      plate.position.set(cp.x + Math.cos(cp.ry) * cx + Math.sin(cp.ry) * -0.06, cp.y + cy, cp.z + -Math.sin(cp.ry) * cx + Math.cos(cp.ry) * -0.06)
       plate.rotation.set(0, cp.ry, 0)
       plateSeen.add(h.id)
     }
@@ -215,12 +224,22 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
       this.plates.delete(id)
     }
-    // lines from a group's hub to each of its subgroups' hubs
+    // a faint curve from a group to each of its subgroups (a straight line reads as a hard seam across the room), behind everything
     const pts: number[] = []
     for (const h of this.content.clusters) {
       const cp = L.clusters[h.id]
       const pp = h.parent ? L.clusters[h.parent] : null
-      if (cp && pp) pts.push(pp.x, pp.y, pp.z, cp.x, cp.y, cp.z)
+      if (!cp || !pp || !this.showLinks) continue
+      const len = Math.hypot(cp.x - pp.x, cp.y - pp.y, cp.z - pp.z)
+      const lift = Math.min(2.5, len * 0.22)
+      let prev: [number, number, number] | null = null
+      for (let i = 0; i <= 16; i++) {
+        const t = i / 16
+        const arc = Math.sin(t * Math.PI) * lift
+        const pt: [number, number, number] = [pp.x + (cp.x - pp.x) * t, pp.y + (cp.y - pp.y) * t + arc, pp.z + (cp.z - pp.z) * t]
+        if (prev) pts.push(...prev, ...pt)
+        prev = pt
+      }
     }
     if (this.links) {
       this.scene.remove(this.links)
@@ -231,10 +250,17 @@ export class SpatialScene {
     if (pts.length) {
       const g = new BufferGeometry()
       g.setAttribute('position', new Float32BufferAttribute(pts, 3))
-      this.links = new LineSegments(g, new LineBasicMaterial({ color: 0xb69be0, transparent: true, opacity: 0.55 }))
+      this.links = new LineSegments(g, new LineBasicMaterial({ color: 0xc4b0e6, transparent: true, opacity: 0.28, depthWrite: false }))
+      this.links.renderOrder = -5
       this.scene.add(this.links)
     }
     this.dirty = true
+  }
+
+  /** Whether the faint curves between a group and its subgroups are drawn. */
+  setLinks(on: boolean) {
+    this.showLinks = on
+    this.place()
   }
 
   /** Changes of background are done one after another, so a quick second choice can never leave an earlier camera running. */
@@ -396,7 +422,7 @@ export class SpatialScene {
         el.className = 'edge-dot'
         el.setAttribute('aria-label', 'A group out of view this way: turn to it')
         el.title = 'A group out of view this way'
-        Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '24px', height: '24px', translate: '-50% -50%', borderRadius: '9999px' })
+        Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '16px', height: '16px', translate: '-50% -50%', borderRadius: '9999px' })
         const id = d.id
         el.addEventListener('click', () => this.focusCluster(id))
         el.addEventListener('pointerdown', (e) => e.stopPropagation())

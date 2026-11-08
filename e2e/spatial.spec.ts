@@ -33,7 +33,7 @@ test.describe('spatial workspace', () => {
     await page.mouse.wheel(0, -300)
     await page.getByRole('button', { name: 'Recenter' }).click()
     // places are stored by id, apart from the tasks
-    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v1') ?? 'null')?.state?.layout)
+    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2') ?? 'null')?.state?.layout)
     expect(Object.keys(layout.tasks).length).toBeGreaterThan(5)
     expect(Object.keys(layout.clusters).length).toBeGreaterThan(1)
     const before = JSON.stringify(layout)
@@ -41,7 +41,7 @@ test.describe('spatial workspace', () => {
     await expect(page.locator('[data-node]').first()).toBeVisible() // (the pond again)
     await goto(page, 'Space')
     await page.getByRole('button', { name: 'Use touch only' }).click()
-    await expect.poll(async () => JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v1')!).state.layout))).toBe(before)
+    await expect.poll(async () => JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.layout))).toBe(before)
   })
 
   test('a task completed from the workspace is completed everywhere, and one added appears', async ({ page }) => {
@@ -133,6 +133,16 @@ test.describe('spatial workspace', () => {
     expect(before).toBeGreaterThan(0)
   })
 
+  test('the faint curves between groups and subgroups can be switched off', async ({ page }) => {
+    await enter(page)
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    const box = page.getByRole('checkbox', { name: /Faint curves/ })
+    await expect(box).toBeChecked()
+    await box.uncheck()
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.links)).toBe(false)
+    await expect(intro(page).locator('canvas')).toBeVisible()
+  })
+
   test('the simple view can be chosen by hand', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
@@ -162,7 +172,7 @@ test.describe('a lot of tasks', () => {
     await page.getByRole('button', { name: 'Use touch only' }).click()
     await expect(intro(page).locator('canvas')).toBeVisible()
     await page.waitForTimeout(1500)
-    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v1')!).state.layout)
+    const layout = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v2')!).state.layout)
     expect(Object.keys(layout.tasks).length).toBeGreaterThan(300)
     // no two tasks share a spot in the same group
     const seen = new Set<string>()

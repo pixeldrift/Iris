@@ -59,9 +59,26 @@ function skyCanvas(): HTMLCanvasElement {
   return c
 }
 
+/**
+ * A picture made quieter so it never competes with the bubbles: desaturated, a little less contrast, softly blurred, and washed with
+ * the app's cream.
+ */
+export function mutedCanvas(src: CanvasImageSource, w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = Math.min(2048, w)
+  c.height = Math.round((c.width * h) / w)
+  const g = c.getContext('2d')!
+  g.filter = 'saturate(0.45) contrast(0.82) blur(5px)'
+  g.drawImage(src, -10, -10, c.width + 20, c.height + 20) // (a little over, so the blur does not fade at the edges)
+  g.filter = 'none'
+  g.fillStyle = 'rgba(250,245,236,0.34)'
+  g.fillRect(0, 0, c.width, c.height)
+  return c
+}
+
 function skySphere(map: Texture): Mesh {
   map.colorSpace = SRGBColorSpace
-  const m = new Mesh(new SphereGeometry(40, 48, 24), new MeshBasicMaterial({ map, side: BackSide, depthWrite: false, fog: false }))
+  const m = new Mesh(new SphereGeometry(120, 48, 24), new MeshBasicMaterial({ map, side: BackSide, depthWrite: false, fog: false }))
   m.scale.x = -1 // (seen from inside, so the picture is not mirrored)
   m.renderOrder = -10
   return m
@@ -88,18 +105,18 @@ export class VirtualEnvironment implements EnvironmentProvider {
     rg.addColorStop(1, 'rgba(255,255,255,0)')
     g.fillStyle = rg
     g.fillRect(0, 0, 256, 256)
-    this.floor = new Mesh(new CircleGeometry(9, 48), new MeshBasicMaterial({ map: new CanvasTexture(f), transparent: true, depthWrite: false, side: DoubleSide }))
+    this.floor = new Mesh(new CircleGeometry(24, 48), new MeshBasicMaterial({ map: new CanvasTexture(f), transparent: true, depthWrite: false, side: DoubleSide }))
     this.floor.rotation.x = -Math.PI / 2
-    this.floor.position.y = -1.7
+    this.floor.position.y = -6
     scene.add(this.floor)
     // dust, drifting very slowly, for depth
     const n = 160
     const pos = new Float32Array(n * 3)
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2
-      const r = 2 + Math.random() * 10
+      const r = 4 + Math.random() * 22
       pos[i * 3] = Math.sin(a) * r
-      pos[i * 3 + 1] = (Math.random() - 0.4) * 6
+      pos[i * 3 + 1] = (Math.random() - 0.4) * 14
       pos[i * 3 + 2] = -Math.cos(a) * r
     }
     const geo = new BufferGeometry()
@@ -113,7 +130,7 @@ export class VirtualEnvironment implements EnvironmentProvider {
     sr.addColorStop(1, 'rgba(255,255,255,0)')
     sg.fillStyle = sr
     sg.fillRect(0, 0, 64, 64)
-    this.dust = new Points(geo, new PointsMaterial({ size: 0.08, map: new CanvasTexture(sp), color: new Color('#ffffff'), transparent: true, opacity: 0.55, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true }))
+    this.dust = new Points(geo, new PointsMaterial({ size: 0.12, map: new CanvasTexture(sp), color: new Color('#ffffff'), transparent: true, opacity: 0.45, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true }))
     scene.add(this.dust)
     return true
   }
@@ -143,7 +160,10 @@ export class PanoramaEnvironment implements EnvironmentProvider {
   async start(_host: HTMLElement, scene: Scene): Promise<boolean> {
     this.scene = scene
     try {
-      this.tex = await new TextureLoader().loadAsync(this.url)
+      const raw = await new TextureLoader().loadAsync(this.url)
+      const img = raw.image as HTMLImageElement
+      this.tex = new CanvasTexture(mutedCanvas(img, img.naturalWidth || img.width, img.naturalHeight || img.height))
+      raw.dispose()
     } catch {
       return false
     }
@@ -166,6 +186,7 @@ export class PanoramaEnvironment implements EnvironmentProvider {
 export class CameraEnvironment implements EnvironmentProvider {
   readonly kind = 'camera' as const
   private video?: HTMLVideoElement
+  private wash?: HTMLDivElement
   private stream?: MediaStream
   onLost?: () => void
   async start(host: HTMLElement): Promise<boolean> {
@@ -180,8 +201,13 @@ export class CameraEnvironment implements EnvironmentProvider {
     v.muted = true
     v.autoplay = true
     v.srcObject = this.stream
-    Object.assign(v.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover', zIndex: '0', pointerEvents: 'none' })
-    host.insertBefore(v, host.firstChild)
+    // the picture is made quieter (desaturated, a little less contrast, softly blurred) and washed with the app's cream, so the bubbles stand out
+    Object.assign(v.style, { position: 'absolute', inset: '-12px', width: 'calc(100% + 24px)', height: 'calc(100% + 24px)', objectFit: 'cover', zIndex: '0', pointerEvents: 'none', filter: 'saturate(0.45) contrast(0.82) blur(5px)' })
+    const wash = document.createElement('div')
+    Object.assign(wash.style, { position: 'absolute', inset: '0', background: 'rgba(250,245,236,0.34)', zIndex: '0', pointerEvents: 'none' })
+    host.insertBefore(wash, host.firstChild)
+    host.insertBefore(v, wash)
+    this.wash = wash
     this.video = v
     for (const t of this.stream.getTracks()) t.onended = () => this.onLost?.()
     try {
@@ -201,6 +227,8 @@ export class CameraEnvironment implements EnvironmentProvider {
       this.video.srcObject = null
       this.video.remove()
     }
+    this.wash?.remove()
+    this.wash = undefined
     this.stream = undefined
     this.video = undefined
   }
