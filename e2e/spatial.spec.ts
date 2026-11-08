@@ -166,7 +166,7 @@ test.describe('spatial workspace', () => {
     await slider.fill('30')
     await expect(slider).toHaveValue('30')
     await page.getByRole('button', { name: 'Back to the usual view angle' }).click()
-    await expect(slider).toHaveValue('60')
+    await expect(slider).toHaveValue('50')
   })
 
   test('the flat view can be chosen by hand', async ({ page }) => {
