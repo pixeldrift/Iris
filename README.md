@@ -22,7 +22,10 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
 ## What's in the prototype
 
 **Views** (the purple card in the left sidebar):
-- **Pond**: the free canvas, bubbles floating on water. Click the water to add a thought.
+- **Pond**: the free canvas, bubbles floating on water. Click the water to add a thought. When bubbles are out of view, *Frame all*
+  pulses, and a small soft glowing dot (in the bubble's colour, flat like the dots on the Priority axes) rides along the frame for each
+  bubble wholly out of view, where a line from the middle of the pond to that bubble crosses it. A dot fades in when its bubble leaves
+  the screen and out when it comes back (a bubble even partly on screen has none); tap one to glide there.
 - **List**: sortable rows, swipe a row to delete it, drag to tag or schedule. Each shows its group, its day and where it is.
   *My order* lets you drag a row to any spot, with a purple line showing where it lands.
 - **Progress**: stages side by side (Not started, In progress, Completed, or your own per group, with the pencil at the top).
@@ -196,7 +199,7 @@ add the sharing tables and columns.
 
 **Settings** Accessed under your user account menu (the title stays put while the options scroll): *Soundscape* (audio, volume,
 drops, task sounds, pops, ambient chimes); *Look & Feel* (colour, menu spacing, and the Pond's bubble scaling, drifting and
-bloomed tasks); *Views* (a folded list: uncheck the views you do not use and they leave the sidebar, though at least one stays); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips,
+bloomed tasks); *Views* (a folded list: uncheck the views you do not use and they leave the sidebar, though at least one stays, and drag the handles to put them in the order you like: the order is set here, not in the menu itself, so it is not shuffled by accident); *App options* (*Switching views resets filters*, *Automatic urgency*, *Limit play time*, tooltips,
 *Push Notifications*); *Region* (date format, time format, time zone); demo data; and your data, account and connections.
 Add your profile image and contact details.
 
