@@ -142,16 +142,38 @@ function Twirl({ title, icon, summary, open, onToggle, children }: { title: stri
   )
 }
 
+const BOXES_KEY = 'lilac-boxes'
+const boxChoice = (title: string): boolean | undefined => {
+  try {
+    const v = JSON.parse(localStorage.getItem(BOXES_KEY) ?? '{}')[title]
+    return typeof v === 'boolean' ? v : undefined
+  } catch {
+    return undefined
+  }
+}
+const rememberBox = (title: string, open: boolean) => {
+  try {
+    localStorage.setItem(BOXES_KEY, JSON.stringify({ ...JSON.parse(localStorage.getItem(BOXES_KEY) ?? '{}'), [title]: open }))
+  } catch {
+    /* storage blocked: it just is not remembered */
+  }
+}
+
 /**
  * A small box that gathers related fields under a name (When, Where, Who…), so a long form reads as a few clear parts. Every box folds
  * away: the whole title row is the button, with an arrow. `startOpen` is false for the things a kind of item rarely needs (a list does
  * not need dates) unless they already hold something.
  */
 function Box({ title, icon, children, startOpen = true }: { title: string; icon: React.ReactNode; children: React.ReactNode; startOpen?: boolean }) {
-  const [open, setOpen] = useState(startOpen)
+  // a box left folded (or opened) stays that way, for every item and the next time: only a choice made by hand is remembered
+  const [open, setOpen] = useState(() => boxChoice(title) ?? startOpen)
+  const toggle = () => {
+    setOpen(!open)
+    rememberBox(title, !open)
+  }
   return (
     <section aria-label={title} className={`group-box rounded-2xl p-3 ${open ? 'space-y-2.5' : ''}`}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
+      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
         {icon}
         {title}
         <span className={`ml-auto text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
