@@ -45,6 +45,11 @@ tests run weekly or by hand from the Actions tab (see [docs/TESTING.md](docs/TES
   - **Both ways.** Dragging a card to a column (or choosing its Stage, or ticking it done) sets its progress to that column's
     break point (a count follows: 100% is all of them done). Changing the progress (slider, count, ticks) moves the item to
     the column that percent reaches. With the default 0 / 1 / 100, the first tick of a list, or any count above zero, starts it.
+- **Space** (3D): your groups and tasks hang around you in a soft virtual room. Turn your phone to look around (it asks for motion access
+  when you start; or just drag), pinch to zoom, tap a task to open it or its circle to tick it off, tap a group's name to turn to it,
+  hold a task or group and drag to move it (places are remembered). *Back* returns to the view you came from. The settings button chooses
+  the background (the room, your camera, or a 360-degree photo), motion or touch only, and 3D or a simple flat canvas (used automatically
+  when WebGL is unavailable). It is orientation only, not room-scale tracking; see [docs/SPATIAL.md](docs/SPATIAL.md).
 - **Priority**: the Eisenhower plot; drag a task around to set how much it matters and how urgent it is.
 - **Calendar**: month (an endless grid: drag it to scroll, the arrows slide a whole month), week, and day (a list, or a
   schedule by the clock with events as tall as they last, drag to move or stretch). Items with no day wait under the days.

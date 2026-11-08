@@ -1,5 +1,5 @@
 import type { ViewId } from '../core/types'
-import { IconBoard, IconCalendar, IconChart, IconList, IconPond, IconPriority, IconTimeline } from './icons'
+import { IconBoard, IconCalendar, IconChart, IconCube, IconList, IconPond, IconPriority, IconTimeline } from './icons'
 
 export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof IconPond }[] = [
   { id: 'pond', label: 'Pond', hint: 'Freeform', icon: IconPond },
@@ -9,6 +9,7 @@ export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof Icon
   { id: 'calendar', label: 'Calendar', hint: 'Schedule', icon: IconCalendar },
   { id: 'timeline', label: 'Timeline', hint: 'Gantt', icon: IconTimeline },
   { id: 'overview', label: 'Overview', hint: 'Stats', icon: IconChart },
+  { id: 'spatial', label: 'Space', hint: '3D', icon: IconCube },
 ]
 
 /** The views in the order chosen in Settings (any not yet placed follow in their usual order). */

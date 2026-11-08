@@ -1,6 +1,8 @@
 # Lilac roadmap
 
 ## Recently shipped
+The Space view (first cut of the Room view below): your tasks around you in 3D with touch and motion look-around, a virtual room, camera or
+photo background, and a flat fallback (see `docs/SPATIAL.md`; not yet tested on a real iPhone);
 Progress (percent complete): a slider, a count (12 of 20) with a tally and keypad, or a list's ticks; break points for the Progress
 columns that move items both ways (see *Progress* in the README);
 Web Push reminders that reach you when the app is closed (tested on two real phones, both installed to the Home Screen, with the app closed);

@@ -76,6 +76,8 @@ export const SECTION_IDS = ['folders', 'people', 'week'] as const
 export interface UiSlice {
   scope: Scope
   view: ViewId
+  /** The view before this one (where leaving the spatial workspace goes back to). */
+  lastView: ViewId
   settings: Settings
   selectedId: string | null
   sidebarOpen: boolean

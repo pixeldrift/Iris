@@ -371,3 +371,9 @@ export const IconImage = (p: P) => (
     <path d="m4.5 17 4.5-4.5 3.5 3.5 3-3 4 4" />
   </Svg>
 )
+export const IconCube = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 3.5 19.5 7.7v8.6L12 20.5l-7.5-4.2V7.7L12 3.5Z" />
+    <path d="M4.5 7.7 12 12l7.5-4.3M12 12v8.5" />
+  </Svg>
+)
