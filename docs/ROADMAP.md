@@ -1,6 +1,8 @@
 # Lilac roadmap
 
 ## Recently shipped
+The Space view (first cut of the Room view below): your tasks around you in 3D with touch and motion look-around, a virtual room, camera or
+photo background, and a flat fallback (see `docs/SPATIAL.md`; not yet tested on a real iPhone);
 Progress (percent complete): a slider, a count (12 of 20) with a tally and keypad, or a list's ticks; break points for the Progress
 columns that move items both ways (see *Progress* in the README);
 Web Push reminders that reach you when the app is closed (tested on two real phones, both installed to the Home Screen, with the app closed);
@@ -45,13 +47,49 @@ Delete modes, stats and a play limit; a tidier Settings. (The README describes e
    - **Order of work.** (1) Nested columns, compact cards, pan/zoom, fit all, collapse; (2) drag to retag and reorder, semantic
      zoom, mini-map; (3) tree connectors and the by-person lens; (4) stage swimlanes and the by-time lens. Open questions:
      the name (Map, Atlas, Board), and whether the by-person lens should start from the address book or from shared members.
-3. **Blended bubbles** (a gradient of a bubble's groups): a small visual win to slot in alongside.
-4. **Attachments and dropping things onto the pond** (images first; the storage choice is worth a design chat), then
+3. **Room view (AR): your tasks in the space around you, as a mode of the Map.** Hold up the phone and look around: the Map's canvas
+   is spread out around you like post-its on a wall, or one giant pane of glass in the middle of the room, and the device is a
+   window onto it. It is a **toggle in the Map view** (*Flat* | *Around me*), not a separate set of screens: the Map's pure layout
+   (`layoutMap`, boxes in 2D) is simply placed on a surface in 3D, so every Map feature (collapse, focus, lenses, search) carries over.
+   *(Planned; this is what is and is not possible, found before building. Verified items are marked; the rest need a check on the day.)*
+   - **What a PWA can do, on every phone (tier 1: "panorama").** The device's orientation (`DeviceOrientationEvent`: gyro, accelerometer
+     and compass fused by the OS) turns the phone into a window onto a big canvas, like a panorama viewer, with no camera at all. The
+     Map is drawn on a flat wall or a surrounding cylinder in front of a perspective camera driven by the phone's rotation (CSS 3D for
+     a few hundred cards, WebGL beyond that). On iOS the motion permission must be asked from a button tap (`requestPermission()`,
+     HTTPS only; verified, shipped in WebKit), and Android needs none. Limits: orientation only, so you can turn and tilt but not walk
+     (no position), and the heading drifts a little, so there is a *Recenter* button and a gentle correction from the compass.
+   - **Camera see-through (tier 2).** Add the rear camera as the background (`getUserMedia`, a normal permission; the frames never
+     leave the device and are never stored) so the cards look to be in the room. It is still rotation-only: not locked to real surfaces,
+     but "pinned to the wall" feels right as long as you stay roughly where you began. *Lock to space* at this tier means the layout
+     is remembered by compass heading and pitch for a named place ("Kitchen: facing the fridge"), re-aimed with one tap each session.
+     (Whether `getUserMedia` behaves in an iPhone home-screen PWA is not verified here: test early.)
+   - **True anchoring (tier 3): Android on the web, and the native app.** Android Chrome with ARCore has WebXR `immersive-ar`, with
+     hit-testing, anchors and the depth API (the ARCore comparison page lists Anchors and Depth as shipped in Chrome; verified). So a
+     session can place the pane on a real wall and keep it there while you walk. What does *not* exist is a dependable way to keep
+     an anchor between sessions on the web (persistent anchors were never settled in the standard; unverified today), so on the web
+     "lock to space" means *re-placing* the pane at the start (tap the wall, tap the floor: a few seconds), not remembering the room.
+     **iPhone Safari has no WebXR AR** (verified: no immersive-ar on iOS or iPadOS in Safari; Apple points to AR Quick Look), and the
+     web has **no LiDAR access** anywhere. Real, saved, LiDAR-assisted anchoring (walls snapped to, occlusion, rooms remembered via
+     ARKit world maps) therefore belongs to the **native Swift app**, which is already planned (and to visionOS later). Third-party web
+     SLAM is not a safe base: 8th Wall's hosted service is closing (hosting ends Feb 2027), with only part of the engine open sourced
+     (SLAM only as a binary).
+   - **Plan.** (1) Tier 1 first, since it works on every phone and is most of the magic for the least risk: Map, *Around me*, motion
+     permission, recenter, wall vs cylinder, a reticle in the middle (look at a card, tap to open it, tap its check box); touch-drag
+     as fine adjustment. (2) Camera see-through and named spaces by heading. (3) Android WebXR placement with real anchors and the
+     depth-based occlusion of cards behind furniture. (4) Native: ARKit/LiDAR with saved world maps, in the Swift port, using the
+     same `layoutMap` output. Later: shared spaces (a family fridge everyone sees in the same place; needs cloud anchors).
+   - **Care.** Looking at a phone while walking is unsafe: a short notice on first use and no use while moving fast; motion comfort
+     (smooth, damped turning, no sudden jumps); battery and heat with the camera on; text sized to be readable at arm's length (cards
+     are drawn larger in this mode); everything works offline and stays on the device. Open questions: wall or cylinder as the default;
+     whether a single reticle tap or touch-drag moves cards between groups; and how much of this tier 1 should ship before the
+     native app exists.
+4. **Blended bubbles** (a gradient of a bubble's groups): a small visual win to slot in alongside.
+5. **Attachments and dropping things onto the pond** (images first; the storage choice is worth a design chat), then
    **Overview goals**.
-5. **Accounts you can rely on:** email verification and password reset (needs an email provider). Needed before inviting
+6. **Accounts you can rely on:** email verification and password reset (needs an email provider). Needed before inviting
    people into shared groups at any scale, and for email invitations.
-6. **Calendar sync** (CalDAV, Google), now that accounts and sync are live.
-7. **Themes**, then the **native Swift port** of `src/core`.
+7. **Calendar sync** (CalDAV, Google), now that accounts and sync are live.
+8. **Themes**, then the **native Swift port** of `src/core`.
 
 Also worth a pass on real devices: the recent calendar touch behaviour (drag-scrolling, the unscheduled tray, sideways phone), and sharing between two real accounts.
 

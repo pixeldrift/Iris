@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { redo, undo } from './state/history'
 import { useStore } from './state/store'
 import { audioRunning, pauseAudio, resumeAudio, unlock } from './audio/engine'
@@ -31,7 +31,14 @@ import { Overview } from './ui/views/Overview'
 import { useLandscapePhone } from './ui/useMedia'
 import { startSafeArea } from './ui/safeArea'
 
-const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, calendar: CalendarView, timeline: Timeline, overview: Overview }
+// the spatial workspace (and Three.js with it) is only fetched when it is opened
+const SpatialView = lazy(() => import('./spatial/SpatialView'))
+const Spatial = () => (
+  <Suspense fallback={<div className="grid h-full place-items-center text-sm text-ink-faint">Opening…</div>}>
+    <SpatialView />
+  </Suspense>
+)
+const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, calendar: CalendarView, timeline: Timeline, overview: Overview, spatial: Spatial }
 
 export default function App() {
   const view = useStore((s) => s.view)

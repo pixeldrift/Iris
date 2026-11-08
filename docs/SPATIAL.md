@@ -1,0 +1,69 @@
+# Spatial workspace (the "Space" view)
+
+The task map as a place you look around: groups hang around you like notes on a wall, in a soft virtual room (or in front of the
+camera), and a phone becomes a window onto them. It is one more *view* (sidebar: **Space**), so it can be hidden or reordered in
+Settings like the others, and **Back** returns to the view you came from. The task data is only read: places live in their own
+store, keyed by task and group id.
+
+## Architecture (all under `src/spatial/`)
+
+| Concern | File | Notes |
+| --- | --- | --- |
+| Task data (source of truth) | `src/core/*`, the main store | untouched |
+| Layout (where things are) | `layout.ts`, `content.ts`, `store.ts` | `SpatialLayout`: pure, tested. Clusters (groups) sit on a ring around the viewer facing the middle, staggered in height; subgroups are a little nearer and linked to their group by a line; tasks sit in a grid in their cluster's plane. Places are stored per id (`useSpatial`, `localStorage` key `lilac-spatial-v1`, not synced), so adding, completing or removing a task never moves another. A task dragged elsewhere keeps its own `u, v`. A cluster has an optional `anchor` field for future AR pinning; no sensor reading is ever stored. |
+| Renderer | `SpatialScene.ts`, `cards.ts` | Three.js (WebGL), transparent so it composites over a camera; cards and group names are canvas textures in the pond's visual language (soft gradient, thin outline in the group colour, round check). Draws only when something changed in touch mode. |
+| Environment | `environment.ts` | `EnvironmentProvider`: `VirtualEnvironment` (procedural sky, floor glow, drifting dust: the default), `PanoramaEnvironment` (an equirectangular photo the person picks, kept only while open), `CameraEnvironment` (rear camera in a `<video>` behind the canvas; asked for only on request; every track stopped on switch or exit). Changing it never touches the layout; changes are queued so a quick second choice cannot leave a camera running. |
+| Tracking | `tracking.ts` | `TrackingProvider` gives the renderer a camera pose and a quality, never the source. `SpatialTracking` = `SensorTracking` (DeviceOrientation, with iOS permission asked from a tap) + `TouchTracking` (drag/pinch/keys). `NativeTracking` marks the place a Capacitor/ARKit provider plugs in. |
+| Interaction | inside `SpatialScene.ts` | tap a card: open (the existing details panel); tap its circle: tick it off; tap a group name: turn to it; hold a card or a group name, then drag: move it (a quick drag just looks around, so scrolling never moves anything); drag/pinch/wheel/arrow keys/`+`/`-`/`R`. |
+| Controller | `SpatialView.tsx` | picks the best mode, explains on first use, falls back step by step, tears down on exit. |
+| Level 5 fallback | `StaticCanvas.tsx` | no WebGL (or switched to *Simple*): the same groups and tasks on a plain canvas you pan and zoom; select, open and complete all work. |
+| Screen readers / keyboard | in `SpatialView.tsx` | a visually hidden list of the same tasks with open and tick buttons. |
+
+`three` is the only new dependency; it is loaded only when the view is opened (a separate chunk), so the rest of the app is unaffected.
+
+## Capability levels
+
+1. **World tracking (native ARKit):** not implemented. `NativeTracking` is the seam: a provider with the same shape, whose pose has a
+   position and whose quality comes from ARKit's tracking state. The layout's `anchor` fields are where persistent anchors attach.
+2. **Visual tracking (camera feature tracking):** *investigated, not built*; see below.
+3. **Motion tracking (implemented):** orientation only. We never integrate the accelerometer (it drifts within seconds and gives no
+   usable room-scale position). We use the OS's fused orientation, relative to where you were facing on entry or last *Recenter*,
+   smoothed (more at small movements, less at large), with the screen-rotation correction, and on iOS a slow nudge toward the compass
+   heading so it does not wander over a long session. If events stop it drops to touch by itself and says so.
+4. **Panorama (implemented):** the virtual room (or a chosen 360-degree photo) with touch look-around, pinch zoom, wheel and keys.
+   Works on desktop and with no sensors and no camera.
+5. **Static canvas (implemented):** no WebGL.
+
+Automatic mode picks motion when the device has it and it is allowed, else touch. The settings button on the view lets the person
+choose *Motion* / *Touch only*, the background (*Room* / *Camera* / *Photo*), and *3D* / *Simple* drawing.
+
+## Known limits
+
+- Orientation only: you can turn and tilt, not walk. Heading can drift a little on some devices (use *Recenter*).
+- "Lock to space" is not offered yet. Without world tracking the honest options are heading-based (approximate) or re-placing the
+  pane each session; ARKit (native) is the real answer.
+- Not yet tested on a real iPhone: see the testing notes below.
+- The camera is a plain background: nothing is recognised in it.
+
+## Phase 4: visual tracking, what was found (desk research only; nothing was prototyped or measured on a phone)
+
+- iPhone Safari has no WebXR AR and the web has no LiDAR, so any camera-based tracking in the PWA must be computer vision on frames
+  from `getUserMedia`.
+- Candidates: **OpenCV.js** (feature detection, optical flow, essential-matrix pose; heavy WASM, a few MB, Apache-2.0, and visual
+  odometry from scratch would be a real project), **MindAR** (image-target and face tracking on TensorFlow.js; image targets would suit
+  "pin the pane to this poster" but it tracks a *known image*, not the room), **AR.js** (marker/NFT tracking; the AR.js code is MIT
+  but its jsartoolkit5 core is LGPLv3 with an extra permission: check the current licence files), and **8th Wall** (the one that did
+  real web SLAM, now winding down: hosting ends February 2027 and only part was open sourced, SLAM only as a binary).
+- Recommendation: do not build SLAM. If visual stabilisation is wanted, the lowest-risk first step is *image-target pinning* (the
+  person prints or picks a poster; the pane anchors to it, which also gives a way to re-find a "space" each session) behind the
+  existing tracking interface, measured on real iPhones for frame rate, heat and battery before deciding. The native ARKit provider
+  remains the plan for true 6DoF.
+
+## Testing
+
+Unit: layout stability and placement (`layout.test.ts`), the orientation maths (`tracking.test.ts`). End to end (Chromium, with a
+fake camera and fake motion events): `e2e/spatial.spec.ts`, `e2e/spatialcamera.spec.ts` cover entry and the explanation, touch
+navigation, motion granted and denied (and the window turning), camera allowed and denied (and that every track stops on switch and
+on exit), no-WebGL and chosen-simple fallbacks, completing from the workspace, and layout retained across exit and re-entry.
+**Not tested on a real iPhone** (no device was available): motion permission on iOS Safari and as a home-screen app, real sensor
+feel and drift, camera in a home-screen app, GPU/battery/heat. Those need a pass before relying on it.

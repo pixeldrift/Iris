@@ -207,7 +207,7 @@ export type Scope =
   /** Several filters at once: different kinds must all hold (a group AND a person), several of one kind are alternatives (this group OR that). */
   | { type: 'multi'; parts: Scope[] }
 
-export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline' | 'overview'
+export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline' | 'overview' | 'spatial'
 
 export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency' | 'manual'
 

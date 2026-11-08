@@ -6,6 +6,7 @@ import type { SetState, GetState, UiSlice } from '../types'
 export const createUiSlice = (set: SetState, get: GetState): UiSlice => ({
       scope: { type: 'all' },
       view: 'pond',
+      lastView: 'pond',
       settings: DEFAULT_SETTINGS,
       selectedId: null,
       sidebarOpen: false,
@@ -26,7 +27,7 @@ export const createUiSlice = (set: SetState, get: GetState): UiSlice => ({
       toggleFilter: (part) => set((st) => ({ scope: st.scope.type === 'contacts' ? part : toggleScope(st.scope, part) })),
       // (with the option on, a new view starts from Everything; the address book is a page of its own, not a filter)
       setView: (view) =>
-        set((st) => ({ view, sidebarOpen: false, ...(st.settings.viewsClearFilters && st.scope.type !== 'contacts' && view !== st.view ? { scope: { type: 'all' as const } } : {}) })),
+        set((st) => ({ view, lastView: st.view !== view ? st.view : st.lastView, sidebarOpen: false, ...(st.settings.viewsClearFilters && st.scope.type !== 'contacts' && view !== st.view ? { scope: { type: 'all' as const } } : {}) })),
       select: (selectedId) => set({ selectedId }),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
       setNavHidden: (navHidden) => set({ navHidden }),
