@@ -70,13 +70,14 @@ export function groupTasks(tasks: Task[], mode: PondGroup, folders: Folder[], pe
  * radii. Columns and rows are only as wide/tall as their biggest cluster, so
  * small clusters tuck in close without ever touching.
  */
-export function layoutClusters(radii: number[], aspect: number, gap = 44): { x: number; y: number }[] {
+export function layoutClusters(radii: number[], aspect: number, gap = 44, labelH = 0): { x: number; y: number }[] {
   const n = radii.length
   if (!n) return []
   const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt(n * aspect))))
   const rows = Math.ceil(n / cols)
   const colW = Array.from({ length: cols }, (_, c) => Math.max(0, ...radii.filter((_, i) => i % cols === c)) * 2 + gap)
-  const rowH = Array.from({ length: rows }, (_, r) => Math.max(0, ...radii.slice(r * cols, r * cols + cols)) * 2 + gap)
+  // (each row also keeps `labelH` clear above its bubbles for the group names, so one group's name never sits on the row above's bubbles)
+  const rowH = Array.from({ length: rows }, (_, r) => Math.max(0, ...radii.slice(r * cols, r * cols + cols)) * 2 + gap + labelH)
   const xs: number[] = []
   let x = 0
   for (const w of colW) {

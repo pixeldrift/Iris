@@ -118,3 +118,75 @@ test('typing @ and a name nobody has in the quick add box does not freeze the ap
   const alive = await Promise.race([page.evaluate(() => 1).then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 6000))])
   expect(alive).toBe(true)
 })
+
+test.describe('group names nudge bubbles aside', () => {
+  test('a group name pushes other groups’ bubbles aside, and never rests on top of one', async ({ page }) => {
+    await open(page)
+    await page.getByRole('radiogroup', { name: 'Gather by' }).getByRole('radio', { name: 'Group' }).click()
+    await page.waitForTimeout(8000) // (the water takes a few seconds to settle, and the names only become walls once it has)
+    const overlaps = () =>
+      page.evaluate(() => {
+        const labels = [...document.querySelectorAll('.pond-label > div')].map((e) => e.getBoundingClientRect())
+        const bubbles = [...document.querySelectorAll('[data-node]')].map((e) => e.getBoundingClientRect())
+        let n = 0
+        for (const l of labels)
+          for (const b of bubbles) {
+            const cx = b.left + b.width / 2
+            const cy = b.top + b.height / 2
+            const nx = Math.max(l.left, Math.min(cx, l.right))
+            const ny = Math.max(l.top, Math.min(cy, l.bottom))
+            if (Math.hypot(cx - nx, cy - ny) < b.width / 2 - 3) n++
+          }
+        return n
+      })
+    expect(await overlaps()).toBe(0)
+    // carry the Home name over the School bubbles: they are nudged along, and when it is let go nothing is left under it
+    const home = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
+    const school = page.locator('.pond-label').filter({ hasText: 'School' }).first()
+    const a = (await home.boundingBox())!
+    const b = (await school.boundingBox())!
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + a.width / 2 - 40, a.y + a.height / 2 + 10, { steps: 4 })
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + 120, { steps: 20 })
+    await page.waitForTimeout(600)
+    await page.mouse.up()
+    await page.waitForTimeout(8000) // (the water takes a few seconds to settle)
+    expect(await overlaps()).toBe(0)
+  })
+
+  test('each name is nearest to its own group\u2019s bubbles, so there is no doubt which title goes with which bubbles', async ({ page }) => {
+    await open(page)
+    await page.getByRole('radiogroup', { name: 'Gather by' }).getByRole('radio', { name: 'Group' }).click()
+    await page.waitForTimeout(9000) // (the groups take a few seconds to settle into place)
+    const own: Record<string, string[]> = {
+      School: ['Attend English 101 class', 'Read chapters 4', 'Lab report', 'Draft essay outline'],
+      Home: ['Groceries', 'Repot the lilac', 'Sourdough'],
+      Writing: ['Write chapter one', 'Proofread the short story', 'Rewrite the ending', 'Research the lighthouse setting'],
+    }
+    const nearest = await page.evaluate(() => {
+      const out: Record<string, string> = {}
+      const bubbles = [...document.querySelectorAll('[data-node]')].map((e) => ({ t: (e as HTMLElement).innerText, r: e.getBoundingClientRect() }))
+      for (const el of document.querySelectorAll('.pond-label > div')) {
+        const name = (el as HTMLElement).innerText.split('\n')[0].replace('+', '').trim()
+        const l = el.getBoundingClientRect()
+        let best = Infinity
+        let who = ''
+        for (const b of bubbles) {
+          const cx = b.r.left + b.r.width / 2
+          const cy = b.r.top + b.r.height / 2
+          const nx = Math.max(l.left, Math.min(cx, l.right))
+          const ny = Math.max(l.top, Math.min(cy, l.bottom))
+          const d = Math.hypot(cx - nx, cy - ny) - b.r.width / 2
+          if (d < best) (best = d), (who = b.t)
+        }
+        out[name] = who
+      }
+      return out
+    })
+    for (const [group, titles] of Object.entries(own)) {
+      const who = nearest[Object.keys(nearest).find((k) => k.startsWith(group)) ?? '']
+      expect(titles.some((t) => who?.includes(t)), `${group}: nearest bubble was "${who}"`).toBe(true)
+    }
+  })
+})
