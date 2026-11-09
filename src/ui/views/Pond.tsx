@@ -75,6 +75,9 @@ export function Pond() {
   const raf = useRef(0)
   const running = useRef(false)
   const grabbed = useRef(0)
+  /** The names act as solid walls only when the water is calm (or something is being carried). */
+  const namesSolid = useRef(false)
+  const lastEnergy = useRef(Infinity)
   const [offscreen, setOffscreen] = useState(false)
   // a soft dot on the border for each bubble wholly out of view: which exist is state (so they fade in and out), where they sit is written
   // straight to the page as the canvas moves
@@ -384,8 +387,13 @@ export function Pond() {
       const list = [...nodes.current.values()].map((n) => n.sim)
       // a group's name is solid too: it is made of a few unmoving round pieces along its width, so bubbles from other groups are pushed aside
       // by it just as they are by each other (and a name being carried shoves them out of its way)
+      for (const s of list) s.group = groupOf.current.get(s.id) // (which group each bubble is in)
+      // (only once the water has settled, or while something is carried: while bubbles are still on their way home a wall of names would
+      // block them, and some would end up stranded on the wrong side of a name)
+      if (grabbed.current > 0 || lastEnergy.current < 0.2) namesSolid.current = true
+      else if (lastEnergy.current > 4) namesSolid.current = false
       const solid: typeof list = []
-      for (const [key, el] of labelEls.current) {
+      for (const [key, el] of namesSolid.current ? labelEls.current : []) {
         const lab = labelsRef.current.find((q) => q.key === key)
         if (!lab) continue
         const st = labelSt.current.get(key)
@@ -398,7 +406,8 @@ export function Pond() {
         const cy = lab.y + (st?.y ?? 0)
         for (let i = 0; i < n; i++) {
           const x = n === 1 ? cx : cx - (w - hh) / 2 + ((w - hh) * i) / (n - 1)
-          solid.push({ id: `label:${key}:${i}`, x, y: cy, vx: 0, vy: 0, hx: x, hy: cy, r: rr, pinned: true })
+          // (bubbles of other groups keep a wider berth than this group's own, so a name never looks like it belongs to its neighbours)
+          solid.push({ id: `label:${key}:${i}`, x, y: cy, vx: 0, vy: 0, hx: x, hy: cy, r: rr, pinned: true, owner: key, pad: 26 })
         }
       }
       const { bumps, energy } = stepSim(
@@ -409,6 +418,7 @@ export function Pond() {
         // gathered: each group has a field around it that other groups' bubbles cannot enter
         g === 'free' ? [] : [...clusters.current.values()].map((c) => ({ ids: new Set(c.ids), pad: FIELD_PAD })),
       )
+      lastEnergy.current = energy
       paint()
       let labelEnergy = 0
       for (const [key, el] of labelEls.current) {
@@ -458,6 +468,9 @@ export function Pond() {
     const homes = new Map<string, { x: number; y: number }>()
     const nextLabels: typeof labels = []
     if (prevGroup.current !== group) shifts.current.clear()
+    // (new homes: the bubbles are on the move again, so the names stop being walls until the water settles)
+    namesSolid.current = false
+    lastEnergy.current = Infinity
     clusters.current = new Map()
     groupOf.current = new Map()
     if (group === 'free') {

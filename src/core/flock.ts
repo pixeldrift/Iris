@@ -18,7 +18,15 @@ export interface SimNode {
   homeK?: number
   /** Pushes others aside more than it is pushed (a bubble being carried). */
   heavy?: boolean
+  /** The group this node belongs to (a bubble's), so a group's name can keep its own bubbles nearer than everyone else's. */
+  group?: string
+  /** For a group's name (an unmoving node): the group it names, and the extra room it keeps clear of bubbles that are NOT in that group. */
+  owner?: string
+  pad?: number
 }
+
+/** The extra distance two nodes keep apart because one is a group's name and the other is not that group's. */
+const reach = (a: SimNode, b: SimNode) => (a.pad && b.group !== a.owner ? a.pad : 0) + (b.pad && a.group !== b.owner ? b.pad : 0)
 
 export interface SimParams {
   /** Spring pulling nodes home. */
@@ -100,7 +108,7 @@ export function stepSim(
       }
       const nx = dx / dist
       const ny = dy / dist
-      const min = a.r + b.r + 6
+      const min = a.r + b.r + 6 + reach(a, b)
 
       if (p.magnet > 0 && related(a.id, b.id) && dist > min + 4 && dist < 520) {
         // lean in until just touching; stronger when closer, so clusters tighten
@@ -187,7 +195,7 @@ export function stepSim(
         let dx = b.x - a.x
         let dy = b.y - a.y
         let dist = Math.hypot(dx, dy)
-        const min = a.r + b.r + 2
+        const min = a.r + b.r + 2 + reach(a, b)
         if (dist >= min) continue
         if (dist < 0.001) {
           dx = Math.random() - 0.5
