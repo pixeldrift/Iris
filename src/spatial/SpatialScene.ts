@@ -12,6 +12,8 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   Group,
+  Points,
+  PointsMaterial,
   ShaderMaterial,
   LinearMipmapLinearFilter,
   Mesh,
@@ -173,7 +175,7 @@ export class SpatialScene {
 
   /** Dots on a transparent picture, with an alpha falloff `fade(u, v)` (0..1 across the picture, v up). */
   private dotTexture(wU: number, hU: number, fade: (u: number, v: number) => number): CanvasTexture {
-    const PPU = 200 // pixels per unit (a unit is the surface's width)
+    const PPU = 300 // pixels per unit (a unit is the surface's width)
     const w = Math.round(wU * PPU)
     const h = Math.round(hU * PPU)
     const c = document.createElement('canvas')
@@ -185,9 +187,9 @@ export class SpatialScene {
       for (let x = step / 2; x < w; x += step) {
         const a = fade(x / w, 1 - y / h)
         if (a < 0.02) continue
-        g.fillStyle = `rgba(150,112,206,${(0.5 * a).toFixed(3)})`
+        g.fillStyle = `rgba(160,124,212,${(0.3 * a).toFixed(3)})`
         g.beginPath()
-        g.arc(x, y, 2.4, 0, Math.PI * 2)
+        g.arc(x, y, 1.3, 0, Math.PI * 2)
         g.fill()
       }
     }
@@ -281,7 +283,28 @@ export class SpatialScene {
     scan.frustumCulled = false
     this.scene.add(scan)
     this.wallGroup = scan
+    // pins: the points being followed, fixed on the surface's plane in the virtual world. Large and soft, so a few are always in view
+    // whichever way the phone points; they keep their places when they go out of view, and come back when the camera does.
+    const dc = document.createElement('canvas')
+    dc.width = 64
+    dc.height = 64
+    const dx = dc.getContext('2d')!
+    const rg = dx.createRadialGradient(32, 32, 0, 32, 32, 31)
+    rg.addColorStop(0, 'rgba(255,255,255,1)')
+    rg.addColorStop(0.4, 'rgba(214,186,255,1)')
+    rg.addColorStop(0.75, 'rgba(176,130,250,0.55)')
+    rg.addColorStop(1, 'rgba(190,150,255,0)')
+    dx.fillStyle = rg
+    dx.fillRect(0, 0, 64, 64)
+    const pins = new Points(new BufferGeometry(), new PointsMaterial({ map: new CanvasTexture(dc), size: 5, transparent: true, depthWrite: false, sizeAttenuation: true, opacity: 0 }))
+    pins.frustumCulled = false
+    pins.renderOrder = 1
+    pins.visible = false
+    this.scene.add(pins)
+    this.wallPins = pins
   }
+  private wallPins?: Points
+  private pinCount = -1
 
   private wallScan = { t0: 0, held: false, quad: null as null | { x: number; y: number }[] }
 
@@ -325,6 +348,23 @@ export class SpatialScene {
       ;(scan.material as ShaderMaterial).uniforms.uAsp.value = sw / Math.max(1e-3, sh)
     }
     st.held = holding
+    // the pins (every point pinned so far, in the world on the surface's plane)
+    const pins = this.wallPins
+    if (pins && ov.quad && wall.takeFresh()) {
+      const { w, ox, oy } = this.wallBox
+      const pos: number[] = []
+      for (const p of ov.points) pos.push(p.x * w + ox, p.y * w + oy, -0.9 * K + 0.02 * K)
+      if (pos.length / 3 !== this.pinCount) {
+        pins.geometry.setAttribute('position', new Float32BufferAttribute(pos, 3))
+        pins.geometry.computeBoundingSphere()
+        this.pinCount = pos.length / 3
+      } else {
+        const attr = pins.geometry.getAttribute('position') as Float32BufferAttribute
+        attr.set(pos)
+        attr.needsUpdate = true
+      }
+      ;(pins.material as PointsMaterial).size = 0.1 * w
+    }
     const t = (performance.now() - st.t0) / 1000
     const on = st.t0 > 0 && t < 2.5
     scan.visible = on
@@ -336,6 +376,10 @@ export class SpatialScene {
     }
     // the virtual wall is revealed as the scan finishes
     this.wallReveal = st.t0 > 0 ? Math.min(1, Math.max(0, (t - 0.8) / 1.2)) : 0
+    if (pins) {
+      pins.visible = this.wallReveal > 0 && ov.phase !== 'searching'
+      ;(pins.material as PointsMaterial).opacity = 0.95 * this.wallReveal
+    }
   }
   private wallReveal = 0
   get wallPhase() {
@@ -813,6 +857,11 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
     }
     this.plates.clear()
+    if (this.wallPins) {
+      this.wallPins.geometry.dispose()
+      ;(this.wallPins.material as PointsMaterial).map?.dispose()
+      ;(this.wallPins.material as PointsMaterial).dispose()
+    }
     if (this.wallGroup) {
       this.wallGroup.geometry.dispose()
       ;(this.wallGroup.material as ShaderMaterial).dispose()
