@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { tint } from '../core/color'
+import { Flower } from './Flower'
+import { bubbleHue } from './pond/hue'
 import { today } from '../core/dates'
 import { currentOccurrence, isDoneNow, repeatOf } from '../core/recurrence'
 import { dueInfo, DUE_TONE_CLASS } from '../core/rowModel'
-import { weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useBoardSlot } from './boardSlot'
@@ -151,18 +152,13 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
   )
 }
 
-/** A soft dot whose size hints at weight, with no number attached. */
-export function WeightDot({ task }: { task: Task }) {
-  const w = weightOf(task)
+/** The task's group as its small flower (the group's own colour and shape); a task in no group gets a plain blossom in its type's colour. */
+export function TaskFlower({ task }: { task: Task }) {
   const folders = useStore((st) => st.folders)
   const group = folders.find((f) => f.id === task.folderIds[0])
-  const s = 6 + w * 10
   return (
-    <span className="grid h-5 w-5 shrink-0 place-items-center" title="">
-      <span
-        className={`rounded-full ${group ? '' : 'bg-gradient-to-br from-lilac-200 to-lilac-500'}`}
-        style={{ width: s, height: s, opacity: 0.55 + w * 0.45, ...(group ? { background: `linear-gradient(135deg, ${tint(group.hue, 62, 78)}, ${tint(group.hue, 50, 56)})` } : {}) }}
-      />
+    <span className="grid h-5 w-5 shrink-0 place-items-center" aria-hidden>
+      <Flower hue={group ? group.hue : bubbleHue(task, folders)} shape={group?.shape ?? 'blossom'} size={16} />
     </span>
   )
 }

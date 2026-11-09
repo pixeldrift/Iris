@@ -12,7 +12,7 @@ import { colorVars, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
 import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, WeightDot, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
 
 const SORTS: { id: SortKey; label: string }[] = [
@@ -115,7 +115,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
             </span>
           )}
           <DoneButton task={task} />
-          <WeightDot task={task} />
+          <TaskFlower task={task} />
           <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
           <span data-lift-extra className="hidden items-center gap-1 sm:flex">
             <PlaceChip task={task} />
