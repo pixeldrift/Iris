@@ -84,4 +84,26 @@ test.describe('the flat canvas does everything the 3D space does', () => {
     await page.getByRole('button', { name: 'Fold Life' }).click()
     await expect(page.locator('[data-box="life"]')).toBeHidden()
   })
+
+  test('a parent dragged by its name takes its subgroups with it', async ({ page }) => {
+    await enterFlat(page)
+    const before = await stored(page)
+    await drag(page, await centre(page, '[data-hub="school"]', 40), { x: (await centre(page, '[data-hub="school"]', 40)).x + 120, y: (await centre(page, '[data-hub="school"]')).y + 20 })
+    const after = await stored(page)
+    const off = (c: { clusters: Record<string, { a: number }> }, k: string) => c.clusters[k].a - c.clusters.school.a
+    expect(Math.abs(after.clusters.school.a - before.clusters.school.a)).toBeGreaterThan(0.01)
+    for (const k of ['eng101', 'bio']) expect(Math.abs(off(after, k) - off(before, k))).toBeLessThan(0.15)
+  })
+
+  test('a task or group carried out over a sidebar group is dropped there', async ({ page }) => {
+    await enterFlat(page)
+    const row = async (id: string) => {
+      const b = (await page.locator(`[data-drop="folder:${id}"]`).first().boundingBox())!
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+    }
+    await drag(page, await centre(page, '[data-task="demo-grandma"] button:nth-child(2)'), await row('garden'))
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { id: string }) => t.id === 'demo-grandma').folderIds.includes('garden'))).toBe(true)
+    await drag(page, await centre(page, '[data-hub="life"]', 40), await row('home'))
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.folders.find((f: { id: string }) => f.id === 'life').parentId)).toBe('home')
+  })
 })

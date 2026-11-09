@@ -355,7 +355,7 @@ export function SettingsDialog() {
                 className="soft relative z-10"
                 aria-label="Sidebar spacing"
               />
-              <DefaultDot at={0.5} color="#a39cb0" label="Reset spacing" onReset={() => setSetting('sidebarSpace', 0.5)} />
+              <DefaultDot at={0.5} label="Reset spacing" onReset={() => setSetting('sidebarSpace', 0.5)} />
             </div>
             <div className="-mt-2.5 flex justify-between text-[0.68rem] text-ink-faint">
               <span>Compact</span>
@@ -432,14 +432,14 @@ export function SettingsDialog() {
             </button>
           </div>
         </Group>
-        <div className="!mt-4 border-t border-[#c4577e]/25" role="separator" />
+        <div className="!mt-4 border-t border-danger/25" role="separator" />
         <Group title="Danger zone">
           <div className="flex gap-2 px-2 pb-1">
-            <button type="button" onClick={() => openDanger('clear')} className="whitespace-nowrap rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+            <button type="button" onClick={() => openDanger('clear')} className="whitespace-nowrap rounded-full border border-danger/40 px-3.5 py-1.5 text-sm text-danger-ink transition hover:bg-rose-soft/40">
               Clear all data
             </button>
             {accountsConfigured && (
-              <button type="button" onClick={() => openDanger('delete')} className="whitespace-nowrap rounded-full border border-[#c4577e]/40 px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40">
+              <button type="button" onClick={() => openDanger('delete')} className="whitespace-nowrap rounded-full border border-danger/40 px-3.5 py-1.5 text-sm text-danger-ink transition hover:bg-rose-soft/40">
                 Delete account
               </button>
             )}

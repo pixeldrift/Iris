@@ -2,6 +2,7 @@
 // tracking and environment the device allows, falls back step by step (motion, then touch, then a flat canvas when there is no WebGL),
 // and tears everything down on exit. The task data is only read; places live in the spatial store.
 
+import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { useVisibleTasks } from '../ui/useVisible'
@@ -9,7 +10,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
-import { reparentGroup, retagTask } from './actions'
+import { dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { RADIUS } from './layout'
@@ -23,7 +24,8 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
-  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius, collapsed } = useSpatial()
+  // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
+  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius, collapsed } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, radius: s.radius, collapsed: s.collapsed })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -149,6 +151,10 @@ export default function SpatialView() {
         onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
         // a group let go over another group's name goes inside it
         onReparent: reparentGroup,
+        // carried out over the sidebar: its groups light up, and letting go there drops it the way the other views do
+        onCarry: (kind, id, x, y) => showCarry(kind, id, kind === 'task' ? (live.current.tasks.find((t) => t.id === id)?.title ?? 'Task') : (live.current.clusters.find((c) => c.id === id)?.name ?? 'Group'), x, y),
+        onCarryEnd: endCarry,
+        onDropOut: dropOutside,
         onFov: (f) => setFov(Math.round(f)),
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: retagTask,
@@ -308,7 +314,7 @@ export default function SpatialView() {
                   View angle
                   <div className="relative mt-1 pb-1">
                     <input type="range" min={FOV.min} max={FOV.max} step={1} value={fov} aria-label="View angle" onChange={(e) => scene.current?.setFov(Number(e.target.value))} className="soft relative z-10" />
-                    <DefaultDot at={(FOV.start - FOV.min) / (FOV.max - FOV.min)} color="#a39cb0" label="Back to the usual view angle" onReset={() => scene.current?.setFov(FOV.start)} />
+                    <DefaultDot at={(FOV.start - FOV.min) / (FOV.max - FOV.min)} label="Back to the usual view angle" onReset={() => scene.current?.setFov(FOV.start)} />
                   </div>
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
                     <span>Closer</span>
@@ -321,7 +327,7 @@ export default function SpatialView() {
                   Radius <span className="font-normal text-ink-faint">{radius}</span>
                   <div className="relative mt-1 pb-1">
                     <input type="range" min={RADIUS.min} max={RADIUS.max} step={1} value={radius} aria-label="Radius" onChange={(e) => prefs({ radius: Number(e.target.value) })} className="soft relative z-10" />
-                    <DefaultDot at={(RADIUS.start - RADIUS.min) / (RADIUS.max - RADIUS.min)} color="#a39cb0" label="Back to the usual radius" onReset={() => prefs({ radius: RADIUS.start })} />
+                    <DefaultDot at={(RADIUS.start - RADIUS.min) / (RADIUS.max - RADIUS.min)} label="Back to the usual radius" onReset={() => prefs({ radius: RADIUS.start })} />
                   </div>
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
                     <span>Wraps around you</span>

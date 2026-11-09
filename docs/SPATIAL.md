@@ -96,3 +96,6 @@ Folding a group (the twirl) hides its subgroups too and leaves only its name, wi
 
 ## Flat has the same moves as 3D
 Drag a task onto a group's box or name (a folded name opens after a short linger), or out into the open to leave it floating; drag a group by its name or box to move it (others make room when it is let go), or onto another name to put it inside; tap a name to turn to it; the twirl folds. Pan on empty canvas, pinch or scroll to zoom. Tests: `e2e/flatmove.spec.ts`.
+
+## Onto the sidebar
+In both 3D and flat, carrying a task or group out over the sidebar lights up its groups and shows the usual drag chip; letting go there drops a task the way the other views do (it gets that group's tag) and puts a group inside the group it is dropped on.

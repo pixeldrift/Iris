@@ -80,7 +80,7 @@ export function VerifyDialog({ onSignIn }: { onSignIn: () => void }) {
         </p>
         <input className={field} inputMode="numeric" autoComplete="one-time-code" aria-label="Confirmation code" placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\s/g, ''))} autoFocus />
         {error && (
-          <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-[#9a4566]">
+          <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-danger-ink">
             {error}
           </p>
         )}

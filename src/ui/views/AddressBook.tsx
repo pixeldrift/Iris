@@ -31,6 +31,12 @@ export function AddressBook() {
     const list = t ? inCat.filter((p) => `${p.name} ${p.company ?? ''} ${p.email} ${p.phone} ${(p.extras ?? []).map((x) => x.value).join(' ')}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : inCat
     return [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [people, q, cat])
+  // how many open tasks each person has, counted once rather than for every row
+  const open = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const t of tasks) if (t.status !== 'done') for (const id of t.personIds) m.set(id, (m.get(id) ?? 0) + 1)
+    return m
+  }, [tasks])
   const groups = useMemo(() => {
     const m = new Map<string, typeof rows>()
     for (const p of rows) {
@@ -70,7 +76,7 @@ export function AddressBook() {
           <section key={letter} className="mb-2">
             {letters && <h3 className="px-2 pb-0.5 font-display text-xs font-semibold uppercase tracking-[0.16em] text-ink-faint">{letter}</h3>}
             {list.map((p) => {
-              const n = tasks.filter((t) => t.personIds.includes(p.id) && t.status !== 'done').length
+              const n = open.get(p.id) ?? 0
               return (
                 <div key={p.id} className="group flex items-center gap-3 rounded-2xl px-2 py-1.5 transition hover:bg-white/50">
                   <button onClick={() => openPerson({ id: p.id })} className="flex min-w-0 flex-1 items-center gap-3 text-left">

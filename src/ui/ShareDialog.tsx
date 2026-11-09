@@ -12,7 +12,7 @@ const close = () => useOpen.setState({ folderId: null })
 
 const btnGhost = 'whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm text-ink-soft transition hover:bg-white/70'
 const btnMain = 'whitespace-nowrap rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600 disabled:opacity-40'
-const btnWarn = 'whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm text-[#9a4566] transition hover:bg-rose-soft/40'
+const btnWarn = 'whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm text-danger-ink transition hover:bg-rose-soft/40'
 
 const roleName = (r: string) => (r === 'owner' ? 'Owner' : r === 'viewer' ? 'Can view' : 'Can edit')
 
@@ -207,7 +207,7 @@ export function ShareDialog() {
 
 function ChoiceCard({ title, text, busy, onCopy, onNone, onCancel, copyLabel, noneLabel }: { title: string; text: string; busy: boolean; onCopy: () => void; onNone: () => void; onCancel: () => void; copyLabel: string; noneLabel: string }) {
   return (
-    <div role="group" aria-label={title} className="space-y-2 rounded-2xl border border-[#c4577e]/30 bg-white/50 p-3">
+    <div role="group" aria-label={title} className="space-y-2 rounded-2xl border border-danger/30 bg-white/50 p-3">
       <div className="text-sm font-medium">{title}</div>
       <p className="text-xs text-ink-soft">{text}</p>
       <div className="flex flex-wrap gap-2">

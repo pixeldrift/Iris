@@ -58,6 +58,11 @@ export interface SceneEvents {
   onCollapse?(id: string): void
   /** A group was dropped onto another group's name: it should go inside it. */
   onReparent?(id: string, parent: string): void
+  /** Something is being carried (and where the pointer is): the view can light up what is outside the canvas. */
+  onCarry?(kind: 'task' | 'group', id: string, x: number, y: number): void
+  onCarryEnd?(): void
+  /** Let go outside the canvas: true when the drop was taken there (a group in the sidebar). */
+  onDropOut?(kind: 'task' | 'group', id: string, x: number, y: number): boolean
 }
 
 interface Node {
@@ -87,6 +92,8 @@ export class SpatialScene {
   /** Folded groups opened by lingering over them while carrying something (like spring-loaded folders), and the timer for the next. */
   private sprung = new Set<string>()
   private springTimer?: ReturnType<typeof setTimeout>
+  /** The groups by id (for the lookups made on every frame). */
+  private clusterMap = new Map<string, SceneCluster>()
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   /** Where everything is meant to be (the stored layout, with groups pushed clear of each other). */
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -102,7 +109,7 @@ export class SpatialScene {
   private focusTween?: { t0: number; from: [number, number]; to: [number, number]; fov?: [number, number] }
   private pointers = new Map<number, { x: number; y: number }>()
   private press?: { id: number; x: number; y: number; t0: number; hit: Hit | null; mode: 'pending' | 'look' | 'task' | 'cluster' }
-  private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3 }
+  private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3; kids: Set<string> }
   private pinch?: { d: number; fov: number }
   private disposed = false
   /** Soft glowing dots on the frame for groups out of view (the Pond's edge dots, here for the room around you). */
@@ -139,6 +146,7 @@ export class SpatialScene {
 
   setContent(c: SceneContent) {
     this.content = c
+    this.clusterMap = new Map(c.clusters.map((x) => [x.id, x]))
     // groups being carried keep their place under the finger until they are dropped
     const lay = withRadius(c.layout, this.radius)
     this.layout = this.carry?.kind === 'cluster' ? { ...lay, clusters: { ...lay.clusters, [this.carry.id]: this.layout.clusters[this.carry.id] ?? lay.clusters[this.carry.id] } } : lay
@@ -244,7 +252,7 @@ export class SpatialScene {
       const tp = L.tasks[t.id]
       if (!n || !tp) continue
       if (this.carry?.kind === 'task' && this.carry.id === t.id) continue // (under the finger)
-      if (this.content.clusters.find((c) => c.id === tp.c)?.collapsed && !tp.free) {
+      if (this.clusterMap.get(tp.c)?.collapsed && !tp.free) {
         n.mesh.visible = false
         continue
       }
@@ -382,7 +390,7 @@ export class SpatialScene {
       const cs = cp.scale ?? 1
       // from just under the group's box (or its name, when folded) to just above the subgroup's name
       const prow = pp.rows ?? 1
-      const pc = this.content.clusters.find((c) => c.id === h.parent)
+      const pc = this.clusterMap.get(h.parent ?? "")
       const below = pc?.collapsed ? 0.45 * K : prow * (WORLD.cardH + WORLD.gap) + 0.5 * K
       const at = (c: ClusterPlacement, b: ReturnType<typeof planeBasis>, v: number) => new Vector3(c.x + b.up[0] * v, c.y + b.up[1] * v, c.z + b.up[2] * v)
       const p0 = at(pp, pb, -below * ps)
@@ -772,16 +780,26 @@ export class SpatialScene {
     const plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), mesh.position)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
     const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
-    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone() }
+    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? this.descendantsOf(id) : new Set() }
     if (kind === 'task') {
       mesh.renderOrder = 6
       mesh.scale.multiplyScalar(1.08)
     }
     if (navigator.vibrate) navigator.vibrate(6)
   }
+  /** Every group inside this one, at any depth. */
+  private descendantsOf(id: string): Set<string> {
+    const out = new Set<string>()
+    const walk = (p: string) => {
+      for (const c of this.content.clusters) if (c.parent === p && !out.has(c.id)) (out.add(c.id), walk(c.id))
+    }
+    walk(id)
+    return out
+  }
   private cancelCarry() {
     if (!this.carry) return
     this.carry = undefined
+    this.events.onCarryEnd?.()
     this.closeSprung(null)
     this.layout = withRadius(this.content.layout, this.radius)
     this.place()
@@ -816,9 +834,9 @@ export class SpatialScene {
     if (!c || c.hover === id) return
     c.hover = id
     clearTimeout(this.springTimer)
-    if (id && this.content.clusters.find((x) => x.id === id)?.collapsed) {
+    if (id && this.clusterMap.get(id)?.collapsed) {
       this.springTimer = setTimeout(() => {
-        if (this.carry?.hover === id && this.content.clusters.find((x) => x.id === id)?.collapsed) {
+        if (this.carry?.hover === id && this.clusterMap.get(id)?.collapsed) {
           this.sprung.add(id)
           this.events.onCollapse?.(id)
         }
@@ -829,7 +847,7 @@ export class SpatialScene {
   /** Folded groups that were opened only to see where something goes close again, except the one it landed in. */
   private closeSprung(keep: string | null) {
     clearTimeout(this.springTimer)
-    for (const id of this.sprung) if (id !== keep && !this.content.clusters.find((x) => x.id === id)?.collapsed) this.events.onCollapse?.(id)
+    for (const id of this.sprung) if (id !== keep && !this.clusterMap.get(id)?.collapsed) this.events.onCollapse?.(id)
     this.sprung.clear()
   }
 
@@ -863,6 +881,7 @@ export class SpatialScene {
     }
     const c = this.carry
     if (!c) return
+    this.events.onCarry?.(p.mode === 'task' ? 'task' : 'group', c.id, e.clientX, e.clientY)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
     const at = this.raycaster.ray.intersectPlane(c.plane, new Vector3())
     if (!at) return
@@ -884,11 +903,20 @@ export class SpatialScene {
       const moved = moveCluster(cur, [at.x, at.y, at.z])
       // (the others stay put while it is carried, so a name under the finger can be a target; they make room once it is let go)
       const clusters = { ...this.layout.clusters, [c.id]: moved }
+      // its subgroups (and theirs) travel with it, keeping their places around it
+      const da = moved.a - cur.a
+      const dy = moved.y - cur.y
+      for (const k of c.kids) {
+        const kc = clusters[k]
+        if (!kc) continue
+        clusters[k] = repose(kc, kc.a + da, kc.y + dy)
+        this.shown[k] = clusters[k]
+      }
       this.layout = { ...this.layout, clusters }
       this.shown[c.id] = clusters[c.id] // (the carried one is under the finger, not gliding)
       this.place()
       const over = this.groupUnder(e, c.id)
-      this.hoverTo(over?.hub ? over.id : null) // (over another group's name: it would go inside; over its box it just makes room)
+      this.hoverTo(over?.hub && !c.kids.has(over.id) ? over.id : null) // (over another group's name: it would go inside; over its box it just makes room)
     }
   }
   private up = (e: PointerEvent) => {
@@ -898,6 +926,17 @@ export class SpatialScene {
     if (!p || p.id !== e.pointerId) return
     this.press = undefined
     const c = this.carry
+    if (c && (p.mode === 'task' || p.mode === 'cluster')) {
+      this.events.onCarryEnd?.()
+      if (this.events.onDropOut?.(p.mode === 'task' ? 'task' : 'group', c.id, e.clientX, e.clientY)) {
+        // let go over the sidebar (or anything else outside): it was taken there, and the canvas goes back to how it was
+        this.carry = undefined
+        this.layout = withRadius(this.content.layout, this.radius)
+        this.closeSprung(null)
+        this.place()
+        return
+      }
+    }
     if (c && p.mode === 'task') {
       this.carry = undefined
       const L = this.layout
@@ -940,7 +979,7 @@ export class SpatialScene {
         this.layout = withRadius(this.content.layout, this.radius)
         this.events.onReparent?.(c.id, into)
       } else {
-        this.layout = { ...this.layout, clusters: separate(this.layout.clusters, new Set([c.id])) }
+        this.layout = { ...this.layout, clusters: separate(this.layout.clusters, new Set([c.id, ...c.kids])) }
         this.events.onLayout(fromRadius(this.layout, this.radius))
       }
       this.closeSprung(into)

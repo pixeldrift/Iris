@@ -15,6 +15,10 @@
   --color-lilac-700: #6b4491;
   --color-rose-soft: #f4cddd;
   --color-sage-soft: #cfe4d6;
+  /* the one warning / destructive family: fills and dots, the darker words on a pale rose, and the hover for quiet delete links */
+  --color-danger: #c4577e;
+  --color-danger-ink: #9a4566;
+  --color-danger-deep: #b04a6e;
   --color-ink: #3d3150;
   --color-ink-soft: #7b6e8e;
   --color-ink-faint: #a99fba;
@@ -382,6 +386,19 @@ input[type='date'] {
   background: radial-gradient(circle at 36% 30%, var(--chk-a, var(--color-lilac-300)), var(--chk-b, var(--color-lilac-500)));
   border-color: var(--chk-ring, rgb(var(--lr-500)/0.35));
   box-shadow: inset 2px 3px 6px rgb(var(--lr-deep)/0.22), inset -1px -2px 4px rgba(255, 255, 255, 0.3), 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+/* a touch screen: the circle looks the same but its tappable area reaches a little past it (the circles are 16-22px, a fingertip is not) */
+@media (pointer: coarse) {
+  .well-circle {
+    position: relative;
+  }
+  .well-circle::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 9999px;
+  }
 }
 
 /* hue slider for folder colors */

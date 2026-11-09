@@ -97,17 +97,6 @@ export function formatReminder(at: number, now: number): string {
   return `${formatDate(day, { now: new Date(now) })}, ${time}`
 }
 
-/** `datetime-local` value (local time, `YYYY-MM-DDTHH:MM`) <-> epoch ms. */
-export const toLocalInput = (ms: number): string => {
-  const d = new Date(ms)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
-}
-export const fromLocalInput = (s: string): number | null => {
-  const ms = new Date(s).getTime()
-  return Number.isNaN(ms) ? null : ms
-}
-
 /** "At the time", "10 minutes before", "1 hour before", "2 days before". */
 export function alertLabel(minutes: number): string {
   if (minutes <= 0) return 'At the time'

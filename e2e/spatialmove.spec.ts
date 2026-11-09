@@ -28,6 +28,42 @@ const fold = (page: import('@playwright/test').Page, ids: string[]) =>
     if (!localStorage.getItem('lilac-spatial-v5')) localStorage.setItem('lilac-spatial-v5', JSON.stringify({ state: { collapsed: Object.fromEntries(list.map((i) => [i, true])) }, version: 0 }))
   }, ids)
 
+test.describe('onto the sidebar', () => {
+  test('a task carried out over a sidebar group joins it; a group goes inside it', async ({ page }) => {
+    await enter(page)
+    const row = (id: string) => page.locator(`[data-drop="folder:${id}"]`).first()
+    const c = async (id: string) => {
+      const b = (await row(id).boundingBox())!
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+    }
+    const from = (await pt(page, 'task', 'demo-grandma'))!
+    await drag(page, from, await c('garden'))
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { id: string }) => t.id === 'demo-grandma').folderIds.includes('garden')))).toBe(true)
+    const hub = (await pt(page, 'hub', 'life'))!
+    await drag(page, { x: hub.x + 20, y: hub.y }, await c('home'))
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.folders.find((f: { id: string }) => f.id === 'life').parentId))).toBe('home')
+  })
+})
+
+test.describe('moving a parent', () => {
+  test('its subgroups travel with it, keeping their places around it', async ({ page }) => {
+    await enter(page)
+    const before = await stored(page)
+    const from = (await pt(page, 'hub', 'school'))!
+    const to = { x: from.x + 140, y: from.y + 30 }
+    await drag(page, { x: from.x + 20, y: from.y }, { x: to.x + 20, y: to.y })
+    const after = await stored(page)
+    const d = (id: string) => ({ a: after.clusters[id].a - before.clusters[id].a, y: after.clusters[id].y - before.clusters[id].y })
+    const p = d('school')
+    expect(Math.abs(p.a) + Math.abs(p.y)).toBeGreaterThan(0.01)
+    // (the others may be nudged a little afterwards to stay clear of neighbours, so compare the offsets loosely)
+    for (const k of ['eng101', 'bio']) {
+      const o = (after.clusters[k].a - after.clusters.school.a) - (before.clusters[k].a - before.clusters.school.a)
+      expect(Math.abs(o)).toBeLessThan(0.15)
+    }
+  })
+})
+
 test.describe('folded groups', () => {
   test('a task carried onto a folded name opens it after a short linger, and lands in it', async ({ page }) => {
     await fold(page, ['demo-writing'])

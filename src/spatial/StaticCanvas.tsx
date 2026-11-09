@@ -4,7 +4,7 @@ import { checkVars } from '../ui/taskColor'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
-import { reparentGroup, retagTask } from './actions'
+import { dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { cellW, ensureLayout, repose, separate, slotAt } from './layout'
 import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
@@ -67,10 +67,26 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
     }
     return out
   }, [content, L, inGrid])
+  /** Every group inside a group, at any depth. */
+  const kidsOf = (id: string): Set<string> => {
+    const out = new Set<string>()
+    const walk = (p: string) => {
+      for (const c of content.clusters) if (c.parent === p && !out.has(c.id)) (out.add(c.id), walk(c.id))
+    }
+    walk(id)
+    return out
+  }
+  const carriedKids = useMemo(() => (carry?.kind === 'group' ? kidsOf(carry.id) : new Set<string>()), [carry?.kind, carry?.id, content]) // eslint-disable-line react-hooks/exhaustive-deps
   const at = (id: string): Box | undefined => {
     const b = places.get(id)
     if (!b) return undefined
-    return carry?.kind === 'group' && carry.id === id ? { ...b, x: carry.x - carry.dx, y: carry.y - carry.dy } : b
+    if (carry?.kind !== 'group') return b
+    const home = places.get(carry.id)
+    if (!home) return b
+    // the carried group is under the finger and its subgroups go with it, keeping their places around it
+    if (carry.id === id) return { ...b, x: carry.x - carry.dx, y: carry.y - carry.dy }
+    if (carriedKids.has(id)) return { ...b, x: b.x + (carry.x - carry.dx - home.x), y: b.y + (carry.y - carry.dy - home.y) }
+    return b
   }
   const bounds = useMemo(() => {
     let x0 = Infinity
@@ -197,7 +213,9 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
       const left = c.x - c.dx
       const top = c.y - c.dy
       const moved = repose(p, (left + b.w / 2) / (PX * p.r), -(top / PY) - 1.2 * K)
-      writeLayout({ ...L, clusters: separate({ ...L.clusters, [c.id]: moved }, new Set([c.id])) })
+      const next = { ...L.clusters, [c.id]: moved }
+      for (const k of kidsOf(c.id)) next[k] = repose(L.clusters[k], L.clusters[k].a + (moved.a - p.a), L.clusters[k].y + (moved.y - p.y))
+      writeLayout({ ...L, clusters: separate(next, new Set([c.id, ...kidsOf(c.id)])) })
     }
     closeSprung(over)
   }
@@ -278,9 +296,11 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
             const p = canvasPoint(e)
             const ex = pr.kind === 'group' ? pr.id : ''
             const o = targetAt(p.x, p.y, ex)
+            if (o && pr.kind === 'group' && kidsOf(pr.id).has(o.id)) return setCarry((c) => (c ? { ...c, x: p.x, y: p.y, hover: null } : c))
             // a task can join a group by its name or its box; a group only goes inside another by its name
             const h = o && (pr.kind === 'task' || o.name) ? o.id : null
             setCarry((c) => (c ? { ...c, x: p.x, y: p.y } : c))
+            showCarry(pr.kind, pr.id, pr.kind === 'task' ? (content.tasks.find((t) => t.id === pr.id)?.title ?? 'Task') : (content.clusters.find((c) => c.id === pr.id)?.name ?? 'Group'), e.clientX, e.clientY)
             if (h !== carry?.hover) hoverTo(h)
           }
           return
@@ -305,6 +325,12 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         if (pr && pr.pid === e.pointerId) {
           press.current = null
           if (pr.started && carry) {
+            endCarry()
+            if (dropOutside(pr.kind, pr.id, e.clientX, e.clientY)) {
+              closeSprung(null)
+              setCarry(null)
+              return
+            }
             if (pr.kind === 'task') dropTask(carry)
             else dropGroup(carry)
             setCarry(null)
@@ -322,6 +348,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         gesture.current = null
         if (press.current?.pid === e.pointerId) {
           press.current = null
+          endCarry()
           setCarry(null)
           closeSprung(null)
         }

@@ -344,7 +344,7 @@ function PictureField({ task }: { task: Task }) {
         <>
           <div className="relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
             <img src={task.image} alt="" draggable={false} className="max-h-72 w-full object-contain" />
-            <button type="button" onClick={() => update(task.id, { image: undefined, imageTint: undefined })} aria-label="Remove the picture" className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/85 text-ink-soft shadow transition hover:text-[#b04a6e]">
+            <button type="button" onClick={() => update(task.id, { image: undefined, imageTint: undefined })} aria-label="Remove the picture" className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/85 text-ink-soft shadow transition hover:text-danger-deep">
               <IconClose size={13} />
             </button>
           </div>
@@ -535,7 +535,7 @@ export function TaskDetail() {
               onClick={async () => {
                 if (await askConfirm({ title: 'Delete this item?', message: `“${task.title || 'Untitled'}” will be deleted.`, confirmLabel: 'Delete', cancelLabel: 'Keep', danger: true })) del(task.id)
               }}
-              className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-faint transition hover:text-[#b04a6e]"
+              className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-faint transition hover:text-danger-deep"
             >
               <IconTrash size={14} /> Delete
             </button>

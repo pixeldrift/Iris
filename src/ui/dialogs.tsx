@@ -79,12 +79,35 @@ export function Modal({
     return () => window.clearTimeout(t)
   }, [crop])
   const peek = !!crop || clipping
+  const panel = useRef<HTMLDivElement>(null)
+  const closer = useRef(onClose)
+  closer.current = onClose // (a new function each render must not restart this: focus would jump)
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (e.stopPropagation(), onClose())
+    const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    // keyboard: Escape closes; Tab stays inside the dialog (it is modal), and focus goes back to where it was when the dialog closes
+    const was = document.activeElement as HTMLElement | null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return e.stopPropagation(), closer.current()
+      if (e.key !== 'Tab' || !panel.current) return
+      const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null)
+      if (!items.length) return e.preventDefault()
+      const first = items[0]
+      const last = items[items.length - 1]
+      const at = document.activeElement
+      if (!panel.current.contains(at)) (e.preventDefault(), first.focus())
+      else if (e.shiftKey && at === first) (e.preventDefault(), last.focus())
+      else if (!e.shiftKey && at === last) (e.preventDefault(), first.focus())
+    }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [open, onClose])
+    // something inside may have taken focus itself (a field with autofocus): otherwise the dialog does, so a screen reader reads it out
+    const t = window.setTimeout(() => panel.current && !panel.current.contains(document.activeElement) && panel.current.focus({ preventScroll: true }), 30)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('keydown', onKey, true)
+      if (was && was.isConnected) was.focus({ preventScroll: true })
+    }
+  }, [open])
   if (!mounted) return null
   return (
     <div
@@ -93,10 +116,12 @@ export function Modal({
       onPointerDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className={`glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full rounded-[2rem] ${header ? 'flex h-full flex-col overflow-hidden' : footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-5'} ${closing ? 'pop-out' : 'pop-in'}`}
+        className={`outline-none glass glass-strong w-full ${wide ? 'max-w-md' : 'max-w-sm'} max-h-full rounded-[2rem] ${header ? 'flex h-full flex-col overflow-hidden' : footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-5'} ${closing ? 'pop-out' : 'pop-in'}`}
         style={clipping ? { clipPath: live ? `inset(${live.top}px ${live.right}px ${live.bottom}px ${live.left}px round 1.25rem)` : 'inset(0px 0px 0px 0px round 2rem)', transition: 'clip-path 0.4s cubic-bezier(0.34, 1.2, 0.5, 1)' } : undefined}
       >
         {header ? (
@@ -188,7 +213,7 @@ export function DialogHost() {
           ref={ref}
           onClick={() => close(picked)}
           className={`rounded-full px-5 py-2 text-sm font-medium text-white shadow-md transition hover:brightness-105 ${
-            spec.danger ? 'bg-[#c4577e] shadow-[#c4577e]/30' : 'bg-lilac-500 shadow-lilac-500/30'
+            spec.danger ? 'bg-danger shadow-danger/30' : 'bg-lilac-500 shadow-lilac-500/30'
           }`}
         >
           {spec.confirmLabel ?? 'OK'}

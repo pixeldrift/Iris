@@ -48,7 +48,7 @@ export function FolderOptions({
               const choices = await confirmDeleteFolder(folder, useStore.getState().folders)
               if (choices) void deleteGroup(folder, choices)
             }}
-            className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-[#b04a6e]"
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm text-ink-faint transition hover:text-danger-deep"
           >
             <IconTrash size={14} /> Delete
           </button>

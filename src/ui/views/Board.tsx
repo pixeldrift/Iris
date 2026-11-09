@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { isDoneNow } from '../../core/recurrence'
 import { hasProgress, orderInStage, patchForStage, percentsFor, progressOf, stageIndex, stagesOf, topRank, type Stage } from '../../core/progress'
 import { NumberField } from '../NumberPad'
 import { sortTasks, effectiveUrgency } from '../../core/tasks'
@@ -33,7 +34,7 @@ function Card({ task }: { task: Task }) {
       >
         <div className="flex items-start gap-2 pr-5">
           <DoneButton task={task} size={20} />
-          <p className={`min-w-0 flex-1 text-[0.92rem] leading-snug ${task.status === 'done' ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</p>
+          <p className={`min-w-0 flex-1 text-[0.92rem] leading-snug ${isDoneNow(task) ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</p>
         </div>
         {/* the handle sits at the right edge, level with the checkbox */}
         <span className="absolute right-1 top-2 grid h-5 place-items-center">
@@ -289,7 +290,7 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom, given }
                 )}
               </span>
               <input value={s.name} onChange={(e) => set(i, e.target.value)} aria-label={`Stage ${i + 1} name`} className="well min-w-0 flex-1 rounded-lg px-2.5 py-1 text-sm" />
-              <button onClick={() => save(stages.filter((_, k) => k !== i), percents.filter((_, k) => k !== Math.min(i, percents.length - 2)))} disabled={stages.length <= 2} aria-label={`Remove ${s.name}`} className="grid h-7 w-7 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-[#b04a6e] disabled:opacity-30">
+              <button onClick={() => save(stages.filter((_, k) => k !== i), percents.filter((_, k) => k !== Math.min(i, percents.length - 2)))} disabled={stages.length <= 2} aria-label={`Remove ${s.name}`} className="grid h-7 w-7 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-danger-deep disabled:opacity-30">
                 <IconClose size={12} />
               </button>
               <span data-grip onPointerDown={begin(i)} role="button" aria-label={`Move ${s.name}`} title="Drag to reorder" className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center">

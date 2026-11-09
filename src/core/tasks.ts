@@ -50,32 +50,42 @@ export function plannedDate(t: Task, now = today()): string | null {
   return repeatOf(t) ? currentOccurrence(t, now) : (t.day ?? t.due ?? null)
 }
 
-export function matchesScope(task: Task, scope: Scope, folders: Folder[]): boolean {
+/**
+ * A function that says whether a task is in a scope, with the scope's folders worked out once (a group's descendants, which
+ * filters of the same kind count) instead of for every task. Use this for lists; `matchesScope` is the one-off form.
+ */
+export function scopeMatcher(scope: Scope, folders: Folder[]): (task: Task) => boolean {
   switch (scope.type) {
     case 'multi': {
       // a group that has since been deleted no longer counts as a filter
-      const parts = scope.parts.filter((p) => p.type !== 'folder' || folders.some((f) => f.id === p.id))
-      const kinds = [...new Set(parts.map((p) => p.type))]
-      return kinds.every((k) => parts.filter((p) => p.type === k).some((p) => matchesScope(task, p, folders)))
+      const known = new Set(folders.map((f) => f.id))
+      const parts = scope.parts.filter((p) => p.type !== 'folder' || known.has(p.id))
+      const byKind = new Map<string, ((t: Task) => boolean)[]>()
+      for (const p of parts) byKind.set(p.type, [...(byKind.get(p.type) ?? []), scopeMatcher(p, folders)])
+      const groups = [...byKind.values()]
+      return (t) => groups.every((fs) => fs.some((f) => f(t)))
     }
     case 'all':
     case 'contacts':
-      return true
+      return () => true
     case 'inbox':
-      return task.folderIds.length === 0 && !task.due && !task.day
+      return (t) => t.folderIds.length === 0 && !t.due && !t.day
     case 'day':
-      return taskOnDate(task, scope.date)
+      return (t) => taskOnDate(t, scope.date)
     case 'person':
-      return task.personIds.includes(scope.id)
+      return (t) => t.personIds.includes(scope.id)
     case 'folder': {
       const ids = descendantIds(folders, scope.id)
-      return task.folderIds.some((f) => ids.has(f))
+      return (t) => t.folderIds.some((f) => ids.has(f))
     }
   }
 }
 
+export const matchesScope = (task: Task, scope: Scope, folders: Folder[]): boolean => scopeMatcher(scope, folders)(task)
+
 export function filterTasks(tasks: Task[], scope: Scope, folders: Folder[], showDone: boolean): Task[] {
-  return tasks.filter((t) => (showDone || t.status !== 'done') && matchesScope(t, scope, folders))
+  const inScope = scopeMatcher(scope, folders)
+  return tasks.filter((t) => (showDone || t.status !== 'done') && inScope(t))
 }
 
 const byDue = (a: Task, b: Task) => (a.due ?? a.day ?? '9999').localeCompare(b.due ?? b.day ?? '9999')

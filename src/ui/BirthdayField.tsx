@@ -49,12 +49,12 @@ export function BirthdayField({ value, onChange, className = '' }: { value: stri
         aria-label="Birthday"
         aria-invalid={bad}
         title="Type a date like Mar 4 or 3/4/1990; the year is optional"
-        className={`well w-full rounded-xl px-3 py-2 pr-9 text-sm ${bad ? 'ring-2 ring-[#c4577e]/50' : ''}`}
+        className={`well w-full rounded-xl px-3 py-2 pr-9 text-sm ${bad ? 'ring-2 ring-danger/50' : ''}`}
       />
       <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Pick a birthday from the calendar" title="Pick from a calendar" className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-lilac-600">
         <IconCalendar size={15} />
       </button>
-      {bad && <p role="alert" className="absolute left-1 top-full z-10 mt-0.5 text-[0.68rem] text-[#9a4566]">Try “Mar 4” or “3/4/1990”.</p>}
+      {bad && <p role="alert" className="absolute left-1 top-full z-10 mt-0.5 text-[0.68rem] text-danger-ink">Try “Mar 4” or “3/4/1990”.</p>}
       <CalendarPopover
         open={open}
         onClose={() => setOpen(false)}

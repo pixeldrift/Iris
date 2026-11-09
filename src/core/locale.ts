@@ -18,7 +18,6 @@ export const DATE_STYLES: { id: DateStyle; label: string; sample: string }[] = [
 const prefs: { date: DateStyle; clock: ClockStyle } = { date: 'us', clock: '12' }
 
 export const setLocalePrefs = (p: Partial<typeof prefs>) => Object.assign(prefs, p)
-export const getLocalePrefs = () => ({ ...prefs })
 
 const parts = (iso: string) => iso.split('-').map(Number) as [number, number, number]
 const p2 = (n: number) => String(n).padStart(2, '0')
