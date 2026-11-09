@@ -82,3 +82,12 @@ test.describe('notifications switch', () => {
     await ctx.close()
   })
 })
+
+test('the tips and gestures list is there, folded until opened', async ({ page }) => {
+  await open(page)
+  await page.getByRole('button', { name: 'My settings' }).click()
+  const tips = page.getByRole('button', { name: /Tips and gestures/ })
+  await expect(tips).toHaveAttribute('aria-expanded', 'false')
+  await tips.click()
+  await expect(page.getByText('Hold a task over a folded group')).toBeVisible()
+})

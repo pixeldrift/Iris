@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { isFinished } from '../../core/schedule'
 import { satOf, tint } from '../../core/color'
 import { colorVars, useTaskHue } from '../taskColor'
+import { EmptyState } from '../EmptyState'
 import { addDays, diffDays, fromISO, MONTHS, today } from '../../core/dates'
 import { formatClock } from '../../core/locale'
 import { spanOf, effectiveUrgency } from '../../core/tasks'
@@ -373,7 +374,7 @@ export function Timeline() {
                   <Bar task={t} winStart={winStart} dayW={dayW} legend={legend} preview={preview} onPreview={setPreview} />
                 </div>
               ))}
-              {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">No tasks to chart.</p>}
+              {rows.length === 0 && <EmptyState>No tasks to chart.</EmptyState>}
 
               {/* today line */}
               <div className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-lilac-500/60" style={{ left: todayX }} />

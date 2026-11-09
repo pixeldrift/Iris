@@ -10,6 +10,7 @@ import { IconTrash } from '../icons'
 import { BatchEditor } from '../BatchEditor'
 import { colorVars, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
+import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, WeightDot, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
@@ -237,7 +238,7 @@ export function ListView() {
             {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
           </div>
         ))}
-        {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">Nothing here yet. Still water.</p>}
+        {rows.length === 0 && <EmptyState>Nothing here yet. Still water.</EmptyState>}
       </div>
       </ScrollFade>
       </div>
