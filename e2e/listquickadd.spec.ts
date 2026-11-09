@@ -23,7 +23,7 @@ test('quick add in the list: Enter adds, keeps the box focused for the next, sho
   expect(top[0]).toContain('Aardvark second')
   expect(top[1]).toContain('Zebra first')
   await expect(page.locator('.just-added')).toHaveCount(2)
-  await expect(page.getByRole('status').filter({ hasText: 'Added' })).toHaveText(/Added Aardvark second/)
+  await expect(page.locator('[data-added-announcer]')).toHaveText(/Added Aardvark second/)
   // a moment later the glow is gone and they have gone to where the sort puts them (not both still on top)
   await expect(page.locator('.just-added')).toHaveCount(0, { timeout: 6000 })
   await expect.poll(async () => (await titles())[0].includes('Aardvark second') && (await titles())[1].includes('Zebra first'), { timeout: 4000 }).toBe(false)
