@@ -245,7 +245,7 @@ export class WallTracking implements TrackingProvider {
     const st = this.tracker.update(g)
     if (st.status === 'lost' || !this.Hplane) {
       this.setPhase('lost')
-      this.overlay = { phase: 'lost', quad: this.overlay.quad, points: [], inliers: 0, kind: this.kind }
+      this.overlay = { phase: 'lost', quad: this.overlay.quad, points: this.overlay.points, inliers: 0, kind: this.kind }
       this.fresh = true
       // find the surface again where it was: if it is back in view the tracker picks it up by itself next frames; otherwise search anew
       if (st.status === 'lost' && this.lostSince === 0) this.lostSince = performance.now()
@@ -283,7 +283,7 @@ export class WallTracking implements TrackingProvider {
       this.overlay = {
         phase: 'holding',
         quad: [{ x: -0.5, y: a2 }, { x: 0.5, y: a2 }, { x: 0.5, y: -a2 }, { x: -0.5, y: -a2 }],
-        points: st.ref.map((p) => apply(toPlane, p.x, p.y)),
+        points: st.landmarks.map((p) => apply(toPlane, p.x, p.y)),
         inliers: st.inliers,
         kind: this.kind,
       }

@@ -171,4 +171,28 @@ describe('following a surface', () => {
     const gone = tr.update({ w: 160, h: 120, d: new Float32Array(160 * 120).fill(128) })
     expect(gone.status).toBe('lost')
   })
+
+  it('keeps holding after the surface it started on has left the view (the map grows as the camera moves)', () => {
+    const world = texture(520, 120, 9)
+    const view = (ox: number): Gray => {
+      const d = new Float32Array(160 * 120)
+      for (let y = 0; y < 120; y++) for (let x = 0; x < 160; x++) d[y * 160 + x] = at(world, x + ox, y)
+      return { w: 160, h: 120, d }
+    }
+    const tr = new SurfaceTracker()
+    const region = [{ x: 20, y: 20 }, { x: 100, y: 20 }, { x: 100, y: 100 }, { x: 20, y: 100 }] as [Pt, Pt, Pt, Pt]
+    expect(tr.acquire(view(0), region)).toBe(true)
+    let ox = 0
+    for (let i = 1; i <= 90; i++) {
+      ox = 3 * i // (270 px: far past where the first region was, which is out of the picture after about 40 frames)
+      const st = tr.update(view(ox))
+      expect(st.status).toBe('tracking')
+    }
+    // a point that was at (50, 60) in the first picture is now at (50 - 270, 60), outside; the fit still knows where it is
+    const st = tr.state()
+    const got = apply(st.H, 50, 60)
+    expect(Math.hypot(got.x - (50 - ox), got.y - 60)).toBeLessThan(6)
+    // and the map has grown well past the first region
+    expect(st.landmarks.some((p) => p.x > 200)).toBe(true)
+  })
 })

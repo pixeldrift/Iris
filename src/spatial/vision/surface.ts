@@ -16,10 +16,15 @@ export interface SurfaceState {
   now: Pt[]
   ref: Pt[]
   inliers: number
+  /** Every point ever pinned to the surface (reference-picture coordinates), the ones out of view included: the surface's map. */
+  landmarks: Pt[]
 }
 
-const MAX_POINTS = 90
-const MIN_POINTS = 24
+const MAX_POINTS = 140
+const MIN_POINTS = 24 // (below this it is topped up every other frame)
+const TOP_UP_BELOW = 110
+const MAX_LANDMARKS = 320
+const LANDMARK_GAP = 7 // (reference pixels)
 const LOST_BELOW = 8
 
 /**
@@ -35,6 +40,7 @@ export class SurfaceTracker {
   private H: Mat3 = IDENTITY
   private region: Quad | null = null
   private frame = 0
+  private landmarks: Pt[] = []
   status: SurfaceState['status'] = 'idle'
 
   /** Start following the surface whose region is `quad` in `g`. False when there is nothing in it worth following. */
@@ -44,6 +50,8 @@ export class SurfaceTracker {
     this.H = IDENTITY
     const pts = detectCorners(g, { max: MAX_POINTS, minDist: 5, margin: 5, mask: (x, y) => pointInQuad(quad, x, y) })
     this.ref = pts
+    this.landmarks = []
+    this.remember(pts)
     this.cur = pts.map((p) => ({ ...p }))
     this.frame = 0
     this.status = pts.length >= MIN_POINTS / 2 ? 'tracking' : 'idle'
@@ -56,7 +64,16 @@ export class SurfaceTracker {
     this.ref = []
     this.cur = []
     this.region = null
+    this.landmarks = []
     this.H = IDENTITY
+  }
+
+  private remember(refPts: Pt[]) {
+    for (const p of refPts) {
+      if (this.landmarks.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < LANDMARK_GAP)) continue
+      this.landmarks.push({ x: p.x, y: p.y })
+    }
+    if (this.landmarks.length > MAX_LANDMARKS) this.landmarks.splice(0, this.landmarks.length - MAX_LANDMARKS)
   }
 
   update(g: Gray): SurfaceState {
@@ -93,16 +110,21 @@ export class SurfaceTracker {
     this.cur = now
     this.prev = cur
     this.frame++
-    // top up: new corners inside where the surface is now, remembered in the reference picture's coordinates
-    if (this.cur.length < MIN_POINTS && this.frame % 2 === 0) {
-      const quadNow = this.region.map((p) => apply(this.H, p.x, p.y)) as Quad
+    // keep the map growing: new corners anywhere the camera now sees (not only where the surface was first found), remembered in the
+    // reference picture's coordinates through the current fit. The first rectangle can leave the view and the hold carries on from
+    // the newer points, each of which was placed using the ones before it.
+    if (this.cur.length < TOP_UP_BELOW && (this.cur.length < MIN_POINTS || this.frame % 2 === 0)) {
       const inv = inv3(this.H)
       if (inv) {
-        const more = detectCorners(g, { max: MAX_POINTS - this.cur.length, minDist: 5, margin: 5, mask: (x, y) => pointInQuad(quadNow, x, y), avoid: this.cur })
+        const more = detectCorners(g, { max: MAX_POINTS - this.cur.length, minDist: 6, margin: 5, avoid: this.cur })
+        const added: Pt[] = []
         for (const p of more) {
           this.cur.push(p)
-          this.ref.push(apply(inv, p.x, p.y))
+          const r = apply(inv, p.x, p.y)
+          this.ref.push(r)
+          added.push(r)
         }
+        this.remember(added)
       }
     }
     return this.state()
@@ -110,6 +132,6 @@ export class SurfaceTracker {
 
   state(): SurfaceState {
     const quad = this.region ? (this.region.map((p) => apply(this.H, p.x, p.y)) as Quad) : null
-    return { status: this.status, H: this.H, quad, now: this.cur, ref: this.ref, inliers: this.cur.length }
+    return { status: this.status, H: this.H, quad, now: this.cur, ref: this.ref, inliers: this.cur.length, landmarks: this.landmarks }
   }
 }
