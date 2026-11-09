@@ -20,7 +20,7 @@ test.describe('limiting play', () => {
     await goto(page, 'Pond')
   })
 
-  test('fun mode: a ten second countdown, then a kind word and a break; deleting stays available', async ({ page }) => {
+  test('fun mode: a ten second countdown, then a kind word and a break; deleting stays available @slow', async ({ page }) => {
     test.setTimeout(60_000)
     await almostOut(page)
     await page.getByRole('button', { name: 'Pop mode' }).click()
@@ -48,7 +48,7 @@ test.describe('limiting play', () => {
     await expect(page.getByRole('radio', { name: 'Delete' })).toHaveAttribute('aria-checked', 'true')
   })
 
-  test('the pop game: the game in progress is played out, and the break begins when it ends', async ({ page }) => {
+  test('the pop game: the game in progress is played out, and the break begins when it ends @slow', async ({ page }) => {
     test.setTimeout(60_000)
     await almostOut(page, 6000) // (a few seconds, so a game is under way when the limit comes)
     await page.getByRole('button', { name: 'Pop mode' }).click()
@@ -74,7 +74,7 @@ test.describe('limiting play', () => {
     await expect(page.getByText('score', { exact: true })).toHaveCount(0)
   })
 
-  test('the limit can be turned off in the settings', async ({ page }) => {
+  test('the limit can be turned off in the settings @slow', async ({ page }) => {
     await page.getByRole('button', { name: 'My settings' }).click()
     const sw = page.getByRole('switch', { name: /Limit play time/ })
     await expect(sw).toHaveAttribute('aria-checked', 'true') // on by default

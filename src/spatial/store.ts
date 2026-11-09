@@ -17,13 +17,15 @@ interface SpatialState {
   tipSeen: boolean
   /** Draw the faint curves joining a group to its subgroups. */
   links: boolean
+  /** "Keep tidy": things let go in Space snap to a grid, so it stays organised. */
+  tidy: boolean
   /** The radius of the cylinder the groups hang on (a testing control). */
   radius: number
   /** Groups folded down to just their names. */
   collapsed: Record<string, true>
   toggleCollapsed: (id: string) => void
   setLayout: (l: SpatialLayoutData) => void
-  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'render' | 'seen' | 'tipSeen' | 'links' | 'radius'>>) => void
+  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'render' | 'seen' | 'tipSeen' | 'links' | 'tidy' | 'radius'>>) => void
   /** Forget where things were put (they are laid out afresh). */
   resetLayout: () => void
 }
@@ -38,6 +40,7 @@ export const useSpatial = create<SpatialState>()(
       seen: false,
       tipSeen: false,
       links: true,
+      tidy: true,
       radius: RADIUS.start,
       collapsed: {},
       toggleCollapsed: (id) =>
@@ -61,7 +64,7 @@ export const useSpatial = create<SpatialState>()(
         return s as never
       },
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
-      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, radius: s.radius, collapsed: s.collapsed }),
+      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed }),
     },
   ),
 )

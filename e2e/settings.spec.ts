@@ -8,7 +8,7 @@ test.describe('settings', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
   })
 
-  test('the colour slider recolours the whole interface, and its dot resets it', async ({ page }) => {
+  test('the colour slider recolours the whole interface, and its dot resets it @smoke', async ({ page }) => {
     const slider = page.getByLabel('Interface color')
     const box = (await slider.boundingBox())!
     await page.mouse.click(box.x + box.width * 0.3, box.y + box.height / 2)

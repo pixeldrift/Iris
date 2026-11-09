@@ -18,7 +18,7 @@ test.describe('the sidebar', () => {
     await expect(row).not.toContainText('Zed')
   })
 
-  test('dragging a group onto another nests it, with an indent hint on the way', async ({ page }) => {
+  test('dragging a group onto another nests it, with an indent hint on the way @smoke', async ({ page }) => {
     const life = (await folderRow(page, 'Life').boundingBox())!
     const garden = (await folderRow(page, 'Garden').boundingBox())!
     await drag(page, { x: life.x + 100, y: life.y + 20 }, { x: life.x + 100, y: garden.y + garden.height / 2 }, { release: false })

@@ -7,7 +7,7 @@ test.describe('the task and notion panels', () => {
     await goto(page, 'List')
   })
 
-  test('a task panel runs: group, when (with a time), repeats, notes, then the sliders side by side', async ({ page }) => {
+  test('a task panel runs: group, when (with a time), repeats, notes, then the sliders side by side @smoke', async ({ page }) => {
     await page.keyboard.press('n')
     await page.keyboard.type('Pay rent')
     await page.keyboard.press('Enter')

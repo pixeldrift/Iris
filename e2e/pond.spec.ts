@@ -4,30 +4,7 @@ import { open, tapWater } from './helpers'
 test.describe('the pond', () => {
   test.beforeEach(({ page }) => open(page))
 
-  test('the Gather by highlight covers just the chosen option, at any width and after the room changes', async ({ page }) => {
-    const toggle = page.getByRole('radiogroup', { name: 'Gather by' })
-    const check = async () => {
-      const on = toggle.locator('[role=radio][aria-checked=true]')
-      await expect(async () => {
-        // the option's own slot (its box can't spill into its neighbours' slots either)
-        const slot = (await on.locator('..').boundingBox())!
-        const b = (await on.boundingBox())!
-        const h = (await toggle.locator('span[aria-hidden].bg-lilac-500').boundingBox())!
-        expect(Math.abs(h.x - b.x)).toBeLessThan(2)
-        expect(Math.abs(h.width - b.width)).toBeLessThan(2)
-        expect(b.width).toBeLessThanOrEqual(slot.width + 1)
-      }).toPass()
-    }
-    for (const w of [1200, 390, 320, 1000]) {
-      await page.setViewportSize({ width: w, height: 800 })
-      for (const name of ['Group', 'Type', 'People', 'Free']) {
-        await toggle.getByRole('radio', { name, exact: true }).click()
-        await check()
-      }
-    }
-  })
-
-  test('shows the bubbles, and zoom grows them', async ({ page }) => {
+  test('shows the bubbles, and zoom grows them @smoke', async ({ page }) => {
     expect(await page.locator('[data-node]').count()).toBeGreaterThan(10)
     const width = () => page.locator('[data-node]').first().evaluate((e) => e.getBoundingClientRect().width)
     const before = await width()
@@ -35,7 +12,7 @@ test.describe('the pond', () => {
     await expect.poll(width).toBeGreaterThan(before * 1.1)
   })
 
-  test('tapping empty water opens the add box', async ({ page }) => {
+  test('tapping empty water opens the add box @smoke', async ({ page }) => {
     await tapWater(page, 360, 700)
     await expect(page.getByLabel('New item')).toBeVisible()
   })

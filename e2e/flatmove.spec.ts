@@ -33,7 +33,7 @@ const fold = (page: P, ids: string[]) =>
   }, ids)
 
 test.describe('the flat canvas does everything the 3D space does', () => {
-  test('a task dragged onto another group joins it', async ({ page }) => {
+  test('a task dragged onto another group joins it @smoke', async ({ page }) => {
     await enterFlat(page)
     const from = await centre(page, '[data-task="demo-grandma"] button:nth-child(2)')
     const to = await centre(page, '[data-box="demo-writing"]')
@@ -116,4 +116,13 @@ test('a tap on blank space inside a group box opens the new-item box with that g
   await page.getByLabel('New item').first().fill('Flat blank tap')
   await page.keyboard.press('Enter')
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Flat blank tap')?.folderIds ?? [])).toContain('eng101')
+})
+
+test('flat: a card let go in a box settles into a slot, not on top of another card', async ({ page }) => {
+  await enterFlat(page)
+  const box = (await page.locator('[data-box="life"]').boundingBox())!
+  await drag(page, await centre(page, '[data-task="demo-grandma"] button:nth-child(2)'), { x: box.x + box.width - 30, y: box.y + box.height - 20 })
+  const l = await stored(page)
+  const slots = Object.values(l.tasks as Record<string, { c: string; slot: number; free?: unknown }>).filter((x) => x.c === 'life' && !x.free).map((x) => x.slot)
+  expect(new Set(slots).size).toBe(slots.length)
 })

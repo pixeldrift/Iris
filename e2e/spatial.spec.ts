@@ -10,7 +10,7 @@ async function enter(page: import('@playwright/test').Page, how: 'Start looking 
 }
 
 test.describe('spatial workspace', () => {
-  test('opens with a short explanation, then shows the tasks in 3D with touch navigation when there is no motion sensor', async ({ page }) => {
+  test('opens with a short explanation, then shows the tasks in 3D with touch navigation when there is no motion sensor @smoke', async ({ page }) => {
     await open(page)
     await goto(page, 'Space')
     await expect(page.getByText('Look around your tasks')).toBeVisible()
@@ -227,7 +227,7 @@ test.describe('spatial workspace', () => {
 })
 
 test.describe('a lot of tasks', () => {
-  test('300 tasks open without errors and the layout gives each its own place', async ({ page }) => {
+  test('300 tasks open without errors and the layout gives each its own place @slow', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
     await page.goto('/')

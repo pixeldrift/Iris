@@ -304,7 +304,7 @@ export function ListView() {
           )
         }
       />
-      <span role="status" aria-live="polite" className="sr-only">
+      <span aria-live="polite" className="sr-only" data-added-announcer>
         {announce}
       </span>
       <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">

@@ -139,7 +139,7 @@ test.describe('the address book', () => {
 test.describe('tapping away from an edit keeps it', () => {
   test.beforeEach(({ page }) => open(page))
 
-  test('a new contact and an edited one are saved, not thrown away, when the box is tapped away', async ({ page }) => {
+  test('a new contact and an edited one are saved, not thrown away, when the box is tapped away @smoke', async ({ page }) => {
     await page.getByRole('button', { name: /Address book/ }).first().click()
     await page.getByRole('button', { name: 'Add a person' }).last().click()
     await page.getByPlaceholder('First name').fill('Quinn')

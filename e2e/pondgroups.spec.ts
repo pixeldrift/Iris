@@ -30,7 +30,7 @@ test.describe('groups in the pond', () => {
     expect(s!.folders.find((f) => f.name === 'Fresh sub')!.parentId).toBe(home.id)
   })
 
-  test('a group dragged by its name onto another group goes inside it', async ({ page }) => {
+  test('a group dragged by its name onto another group goes inside it @smoke', async ({ page }) => {
     await page.waitForTimeout(1200) // (let the groups settle into place)
     const life = page.locator('.pond-label').filter({ hasText: 'Life' }).first()
     const home = page.locator('.pond-label').filter({ hasText: 'Home' }).first()

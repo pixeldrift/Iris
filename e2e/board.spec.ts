@@ -4,7 +4,7 @@ import { folderRow, goto, open } from './helpers'
 const section = (page: import('@playwright/test').Page, name: string) => page.locator('[data-stage]').filter({ has: page.getByRole('heading', { name, exact: true }) })
 
 test.describe('Progress view', () => {
-  test('a long list pushes the boxes below it down, never expanding under them (stacked on a phone)', async ({ browser }) => {
+  test('a long list pushes the boxes below it down, never expanding under them (stacked on a phone) @smoke', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 420, height: 800 }, isMobile: true, hasTouch: true })
     const page = await ctx.newPage()
     await open(page)
