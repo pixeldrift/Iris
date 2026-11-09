@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { isDoneNow } from '../../core/recurrence'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
@@ -81,7 +81,7 @@ function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: R
   }
 }
 
-function Row({ task, selected, selecting, onToggle }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void }) {
+function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void; /** Just added from the quick-add box: it glows for a moment. */ fresh?: boolean }) {
   const el = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
   const hue = useTaskHue(task)
@@ -107,7 +107,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
             swipe(e)
           }}
           style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
-          className={`tint lift-on-press group rise-in relative flex cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
+          className={`tint lift-on-press group rise-in relative flex cursor-pointer outline-none ${fresh ? 'just-added' : ''} focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
         >
           {(selecting || selected) && (
             <span aria-hidden className={`well-circle grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.65rem] leading-none text-white ${selected ? 'is-on' : ''}`}>
@@ -159,7 +159,29 @@ export function ListView() {
   const set = useStore((s) => s.setSetting)
   const addTask = useStore((s) => s.addTask)
 
-  const rows = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
+  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
+  // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
+  // one, they glide to where the sort puts them (the list animates the move, so you can see where each went).
+  const [fresh, setFresh] = useState<string[]>([])
+  const freshTimer = useRef(0)
+  const [announce, setAnnounce] = useState('')
+  useEffect(() => () => window.clearTimeout(freshTimer.current), [])
+  const rows = useMemo(() => {
+    const here = fresh.map((id) => sorted.find((t) => t.id === id)).filter((t): t is Task => !!t)
+    if (!here.length) return sorted
+    const set = new Set(here.map((t) => t.id))
+    return [...here, ...sorted.filter((t) => !set.has(t.id))]
+  }, [sorted, fresh])
+  const justAdded = useMemo(() => new Set(fresh), [fresh])
+  const quickAdd = (title: string) => {
+    const id = addTask({ title })
+    setFresh((f) => [id, ...f])
+    setAnnounce(`Added ${title}`)
+    window.clearTimeout(freshTimer.current)
+    freshTimer.current = window.setTimeout(() => setFresh([]), 2200)
+    // (the new row is at the top: bring the top into view)
+    requestAnimationFrame(() => listRef.current?.firstElementChild?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+  }
   const [menu, setMenu] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   useFlip(listRef)
@@ -236,14 +258,17 @@ export function ListView() {
         </div>
       )}
       <BatchEditor ids={ids} open={batch && ids.length > 0} onClose={() => setBatch(false)} />
-      <QuickAdd examples onAdd={(title) => addTask({ title })} />
+      <QuickAdd examples onAdd={quickAdd} />
+      <span role="status" aria-live="polite" className="sr-only">
+        {announce}
+      </span>
       <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">
       <ScrollFade className="pr-2">
       <div ref={listRef} {...dropProps} className="space-y-2 py-1">
         {rows.map((t, i) => (
           <div key={t.id} data-card-id={t.id} className="relative">
             {slot && slot.before === t.id && <SlotLine at="top" />}
-            <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} />
+            <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
             {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
           </div>
         ))}

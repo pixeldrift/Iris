@@ -289,6 +289,8 @@ export function QuickAdd({
         if (!v.trim()) return
         onAdd(v.trim())
         setV('')
+        // stay in the box, so a run of items can be typed one after another
+        ref.current?.focus()
       }}
     >
       <div className="relative">
