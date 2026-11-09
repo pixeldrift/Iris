@@ -374,7 +374,7 @@ function DayPopup({ date, from, tasksOn, onNav, onClose, onLeave }: { date: stri
 
   const arrow = 'grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white/70'
   return createPortal(
-    <div className="fixed inset-0 z-[110] grid place-items-center py-3" style={{ paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}>
+    <div className="fixed inset-0 z-[var(--z-modal-low)] grid place-items-center py-3" style={{ paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}>
       <div ref={back} className="absolute inset-0 bg-ink/15 backdrop-blur-[3px]" onClick={close} />
       <div ref={panel} role="dialog" aria-modal="true" aria-label={`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`} className="glass glass-strong relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[2rem]">
         <header className="px-3 pb-2 pt-3.5">

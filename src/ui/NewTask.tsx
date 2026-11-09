@@ -265,7 +265,7 @@ export function NewTask() {
   if (!mounted) return null
   return (
     <div
-      className={`fixed inset-0 z-[80] flex items-start justify-center bg-ink/10 backdrop-blur-[3px] transition-[opacity,padding] duration-200 ${closing ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[var(--z-sheet)] flex items-start justify-center bg-ink/10 backdrop-blur-[3px] transition-[opacity,padding] duration-200 ${closing ? 'opacity-0' : 'opacity-100'}`}
       // a phone turned sideways has little height and the keyboard takes most of it: the box starts near the top there
       style={{ paddingTop: more || land ? '0.5rem' : '18vh', paddingBottom: 'calc(var(--kb, 0px) + 0.75rem)', paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}
       onClick={dismiss}

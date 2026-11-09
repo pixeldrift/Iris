@@ -26,7 +26,7 @@ test.describe('dates, reminders and a place on the details card', () => {
     await expect.poll(async () => (await taskNamed(page, 'Plan the garden'))?.place).toBe('Back garden')
     // the deadline, and its reminder
     await page.getByText(/^Deadline/).locator('xpath=..').getByRole('button').first().click()
-    await page.locator('div.fixed.z-\\[150\\]').getByRole('button', { name: new RegExp(`^${new Date(Date.now() + 3 * 86400_000).getDate()}$`) }).first().click()
+    await page.locator('[data-popover]').getByRole('button', { name: new RegExp(`^${new Date(Date.now() + 3 * 86400_000).getDate()}$`) }).first().click()
     await page.getByRole('button', { name: 'Remind me', exact: true }).click()
     await page.getByRole('radiogroup', { name: 'Remind me' }).getByRole('radio', { name: 'This evening' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Plan the garden'))?.dueRemindAt).toBeTruthy()

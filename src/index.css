@@ -36,6 +36,21 @@
   --lr-700: 107 68 145;
   --lr-glass: 120 80 170;
   --lr-deep: 70 35 110;
+  /* the stacking order, lowest to highest: nothing else should pick a number of its own */
+  --z-drawer: 50; /* the phone sidebar */
+  --z-panel-back: 60; /* the task panel's backdrop... */
+  --z-panel: 70; /* ...and the panel */
+  --z-sheet: 80; /* the new-task sheet */
+  --z-drag: 100; /* something being carried */
+  --z-modal-low: 110; /* an editor that a confirmation can open over */
+  --z-modal: 120; /* dialogs and confirmations */
+  --z-toast: 130;
+  --z-alert: 135; /* reminders */
+  --z-notice: 140; /* the update bubble */
+  --z-popover: 150; /* menus and pickers */
+  --z-tip: 200; /* tooltips */
+  --z-input: 400; /* the landscape type-here bar... */
+  --z-input-top: 450; /* ...and what it draws above itself */
 }
 
 html,

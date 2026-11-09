@@ -364,7 +364,7 @@ export function Sidebar() {
         className={
           land
             ? 'glass relative z-10 flex shrink-0 flex-col overflow-hidden rounded-r-3xl border-l-0'
-            : `glass fixed inset-y-0 left-0 z-50 flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
+            : `glass fixed inset-y-0 left-0 z-[var(--z-drawer)] flex w-[17.5rem] shrink-0 flex-col rounded-r-3xl border-l-0 transition-transform duration-300 md:static md:z-10 md:m-3 md:mr-0 md:translate-x-0 md:rounded-3xl md:border-l ${
                 open ? 'translate-x-0' : sliver ? '-translate-x-[calc(100%-var(--sliver))]' : '-translate-x-full'
               } ${swipe !== null ? '!transition-none' : ''}`
         }

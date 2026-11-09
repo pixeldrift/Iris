@@ -194,7 +194,7 @@ export function DragLayer() {
   if (!drag || !drag.ghost) return null
   return (
     <div
-      className="pointer-events-none fixed z-[100] max-w-[220px] truncate rounded-full border border-white/70 bg-white/80 px-3.5 py-1.5 text-sm text-ink shadow-[0_8px_30px_rgba(132,83,180,0.28)] backdrop-blur-md"
+      className="pointer-events-none fixed z-[var(--z-drag)] max-w-[220px] truncate rounded-full border border-white/70 bg-white/80 px-3.5 py-1.5 text-sm text-ink shadow-[0_8px_30px_rgba(132,83,180,0.28)] backdrop-blur-md"
       style={{ left: drag.x + 12, top: drag.y + 12 }}
     >
       {drag.label}

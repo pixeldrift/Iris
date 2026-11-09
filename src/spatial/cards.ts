@@ -10,6 +10,10 @@ export interface CardInfo {
   hue: number
   done: boolean
   due?: string | null
+  /** The date has passed (the chip goes rose, as everywhere else). */
+  late?: boolean
+  /** 0 to 1: how urgent, which deepens the row's colour in the flat view. */
+  urgency?: number
   /** 0 to 100, when it is part way. */
   progress?: number
   /** A picture, if it has one (drawn faintly behind the words). */
@@ -165,9 +169,9 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     const px = x + w - 16 - chipW
     const py = cy
     roundRect(g, px, py - 17, chipW, 34, 17)
-    g.fillStyle = hsl(c.hue, 60, 86, 1)
+    g.fillStyle = c.late ? 'rgba(244,205,221,0.95)' : hsl(c.hue, 60, 86, 1)
     g.fill()
-    g.fillStyle = hsl(c.hue, 40, 30, 1)
+    g.fillStyle = c.late ? '#9a4566' : hsl(c.hue, 40, 30, 1)
     g.textBaseline = 'middle'
     g.fillText(c.due, px + 12, py + 1)
   }
