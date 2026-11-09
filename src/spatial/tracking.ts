@@ -131,6 +131,8 @@ export class SpatialTracking implements TrackingProvider {
   readonly touch = new TouchTracking()
   private sensor = new SensorTracking()
   private motionOn = false
+  /** Motion has been wanted since it was last turned off on purpose (so a quiet sensor is a pause, not a choice). */
+  private wanted = false
   private listeners = new Set<Listener>()
   private lastQuality: TrackingQuality = 'good'
   private q = new Quaternion()
@@ -141,12 +143,27 @@ export class SpatialTracking implements TrackingProvider {
     if (!wantMotion) return this.report('touch', 'good')
     const ok = await this.sensor.start()
     this.motionOn = ok
+    this.wanted = ok
     this.report(ok ? 'motion' : 'touch', 'good', ok ? undefined : 'Motion tracking is not available, so you can look around by dragging.')
     return ok
   }
   stop() {
     this.sensor.stop()
     this.motionOn = false
+    this.wanted = false
+  }
+  /** Motion was on and has gone quiet (e.g. the page was away). */
+  get paused() {
+    return this.wanted && !this.motionOn
+  }
+  /** Pick the sensor up again (it needs no permission again where that was already given). */
+  async resume(): Promise<boolean> {
+    this.sensor.stop()
+    const ok = await this.sensor.start()
+    this.motionOn = ok
+    this.wanted = ok || this.wanted
+    this.report(ok ? 'motion' : 'touch', 'good')
+    return ok
   }
   get motion() {
     return this.motionOn
@@ -159,6 +176,7 @@ export class SpatialTracking implements TrackingProvider {
   disableMotion() {
     this.sensor.stop()
     this.motionOn = false
+    this.wanted = false
     this.report('touch', 'good')
   }
   getPose(): CameraPose {
@@ -169,7 +187,7 @@ export class SpatialTracking implements TrackingProvider {
       this.sensor.read(this.q)
       if (quality === 'none') {
         this.motionOn = false
-        this.report('touch', 'good', 'Motion tracking paused, so you can look around by dragging.')
+        this.report('touch', 'good')
       }
     }
     // the touch look: turn about the vertical first (ahead moves), tilt about the camera's own sideways axis
@@ -190,7 +208,7 @@ export class SpatialTracking implements TrackingProvider {
   }
   private report(source: 'motion' | 'touch', quality: TrackingQuality, note?: string) {
     this.lastQuality = quality
-    for (const l of this.listeners) l({ source, quality, note })
+    for (const l of this.listeners) l({ source, quality, note, paused: this.paused })
     return source === 'motion'
   }
 }

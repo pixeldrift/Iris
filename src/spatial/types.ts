@@ -85,6 +85,8 @@ export interface TrackingStatus {
   quality: TrackingQuality
   /** A plain-language note when something changed (a permission was declined, the sensor went quiet). */
   note?: string
+  /** Motion was wanted, but the sensor has gone quiet (the page was away): it can be resumed. */
+  paused?: boolean
 }
 
 export interface TrackingProvider {

@@ -1,3 +1,4 @@
+import * as sound from '../audio/engine'
 import { useRef, useState } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
@@ -64,7 +65,11 @@ export function ListEditor({ task }: { task: Task }) {
                 role="checkbox"
                 aria-checked={it.done}
                 aria-label={`Done: ${it.text}`}
-                onClick={() => patch(it.id, { done: !it.done })}
+                onClick={() => {
+                  if (it.done) sound.tickUndone()
+                  else sound.tickDone()
+                  patch(it.id, { done: !it.done })
+                }}
                 style={checkVars(hue)}
                 className={`well-circle grid h-[1.15rem] w-[1.15rem] shrink-0 place-items-center rounded-full transition ${it.done ? 'is-on text-white' : 'text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
               >

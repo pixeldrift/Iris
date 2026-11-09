@@ -93,6 +93,34 @@ test.describe('spatial workspace', () => {
     await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible()
   })
 
+  test('motion that goes quiet shows a Resume / Use touch note you can close, and Resume picks it up again', async ({ page }) => {
+    await page.addInitScript(() => {
+      class DOE extends Event {
+        alpha: number
+        beta: number
+        gamma: number
+        constructor(type: string, init: { alpha: number; beta: number; gamma: number }) {
+          super(type)
+          this.alpha = init.alpha
+          this.beta = init.beta
+          this.gamma = init.gamma
+        }
+        static requestPermission = async () => 'granted'
+      }
+      ;(window as unknown as { DeviceOrientationEvent: unknown }).DeviceOrientationEvent = DOE
+      let a = 0
+      ;(window as unknown as { __feed: boolean }).__feed = true
+      setInterval(() => (window as unknown as { __feed: boolean }).__feed && window.dispatchEvent(new DOE('deviceorientation', { alpha: (a += 0.5) % 360, beta: 90, gamma: 0 }) as unknown as Event), 30)
+    })
+    await enter(page, 'Start looking around')
+    await expect(page.getByText('Motion tracking', { exact: true })).toBeVisible({ timeout: 6000 })
+    await page.evaluate(() => ((window as unknown as { __feed: boolean }).__feed = false)) // (the sensor goes quiet)
+    await expect(page.getByText('Motion tracking paused.')).toBeVisible({ timeout: 8000 })
+    await page.getByRole('button', { name: 'Dismiss', exact: true }).click()
+    await expect(page.getByText('Motion tracking paused.')).toHaveCount(0)
+    await page.evaluate(() => ((window as unknown as { __feed: boolean }).__feed = true))
+  })
+
   test('without WebGL it is a flat canvas that still works: open and tick tasks, zoom and pan', async ({ page }) => {
     await page.addInitScript(() => {
       const get = HTMLCanvasElement.prototype.getContext
@@ -136,7 +164,7 @@ test.describe('spatial workspace', () => {
   test('the faint curves between groups and subgroups can be switched off', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
-    const box = page.getByRole('checkbox', { name: /Faint curves/ })
+    const box = page.getByRole('checkbox', { name: /Connecting lines/ })
     await expect(box).toBeChecked()
     await box.uncheck()
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v5')!).state.links)).toBe(false)
@@ -168,15 +196,15 @@ test.describe('spatial workspace', () => {
     await expect(slider).toHaveValue('50')
   })
 
-  test('the radius slider (in the settings) starts at 150 and its dot puts it back', async ({ page }) => {
+  test('the radius slider (in the settings) starts at 200 and its dot puts it back', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
     const slider = page.getByRole('slider', { name: 'Radius' })
-    await expect(slider).toHaveValue('150')
+    await expect(slider).toHaveValue('200')
     await slider.fill('60')
     await expect(slider).toHaveValue('60')
     await page.getByRole('button', { name: 'Back to the usual radius' }).click()
-    await expect(slider).toHaveValue('150')
+    await expect(slider).toHaveValue('200')
   })
 
   test('fit, clean up and the 3D / Flat switch are always on the canvas', async ({ page }) => {

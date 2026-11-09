@@ -53,6 +53,13 @@ export const useSpatial = create<SpatialState>()(
     }),
     {
       name: 'lilac-spatial-v5',
+      version: 1,
+      // the usual radius is now 200: a person who never moved it off the old usual (150) follows
+      migrate: (state, version) => {
+        const s = state as { radius?: number }
+        if (version < 1 && s.radius === 150) s.radius = RADIUS.start
+        return s as never
+      },
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
       partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, radius: s.radius, collapsed: s.collapsed }),
     },
