@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { goto, open, saved } from './helpers'
 
 /** The open popover (not the page behind it). */
-const pop = (page: import('@playwright/test').Page) => page.locator('div.fixed.z-\\[150\\]')
+const pop = (page: import('@playwright/test').Page) => page.locator('[data-popover]')
 
 test.describe('date and time pickers', () => {
   test.use({ viewport: { width: 1300, height: 1000 } })
