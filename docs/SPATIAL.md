@@ -102,3 +102,6 @@ In both 3D and flat, carrying a task or group out over the sidebar lights up its
 
 ## One look for every item
 Cards in both Space modes wear the pond bubble's look: the same shine, glow, outline and shadow, deeper when urgent (`src/core/look.ts` for the canvas, `.pad`/`.tint` in the stylesheet, kept in step by `look.test.ts`). The date chip's words and tone come from `dueInfo`, as in every other view; the flat row uses the real done button and date chip.
+
+## Border, glow and badges
+Every item has a real 1px border in its group's colour and a soft white glow around its words. The colour glow sits at the left, under the title (a flat row caps it at 24rem so it hugs the title on a wide screen); the shine is at the right. List and board rows show small badges for what is set (reminder, repeat and streak, progress, checklist count, person, picture), at most three, in the same bordered-chip family as the date, place and group chips. The 3D cards are textures drawn about 4x the size they show at, so their hairline is drawn at 2.5 texture pixels to land near one screen pixel at the usual zoom; it grows and shrinks with the card when zoomed.

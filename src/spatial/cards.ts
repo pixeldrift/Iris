@@ -120,10 +120,11 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   ellipse(LOOK.glow.at, LOOK.glow.stop, lhsla(lk.h, lk.fill.s, lk.fill.l, lk.fill.a))
   ellipse(LOOK.shine.at, LOOK.shine.stop, `rgba(255,255,255,${LOOK.shine.alpha})`)
   g.restore()
-  // the 1px border in the group's colour (about 3px at this size), so a pale card still has an edge
+  // the 1px border in the group's colour. The card is drawn about 4x the size it shows at, so the line is thinner than 1px of texture and
+  // fully opaque: a hairline here is about one screen pixel at the usual zoom, and grows and shrinks with the card when it is zoomed
   roundRect(g, x, y, w, h, R)
-  g.lineWidth = 3
-  g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l, lk.outline.a)
+  g.lineWidth = 2.5
+  g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l - 4, 1)
   g.stroke()
   if (c.image) {
     g.save()

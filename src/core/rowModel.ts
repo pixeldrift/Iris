@@ -39,7 +39,7 @@ export const dueLine = (d: DueInfo, compact = true): string => [d.text, d.time &
 
 /** The chip's colours as the stylesheet's classes. */
 export const DUE_TONE_CLASS: Record<DueTone, string> = {
-  today: 'bg-lilac-200/80 text-lilac-700',
-  late: 'bg-rose-soft/80 text-danger-ink',
-  later: 'bg-white/60 text-ink-soft',
+  today: 'border border-lilac-300/70 bg-lilac-200/80 text-lilac-700',
+  late: 'border border-danger/35 bg-rose-soft/80 text-danger-ink',
+  later: 'border border-ink-faint/40 bg-white/60 text-ink-soft',
 }

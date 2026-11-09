@@ -193,7 +193,8 @@ body.dragging {
 }
 
 /* ONE look for an item: the pond bubble. Rows, cards and Space cards wear it too (`.tint` is the same class for flat shapes), just not
-   round. The gradients are ellipses, so a circle (a bubble) is unchanged and a wide row stretches the same shine and glow to fit.
+   round. The colour sits at the left, under the words (and the shine at the right, behind the tags): on a bubble that is a mirror image
+   of the old look, on a wide row the glow is capped at 24rem so it hugs the title however wide the screen is.
    --u is urgency (0..1): the more urgent, the deeper and more vibrant; the more relaxed, the lighter and softer. At the middle (0.5)
    it is exactly the original pastel, and the ends stay well inside pastel territory. `src/core/look.ts` states the same numbers in code
    for the 3D cards, which are drawn on a canvas, and a test keeps the two in step. */
@@ -201,8 +202,8 @@ body.dragging {
 .tint {
   --th: var(--h, 285);
   background:
-    radial-gradient(ellipse at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
-    radial-gradient(ellipse at 70% 80%, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
+    radial-gradient(ellipse at 70% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(ellipse var(--glow-rx, 99%) 113% at 30% 80%, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
     rgba(255, 255, 255, 0.72);
   /* a real 1px border in the group's colour keeps the item readable however pale the inside gets (urgency only softens the fill) */
   border: 1px solid hsla(var(--th), calc(62% * var(--s, 1)), 64%, 0.85);
@@ -212,6 +213,8 @@ body.dragging {
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
     0 12px 30px -10px hsla(var(--th), calc(45% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(62% - 28% * var(--u, 0.5)), calc(0.12 + 0.46 * var(--u, 0.5)));
 }
+/* a flat row's glow is capped at 24rem (a bubble's is its own width), so it hugs the title however wide the screen is */
+.tint { --glow-rx: 24rem; }
 /* only the bubbles blur what is behind them (a long list of blurred rows is what made scrolling heavy) */
 .pad {
   backdrop-filter: blur(6px);

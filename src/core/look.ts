@@ -19,8 +19,8 @@ export interface Look {
 export const LOOK = {
   /** The white base the colour sits on, and the shine in the upper left. */
   baseAlpha: 0.72,
-  shine: { at: [0.3, 0.25] as const, alpha: 0.95, stop: 0.55 },
-  glow: { at: [0.7, 0.8] as const, stop: 0.7 },
+  shine: { at: [0.7, 0.25] as const, alpha: 0.95, stop: 0.55 },
+  glow: { at: [0.3, 0.8] as const, stop: 0.7 },
   border: 'rgba(255,255,255,0.85)',
   /** The glow around words, so dark text reads against the colour (blur px in the canvas cards, which are drawn about 3x CSS size). */
   textGlow: { color: 'rgba(255,255,255,0.95)', blur: 8 },

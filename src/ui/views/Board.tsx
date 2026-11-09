@@ -15,7 +15,7 @@ import { ScrollFade } from '../ScrollFade'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GripDots, GripHandle, PlaceChip, SlotLine, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, useTaskDrag } from '../shared'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -52,6 +52,7 @@ function Card({ task }: { task: Task }) {
         )}
         <div className="mt-0.5 flex flex-wrap items-center gap-1 pl-7 empty:hidden">
           <DueChip task={task} />
+          <ItemBadges task={task} max={2} />
           <PlaceChip task={task} />
           <FolderChips task={task} max={2} />
         </div>
