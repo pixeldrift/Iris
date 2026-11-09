@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { goto, open } from './helpers'
 
 test.describe('nothing is highlighted by dragging', () => {
-  test('text and images are not selectable in any view, but text boxes still select', async ({ page }) => {
+  test('text and images are not selectable in any view, but text boxes still select @slow', async ({ page }) => {
     await open(page)
     for (const view of ['Pond', 'List', 'Progress', 'Priority', 'Calendar', 'Timeline', 'Overview']) {
       await goto(page, view)

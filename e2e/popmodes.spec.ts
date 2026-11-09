@@ -65,7 +65,7 @@ test.describe('pop modes', () => {
     await expect(page.getByLabel('New item')).toHaveCount(0)
   })
 
-  test('fun mode: clearing every bubble says "All cleared!", then the field fills again', async ({ page }) => {
+  test('fun mode: clearing every bubble says "All cleared!", then the field fills again @slow', async ({ page }) => {
     await page.getByRole('button', { name: 'Pop mode' }).click()
     const pads = page.locator('[data-stray] button:not([disabled])')
     await expect.poll(() => pads.count()).toBeGreaterThan(3)
@@ -112,7 +112,7 @@ test.describe('pop modes', () => {
     await expect.poll(() => page.locator('[aria-label="The pattern"] [data-hue]').first().evaluate((e) => (e as HTMLElement).style.getPropertyValue('--u')), { timeout: 6000 }).toBe('1')
   })
 
-  test('the pop game always has a bubble for every colour the pattern asks for, over several rounds', async ({ page }) => {
+  test('the pop game always has a bubble for every colour the pattern asks for, over several rounds @slow', async ({ page }) => {
     test.setTimeout(90_000) // (the early rounds are slow on purpose)
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
@@ -152,7 +152,7 @@ test.describe('pop modes', () => {
     await page.screenshot({ path: 'test-results/gameplay.png' })
   })
 
-  test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept', async ({ page }) => {
+  test('the pop game: a right pop moves on, a wrong one ends it, and the scores are kept @slow', async ({ page }) => {
     test.setTimeout(60_000)
     await page.getByRole('button', { name: 'Pop mode' }).click()
     await page.getByRole('radio', { name: 'Game' }).click()
@@ -205,7 +205,7 @@ test.describe('pop modes: group names and the pattern box', () => {
     await expect.poll(() => label.evaluate((e) => getComputedStyle(e).opacity), { timeout: 4000 }).toBe('1')
   })
 
-  test('the pattern box shows two rows and scrolls', async ({ page }) => {
+  test('the pattern box shows two rows and scrolls @slow', async ({ page }) => {
     test.setTimeout(60_000)
     await open(page)
     await goto(page, 'Pond')

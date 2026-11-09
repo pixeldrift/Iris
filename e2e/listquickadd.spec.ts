@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { goto, open, saved } from './helpers'
 
-test('quick add in the list: Enter adds, keeps the box focused for the next, shows the new row at the top with a glow, then it slides into its sorted place', async ({ page }) => {
+test('quick add in the list: Enter adds, keeps the box focused for the next, shows the new row at the top with a glow, then it slides into its sorted place @smoke', async ({ page }) => {
   await open(page)
   await goto(page, 'List')
   const box = page.getByLabel('Add a task')

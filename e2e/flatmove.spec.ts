@@ -33,7 +33,7 @@ const fold = (page: P, ids: string[]) =>
   }, ids)
 
 test.describe('the flat canvas does everything the 3D space does', () => {
-  test('a task dragged onto another group joins it', async ({ page }) => {
+  test('a task dragged onto another group joins it @smoke', async ({ page }) => {
     await enterFlat(page)
     const from = await centre(page, '[data-task="demo-grandma"] button:nth-child(2)')
     const to = await centre(page, '[data-box="demo-writing"]')

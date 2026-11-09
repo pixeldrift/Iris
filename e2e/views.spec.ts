@@ -34,7 +34,7 @@ test.describe('views', () => {
     expect(states).toBeGreaterThanOrEqual(2)
   })
 
-  test('list: ticking a checklist moves it to In Progress, then Completed', async ({ page }) => {
+  test('list: ticking a checklist moves it to In Progress, then Completed @smoke', async ({ page }) => {
     await open(page)
     await goto(page, 'List')
     await page.locator('[data-lift-id^="task:"]', { hasText: 'Groceries' }).first().click()

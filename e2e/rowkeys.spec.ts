@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { goto, open } from './helpers'
 
-test('list rows can be reached and opened from the keyboard, and the arrows move between them', async ({ page }) => {
+test('list rows can be reached and opened from the keyboard, and the arrows move between them @smoke', async ({ page }) => {
   await open(page)
   await goto(page, 'List')
   const rows = page.locator('[data-lift-id^="task:"]')

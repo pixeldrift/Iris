@@ -97,7 +97,7 @@ test.describe('folded groups', () => {
 })
 
 test.describe('moving things in the space', () => {
-  test('a task dragged onto another group joins it (and leaves the one it was in)', async ({ page }) => {
+  test('a task dragged onto another group joins it (and leaves the one it was in) @smoke', async ({ page }) => {
     await enter(page)
     // "Call grandma" is in Life; carry it onto the Writing group's pane
     const from = (await pt(page, 'task', 'demo-grandma'))!

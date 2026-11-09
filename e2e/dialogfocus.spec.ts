@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { open } from './helpers'
 
-test('a dialog holds focus (Tab stays inside), is read as a dialog, and gives focus back when it closes', async ({ page }) => {
+test('a dialog holds focus (Tab stays inside), is read as a dialog, and gives focus back when it closes @smoke', async ({ page }) => {
   await open(page)
   const opener = page.getByRole('button', { name: 'My settings' })
   await opener.focus()

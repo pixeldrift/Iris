@@ -15,7 +15,8 @@ const use = { launchOptions: { executablePath }, trace: 'retain-on-failure' as c
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
-  retries: 1,
+  // (on a developer's machine a failure is reported at once; only CI re-tries, to ride out a slow runner)
+  retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   projects: [
     { name: 'app', testIgnore: /(accounts|connections|sharing)\.spec\.ts/, use: { ...devices['Desktop Chrome'], ...use, baseURL: 'http://localhost:4173', viewport: { width: 1200, height: 900 } } },

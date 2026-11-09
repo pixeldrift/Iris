@@ -51,7 +51,7 @@ test.describe('pictures on bubbles', () => {
     expect(made).toBeTruthy()
   })
 
-  test('a task with a picture drops the type icon (its check box already says what it is); one without keeps it', async ({ page }) => {
+  test('a task with a picture drops the type icon (its check box already says what it is); one without keeps it @smoke', async ({ page }) => {
     await goto(page, 'List')
     await page.keyboard.press('n')
     await page.keyboard.type('Snapshot task')

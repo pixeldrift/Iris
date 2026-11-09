@@ -8,7 +8,7 @@ const SOON = `${d.getMonth() + 1}/${d.getDate()}`
 test.describe('quick add and fuzzy reminders', () => {
   test.beforeEach(({ page }) => open(page))
 
-  test('"remind me a day before" needs no time and sets a morning-before reminder', async ({ page }) => {
+  test('"remind me a day before" needs no time and sets a morning-before reminder @smoke', async ({ page }) => {
     await page.keyboard.press('n')
     await page.keyboard.type(`Renew passport ${SOON} remind me a day before`)
     await expect(page.getByText('Remind a day before')).toBeVisible()
