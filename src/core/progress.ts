@@ -1,4 +1,4 @@
-import type { Folder, ListItem, Task, TaskStatus } from './types'
+import type { Folder, Task, TaskStatus } from './types'
 
 /** One column of the Progress view. */
 export interface Stage {
@@ -33,21 +33,6 @@ export const statusAtStage = (i: number, n: number): TaskStatus => (i >= n - 1 ?
 export function patchForStage(stages: Stage[], i: number): Pick<Task, 'stage' | 'status'> {
   const idx = Math.max(0, Math.min(stages.length - 1, i))
   return { stage: stages[idx].id, status: statusAtStage(idx, stages.length) }
-}
-
-/**
- * Ticking things off moves a list along: the first tick starts it (In Progress), the last tick finishes it
- * (Completed), and unticking everything puts a finished list back at the start. Returns the new stage index, or
- * null when nothing should change.
- */
-export function stageAfterTicks(t: Pick<Task, 'stage' | 'status'>, stages: Stage[], items: ListItem[]): number | null {
-  if (items.length === 0) return null
-  const done = items.filter((i) => i.done).length
-  const cur = stageIndex(t, stages)
-  const last = stages.length - 1
-  if (done === items.length) return cur === last ? null : last
-  if (done > 0) return cur === 0 || cur === last ? Math.min(1, last - 1) : null
-  return cur === last ? 0 : null
 }
 
 const RANK_GAP = 1024

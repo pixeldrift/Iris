@@ -65,7 +65,7 @@ export function GroupMenu({ n, name, actions }: { n: number; name: string; actio
                 setOpen(false)
                 a.run()
               }}
-              className={`grid h-9 w-9 place-items-center rounded-xl text-ink-soft transition hover:bg-lilac-100/80 ${a.label === 'Delete' ? 'hover:text-[#b04a6e]' : 'hover:text-lilac-700'}`}
+              className={`grid h-9 w-9 place-items-center rounded-xl text-ink-soft transition hover:bg-lilac-100/80 ${a.label === 'Delete' ? 'hover:text-danger-deep' : 'hover:text-lilac-700'}`}
             >
               {a.icon}
             </button>

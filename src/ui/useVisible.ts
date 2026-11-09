@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isFinished } from '../core/schedule'
 import { matchesQuery } from '../core/search'
-import { matchesScope } from '../core/tasks'
+import { scopeMatcher } from '../core/tasks'
 import type { Task } from '../core/types'
 import { useStore } from '../state/store'
 
@@ -23,18 +23,18 @@ export function useVisibleTasks(includeDone = false, search: 'filter' | 'keep' =
     const id = window.setInterval(() => setMinute(Math.floor(Date.now() / 60_000)), 60_000)
     return () => window.clearInterval(id)
   }, [])
-  return useMemo(
-    () =>
-      tasks.filter(
-        (t) =>
-          !t.draft &&
-          (includeDone || showDone || !isFinished(t, minute * 60_000) || lingering[t.id]) &&
-          matchesScope(t, scope, folders) &&
-          // most views show only what matches; the pond keeps everything and fades the rest
-          (search === 'keep' || !query.trim() || matchesQuery(t, query, { folders, people })),
-      ),
-    [tasks, folders, people, scope, showDone, lingering, includeDone, search, query, minute],
-  )
+  return useMemo(() => {
+    const inScope = scopeMatcher(scope, folders) // (worked out once, not for every task)
+    const asked = search !== 'keep' && query.trim() !== ''
+    return tasks.filter(
+      (t) =>
+        !t.draft &&
+        (includeDone || showDone || !isFinished(t, minute * 60_000) || lingering[t.id]) &&
+        inScope(t) &&
+        // most views show only what matches; the pond keeps everything and fades the rest
+        (!asked || matchesQuery(t, query, { folders, people })),
+    )
+  }, [tasks, folders, people, scope, showDone, lingering, includeDone, search, query, minute])
 }
 
 /** Null when nothing is typed; otherwise whether a task matches (for highlighting and fading). */

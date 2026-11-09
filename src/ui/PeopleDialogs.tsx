@@ -148,7 +148,7 @@ export function PersonDialog() {
             del(existing.id)
           }
         }}
-        className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-[#b04a6e]"
+        className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-danger-deep"
       >
         Remove
       </button>
@@ -309,7 +309,7 @@ export function PersonDialog() {
               {f.photo ? 'Change photo' : 'Add a photo'}
             </button>
             {f.photo && (
-              <button type="button" onClick={() => setF((p) => ({ ...p, photo: '' }))} className="rounded-full px-2 py-0.5 text-ink-faint transition hover:text-[#b04a6e]">
+              <button type="button" onClick={() => setF((p) => ({ ...p, photo: '' }))} className="rounded-full px-2 py-0.5 text-ink-faint transition hover:text-danger-deep">
                 Remove photo
               </button>
             )}
@@ -362,7 +362,7 @@ export function PersonDialog() {
                 onChange={(e) => patch({ value: e.target.value })}
                 onBlur={() => x.kind === 'phone' && patch({ value: formatPhone(x.value) })}
               />
-              <button type="button" onClick={() => setF((cur) => ({ ...cur, extras: cur.extras.filter((e) => e.id !== x.id) }))} aria-label={`Remove ${kind.label}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-[#b04a6e]">
+              <button type="button" onClick={() => setF((cur) => ({ ...cur, extras: cur.extras.filter((e) => e.id !== x.id) }))} aria-label={`Remove ${kind.label}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70 hover:text-danger-deep">
                 <IconClose size={12} />
               </button>
             </div>

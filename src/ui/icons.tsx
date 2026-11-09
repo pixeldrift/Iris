@@ -133,38 +133,9 @@ export const IconPencil = (p: P) => (
     <path d="M4 20h4L19 9l-4-4L4 16v4Z" />
   </Svg>
 )
-export const IconSound = (p: P) => (
-  <Svg {...p}>
-    <path d="M4 10v4h4l5 4V6L8 10H4Z" />
-    <path d="M16.5 9a4 4 0 0 1 0 6" />
-  </Svg>
-)
-export const IconSoundOff = (p: P) => (
-  <Svg {...p}>
-    <path d="M4 10v4h4l5 4V6L8 10H4Z" />
-    <path d="m17 9 4 6M21 9l-4 6" />
-  </Svg>
-)
-export const IconWind = (p: P) => (
-  <Svg {...p}>
-    <path d="M3 9h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h8" />
-  </Svg>
-)
 export const IconDrift = (p: P) => (
   <Svg {...p}>
     <path d="M3 9c3-3 6 3 9 0s6 3 9 0M3 15c3-3 6 3 9 0s6 3 9 0" />
-  </Svg>
-)
-export const IconSize = (p: P) => (
-  <Svg {...p}>
-    <circle cx="8" cy="15" r="3.5" />
-    <circle cx="16" cy="9" r="5.5" />
-  </Svg>
-)
-export const IconEye = (p: P) => (
-  <Svg {...p}>
-    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-    <circle cx="12" cy="12" r="2.8" />
   </Svg>
 )
 export const IconInbox = (p: P) => (
@@ -260,12 +231,6 @@ export const IconUndo = (p: P) => (
     <path d="M4.5 9.5H14a5.5 5.5 0 0 1 0 11h-3" />
   </Svg>
 )
-export const IconRedo = (p: P) => (
-  <Svg {...p}>
-    <path d="m15 14 4.5-4.5L15 5" />
-    <path d="M19.5 9.5H10a5.5 5.5 0 0 0 0 11h3" />
-  </Svg>
-)
 export const IconZoom = ({ plus, ...p }: P & { plus: boolean }) => (
   <Svg {...p}>
     <circle cx="10.5" cy="10.5" r="6" />
@@ -352,12 +317,6 @@ export const IconGlobe = (p: P) => (
 )
 
 /** A briefcase: "business days only". */
-export const IconBriefcase = (p: P) => (
-  <Svg {...p}>
-    <rect x="3.5" y="7.5" width="17" height="12" rx="2" />
-    <path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17M10.5 12.5v1.5h3v-1.5" />
-  </Svg>
-)
 export const IconClock = (p: P) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="8.5" />

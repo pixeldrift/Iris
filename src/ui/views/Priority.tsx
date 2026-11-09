@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { isFinished } from '../../core/schedule'
+import { isDoneNow } from '../../core/recurrence'
 import { satOf, tint } from '../../core/color'
 import { stepSim, WATER_FEEL, type SimNode } from '../../core/flock'
 import { clamp01, weightOf, effectiveUrgency } from '../../core/tasks'
@@ -53,7 +53,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
     (x, y) => update(task.id, { urgency: clamp01(x), importance: clamp01(1 - y) }),
     { clamp: CLAMP, onGrab: () => api.grab(task.id), onDrag: (fx, fy) => api.drag(task.id, fx, fy), onRelease: () => api.release(task.id) },
   )
-  const done = isFinished(task)
+  const done = isDoneNow(task)
   return (
     <div ref={el} data-node className="absolute left-0 top-0 will-change-transform" style={{ width: r * 2, height: r * 2, transform: `translate(${first.x - r}px, ${first.y - r}px)`, ['--r' as string]: r }}>
       <div className={`bloom-in h-full w-full ${leave}`}>

@@ -54,7 +54,7 @@ function Shell({ kind, ready, busy, error, onConfirm, children }: { kind: Kind; 
       <p className="text-sm text-ink-soft">{copy.what}</p>
       {children}
       {error && (
-        <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-[#9a4566]">
+        <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-danger-ink">
           {error}
         </p>
       )}
@@ -62,7 +62,7 @@ function Shell({ kind, ready, busy, error, onConfirm, children }: { kind: Kind; 
         <button type="button" onClick={close} className="ml-auto rounded-full px-4 py-2 text-sm text-ink-soft hover:bg-white/70">
           Keep everything
         </button>
-        <button type="submit" disabled={!ready || busy} className="rounded-full bg-[#c4577e] px-5 py-2 text-sm font-medium text-white shadow-md shadow-[#c4577e]/30 transition disabled:opacity-40">
+        <button type="submit" disabled={!ready || busy} className="rounded-full bg-danger px-5 py-2 text-sm font-medium text-white shadow-md shadow-danger/30 transition disabled:opacity-40">
           {busy ? 'One moment…' : copy.button}
         </button>
       </div>

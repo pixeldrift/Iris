@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
-import { isFinished } from '../../core/schedule'
+import { isDoneNow } from '../../core/recurrence'
 import { satOf } from '../../core/color'
 import { plannedDate, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
@@ -69,7 +69,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
     },
   )
 
-  const done = isFinished(task)
+  const done = isDoneNow(task)
   // the type grows and shrinks with the bubble, so a title wraps the same way at every size
   const font = r * 0.2
   return (

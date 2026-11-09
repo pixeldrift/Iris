@@ -1,5 +1,5 @@
 /** The small dot under a slider where its default sits: tap it to put the slider back (the app's convention for Look & Feel sliders). */
-export function DefaultDot({ at, onReset, color, label }: { at: number; onReset: () => void; color: string; label: string }) {
+export function DefaultDot({ at, onReset, color = 'var(--color-ink-faint)', label }: { at: number; onReset: () => void; color?: string; label: string }) {
   return (
     <button
       type="button"

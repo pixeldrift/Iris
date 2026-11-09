@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { isFinished } from '../../core/schedule'
+import { isDoneNow } from '../../core/recurrence'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
 import { sortTasks, effectiveUrgency } from '../../core/tasks'
@@ -87,7 +87,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
   const onPointerDown = useTaskDrag(task, el, (e) => (e.shiftKey || selecting ? onToggle() : useStore.getState().select(task.id)))
   const del = useStore((s) => s.deleteTask)
   const swipe = useSwipeToDelete(el, reveal, () => del(task.id))
-  const done = isFinished(task)
+  const done = isDoneNow(task)
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
@@ -130,7 +130,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
             }}
             aria-label="Delete"
             title="Delete"
-            className="absolute right-1.5 top-1/2 hidden h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-ink-faint opacity-0 shadow-sm transition hover:text-[#b04a6e] md:grid md:group-hover:opacity-100"
+            className="absolute right-1.5 top-1/2 hidden h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-ink-faint opacity-0 shadow-sm transition hover:text-danger-deep md:grid md:group-hover:opacity-100"
           >
             <IconTrash size={14} />
           </button>
@@ -217,7 +217,7 @@ export function ListView() {
               ids.forEach((id) => del(id))
               clear()
             }}
-            className="rounded-full px-3 py-1 text-sm text-ink-soft hover:text-[#b04a6e]"
+            className="rounded-full px-3 py-1 text-sm text-ink-soft hover:text-danger-deep"
           >
             Delete
           </button>

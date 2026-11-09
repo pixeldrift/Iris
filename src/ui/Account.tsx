@@ -136,7 +136,7 @@ function AuthDialog() {
           onChange={(e) => setPassword(e.target.value)}
         />
         {error && (
-          <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-[#9a4566]">
+          <p role="alert" className="rounded-xl bg-rose-soft/50 px-3 py-2 text-sm text-danger-ink">
             {error}
           </p>
         )}
@@ -201,7 +201,7 @@ function AccountMenu() {
   }
   const status =
     sync.status === 'syncing' ? 'Syncing…' : sync.status === 'offline' ? 'Offline: saved on this device' : sync.status === 'error' ? 'Couldn’t sync. Tap Sync now to retry' : sync.lastAt ? `Synced ${ago(sync.lastAt)}` : 'Signed in'
-  const dot = sync.status === 'error' ? 'bg-[#c95b88]' : sync.status === 'offline' ? 'bg-ink-faint' : sync.status === 'syncing' ? 'animate-pulse bg-lilac-400' : 'bg-[#6fc29a]'
+  const dot = sync.status === 'error' ? 'bg-danger' : sync.status === 'offline' ? 'bg-ink-faint' : sync.status === 'syncing' ? 'animate-pulse bg-lilac-400' : 'bg-[#6fc29a]'
   const me = people.find((p) => p.id === `me-${data.user.id}`)
   const initial = (data.user.name || data.user.email)[0]?.toUpperCase()
   // your profile picture (My Profile) stands in for the initial, here and in the menu
@@ -218,7 +218,7 @@ function AccountMenu() {
         className="relative ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-lilac-500 bg-lilac-200 text-sm font-semibold text-lilac-700 transition hover:scale-105"
       >
         {picture ? <img src={picture} alt="" draggable={false} className="h-full w-full rounded-full object-cover" /> : initial}
-        {sync.status === 'error' && <span aria-hidden title="Couldn’t sync" className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#c95b88] ring-2 ring-white/80" />}
+        {sync.status === 'error' && <span aria-hidden title="Couldn’t sync" className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-white/80" />}
         {unread > 0 && (
           <span aria-hidden className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-lilac-500 px-1 text-[0.6rem] font-semibold leading-none text-white ring-2 ring-white/80">
             {unread}
@@ -233,7 +233,7 @@ function AccountMenu() {
             <div className="truncate text-xs text-ink-faint">{data.user.email}</div>
           </div>
         </div>
-        <div className={`mx-2.5 mb-1.5 flex items-center gap-1.5 rounded-lg bg-white/50 px-2 py-1 text-[0.7rem] ${sync.status === 'error' ? 'text-[#9a4566]' : 'text-ink-soft'}`}>
+        <div className={`mx-2.5 mb-1.5 flex items-center gap-1.5 rounded-lg bg-white/50 px-2 py-1 text-[0.7rem] ${sync.status === 'error' ? 'text-danger-ink' : 'text-ink-soft'}`}>
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
           <span className="min-w-0 flex-1 truncate">{status}</span>
           {sync.peers > 0 && sync.status !== 'error' && <span className="shrink-0 text-lilac-700">live</span>}
@@ -268,7 +268,7 @@ function AccountMenu() {
           }}
         >
           <IconBell size={16} /> Notifications
-          {unread > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#c4577e] px-1.5 text-[0.65rem] font-semibold text-white">{unread}</span>}
+          {unread > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[0.65rem] font-semibold text-white">{unread}</span>}
         </button>
         <button
           className={item}
@@ -281,7 +281,7 @@ function AccountMenu() {
         </button>
         <div aria-hidden className="mx-2.5 my-1 h-px bg-ink-faint/20" />
         <button
-          className={`${item} text-[#9a4566]`}
+          className={`${item} text-danger-ink`}
           onClick={async () => {
             setMenu(false)
             if (!(await askConfirm({ title: 'Sign out?', message: 'Your pond stays safe in your account. It is removed from this device until you sign in again.', confirmLabel: 'Sign out', cancelLabel: 'Stay signed in' }))) return

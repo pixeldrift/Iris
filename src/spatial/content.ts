@@ -4,7 +4,7 @@
 import { relativeLabel } from '../core/dates'
 import { childrenOf, pathOf } from '../core/folders'
 import { hasProgress, progressOf } from '../core/progress'
-import { isFinished } from '../core/schedule'
+import { isDoneNow } from '../core/recurrence'
 import { plannedDate } from '../core/tasks'
 import type { Folder, Task } from '../core/types'
 import { bubbleHue } from '../ui/pond/hue'
@@ -68,7 +68,7 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
       cluster: clusterOf(t),
       title: t.title,
       hue: bubbleHue(t, folders),
-      done: isFinished(t),
+      done: isDoneNow(t),
       due: date ? relativeLabel(date) : null,
       progress: hasProgress(t.kind) ? progressOf(t) : undefined,
     }

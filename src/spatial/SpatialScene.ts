@@ -92,6 +92,8 @@ export class SpatialScene {
   /** Folded groups opened by lingering over them while carrying something (like spring-loaded folders), and the timer for the next. */
   private sprung = new Set<string>()
   private springTimer?: ReturnType<typeof setTimeout>
+  /** The groups by id (for the lookups made on every frame). */
+  private clusterMap = new Map<string, SceneCluster>()
   private content: SceneContent = { clusters: [], tasks: [], layout: { clusters: {}, tasks: {} } }
   /** Where everything is meant to be (the stored layout, with groups pushed clear of each other). */
   private layout: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -144,6 +146,7 @@ export class SpatialScene {
 
   setContent(c: SceneContent) {
     this.content = c
+    this.clusterMap = new Map(c.clusters.map((x) => [x.id, x]))
     // groups being carried keep their place under the finger until they are dropped
     const lay = withRadius(c.layout, this.radius)
     this.layout = this.carry?.kind === 'cluster' ? { ...lay, clusters: { ...lay.clusters, [this.carry.id]: this.layout.clusters[this.carry.id] ?? lay.clusters[this.carry.id] } } : lay
@@ -249,7 +252,7 @@ export class SpatialScene {
       const tp = L.tasks[t.id]
       if (!n || !tp) continue
       if (this.carry?.kind === 'task' && this.carry.id === t.id) continue // (under the finger)
-      if (this.content.clusters.find((c) => c.id === tp.c)?.collapsed && !tp.free) {
+      if (this.clusterMap.get(tp.c)?.collapsed && !tp.free) {
         n.mesh.visible = false
         continue
       }
@@ -387,7 +390,7 @@ export class SpatialScene {
       const cs = cp.scale ?? 1
       // from just under the group's box (or its name, when folded) to just above the subgroup's name
       const prow = pp.rows ?? 1
-      const pc = this.content.clusters.find((c) => c.id === h.parent)
+      const pc = this.clusterMap.get(h.parent ?? "")
       const below = pc?.collapsed ? 0.45 * K : prow * (WORLD.cardH + WORLD.gap) + 0.5 * K
       const at = (c: ClusterPlacement, b: ReturnType<typeof planeBasis>, v: number) => new Vector3(c.x + b.up[0] * v, c.y + b.up[1] * v, c.z + b.up[2] * v)
       const p0 = at(pp, pb, -below * ps)
@@ -831,9 +834,9 @@ export class SpatialScene {
     if (!c || c.hover === id) return
     c.hover = id
     clearTimeout(this.springTimer)
-    if (id && this.content.clusters.find((x) => x.id === id)?.collapsed) {
+    if (id && this.clusterMap.get(id)?.collapsed) {
       this.springTimer = setTimeout(() => {
-        if (this.carry?.hover === id && this.content.clusters.find((x) => x.id === id)?.collapsed) {
+        if (this.carry?.hover === id && this.clusterMap.get(id)?.collapsed) {
           this.sprung.add(id)
           this.events.onCollapse?.(id)
         }
@@ -844,7 +847,7 @@ export class SpatialScene {
   /** Folded groups that were opened only to see where something goes close again, except the one it landed in. */
   private closeSprung(keep: string | null) {
     clearTimeout(this.springTimer)
-    for (const id of this.sprung) if (id !== keep && !this.content.clusters.find((x) => x.id === id)?.collapsed) this.events.onCollapse?.(id)
+    for (const id of this.sprung) if (id !== keep && !this.clusterMap.get(id)?.collapsed) this.events.onCollapse?.(id)
     this.sprung.clear()
   }
 

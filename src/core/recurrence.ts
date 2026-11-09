@@ -1,5 +1,6 @@
-import { addDays, diffDays, fromISO, ordinalSuffix, toISO, WEEKDAYS } from './dates'
+import { addDays, diffDays, fromISO, ordinalSuffix, today, toISO, WEEKDAYS } from './dates'
 import { formatDate } from './locale'
+import { isFinished } from './schedule'
 import type { Recurrence, Task } from './types'
 
 const daysIn = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
@@ -112,6 +113,15 @@ export function currentOccurrence(t: Task, now: string): string | null {
   if (!r) return null
   const a = anchorOf(t)
   return nextOccurrence(r, now, a) ?? prevOccurrence(r, now, a)
+}
+
+/**
+ * Is this ticked off right now? One answer for every view: a repeating task is done when its current occurrence is logged (it is never
+ * "finished" for good); anything else is done when finished (checked off, or an event that is over).
+ */
+export function isDoneNow(t: Task, now: string = today()): boolean {
+  if (!repeatOf(t)) return isFinished(t)
+  return t.log.includes(currentOccurrence(t, now) ?? now)
 }
 
 /** Consecutive occurrences done, counting back from today. Today still open doesn't break the run. */

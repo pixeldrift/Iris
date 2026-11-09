@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { tint } from '../core/color'
 import { addDays, relativeLabel, today } from '../core/dates'
-import { currentOccurrence, repeatOf } from '../core/recurrence'
+import { currentOccurrence, isDoneNow, repeatOf } from '../core/recurrence'
 import { formatTime, isOverdue, plannedDate, weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
@@ -46,7 +46,7 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
   const hue = useTaskHue(task)
   const toggle = useStore((s) => s.toggleDone)
   const occ = repeatOf(task) ? (currentOccurrence(task, today()) ?? today()) : null
-  const done = occ ? task.log.includes(occ) : task.status === 'done'
+  const done = isDoneNow(task)
   // an idea is a passing thought and an event is something you go to, not something you do: nothing to tick off
   if (task.kind === 'idea' || task.kind === 'event') return null
   return (
@@ -149,7 +149,7 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
   return (
     <span
       className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
-        late ? 'bg-rose-soft/80 text-[#9a4566]' : when === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
+        late ? 'bg-rose-soft/80 text-danger-ink' : when === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
       }`}
     >
       {relativeLabel(when)}

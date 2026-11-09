@@ -1,4 +1,4 @@
-import { parseVCards, type ParsedContact } from '../core/people'
+import type { ParsedContact } from '../core/people'
 
 interface PickerContact {
   name?: string[]
@@ -29,9 +29,4 @@ export async function pickContact(): Promise<ParsedContact | null> {
   } catch {
     return null // user dismissed the chooser
   }
-}
-
-/** Reads a .vcf "contact card" (what iOS/macOS/Android produce when you share a contact). */
-export async function readVCard(file: File): Promise<ParsedContact | null> {
-  return parseVCards(await file.text())[0] ?? null
 }

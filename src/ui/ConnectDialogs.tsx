@@ -145,7 +145,7 @@ function AcceptDialog() {
       label="Connection request"
       footer={
         <div className="flex items-center gap-2">
-          <button type="button" disabled={busy} className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-[#b04a6e]" onClick={() => c && run(() => declineRequest(c, true), 'Blocked. They won’t be told.')}>
+          <button type="button" disabled={busy} className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-danger-deep" onClick={() => c && run(() => declineRequest(c, true), 'Blocked. They won’t be told.')}>
             Block
           </button>
           <button type="button" disabled={busy} className={`${btnGhost} ml-auto`} onClick={() => c && run(() => declineRequest(c), 'Declined. They won’t be told.')}>
@@ -197,7 +197,7 @@ function SharesDialog() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-[#b04a6e]"
+            className="rounded-full px-3 py-2 text-sm text-ink-faint transition hover:text-danger-deep"
             onClick={async () => {
               if (!conn || !person) return
               if (!(await askConfirm({ title: `Disconnect from ${person.name}?`, message: 'What they shared is removed from their entry; the entry itself stays. You can connect again later.', confirmLabel: 'Disconnect', danger: true }))) return
@@ -384,7 +384,7 @@ export function NoticesHost() {
                   </button>
                 </div>
               </div>
-              <button type="button" onClick={() => popOut([`r:${t.id}`], () => dismissAlert(t.id))} aria-label={`Dismiss ${t.title || 'reminder'}`} title="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
+              <button type="button" onClick={() => popOut([`r:${t.id}`], () => dismissAlert(t.id))} aria-label={`Dismiss ${t.title || 'reminder'}`} title="Dismiss" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-danger-deep">
                 <IconClose size={12} />
               </button>
             </div>
@@ -464,7 +464,7 @@ export function NoticesHost() {
               </div>
               <When iso={n.at} />
             </div>
-            <button type="button" onClick={() => popOut([`a:${n.id}`], () => void remove([n.id]))} aria-label={`Delete notification from ${n.from}`} title="Delete" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-[#b04a6e]">
+            <button type="button" onClick={() => popOut([`a:${n.id}`], () => void remove([n.id]))} aria-label={`Delete notification from ${n.from}`} title="Delete" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-danger-deep">
               <IconClose size={12} />
             </button>
           </li>
