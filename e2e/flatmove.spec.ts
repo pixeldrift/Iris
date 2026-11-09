@@ -107,3 +107,13 @@ test.describe('the flat canvas does everything the 3D space does', () => {
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.folders.find((f: { id: string }) => f.id === 'life').parentId)).toBe('home')
   })
 })
+
+test('a tap on blank space inside a group box opens the new-item box with that group on it', async ({ page }) => {
+  await enterFlat(page)
+  const b = (await page.locator('[data-box="eng101"]').boundingBox())!
+  // the bottom-right of the box: the third row has an empty slot there
+  await page.mouse.click(b.x + b.width - 14, b.y + b.height - 12)
+  await page.getByLabel('New item').first().fill('Flat blank tap')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Flat blank tap')?.folderIds ?? [])).toContain('eng101')
+})

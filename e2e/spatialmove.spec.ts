@@ -144,3 +144,15 @@ test.describe('moving things in the space', () => {
     expect(apart).toBe(true)
   })
 })
+
+test.describe('blank space in a group', () => {
+  test('a tap on the empty part of a group box opens the new-item box with that group on it', async ({ page }) => {
+    await enter(page)
+    const at = await page.evaluate(() => (window as unknown as { __space: { blankInPlate: (id: string) => Pt } }).__space.blankInPlate('eng101'))
+    expect(at).not.toBeNull()
+    await page.mouse.click(at!.x, at!.y)
+    await page.getByLabel('New item').first().fill('Blank tap')
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Blank tap')?.folderIds ?? []))).toContain('eng101')
+  })
+})

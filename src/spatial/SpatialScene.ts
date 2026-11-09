@@ -58,6 +58,8 @@ export interface SceneEvents {
   onFov?(fov: number): void
   /** The twirl on a group's name was tapped. */
   onCollapse?(id: string): void
+  /** Blank space inside a group's box was tapped: add a new item there. */
+  onAddIn?(id: string): void
   /** A group was dropped onto another group's name: it should go inside it. */
   onReparent?(id: string, parent: string): void
   /** Something is being carried (and where the pointer is): the view can light up what is outside the canvas. */
@@ -511,6 +513,23 @@ export class SpatialScene {
     const r = this.renderer.domElement.getBoundingClientRect()
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
   }
+  /** A spot on a group's box with no card or name over it (where a tap adds an item). For tests. */
+  blankInPlate(id: string): { x: number; y: number } | null {
+    const plate = this.plates.get(id)
+    if (!plate) return null
+    const r = this.renderer.domElement.getBoundingClientRect()
+    const c = this.screenPoint('plate', id)
+    if (!c) return null
+    for (let dy = 0; dy <= 120; dy += 6)
+      for (let dx = 0; dx <= 160; dx += 6)
+        for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+          const pt = { clientX: c.x + sx * dx, clientY: c.y + sy * dy }
+          if (pt.clientX < r.left || pt.clientX > r.right || pt.clientY < r.top || pt.clientY > r.bottom) continue
+          const hit = this.pick(pt)
+          if (hit?.kind === 'plate' && hit.id === id) return { x: pt.clientX, y: pt.clientY }
+        }
+    return null
+  }
   /** A spot on the screen with nothing under it (open space). */
   emptyPoint(): { x: number; y: number } | null {
     const r = this.renderer.domElement.getBoundingClientRect()
@@ -917,7 +936,7 @@ export class SpatialScene {
       else if (p.hit.kind === 'task') {
         if (p.hit.uvx < 0.2) this.events.onToggle(p.hit.id)
         else this.events.onOpen(p.hit.id)
-      }
+      } else if (p.hit.kind === 'plate') this.events.onAddIn?.(p.hit.id) // (the box itself, not a card on it)
     }
   }
   private wheel = (e: WheelEvent) => {

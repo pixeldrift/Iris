@@ -90,7 +90,7 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const y = PAD_Y
   const w = CARD_BODY.w
   const h = CARD_BODY.h
-  const R = 22 // the row's corner (rounded, not round)
+  const R = 36 // the row's corner: well rounded (the card is 112 tall, so a full pill would be 56)
   const lk = look(c.hue, c.urgency)
   g.save()
   // opaque like the pond's bubbles look over the page (only a ticked-off one goes see-through)

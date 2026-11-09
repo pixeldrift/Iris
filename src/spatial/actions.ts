@@ -2,6 +2,7 @@ import { canReparent } from '../core/folders'
 import * as sound from '../audio/engine'
 import { useStore } from '../state/store'
 import { targetAt, useDnd } from '../ui/dnd'
+import { openCompose } from '../ui/NewTask'
 
 /** A task dropped into another group joins it (and leaves the one it was in). 'none' takes it out of its group. */
 export function retagTask(id: string, clusterId: string) {
@@ -40,4 +41,9 @@ export function dropOutside(kind: 'task' | 'group', id: string, x: number, y: nu
   if (kind === 'task') useStore.getState().dropTask(id, target)
   else if (target.startsWith('folder:')) reparentGroup(id, target.slice('folder:'.length))
   return true
+}
+
+/** Tapping blank space inside a group: the new-item box opens with that group already on it (as in the pond). Unsorted has no group to add. */
+export function addInGroup(id: string) {
+  openCompose(null, id === 'none' ? null : { folderIds: [id] })
 }

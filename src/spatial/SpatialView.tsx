@@ -10,7 +10,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
-import { dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
+import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { RADIUS } from './layout'
@@ -155,6 +155,7 @@ export default function SpatialView() {
         onCarry: (kind, id, x, y) => showCarry(kind, id, kind === 'task' ? (live.current.tasks.find((t) => t.id === id)?.title ?? 'Task') : (live.current.clusters.find((c) => c.id === id)?.name ?? 'Group'), x, y),
         onCarryEnd: endCarry,
         onDropOut: dropOutside,
+        onAddIn: addInGroup,
         onFov: (f) => setFov(Math.round(f)),
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: retagTask,
@@ -166,7 +167,7 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), fit: () => sc.frameAll(true) }
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true) }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
