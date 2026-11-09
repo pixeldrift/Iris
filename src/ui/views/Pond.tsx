@@ -382,8 +382,27 @@ export function Pond() {
     const tick = () => {
       const { rel: r, group: g } = live.current
       const list = [...nodes.current.values()].map((n) => n.sim)
+      // a group's name is solid too: it is made of a few unmoving round pieces along its width, so bubbles from other groups are pushed aside
+      // by it just as they are by each other (and a name being carried shoves them out of its way)
+      const solid: typeof list = []
+      for (const [key, el] of labelEls.current) {
+        const lab = labelsRef.current.find((q) => q.key === key)
+        if (!lab) continue
+        const st = labelSt.current.get(key)
+        const w = el.offsetWidth
+        const hh = el.offsetHeight
+        if (!w || !hh) continue
+        const rr = hh * 0.5
+        const n = Math.max(1, Math.ceil((w - hh) / (rr * 1.2)) + 1)
+        const cx = lab.x + (st?.x ?? 0)
+        const cy = lab.y + (st?.y ?? 0)
+        for (let i = 0; i < n; i++) {
+          const x = n === 1 ? cx : cx - (w - hh) / 2 + ((w - hh) * i) / (n - 1)
+          solid.push({ id: `label:${key}:${i}`, x, y: cy, vx: 0, vy: 0, hx: x, hy: cy, r: rr, pinned: true })
+        }
+      }
       const { bumps, energy } = stepSim(
-        list,
+        solid.length ? [...list, ...solid] : list,
         { home: g === 'free' ? WATER_FEEL.homeFree : WATER_FEEL.homeGrouped, magnet: g === 'free' ? WATER_FEEL.magnet : WATER_FEEL.magnet * 0.5, damping: g === 'free' ? WATER_FEEL.dampingFree : WATER_FEEL.damping, push: WATER_FEEL.push },
         (a, b) => r.related.has(pairKey(a, b)),
         1,
@@ -460,7 +479,7 @@ export function Pond() {
       const rOf = new Map(visible.map((t) => [t.id, radius(t)]))
       const packs = groups.map((g) => packCircles(g.taskIds.map((id) => rOf.get(id) ?? avgR)))
       const blob = (gi: number) => (groups[gi].taskIds.length ? packs[gi].R + 6 : avgR)
-      const centers = layoutClusters(groups.map((_, gi) => blob(gi)), w / h, 30)
+      const centers = layoutClusters(groups.map((_, gi) => blob(gi)), w / h, 30, 62)
       groups.forEach((g, gi) => {
         const cx = w / 2 + centers[gi].x
         const cy = h / 2 + centers[gi].y

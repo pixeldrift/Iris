@@ -118,3 +118,40 @@ test('typing @ and a name nobody has in the quick add box does not freeze the ap
   const alive = await Promise.race([page.evaluate(() => 1).then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 6000))])
   expect(alive).toBe(true)
 })
+
+test.describe('group names are solid', () => {
+  test('a group name pushes other groups’ bubbles aside, and never rests on top of one', async ({ page }) => {
+    await open(page)
+    await page.getByRole('radiogroup', { name: 'Gather by' }).getByRole('radio', { name: 'Group' }).click()
+    await page.waitForTimeout(2500)
+    const overlaps = () =>
+      page.evaluate(() => {
+        const labels = [...document.querySelectorAll('.pond-label > div')].map((e) => e.getBoundingClientRect())
+        const bubbles = [...document.querySelectorAll('[data-node]')].map((e) => e.getBoundingClientRect())
+        let n = 0
+        for (const l of labels)
+          for (const b of bubbles) {
+            const cx = b.left + b.width / 2
+            const cy = b.top + b.height / 2
+            const nx = Math.max(l.left, Math.min(cx, l.right))
+            const ny = Math.max(l.top, Math.min(cy, l.bottom))
+            if (Math.hypot(cx - nx, cy - ny) < b.width / 2 - 3) n++
+          }
+        return n
+      })
+    expect(await overlaps()).toBe(0)
+    // carry the Home name over the School bubbles: they make way, and when it is let go nothing sits under it
+    const home = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
+    const school = page.locator('.pond-label').filter({ hasText: 'School' }).first()
+    const a = (await home.boundingBox())!
+    const b = (await school.boundingBox())!
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + a.width / 2 - 40, a.y + a.height / 2 + 10, { steps: 4 })
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + 120, { steps: 20 })
+    await page.waitForTimeout(600)
+    await page.mouse.up()
+    await page.waitForTimeout(3500)
+    expect(await overlaps()).toBe(0)
+  })
+})
