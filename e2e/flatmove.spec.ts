@@ -84,4 +84,14 @@ test.describe('the flat canvas does everything the 3D space does', () => {
     await page.getByRole('button', { name: 'Fold Life' }).click()
     await expect(page.locator('[data-box="life"]')).toBeHidden()
   })
+
+  test('a parent dragged by its name takes its subgroups with it', async ({ page }) => {
+    await enterFlat(page)
+    const before = await stored(page)
+    await drag(page, await centre(page, '[data-hub="school"]', 40), { x: (await centre(page, '[data-hub="school"]', 40)).x + 120, y: (await centre(page, '[data-hub="school"]')).y + 20 })
+    const after = await stored(page)
+    const off = (c: { clusters: Record<string, { a: number }> }, k: string) => c.clusters[k].a - c.clusters.school.a
+    expect(Math.abs(after.clusters.school.a - before.clusters.school.a)).toBeGreaterThan(0.01)
+    for (const k of ['eng101', 'bio']) expect(Math.abs(off(after, k) - off(before, k))).toBeLessThan(0.15)
+  })
 })

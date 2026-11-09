@@ -102,7 +102,7 @@ export class SpatialScene {
   private focusTween?: { t0: number; from: [number, number]; to: [number, number]; fov?: [number, number] }
   private pointers = new Map<number, { x: number; y: number }>()
   private press?: { id: number; x: number; y: number; t0: number; hit: Hit | null; mode: 'pending' | 'look' | 'task' | 'cluster' }
-  private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3 }
+  private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3; kids: Set<string> }
   private pinch?: { d: number; fov: number }
   private disposed = false
   /** Soft glowing dots on the frame for groups out of view (the Pond's edge dots, here for the room around you). */
@@ -772,12 +772,21 @@ export class SpatialScene {
     const plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), mesh.position)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
     const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
-    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone() }
+    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? this.descendantsOf(id) : new Set() }
     if (kind === 'task') {
       mesh.renderOrder = 6
       mesh.scale.multiplyScalar(1.08)
     }
     if (navigator.vibrate) navigator.vibrate(6)
+  }
+  /** Every group inside this one, at any depth. */
+  private descendantsOf(id: string): Set<string> {
+    const out = new Set<string>()
+    const walk = (p: string) => {
+      for (const c of this.content.clusters) if (c.parent === p && !out.has(c.id)) (out.add(c.id), walk(c.id))
+    }
+    walk(id)
+    return out
   }
   private cancelCarry() {
     if (!this.carry) return
@@ -884,11 +893,20 @@ export class SpatialScene {
       const moved = moveCluster(cur, [at.x, at.y, at.z])
       // (the others stay put while it is carried, so a name under the finger can be a target; they make room once it is let go)
       const clusters = { ...this.layout.clusters, [c.id]: moved }
+      // its subgroups (and theirs) travel with it, keeping their places around it
+      const da = moved.a - cur.a
+      const dy = moved.y - cur.y
+      for (const k of c.kids) {
+        const kc = clusters[k]
+        if (!kc) continue
+        clusters[k] = repose(kc, kc.a + da, kc.y + dy)
+        this.shown[k] = clusters[k]
+      }
       this.layout = { ...this.layout, clusters }
       this.shown[c.id] = clusters[c.id] // (the carried one is under the finger, not gliding)
       this.place()
       const over = this.groupUnder(e, c.id)
-      this.hoverTo(over?.hub ? over.id : null) // (over another group's name: it would go inside; over its box it just makes room)
+      this.hoverTo(over?.hub && !c.kids.has(over.id) ? over.id : null) // (over another group's name: it would go inside; over its box it just makes room)
     }
   }
   private up = (e: PointerEvent) => {
@@ -940,7 +958,7 @@ export class SpatialScene {
         this.layout = withRadius(this.content.layout, this.radius)
         this.events.onReparent?.(c.id, into)
       } else {
-        this.layout = { ...this.layout, clusters: separate(this.layout.clusters, new Set([c.id])) }
+        this.layout = { ...this.layout, clusters: separate(this.layout.clusters, new Set([c.id, ...c.kids])) }
         this.events.onLayout(fromRadius(this.layout, this.radius))
       }
       this.closeSprung(into)
