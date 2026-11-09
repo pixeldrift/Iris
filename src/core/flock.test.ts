@@ -38,16 +38,24 @@ describe('the pond water', () => {
   })
 })
 
-describe('a group name keeps a wider berth from strangers', () => {
-  it('its own bubbles may come closer to it than another group’s', () => {
-    const name: SimNode = { id: 'label:g:0', x: 0, y: 0, vx: 0, vy: 0, hx: 0, hy: 0, r: 20, pinned: true, owner: 'g', pad: 26 }
-    // both want to sit right up against the name (their homes are at its edge)
+describe('a group name is a soft nudge, not a wall', () => {
+  const name = (): SimNode => ({ id: 'label:g:0', x: 0, y: 0, vx: 0, vy: 0, hx: 0, hy: 0, r: 20, pinned: true, owner: 'g', pad: 10, soft: 0.3 })
+
+  it('lets a bubble on its way home pass over it', () => {
+    const b: SimNode = { ...node('b', -100, 0, 24, 100, 0), group: 'other' } // home is the far side of the name
+    const n = name()
+    for (let i = 0; i < 600; i++) stepSim([b, n], P, () => false)
+    expect(Math.abs(b.x - 100)).toBeLessThan(15) // it got through
+  })
+
+  it('eases a bubble off it rather than leaving it sitting there, a little further for another group\u2019s than its own', () => {
+    // both homes are right at the name's edge (a hair inside the room each would keep)
     const own: SimNode = { ...node('own', 0, 60, 24, 0, 46), group: 'g' }
     const stranger: SimNode = { ...node('stranger', 0, -60, 24, 0, -46), group: 'other' }
-    for (let i = 0; i < 300; i++) stepSim([own, stranger, name], P, () => false)
-    const ownGap = Math.hypot(own.x - name.x, own.y - name.y) - own.r - name.r
-    const strangerGap = Math.hypot(stranger.x - name.x, stranger.y - name.y) - stranger.r - name.r
-    expect(ownGap).toBeGreaterThanOrEqual(0)
-    expect(strangerGap).toBeGreaterThan(ownGap + 15) // the stranger is held clearly further off
+    const n = name()
+    for (let i = 0; i < 600; i++) stepSim([own, stranger, n], P, () => false)
+    const gapOf = (b: SimNode) => Math.hypot(b.x - n.x, b.y - n.y) - b.r - n.r
+    expect(gapOf(own)).toBeGreaterThan(-3) // eased off, not resting on it
+    expect(gapOf(stranger)).toBeGreaterThan(gapOf(own) + 3) // and the stranger is held further off
   })
 })

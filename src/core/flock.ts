@@ -23,6 +23,8 @@ export interface SimNode {
   /** For a group's name (an unmoving node): the group it names, and the extra room it keeps clear of bubbles that are NOT in that group. */
   owner?: string
   pad?: number
+  /** A soft obstacle (a group's name): it only nudges others, never blocks them, with this share of a bubble's push (1 = the same). */
+  soft?: number
 }
 
 /** The extra distance two nodes keep apart because one is a group's name and the other is not that group's. */
@@ -125,7 +127,10 @@ export function stepSim(
 
       if (dist < min) {
         const overlap = min - dist
-        const push = overlap * (p.push ?? 0.12) * dt
+        // (a group's name nudges rather than shoves: bubbles can pass over it, but the push never lets one stay on it)
+        // (and the push stops growing with depth, so a bubble crossing the middle of a name is eased, not stopped)
+        const eased = a.soft !== undefined || b.soft !== undefined ? Math.min(overlap, 12) : overlap
+        const push = eased * (p.push ?? 0.12) * dt * (a.soft ?? 1) * (b.soft ?? 1)
         // a carried bubble mostly shoves the others; they only deflect it a little
         const aw = a.pinned ? 0 : b.pinned ? 1 : a.heavy ? 0.25 : b.heavy ? 0.75 : 0.5
         const bw = b.pinned ? 0 : a.pinned ? 1 : b.heavy ? 0.25 : a.heavy ? 0.75 : 0.5
@@ -192,6 +197,7 @@ export function stepSim(
         const a = nodes[i]
         const b = nodes[j]
         if (a.pinned && b.pinned) continue
+        if (a.soft !== undefined || b.soft !== undefined) continue // (a soft obstacle is never a hard limit)
         let dx = b.x - a.x
         let dy = b.y - a.y
         let dist = Math.hypot(dx, dy)

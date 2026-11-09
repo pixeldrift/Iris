@@ -119,7 +119,7 @@ test('typing @ and a name nobody has in the quick add box does not freeze the ap
   expect(alive).toBe(true)
 })
 
-test.describe('group names are solid', () => {
+test.describe('group names nudge bubbles aside', () => {
   test('a group name pushes other groups’ bubbles aside, and never rests on top of one', async ({ page }) => {
     await open(page)
     await page.getByRole('radiogroup', { name: 'Gather by' }).getByRole('radio', { name: 'Group' }).click()
@@ -140,7 +140,7 @@ test.describe('group names are solid', () => {
         return n
       })
     expect(await overlaps()).toBe(0)
-    // carry the Home name over the School bubbles: they make way, and when it is let go nothing sits under it
+    // carry the Home name over the School bubbles: they are nudged along, and when it is let go nothing is left under it
     const home = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
     const school = page.locator('.pond-label').filter({ hasText: 'School' }).first()
     const a = (await home.boundingBox())!
