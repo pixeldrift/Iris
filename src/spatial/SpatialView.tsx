@@ -47,8 +47,12 @@ export default function SpatialView() {
   const [phase, setPhase] = useState<'intro' | 'running'>('intro')
   const [status, setStatus] = useState<TrackingStatus>({ source: 'touch', quality: 'good' })
   const [note, setNote] = useState<string | null>(null)
+  // motion that has gone quiet (the page was away): picked up again by itself where it can be; where it cannot, this says so
+  const [resuming, setResuming] = useState(false)
+  const [pauseClosed, setPauseClosed] = useState(false)
   const [env, setEnv] = useState<EnvironmentKind>('virtual')
   const [menu, setMenu] = useState(false)
+  const showPaused = !!status.paused && !resuming && !pauseClosed
   const host = useRef<HTMLDivElement>(null)
   const menuBtn = useRef<HTMLButtonElement>(null)
   const track = useRef<SpatialTracking | null>(null)
@@ -83,6 +87,7 @@ export default function SpatialView() {
       track.current = tr
       tr.onStatus((s) => {
         setStatus(s)
+        if (!s.paused) setPauseClosed(false)
         if (s.note) setNote(s.note)
       })
       const asked = !simple && wantMotion && trackPref !== 'touch' && caps.motion ? tr.start(true) : tr.start(false)
@@ -163,6 +168,11 @@ export default function SpatialView() {
       if (document.visibilityState === 'hidden') sc.pause()
       else {
         sc.resume()
+        const tr = track.current
+        if (tr?.paused) {
+          setResuming(true)
+          void tr.resume().finally(() => setResuming(false))
+        }
         const e = envRef.current
         if (e instanceof CameraEnvironment && !e.live) void chooseEnv('camera') // (the camera is let go when the page goes away)
       }
@@ -241,13 +251,38 @@ export default function SpatialView() {
       {phase === 'running' && (
         <>
           <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between">
-            <span />
+            <span className="pointer-events-auto">
+              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }]} onChange={(r) => prefs({ render: r })} />
+            </span>
             <button ref={menuBtn} type="button" aria-label="Spatial settings" aria-expanded={menu} onClick={() => setMenu((o) => !o)} className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-white/80 text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
               <IconSliders size={17} />
             </button>
           </div>
           <Popover open={menu} onClose={() => setMenu(false)} anchor={menuBtn} align="end" className="w-72 p-3">
             <div className="space-y-3 text-xs font-medium text-ink-soft">
+              {!simple && caps.motion && (
+                <div>
+                  Looking around
+                  <div className="mt-1">
+                    <SegmentedToggle
+                      label="Looking around"
+                      value={trackPref}
+                      options={[
+                        { id: 'auto', label: 'Automatic' },
+                        { id: 'motion', label: 'Motion' },
+                        { id: 'touch', label: 'Touch only' },
+                      ]}
+                      onChange={(m) => {
+                        prefs({ tracking: m })
+                        const tr = track.current
+                        if (!tr) return
+                        if (m === 'touch') tr.disableMotion()
+                        else if (!tr.motion) void tr.start(true).then((ok) => !ok && setNote('Motion tracking is not available, so you can look around by dragging.'))
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
               {!simple && (
                 <div>
                   Background
@@ -294,32 +329,9 @@ export default function SpatialView() {
                   </div>
                 </div>
               )}
-              {!simple && caps.motion && (
-                <div>
-                  Looking around
-                  <div className="mt-1">
-                    <SegmentedToggle
-                      label="Looking around"
-                      value={trackPref}
-                      options={[
-                        { id: 'auto', label: 'Automatic' },
-                        { id: 'motion', label: 'Motion' },
-                        { id: 'touch', label: 'Touch only' },
-                      ]}
-                      onChange={(m) => {
-                        prefs({ tracking: m })
-                        const tr = track.current
-                        if (!tr) return
-                        if (m === 'touch') tr.disableMotion()
-                        else if (!tr.motion) void tr.start(true).then((ok) => !ok && setNote('Motion tracking is not available, so you can look around by dragging.'))
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
               {!simple && (
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
-                  Faint curves between groups and their subgroups
+                  Connecting lines
                   <input type="checkbox" checked={links} onChange={(e) => prefs({ links: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
                 </label>
               )}
@@ -341,7 +353,6 @@ export default function SpatialView() {
           />
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex items-end justify-between gap-2">
             <span className="pointer-events-auto flex flex-wrap items-center gap-1.5">
-              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }]} onChange={(r) => prefs({ render: r })} />
               {!simple && (
                 <button type="button" onClick={() => scene.current?.recenter()} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
                   Recenter
@@ -361,7 +372,7 @@ export default function SpatialView() {
                 Clean up
               </button>
             </span>
-            <span role="status" className="rounded-full bg-white/75 px-3 py-1 text-xs text-ink-soft shadow backdrop-blur">
+            <span role="status" className="sr-only">
               {statusText}
             </span>
             {!simple ? (
@@ -377,10 +388,24 @@ export default function SpatialView() {
               <span />
             )}
           </div>
-          {!note && !tipSeen && !simple && (
+          {!note && !showPaused && !tipSeen && !simple && (
             <button type="button" onClick={() => prefs({ tipSeen: true })} className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">
               Drag a task or a group to move it. Pull a task out into the open, then drop it into another group. <span className="text-lilac-600">Got it</span>
             </button>
+          )}
+          {showPaused && (
+            <div role="status" className="absolute inset-x-6 top-14 z-10 mx-auto flex max-w-sm items-center gap-2 rounded-2xl bg-white/90 py-2 pl-3.5 pr-2 text-xs text-ink-soft shadow-md backdrop-blur">
+              <span className="min-w-0 flex-1">Motion tracking paused.</span>
+              <button type="button" onClick={() => void track.current?.resume().then((ok) => !ok && setNote('Motion tracking is not available right now, so you can look around by dragging.'))} className="whitespace-nowrap rounded-full bg-lilac-500 px-3 py-1 text-white transition hover:bg-lilac-600">
+                Resume
+              </button>
+              <button type="button" onClick={() => track.current?.disableMotion()} className="whitespace-nowrap rounded-full bg-white/80 px-3 py-1 text-ink-soft ring-1 ring-lilac-200 transition hover:bg-white">
+                Use touch
+              </button>
+              <button type="button" aria-label="Dismiss" onClick={() => setPauseClosed(true)} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/80 hover:text-ink">
+                ✕
+              </button>
+            </div>
           )}
           {note && (
             <p role="status" className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur" onClick={() => setNote(null)}>

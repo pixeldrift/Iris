@@ -359,7 +359,7 @@ export class SpatialScene {
     const pos: number[] = []
     const col: number[] = []
     const idx: number[] = []
-    const SEG = 20
+    const SEG = 48
     const colorOf = (hue: number): [number, number, number] => {
       const h = (hue < 0 ? 0 : hue) / 360
       const sat = hue < 0 ? 0 : 0.55
@@ -411,8 +411,11 @@ export class SpatialScene {
         // a ribbon that faces the viewer (the origin): its width runs across the way the branch is going
         const toEye = pts[i].clone().negate().normalize()
         const across = new Vector3().crossVectors(tan, toEye).normalize()
-        // thick in the middle, a little tapered at the ends
-        const w = 0.1 * K * (0.75 + 0.25 * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.5)
+        // an even, slim line with a round end (a half circle as wide as the line)
+        const W = 0.055 * K
+        const e = Math.min(0.2, W / (d * 1.1))
+        const edge = Math.min(t, 1 - t)
+        const w = edge >= e ? W : W * Math.sqrt(Math.max(0, 1 - ((e - edge) / e) ** 2))
         for (const sgn of [-1, 1]) {
           const q = pts[i].clone().addScaledVector(across, sgn * w)
           pos.push(q.x, q.y, q.z)

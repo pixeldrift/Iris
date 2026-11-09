@@ -229,6 +229,17 @@ export function notify() {
   play('notify', { variation: 0.01 })
 }
 
+/** A checklist entry ticked: the finishing sound, smaller and higher. */
+export function tickDone() {
+  if (!can('chimes')) return
+  play('done', { rate: 1.6, level: 0.55, variation: 0.03 })
+}
+/** A checklist entry un-ticked: the same, small and high. */
+export function tickUndone() {
+  if (!can('chimes')) return
+  play('undone', { rate: 1.6, level: 0.55, variation: 0.03 })
+}
+
 /** Un-checked: the two drips of finishing, played the other way round (it falls instead of rises). */
 export function undone() {
   if (!can('chimes')) return

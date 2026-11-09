@@ -209,7 +209,7 @@ function ProgressBox({ task }: { task: Task }) {
           disabled={fromList}
           aria-label="Progress"
           onChange={(e) => setProgress(task.id, Number(e.target.value))}
-          className="soft min-w-0 flex-1"
+          className="soft -mx-2 min-w-0 flex-1 px-2"
           style={{ ['--fill' as string]: `${pct}%` }}
         />
         <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-lilac-700" aria-live="polite">
