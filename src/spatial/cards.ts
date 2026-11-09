@@ -120,14 +120,10 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   ellipse(LOOK.glow.at, LOOK.glow.stop, lhsla(lk.h, lk.fill.s, lk.fill.l, lk.fill.a))
   ellipse(LOOK.shine.at, LOOK.shine.stop, `rgba(255,255,255,${LOOK.shine.alpha})`)
   g.restore()
-  // the thin outline in the group's colour, with the bubble's white edge just inside it
+  // the 1px border in the group's colour (about 3px at this size), so a pale card still has an edge
   roundRect(g, x, y, w, h, R)
-  g.lineWidth = 4
+  g.lineWidth = 3
   g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l, lk.outline.a)
-  g.stroke()
-  roundRect(g, x + 2.5, y + 2.5, w - 5, h - 5, R - 2.5)
-  g.lineWidth = 2
-  g.strokeStyle = LOOK.border
   g.stroke()
   if (c.image) {
     g.save()
@@ -198,6 +194,9 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const tx = cx + cr + 18
   const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0)
   g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : TOKENS['--color-ink']
+  // a little white glow around the words, as on every other item
+  g.shadowColor = LOOK.textGlow.color
+  g.shadowBlur = LOOK.textGlow.blur
   g.textBaseline = 'middle'
   g.font = `600 29px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
   const lines = wrapTitle(g, c.title || 'Untitled', maxW, 2)
@@ -207,6 +206,8 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.fillText(ln, tx, top + i * lh)
     if (c.done) g.fillRect(tx, top + i * lh, g.measureText(ln).width, 2.5)
   })
+  g.shadowColor = 'transparent'
+  g.shadowBlur = 0
   if (c.progress && c.progress > 0 && c.progress < 100 && !c.done) {
     const bw = x + w - 22 - tx
     roundRect(g, tx, y + h - 14, bw, 6, 3)
