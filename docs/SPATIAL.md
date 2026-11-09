@@ -99,3 +99,6 @@ Drag a task onto a group's box or name (a folded name opens after a short linger
 
 ## Onto the sidebar
 In both 3D and flat, carrying a task or group out over the sidebar lights up its groups and shows the usual drag chip; letting go there drops a task the way the other views do (it gets that group's tag) and puts a group inside the group it is dropped on.
+
+## One look for every item
+Cards in both Space modes wear the pond bubble's look: the same shine, glow, outline and shadow, deeper when urgent (`src/core/look.ts` for the canvas, `.pad`/`.tint` in the stylesheet, kept in step by `look.test.ts`). The date chip's words and tone come from `dueInfo`, as in every other view; the flat row uses the real done button and date chip.

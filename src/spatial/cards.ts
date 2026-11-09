@@ -1,18 +1,21 @@
 import { CanvasTexture, SRGBColorSpace } from 'three'
 import { flowerMarkup } from '../ui/Flower'
+import { hsla as lhsla, look, LOOK } from '../core/look'
+import type { DueTone } from '../core/rowModel'
 import type { FlowerShape } from '../core/types'
+import { DANGER_INK, ROSE_SOFT, TOKENS } from '../ui/palette'
 
-// Drawing a task (or a group's name) onto a small canvas, to be a texture in the 3D scene. The look follows the pond's bubbles: a soft
-// gradient, a thin outline in the group's colour, a round check.
+// Drawing a task (or a group's name) onto a small canvas, to be a texture in the 3D scene. The look IS the pond bubble's (`core/look.ts`:
+// the same shine, glow, outline and shadow, deeper when urgent), just not round, laid over the app's cream so a card is opaque.
 
 export interface CardInfo {
   title: string
   hue: number
   done: boolean
+  /** The date chip's words (from `dueInfo`, so it reads as it does in every view) and its tone. */
   due?: string | null
-  /** The date has passed (the chip goes rose, as everywhere else). */
-  late?: boolean
-  /** 0 to 1: how urgent, which deepens the row's colour in the flat view. */
+  dueTone?: DueTone
+  /** 0 to 1: how urgent, which deepens the colour (as it does in the pond). */
   urgency?: number
   /** 0 to 100, when it is part way. */
   progress?: number
@@ -24,20 +27,10 @@ export const CARD_PX = { w: 384, h: 128 }
 const PAD = 8
 /** The app's cream (--color-cream-50 / --color-cream-100), for blending the cards' gradient into the same background. */
 const CREAM_LIGHT = '#fffdf9'
-const CREAM = [250, 245, 236]
-/** A tint of the group's colour, blended toward the cream (opaque). */
-function mixCream(hue: number): string {
-  const tint = hue < 0 ? [236, 236, 236] : hslToRgb(hue, 0.62, 0.9)
-  const k = 0.62 // how much of the tint (the rest is cream)
-  return `rgb(${Math.round(tint[0] * k + CREAM[0] * (1 - k))},${Math.round(tint[1] * k + CREAM[1] * (1 - k))},${Math.round(tint[2] * k + CREAM[2] * (1 - k))})`
-}
-function hslToRgb(h: number, s: number, l: number): number[] {
-  const a = s * Math.min(l, 1 - l)
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12
-    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))))
-  }
-  return [f(0), f(8), f(4)]
+const CHIP: Record<DueTone, { fill: string; ink: string }> = {
+  today: { fill: 'rgba(225,208,244,0.85)', ink: TOKENS['--color-lilac-700'] },
+  late: { fill: ROSE_SOFT, ink: DANGER_INK },
+  later: { fill: 'rgba(255,255,255,0.8)', ink: TOKENS['--color-ink-soft'] },
 }
 const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h < 0 ? 0 : h},${h < 0 ? 0 : s}%,${l}%,${a})`
 
@@ -92,25 +85,49 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const y = PAD
   const w = CARD_PX.w - PAD * 2
   const h = CARD_PX.h - PAD * 2
-  const R = 22 // the line view's row corner (rounded, not round)
+  const R = 22 // the row's corner (rounded, not round)
+  const lk = look(c.hue, c.urgency)
   g.save()
-  // opaque, like the line view's rows (only a ticked-off one goes see-through)
+  // opaque like the pond's bubbles look over the page (only a ticked-off one goes see-through)
   g.globalAlpha = c.done ? 0.5 : 1
-  g.shadowColor = hsl(c.hue, 45, 50, 0.3)
-  g.shadowBlur = 12
-  g.shadowOffsetY = 4
+  g.shadowColor = lhsla(lk.h, lk.shadow.s, lk.shadow.l, lk.shadow.a)
+  g.shadowBlur = 26
+  g.shadowOffsetY = 8
   roundRect(g, x, y, w, h, R)
-  // the row's gradient: the group's tint on the left fading to the cream, over an opaque base
   g.fillStyle = CREAM_LIGHT
   g.fill()
   g.shadowColor = 'transparent'
-  const fill = g.createLinearGradient(x, y, x + w, y + h * 0.3)
-  fill.addColorStop(0, mixCream(c.hue))
-  fill.addColorStop(0.72, CREAM_LIGHT)
-  g.fillStyle = fill
+  // the bubble's layers, bottom to top: the white base, the group's glow lower right, the shine upper left
+  g.fillStyle = `rgba(255,255,255,${LOOK.baseAlpha})`
   g.fill()
-  g.lineWidth = 3
-  g.strokeStyle = hsl(c.hue, 62, 70, 0.75)
+  g.save()
+  roundRect(g, x, y, w, h, R)
+  g.clip()
+  const ellipse = (at: readonly [number, number], stop: number, color: string) => {
+    // CSS "ellipse at X Y" sizes itself to the farthest corner: radii are the far sides times root two
+    const fx = Math.max(at[0], 1 - at[0]) * w * Math.SQRT2
+    const fy = Math.max(at[1], 1 - at[1]) * h * Math.SQRT2
+    g.save()
+    g.translate(x + at[0] * w, y + at[1] * h)
+    g.scale(fx, fy)
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1)
+    gr.addColorStop(0, color)
+    gr.addColorStop(stop, color.replace(/[\d.]+\)$/, '0)'))
+    g.fillStyle = gr
+    g.fillRect(-2, -2, 4, 4)
+    g.restore()
+  }
+  ellipse(LOOK.glow.at, LOOK.glow.stop, lhsla(lk.h, lk.fill.s, lk.fill.l, lk.fill.a))
+  ellipse(LOOK.shine.at, LOOK.shine.stop, `rgba(255,255,255,${LOOK.shine.alpha})`)
+  g.restore()
+  // the thin outline in the group's colour, with the bubble's white edge just inside it
+  roundRect(g, x, y, w, h, R)
+  g.lineWidth = 4
+  g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l, lk.outline.a)
+  g.stroke()
+  roundRect(g, x + 2.5, y + 2.5, w - 5, h - 5, R - 2.5)
+  g.lineWidth = 2
+  g.strokeStyle = LOOK.border
   g.stroke()
   if (c.image) {
     g.save()
@@ -169,16 +186,18 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     const px = x + w - 16 - chipW
     const py = cy
     roundRect(g, px, py - 17, chipW, 34, 17)
-    g.fillStyle = c.late ? 'rgba(244,205,221,0.95)' : hsl(c.hue, 60, 86, 1)
+    // the same three tones as the chip everywhere else: today, late, a later day
+    const tone = CHIP[c.dueTone ?? 'later']
+    g.fillStyle = tone.fill
     g.fill()
-    g.fillStyle = c.late ? '#9a4566' : hsl(c.hue, 40, 30, 1)
+    g.fillStyle = tone.ink
     g.textBaseline = 'middle'
     g.fillText(c.due, px + 12, py + 1)
   }
   // the words (up to two lines, with an ellipsis, in the space between the check and the chip)
   const tx = cx + cr + 18
   const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0)
-  g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : '#2b2438'
+  g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : TOKENS['--color-ink']
   g.textBaseline = 'middle'
   g.font = `600 29px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
   const lines = wrapTitle(g, c.title || 'Untitled', maxW, 2)

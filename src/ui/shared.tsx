@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { tint } from '../core/color'
-import { addDays, relativeLabel, today } from '../core/dates'
+import { today } from '../core/dates'
 import { currentOccurrence, isDoneNow, repeatOf } from '../core/recurrence'
-import { formatTime, isOverdue, plannedDate, weightOf } from '../core/tasks'
+import { dueInfo, DUE_TONE_CLASS } from '../core/rowModel'
+import { weightOf } from '../core/tasks'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useBoardSlot } from './boardSlot'
@@ -139,23 +140,13 @@ export function PlaceChip({ task }: { task: Task }) {
 }
 
 export function DueChip({ task, compact = false }: { task: Task; compact?: boolean }) {
-  const when = plannedDate(task)
-  if (!when) return null
-  if (when === today() && !isOverdue(task)) {
-    // today needs no date: the time if there is one, otherwise just "Today"
-    return <span className="inline-flex items-center whitespace-nowrap rounded-full bg-lilac-200/80 px-2 py-0.5 text-[0.7rem] leading-none text-lilac-700">{task.time ? formatTime(task.time) : 'Today'}</span>
-  }
-  const late = isOverdue(task)
+  const d = dueInfo(task)
+  if (!d) return null
   return (
-    <span
-      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
-        late ? 'bg-rose-soft/80 text-danger-ink' : when === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
-      }`}
-    >
-      {relativeLabel(when)}
-      {/* tomorrow is just "Tomorrow"; the time only rides along for days further out */}
-      {task.time && when !== addDays(today(), 1) && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
-      {!compact && task.day && task.due && task.due !== task.day && <i className="ml-1 font-normal opacity-70">· due {relativeLabel(task.due)}</i>}
+    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${DUE_TONE_CLASS[d.tone]}`}>
+      {d.text}
+      {d.time && <i className="ml-1 font-normal not-italic">· {d.time}</i>}
+      {!compact && d.deadline && <i className="ml-1 font-normal opacity-70">· due {d.deadline}</i>}
     </span>
   )
 }

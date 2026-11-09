@@ -24,3 +24,7 @@ export const RGB: Record<string, [number, number, number]> = {
   '--lr-deep': [70, 35, 110],
 }
 
+
+/** The warning tints (the stylesheet's --color-rose-soft and --color-danger-ink), for the canvas cards. A test keeps them in step. */
+export const ROSE_SOFT = '#f4cddd'
+export const DANGER_INK = '#9a4566'
