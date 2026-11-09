@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
-import { checkVars, colorVars } from '../ui/taskColor'
+import { colorVars } from '../ui/taskColor'
+import { DoneButton, DueChip } from '../ui/shared'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
@@ -23,14 +24,31 @@ type Box = { x: number; y: number; w: number; cols: number; h: number; n: number
 type Carry = { kind: 'task' | 'group'; id: string; x: number; y: number; dx: number; dy: number; hover: string | null }
 
 /**
+ * A task as a flat row: the pond bubble's look (the `.tint` class), and the same parts every other view uses (the done button, the
+ * date chip), so it ticks, reads and colours as they do. Dragging it is the canvas's business (the row carries `data-task`).
+ */
+function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
+  const task = useStore((s) => s.tasks.find((x) => x.id === t.id))
+  const select = useStore((s) => s.select)
+  if (!task) return null
+  return (
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint flex cursor-grab items-center gap-2.5 rounded-xl px-2.5 py-2">
+      <DoneButton task={task} size={22} />
+      <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
+        {t.title || 'Untitled'}
+      </button>
+      <DueChip task={task} compact />
+    </div>
+  )
+}
+
+/**
  * The flat canvas, with no 3D and no sensors: the same groups laid out as the same org chart, on a canvas you drag around and pinch (or
  * scroll) to zoom. Everything the 3D space does works here too: drag a task onto a group (or a folded name) to put it there, or out into
  * the open to leave it floating; drag a group by its name or box to move it, or onto another name to put it inside; hover over a folded
  * name and it opens to show you where things go; tap a name to turn to it, the twirl to fold it.
  */
 export function StaticCanvas({ content, layout, fitTick = 0 }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number }) {
-  const select = useStore((s) => s.select)
-  const toggle = useStore((s) => s.toggleDone)
   const toggleCollapsed = useSpatial((s) => s.toggleCollapsed)
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
@@ -217,26 +235,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
   const free = content.tasks.filter((t) => L.tasks[t.id]?.free)
   const r0 = L.clusters[Object.keys(L.clusters)[0]]?.r ?? 80
 
-  const row = (t: SceneTask, extra?: React.CSSProperties) => {
-    // the same colour rules as the list row: the group's hue, deeper the more urgent
-    const vars = { ...colorVars(t.hue, t.urgency ?? 0.5), ...checkVars(t.hue) } as React.CSSProperties
-    return (
-      // the line view's row: its tint and outline, an inset check, the title on one line (cut with an ellipsis), the date that never wraps
-      <div key={t.id} data-task={t.id} style={{ ...vars, ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint flex cursor-grab items-center gap-2.5 rounded-xl px-2.5 py-2">
-        <button type="button" role="checkbox" aria-checked={t.done} aria-label={`${t.done ? 'Mark not done' : 'Mark done'}: ${t.title}`} onClick={() => toggle(t.id)} className={`well-circle grid h-[1.35rem] w-[1.35rem] shrink-0 place-items-center rounded-full text-xs text-white ${t.done ? 'is-on' : ''}`}>
-          {t.done ? '✓' : ''}
-        </button>
-        <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
-          {t.title || 'Untitled'}
-        </button>
-        {t.due && (
-          <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${t.late ? 'bg-rose-soft/80 text-danger-ink' : ''}`} style={t.late ? undefined : { background: `hsl(${Math.max(0, t.hue)},60%,88%)`, color: `hsl(${Math.max(0, t.hue)},40%,30%)` }}>
-            {t.due}
-          </span>
-        )}
-      </div>
-    )
-  }
+  const row = (t: SceneTask, extra?: React.CSSProperties) => <FlatRow key={t.id} t={t} extra={extra} />
 
   return (
     <div

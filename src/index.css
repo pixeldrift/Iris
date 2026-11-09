@@ -192,22 +192,31 @@ body.dragging {
     0 1px 1px rgba(255, 255, 255, 0.9) inset !important;
 }
 
-/* --u is urgency (0..1): the more urgent, the deeper and more vibrant the bubble; the more relaxed, the lighter and softer.
-   At the middle (0.5) it is exactly the original pastel, and the ends stay well inside pastel territory. */
-.pad {
+/* ONE look for an item: the pond bubble. Rows, cards and Space cards wear it too (`.tint` is the same class for flat shapes), just not
+   round. The gradients are ellipses, so a circle (a bubble) is unchanged and a wide row stretches the same shine and glow to fit.
+   --u is urgency (0..1): the more urgent, the deeper and more vibrant; the more relaxed, the lighter and softer. At the middle (0.5)
+   it is exactly the original pastel, and the ends stay well inside pastel territory. `src/core/look.ts` states the same numbers in code
+   for the 3D cards, which are drawn on a canvas, and a test keeps the two in step. */
+.pad,
+.tint {
+  --th: var(--h, 285);
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
-    radial-gradient(circle at 70% 80%, hsla(var(--h, 285), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
+    radial-gradient(ellipse at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(ellipse at 70% 80%, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
     rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
     /* the thin outline keeps the group's color however pale the inside gets (urgency only softens the fill) */
-    0 0 0 1px hsla(var(--h, 285), calc(62% * var(--s, 1)), 70%, 0.6),
-    0 12px 30px -10px hsla(var(--h, 285), calc(45% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(62% - 28% * var(--u, 0.5)), calc(0.12 + 0.46 * var(--u, 0.5)));
+    0 0 0 1px hsla(var(--th), calc(62% * var(--s, 1)), 70%, 0.6),
+    0 12px 30px -10px hsla(var(--th), calc(45% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(62% - 28% * var(--u, 0.5)), calc(0.12 + 0.46 * var(--u, 0.5)));
+}
+/* only the bubbles blur what is behind them (a long list of blurred rows is what made scrolling heavy) */
+.pad {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
+.tint:hover { filter: brightness(1.03); }
 
 @media (prefers-reduced-motion: reduce) {
   .drift-a, .drift-b, .drift-c { animation: none; }
@@ -506,17 +515,6 @@ body.scrubbing .glow-breathe {
   animation-play-state: paused !important;
 }
 
-/* a flat item (list row, board card) in the same color language as its bubble: the group's tint, a colored outline,
-   deeper and more vibrant when urgent. With no group it uses the theme's violet. */
-.tint {
-  --th: var(--h, 285);
-  background:
-    linear-gradient(100deg, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(92% - 18% * var(--u, 0.5)), calc(0.28 + 0.45 * var(--u, 0.5))), rgba(255, 255, 255, 0.4) 72%),
-    rgba(255, 255, 255, 0.35);
-  border: 1px solid hsla(var(--th), calc(62% * var(--s, 1)), 70%, 0.6);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 6px 18px -12px hsla(var(--th), calc(45% * var(--s, 1)), 45%, 0.4);
-}
-.tint:hover { filter: brightness(1.03); }
 /* pressed: the item lifts away from the page right away, before it has moved at all */
 .lift-on-press { transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.55, 1), box-shadow 0.18s ease; }
 /* (with a mouse or pen the item lifts at once; a finger has to rest on it first, which raises it as .grabbed, so a swipe is only ever a scroll) */

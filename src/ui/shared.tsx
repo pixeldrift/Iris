@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { tint } from '../core/color'
-import { addDays, relativeLabel, today } from '../core/dates'
+import { Flower } from './Flower'
+import { bubbleHue } from './pond/hue'
+import { today } from '../core/dates'
 import { currentOccurrence, isDoneNow, repeatOf } from '../core/recurrence'
-import { formatTime, isOverdue, plannedDate, weightOf } from '../core/tasks'
+import { dueInfo, DUE_TONE_CLASS } from '../core/rowModel'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useBoardSlot } from './boardSlot'
@@ -139,39 +141,24 @@ export function PlaceChip({ task }: { task: Task }) {
 }
 
 export function DueChip({ task, compact = false }: { task: Task; compact?: boolean }) {
-  const when = plannedDate(task)
-  if (!when) return null
-  if (when === today() && !isOverdue(task)) {
-    // today needs no date: the time if there is one, otherwise just "Today"
-    return <span className="inline-flex items-center whitespace-nowrap rounded-full bg-lilac-200/80 px-2 py-0.5 text-[0.7rem] leading-none text-lilac-700">{task.time ? formatTime(task.time) : 'Today'}</span>
-  }
-  const late = isOverdue(task)
+  const d = dueInfo(task)
+  if (!d) return null
   return (
-    <span
-      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${
-        late ? 'bg-rose-soft/80 text-danger-ink' : when === today() ? 'bg-lilac-200/80 text-lilac-700' : 'bg-white/60 text-ink-soft'
-      }`}
-    >
-      {relativeLabel(when)}
-      {/* tomorrow is just "Tomorrow"; the time only rides along for days further out */}
-      {task.time && when !== addDays(today(), 1) && <i className="ml-1 font-normal not-italic">· {formatTime(task.time)}</i>}
-      {!compact && task.day && task.due && task.due !== task.day && <i className="ml-1 font-normal opacity-70">· due {relativeLabel(task.due)}</i>}
+    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${DUE_TONE_CLASS[d.tone]}`}>
+      {d.text}
+      {d.time && <i className="ml-1 font-normal not-italic">· {d.time}</i>}
+      {!compact && d.deadline && <i className="ml-1 font-normal opacity-70">· due {d.deadline}</i>}
     </span>
   )
 }
 
-/** A soft dot whose size hints at weight, with no number attached. */
-export function WeightDot({ task }: { task: Task }) {
-  const w = weightOf(task)
+/** The task's group as its small flower (the group's own colour and shape); a task in no group gets a plain blossom in its type's colour. */
+export function TaskFlower({ task }: { task: Task }) {
   const folders = useStore((st) => st.folders)
   const group = folders.find((f) => f.id === task.folderIds[0])
-  const s = 6 + w * 10
   return (
-    <span className="grid h-5 w-5 shrink-0 place-items-center" title="">
-      <span
-        className={`rounded-full ${group ? '' : 'bg-gradient-to-br from-lilac-200 to-lilac-500'}`}
-        style={{ width: s, height: s, opacity: 0.55 + w * 0.45, ...(group ? { background: `linear-gradient(135deg, ${tint(group.hue, 62, 78)}, ${tint(group.hue, 50, 56)})` } : {}) }}
-      />
+    <span className="grid h-5 w-5 shrink-0 place-items-center" aria-hidden>
+      <Flower hue={group ? group.hue : bubbleHue(task, folders)} shape={group?.shape ?? 'blossom'} size={16} />
     </span>
   )
 }

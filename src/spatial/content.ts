@@ -1,11 +1,11 @@
 // From the existing task map (groups, tasks) to what the workspace shows: which clusters, which tasks in them, and their places.
 // Reads the task data; never writes to it.
 
-import { relativeLabel } from '../core/dates'
 import { childrenOf, pathOf } from '../core/folders'
 import { hasProgress, progressOf } from '../core/progress'
 import { isDoneNow } from '../core/recurrence'
-import { effectiveUrgency, isOverdue, plannedDate } from '../core/tasks'
+import { dueInfo, dueLine } from '../core/rowModel'
+import { effectiveUrgency } from '../core/tasks'
 import type { Folder, Task } from '../core/types'
 import { bubbleHue } from '../ui/pond/hue'
 import { ensureLayout, type LayoutCluster, type LayoutTask } from './layout'
@@ -62,15 +62,15 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
     return { id: c.id, parent: c.parent, name: f?.name ?? 'Unsorted', hue: f?.hue ?? 285, shape: f?.shape, count: counts.get(c.id) ?? 0, depth: c.depth }
   })
   const tasks: SceneTask[] = visible.map((t) => {
-    const date = plannedDate(t)
+    const due = dueInfo(t)
     return {
       id: t.id,
       cluster: clusterOf(t),
       title: t.title,
       hue: bubbleHue(t, folders),
       done: isDoneNow(t),
-      due: date ? relativeLabel(date) : null,
-      late: isOverdue(t),
+      due: due ? dueLine(due) : null,
+      dueTone: due?.tone,
       urgency: effectiveUrgency(t),
       progress: hasProgress(t.kind) ? progressOf(t) : undefined,
     }
