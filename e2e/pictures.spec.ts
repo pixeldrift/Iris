@@ -50,4 +50,23 @@ test.describe('pictures on bubbles', () => {
     const made = (await saved(page))!.tasks.find((t) => t.image && !t.title)
     expect(made).toBeTruthy()
   })
+
+  test('a task with a picture drops the type icon (its check box already says what it is); one without keeps it', async ({ page }) => {
+    await goto(page, 'List')
+    await page.keyboard.press('n')
+    await page.keyboard.type('Snapshot task')
+    await page.keyboard.press('Enter')
+    const dialog = page.getByLabel('Task details')
+    await page.waitForTimeout(900)
+    await dialog.getByLabel('Choose a picture').setInputFiles(file)
+    await expect.poll(async () => !!(await taskNamed(page, 'Snapshot task'))?.image).toBe(true)
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await goto(page, 'Pond')
+    const withPicture = page.locator('[data-node]').filter({ has: page.locator('.pad-photo') }).first()
+    await expect(withPicture).toBeVisible()
+    await expect(withPicture.locator('[title="task"]')).toHaveCount(0)
+    await expect(withPicture.getByRole('button', { name: /Mark done|Done this one/ })).toBeVisible()
+    // a plain task bubble still shows its type icon
+    await expect(page.locator('[data-node]:not(:has(.pad-photo)) [title="task"]').first()).toBeVisible()
+  })
 })
