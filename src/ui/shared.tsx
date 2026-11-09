@@ -107,7 +107,7 @@ export function FolderChips({ task, max = 3 }: { task: Task; max?: number }) {
  * repeat with its streak, how far along it is, a checklist count, who it is given to, a picture. Only what is set is shown, at most
  * `max` of them, the rest as "+N". Place and group have their own chips.
  */
-export function ItemBadges({ task, max = 3 }: { task: Task; max?: number }) {
+export function ItemBadges({ task, max = 3, progress = true }: { task: Task; max?: number; /** Show progress as a chip (a view that draws it as a bar leaves it out). */ progress?: boolean }) {
   const people = useStore((s) => s.people)
   const out: { key: string; label: string; node: React.ReactNode }[] = []
   if ((task.remindAt !== null && !task.reminded) || (task.dueRemindAt != null && !task.dueReminded) || (task.alerts?.length ?? 0) > 0) out.push({ key: 'bell', label: 'Reminder set', node: <IconBell size={11} /> })
@@ -115,7 +115,7 @@ export function ItemBadges({ task, max = 3 }: { task: Task; max?: number }) {
   if (task.repeat || task.kind === 'habit')
     out.push({ key: 'repeat', label: streak > 0 ? `Repeats, ${streak} in a row` : 'Repeats', node: <><IconRepeat size={11} />{streak > 0 && <span className="tabular-nums">{streak}</span>}</> })
   if (task.kind === 'list' && task.listStyle === 'check' && task.items.length > 0) out.push({ key: 'list', label: 'Checklist', node: <span className="tabular-nums">{task.items.filter((i) => i.done).length}/{task.items.length}</span> })
-  else if (hasProgress(task.kind) && task.status !== 'done' && progressOf(task) > 0) out.push({ key: 'progress', label: `${progressOf(task)}% done`, node: <span className="tabular-nums">{task.tally ? `${task.tally.done}/${task.tally.total}` : `${progressOf(task)}%`}</span> })
+  else if (progress && hasProgress(task.kind) && task.status !== 'done' && progressOf(task) > 0) out.push({ key: 'progress', label: `${progressOf(task)}% done`, node: <span className="tabular-nums">{task.tally ? `${task.tally.done}/${task.tally.total}` : `${progressOf(task)}%`}</span> })
   const who = people.find((p) => task.personIds.includes(p.id))
   if (who) out.push({ key: 'person', label: `With ${who.name}`, node: <><IconPerson size={11} /><span className="max-w-[5rem] truncate">{who.name.split(' ')[0]}</span></> })
   if (task.image) out.push({ key: 'image', label: 'Has a picture', node: <IconImage size={11} /> })
@@ -130,6 +130,18 @@ export function ItemBadges({ task, max = 3 }: { task: Task; max?: number }) {
       ))}
       {out.length > max && <span className="text-[0.7rem] text-ink-faint">+{out.length - max}</span>}
     </>
+  )
+}
+
+/** How far along an item is, as a thin bar in the item's own colour (inside a `.tint` row, which sets the colour). Nothing at 0% or when done. */
+export function ItemProgress({ task, className = '' }: { task: Task; className?: string }) {
+  if (!hasProgress(task.kind) || isDoneNow(task)) return null
+  const pct = progressOf(task)
+  if (pct <= 0) return null
+  return (
+    <span role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Progress" title={`${pct}% done`} className={`block h-1 min-w-[4rem] overflow-hidden rounded-full border bg-white/60 ${className}`} style={{ borderColor: 'hsla(var(--h, 285), calc(50% * var(--s, 1)), 66%, 0.55)' }}>
+      <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: 'hsl(var(--h, 285), calc(58% * var(--s, 1)), 60%)' }} />
+    </span>
   )
 }
 
@@ -255,6 +267,8 @@ export function QuickAdd({
   onAdd,
   autoFocus,
   examples = false,
+  onType,
+  below,
 }: {
   placeholder?: string
   /** What this box is for, for people using a screen reader and for the typing bar on a sideways phone (the placeholder is only a hint). */
@@ -263,6 +277,9 @@ export function QuickAdd({
   autoFocus?: boolean
   /** Show the same cross-fading examples as the Add dialog instead of a plain placeholder. */
   examples?: boolean
+  /** Told what is typed, as it is typed (to read it ahead of adding), and what to show under the box for it. */
+  onType?: (text: string) => void
+  below?: React.ReactNode
 }) {
   const [v, setV] = useState('')
   const hint = useExampleIndex(examples && !v)
@@ -277,13 +294,19 @@ export function QuickAdd({
         if (!v.trim()) return
         onAdd(v.trim())
         setV('')
+        onType?.('')
+        // stay in the box, so a run of items can be typed one after another
+        ref.current?.focus()
       }}
     >
       <div className="relative">
         <input
           ref={ref}
           value={v}
-          onChange={(e) => setV(e.target.value)}
+          onChange={(e) => {
+            setV(e.target.value)
+            onType?.(e.target.value)
+          }}
           placeholder={examples ? '' : placeholder}
           aria-label={label}
           data-proxy-commit
@@ -291,6 +314,7 @@ export function QuickAdd({
         />
         {examples && !v && <ExampleHint index={hint} className="left-4 right-3 text-sm" />}
       </div>
+      {below}
     </form>
   )
 }

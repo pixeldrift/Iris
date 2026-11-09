@@ -33,7 +33,8 @@ export function NameDialogHost() {
     useName.setState({ spec: null })
   }
   return (
-    <Modal open={!!spec} onClose={() => done(null)} label={spec?.title ?? 'Name'}>
+    // (tapping outside keeps what was typed, as Enter would; Escape and Cancel throw it away)
+    <Modal open={!!spec} onClose={() => done(null)} onDismiss={() => done(value)} label={spec?.title ?? 'Name'}>
       <form
         onSubmit={(e) => {
           e.preventDefault()

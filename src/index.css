@@ -162,6 +162,12 @@ body.dragging {
 }
 .bloom-in { animation: bloom-in 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
 
+/* a row just added from the quick-add box: a soft glow that fades, so the eye finds it */
+@keyframes just-added {
+  0% { box-shadow: 0 0 0 3px rgb(var(--lr-500) / 0.6), 0 0 26px 4px rgb(var(--lr-500) / 0.5); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--lr-500) / 0), 0 0 0 0 rgb(var(--lr-500) / 0); }
+}
+.tint.just-added { animation: rise-in 0.35s ease-out both, just-added 1.8s ease-out 0.1s both; }
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -199,7 +205,8 @@ body.dragging {
    it is exactly the original pastel, and the ends stay well inside pastel territory. `src/core/look.ts` states the same numbers in code
    for the 3D cards, which are drawn on a canvas, and a test keeps the two in step. */
 .pad,
-.tint {
+.tint,
+.chip-bubble {
   --th: var(--h, 285);
   background:
     radial-gradient(ellipse at 70% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
@@ -561,16 +568,11 @@ body.scrubbing .glow-breathe {
 .notice-pop { animation: notice-pop 0.22s ease-in forwards; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .notice-pop { animation-duration: 0.01s; } }
 
-/* a tag, drawn like a small bubble: the same soft gradient and thin outline in its group's color, with a slight shadow */
+/* a tag is a small bubble: it wears the shared item look (the `.pad, .tint, .chip-bubble` rule above: shine, glow, 1px border), with a smaller
+   shadow and the group's colour for its words */
 .chip-bubble {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 60%),
-    radial-gradient(circle at 75% 85%, hsla(var(--h, 285), calc(70% * var(--s, 1)), 88%, 0.7), transparent 70%),
-    rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
-    0 0 0 1px hsla(var(--h, 285), calc(62% * var(--s, 1)), 72%, 0.65),
     0 3px 7px -3px hsla(var(--h, 285), calc(45% * var(--s, 1)), 52%, 0.35);
   color: hsl(var(--h, 285), calc(35% * var(--s, 1)), 32%);
 }

@@ -14,6 +14,7 @@ import { KindHint, KINDS } from './shared'
 import type { TaskKind } from '../core/types'
 import { parseQuickAdd, suggestTags } from '../core/quickadd'
 import { askNotify } from './notify'
+import { fieldsFromQuickAdd } from './quickCreate'
 import { notionImageFrom } from './photo'
 import { useLandscapePhone } from './useMedia'
 
@@ -152,21 +153,8 @@ export function NewTask() {
     } else dropDraft() // closed without placing it
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** What the quick line understood, as the fields of a new task. */
-  const fieldsFrom = (q: typeof parsed) => ({
-    ...(q?.day ? { day: q.day } : {}),
-    ...(q?.due ? { due: q.due } : {}),
-    ...(q?.dueTime ? { dueTime: q.dueTime } : {}),
-    ...(q?.time ? { time: q.time } : {}),
-    ...(q?.endTime ? { endTime: q.endTime } : {}),
-    ...(q?.remindAt ? { remindAt: q.remindAt } : {}),
-    ...(q?.place ? { place: q.place } : {}),
-    ...(q?.remindBefore ? { remindBefore: q.remindBefore } : {}),
-    ...(q?.repeat ? { repeat: q.repeat } : {}),
-    ...(q?.folderIds.length || startIn?.length ? { folderIds: [...new Set([...(startIn ?? []), ...(q?.folderIds ?? [])])] } : {}),
-    ...(q?.personIds.length || preset?.personIds?.length ? { personIds: [...new Set([...(preset?.personIds ?? []), ...(q?.personIds ?? [])])] } : {}),
-    ...(q?.tagOrder.length || startIn?.length || preset?.personIds?.length ? { tagOrder: [...new Set([...(startIn ?? []), ...(preset?.personIds ?? []), ...(q?.tagOrder ?? [])])] } : {}),
-  })
+  /** What the quick line understood, as the fields of a new task (the same reading the list's quick-add box uses). */
+  const fieldsFrom = (q: typeof parsed) => fieldsFromQuickAdd(q, { folderIds: startIn, personIds: preset?.personIds })
 
   /** The item being made, as a draft the full editor works on (made now if it is not yet). */
   const ensureDraft = (): string => {

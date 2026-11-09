@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createFromLine, understandLine } from '../quickCreate'
 import { isDoneNow } from '../../core/recurrence'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
@@ -12,7 +13,7 @@ import { colorVars, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
 import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, ItemProgress, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
 
 const SORTS: { id: SortKey; label: string }[] = [
@@ -81,7 +82,7 @@ function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: R
   }
 }
 
-function Row({ task, selected, selecting, onToggle }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void }) {
+function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void; /** Just added from the quick-add box: it glows for a moment. */ fresh?: boolean }) {
   const el = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
   const hue = useTaskHue(task)
@@ -107,7 +108,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
             swipe(e)
           }}
           style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
-          className={`tint lift-on-press group rise-in relative flex cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
+          className={`tint lift-on-press group rise-in relative flex cursor-pointer outline-none ${fresh ? 'just-added' : ''} focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
         >
           {(selecting || selected) && (
             <span aria-hidden className={`well-circle grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.65rem] leading-none text-white ${selected ? 'is-on' : ''}`}>
@@ -117,14 +118,22 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
           <DoneButton task={task} />
           <TaskFlower task={task} />
           <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
-          <span data-lift-extra className="hidden items-center gap-1 sm:flex">
-            <ItemBadges task={task} />
-            <PlaceChip task={task} />
-            <FolderChips task={task} max={2} />
-          </span>
-          <span data-lift-extra className="flex items-center">
-            <DueChip task={task} compact />
-          </span>
+          {/* the chips, with how far along it is as a thin bar underneath them */}
+          <div className="flex shrink-0 flex-col items-stretch gap-0.5">
+            <div className="flex items-center justify-end gap-1">
+              <span data-lift-extra className="hidden items-center gap-1 sm:flex">
+                <ItemBadges task={task} progress={false} />
+                <PlaceChip task={task} />
+                <FolderChips task={task} max={2} />
+              </span>
+              <span data-lift-extra className="flex items-center">
+                <DueChip task={task} compact />
+              </span>
+            </div>
+            <span data-lift-extra className="block empty:hidden">
+              <ItemProgress task={task} />
+            </span>
+          </div>
           {/* with a mouse: a trash can that appears on hover (swiping is for touch) */}
           <button
             onPointerDown={(e) => e.stopPropagation()}
@@ -149,9 +158,44 @@ export function ListView() {
   const sortKey = useStore((s) => s.settings.sortKey)
   const sortDesc = useStore((s) => s.settings.sortDesc)
   const set = useStore((s) => s.setSetting)
-  const addTask = useStore((s) => s.addTask)
 
-  const rows = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
+  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
+  // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
+  // one, they glide to where the sort puts them (the list animates the move, so you can see where each went).
+  const [fresh, setFresh] = useState<string[]>([])
+  const freshTimer = useRef(0)
+  const [announce, setAnnounce] = useState('')
+  useEffect(() => () => window.clearTimeout(freshTimer.current), [])
+  const rows = useMemo(() => {
+    const here = fresh.map((id) => sorted.find((t) => t.id === id)).filter((t): t is Task => !!t)
+    if (!here.length) return sorted
+    const set = new Set(here.map((t) => t.id))
+    return [...here, ...sorted.filter((t) => !set.has(t.id))]
+  }, [sorted, fresh])
+  const justAdded = useMemo(() => new Set(fresh), [fresh])
+  // the quick-add box reads what is typed the way the New dialog does: dates, times, repeats, #groups, @people, places, reminders
+  const qaMode = useStore((s) => s.settings.quickAdd)
+  const folders = useStore((s) => s.folders)
+  const people = useStore((s) => s.people)
+  const [line, setLine] = useState('')
+  const [accepted, setAccepted] = useState(false) // "suggest" mode: the suggestion was taken
+  const [plain, setPlain] = useState(false) // "keep as typed" for this line
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const understood = useMemo(() => (plain ? null : understandLine(line)), [line, plain, qaMode, folders, people])
+  const understoodChips = understood && understood.chips.length > 0 ? understood.chips : null
+  const applying = qaMode === 'auto' ? !plain : qaMode === 'suggest' ? accepted : false
+  const quickAdd = (title: string) => {
+    const id = createFromLine(title, applying)
+    setAccepted(false)
+    setPlain(false)
+    setLine('')
+    setFresh((f) => [id, ...f])
+    setAnnounce(`Added ${title}`)
+    window.clearTimeout(freshTimer.current)
+    freshTimer.current = window.setTimeout(() => setFresh([]), 2200)
+    // (the new row is at the top: bring the top into view)
+    requestAnimationFrame(() => listRef.current?.firstElementChild?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+  }
   const [menu, setMenu] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   useFlip(listRef)
@@ -228,14 +272,48 @@ export function ListView() {
         </div>
       )}
       <BatchEditor ids={ids} open={batch && ids.length > 0} onClose={() => setBatch(false)} />
-      <QuickAdd examples onAdd={(title) => addTask({ title })} />
+      <QuickAdd
+        examples
+        onAdd={quickAdd}
+        onType={(t) => {
+          setLine(t)
+          if (!t.trim()) {
+            setAccepted(false)
+            setPlain(false)
+          }
+        }}
+        below={
+          understoodChips && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 px-1 text-[0.7rem] text-ink-soft" aria-live="polite">
+              <span>{qaMode === 'suggest' && !accepted ? 'Looks like:' : 'Understood:'}</span>
+              {understoodChips.map((c) => (
+                <span key={c} className="inline-flex items-center rounded-full border border-lilac-300/70 bg-lilac-100/70 px-2 py-0.5 leading-none text-lilac-700">
+                  {c}
+                </span>
+              ))}
+              {qaMode === 'suggest' && !accepted ? (
+                <button type="button" onClick={() => setAccepted(true)} className="whitespace-nowrap rounded-full bg-lilac-500 px-2.5 py-0.5 text-white">
+                  Use
+                </button>
+              ) : (
+                <button type="button" onClick={() => setPlain(true)} className="whitespace-nowrap rounded-full px-2 py-0.5 text-ink-faint underline-offset-2 hover:text-ink hover:underline">
+                  Keep as typed
+                </button>
+              )}
+            </div>
+          )
+        }
+      />
+      <span role="status" aria-live="polite" className="sr-only">
+        {announce}
+      </span>
       <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">
       <ScrollFade className="pr-2">
       <div ref={listRef} {...dropProps} className="space-y-2 py-1">
         {rows.map((t, i) => (
           <div key={t.id} data-card-id={t.id} className="relative">
             {slot && slot.before === t.id && <SlotLine at="top" />}
-            <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} />
+            <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
             {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
           </div>
         ))}

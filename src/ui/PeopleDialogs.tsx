@@ -56,6 +56,7 @@ export function PersonDialog() {
   const [addingCat, setAddingCat] = useState(false)
   const existing = id ? people.find((p) => p.id === id) : undefined
   const [f, setF] = useState(blank)
+  const closeAfterSave = useRef(false)
   const categories = allCategories([...people, { categories: f.categories }])
   const [line, setLine] = useState('') // the address as one line
   const [parts, setParts] = useState<AddressParts>(emptyAddress())
@@ -218,6 +219,12 @@ export function PersonDialog() {
     <Modal
       open={open}
       onClose={closePerson}
+      // tapping outside while editing saves what was typed (an accidental tap must not lose a profile's worth of details); with no name it just closes
+      onDismiss={() => {
+        if (viewing || !name) return closePerson()
+        closeAfterSave.current = true
+        ;(document.getElementById('person-form') as HTMLFormElement | null)?.requestSubmit()
+      }}
       footer={
         viewing ? (
           // (keyed apart from the editor's footer: otherwise React turns the very button that was just clicked into the form's Save, and that click would submit it)
@@ -255,9 +262,10 @@ export function PersonDialog() {
           e.preventDefault()
           if (!name) return
           const pid = save({ ...f, extras: f.extras.filter((x) => x.value.trim()), name, ...parts, address: composeAddress(parts), ...(existing ? { id: existing.id } : {}) })
-          // a new contact closes the box; an edited one goes back to its card
-          if (existing) setEditing(false)
+          // a new contact closes the box; an edited one goes back to its card (unless the box was tapped away, which saves and closes)
+          if (existing && !closeAfterSave.current) setEditing(false)
           else closePerson()
+          closeAfterSave.current = false
           onSaved?.(pid)
           // a new address that could belong to someone on Lilac: offer to connect (once per address)
           const saved = useStore.getState().people.find((p) => p.id === pid)
