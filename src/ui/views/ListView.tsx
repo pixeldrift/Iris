@@ -93,7 +93,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
-      <div className="relative overflow-hidden rounded-2xl">
+      <div className="relative overflow-x-clip rounded-2xl">
         <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-white opacity-0" style={{ background: 'rgb(210 110 140 / 0.9)' }}>
           <IconTrash size={18} />
         </div>

@@ -211,7 +211,9 @@ body.dragging {
   text-shadow: 0 0 3px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.65);
   box-shadow:
     0 1px 1px rgba(255, 255, 255, 0.9) inset,
-    0 12px 30px -10px hsla(var(--th), calc(45% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(62% - 28% * var(--u, 0.5)), calc(0.12 + 0.46 * var(--u, 0.5)));
+    /* ONE shadow for every item, small and soft: a gentle drop in the group's colour and a hairline contact right under the edge */
+    0 5px 14px -7px hsla(var(--th), calc(45% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(62% - 28% * var(--u, 0.5)), calc(0.16 + 0.44 * var(--u, 0.5))),
+    0 1px 2px hsla(var(--th), calc(40% * var(--s, 1)), 40%, 0.14);
 }
 /* a flat row's glow is capped at 24rem (a bubble's is its own width), so it hugs the title however wide the screen is */
 .tint { --glow-rx: 24rem; }

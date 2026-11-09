@@ -23,8 +23,13 @@ export interface CardInfo {
   image?: HTMLImageElement | null
 }
 
-export const CARD_PX = { w: 384, h: 128 }
-const PAD = 8
+/** The card itself, and the room around it in the texture for its soft shadow. */
+const CARD_BODY = { w: 368, h: 112 }
+const PAD_X = 18
+const PAD_Y = 26
+export const CARD_PX = { w: CARD_BODY.w + PAD_X * 2, h: CARD_BODY.h + PAD_Y * 2 }
+/** How much bigger than the card the texture's plane must be, so the card keeps its world size. */
+export const CARD_PLANE = { x: CARD_PX.w / CARD_BODY.w, y: CARD_PX.h / CARD_BODY.h }
 /** The app's cream (--color-cream-50 / --color-cream-100), for blending the cards' gradient into the same background. */
 const CREAM_LIGHT = '#fffdf9'
 const CHIP: Record<DueTone, { fill: string; ink: string }> = {
@@ -81,18 +86,19 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const g = canvas.getContext('2d')!
   g.setTransform(scale, 0, 0, scale, 0, 0)
   g.clearRect(0, 0, CARD_PX.w, CARD_PX.h)
-  const x = PAD
-  const y = PAD
-  const w = CARD_PX.w - PAD * 2
-  const h = CARD_PX.h - PAD * 2
+  const x = PAD_X
+  const y = PAD_Y
+  const w = CARD_BODY.w
+  const h = CARD_BODY.h
   const R = 22 // the row's corner (rounded, not round)
   const lk = look(c.hue, c.urgency)
   g.save()
   // opaque like the pond's bubbles look over the page (only a ticked-off one goes see-through)
   g.globalAlpha = c.done ? 0.5 : 1
   g.shadowColor = lhsla(lk.h, lk.shadow.s, lk.shadow.l, lk.shadow.a)
-  g.shadowBlur = 26
-  g.shadowOffsetY = 8
+  // the same one shadow as in CSS, at the card's scale (this texture is about 4x the size it shows at)
+  g.shadowBlur = LOOK.drop.blur * 1.6
+  g.shadowOffsetY = LOOK.drop.y * 1.8
   roundRect(g, x, y, w, h, R)
   g.fillStyle = CREAM_LIGHT
   g.fill()

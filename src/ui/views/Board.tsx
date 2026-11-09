@@ -32,7 +32,7 @@ function Card({ task }: { task: Task }) {
         {...rowKeys(() => useStore.getState().select(task.id))}
         onPointerDown={(e) => onPointerDown(e)}
         style={colorVars(hue, effectiveUrgency(task))}
-        className={`tint lift-on-press rise-in group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 rounded-2xl px-2.5 py-2 shadow-[0_6px_20px_-10px_rgb(var(--lr-700)/0.3)] transition hover:-translate-y-0.5 ${leave}`}
+        className={`tint lift-on-press rise-in group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 rounded-2xl px-2.5 py-2 transition hover:-translate-y-0.5 ${leave}`}
       >
         <div className="flex items-start gap-2 pr-5">
           <DoneButton task={task} size={20} />

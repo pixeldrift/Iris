@@ -25,7 +25,7 @@ import {
   WebGLRenderer,
 } from 'three'
 import { edgeDots } from '../core/edges'
-import { HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
+import { CARD_PLANE, HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
 import { linkGeometry } from './links'
@@ -166,7 +166,7 @@ export class SpatialScene {
         tex.generateMipmaps = true
         tex.minFilter = LinearMipmapLinearFilter
         tex.anisotropy = 4
-        const mesh = new Mesh(new PlaneGeometry(WORLD.cardW, WORLD.cardH), new MeshBasicMaterial({ map: tex, transparent: true, side: DoubleSide, depthWrite: false }))
+        const mesh = new Mesh(new PlaneGeometry(WORLD.cardW * CARD_PLANE.x, WORLD.cardH * CARD_PLANE.y), new MeshBasicMaterial({ map: tex, transparent: true, side: DoubleSide, depthWrite: false }))
         mesh.userData = { kind: 'task', id: t.id }
         mesh.rotation.order = 'YXZ'
         mesh.renderOrder = 2 // (a fixed order, so overlapping see-through things never swap places as the camera moves)

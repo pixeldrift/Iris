@@ -22,6 +22,8 @@ export const LOOK = {
   shine: { at: [0.7, 0.25] as const, alpha: 0.95, stop: 0.55 },
   glow: { at: [0.3, 0.8] as const, stop: 0.7 },
   border: 'rgba(255,255,255,0.85)',
+  /** The one drop shadow, in CSS pixels: down, blur, spread (negative pulls it in). The canvas cards scale it up with the card. */
+  drop: { y: 5, blur: 14, spread: -7 },
   /** The glow around words, so dark text reads against the colour (blur px in the canvas cards, which are drawn about 3x CSS size). */
   textGlow: { color: 'rgba(255,255,255,0.95)', blur: 8 },
 } as const
@@ -34,7 +36,7 @@ export function look(hue: number, urgency = 0.5): Look {
     h: hue < 0 ? 0 : hue,
     fill: { s: 70 * s * k, l: 95 - 20 * u, a: 0.35 + 0.6 * u },
     outline: { s: 62 * s, l: 64, a: 0.85 },
-    shadow: { s: 45 * s * k, l: 62 - 28 * u, a: 0.12 + 0.46 * u },
+    shadow: { s: 45 * s * k, l: 62 - 28 * u, a: 0.16 + 0.44 * u },
   }
 }
 
