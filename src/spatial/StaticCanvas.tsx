@@ -4,7 +4,7 @@ import { checkVars } from '../ui/taskColor'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
-import { reparentGroup, retagTask } from './actions'
+import { dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { cellW, ensureLayout, repose, separate, slotAt } from './layout'
 import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
@@ -300,6 +300,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
             // a task can join a group by its name or its box; a group only goes inside another by its name
             const h = o && (pr.kind === 'task' || o.name) ? o.id : null
             setCarry((c) => (c ? { ...c, x: p.x, y: p.y } : c))
+            showCarry(pr.kind, pr.id, pr.kind === 'task' ? (content.tasks.find((t) => t.id === pr.id)?.title ?? 'Task') : (content.clusters.find((c) => c.id === pr.id)?.name ?? 'Group'), e.clientX, e.clientY)
             if (h !== carry?.hover) hoverTo(h)
           }
           return
@@ -324,6 +325,12 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         if (pr && pr.pid === e.pointerId) {
           press.current = null
           if (pr.started && carry) {
+            endCarry()
+            if (dropOutside(pr.kind, pr.id, e.clientX, e.clientY)) {
+              closeSprung(null)
+              setCarry(null)
+              return
+            }
             if (pr.kind === 'task') dropTask(carry)
             else dropGroup(carry)
             setCarry(null)
@@ -341,6 +348,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         gesture.current = null
         if (press.current?.pid === e.pointerId) {
           press.current = null
+          endCarry()
           setCarry(null)
           closeSprung(null)
         }

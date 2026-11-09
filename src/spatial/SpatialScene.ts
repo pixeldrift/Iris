@@ -58,6 +58,11 @@ export interface SceneEvents {
   onCollapse?(id: string): void
   /** A group was dropped onto another group's name: it should go inside it. */
   onReparent?(id: string, parent: string): void
+  /** Something is being carried (and where the pointer is): the view can light up what is outside the canvas. */
+  onCarry?(kind: 'task' | 'group', id: string, x: number, y: number): void
+  onCarryEnd?(): void
+  /** Let go outside the canvas: true when the drop was taken there (a group in the sidebar). */
+  onDropOut?(kind: 'task' | 'group', id: string, x: number, y: number): boolean
 }
 
 interface Node {
@@ -791,6 +796,7 @@ export class SpatialScene {
   private cancelCarry() {
     if (!this.carry) return
     this.carry = undefined
+    this.events.onCarryEnd?.()
     this.closeSprung(null)
     this.layout = withRadius(this.content.layout, this.radius)
     this.place()
@@ -872,6 +878,7 @@ export class SpatialScene {
     }
     const c = this.carry
     if (!c) return
+    this.events.onCarry?.(p.mode === 'task' ? 'task' : 'group', c.id, e.clientX, e.clientY)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
     const at = this.raycaster.ray.intersectPlane(c.plane, new Vector3())
     if (!at) return
@@ -916,6 +923,17 @@ export class SpatialScene {
     if (!p || p.id !== e.pointerId) return
     this.press = undefined
     const c = this.carry
+    if (c && (p.mode === 'task' || p.mode === 'cluster')) {
+      this.events.onCarryEnd?.()
+      if (this.events.onDropOut?.(p.mode === 'task' ? 'task' : 'group', c.id, e.clientX, e.clientY)) {
+        // let go over the sidebar (or anything else outside): it was taken there, and the canvas goes back to how it was
+        this.carry = undefined
+        this.layout = withRadius(this.content.layout, this.radius)
+        this.closeSprung(null)
+        this.place()
+        return
+      }
+    }
     if (c && p.mode === 'task') {
       this.carry = undefined
       const L = this.layout

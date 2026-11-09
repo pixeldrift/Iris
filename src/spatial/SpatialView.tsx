@@ -9,7 +9,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconSliders } from '../ui/icons'
 import { detectCapabilities } from './capabilities'
-import { reparentGroup, retagTask } from './actions'
+import { dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { RADIUS } from './layout'
@@ -149,6 +149,10 @@ export default function SpatialView() {
         onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
         // a group let go over another group's name goes inside it
         onReparent: reparentGroup,
+        // carried out over the sidebar: its groups light up, and letting go there drops it the way the other views do
+        onCarry: (kind, id, x, y) => showCarry(kind, id, kind === 'task' ? (live.current.tasks.find((t) => t.id === id)?.title ?? 'Task') : (live.current.clusters.find((c) => c.id === id)?.name ?? 'Group'), x, y),
+        onCarryEnd: endCarry,
+        onDropOut: dropOutside,
         onFov: (f) => setFov(Math.round(f)),
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: retagTask,
