@@ -15,7 +15,7 @@ import { ScrollFade } from '../ScrollFade'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GripDots, GripHandle, PlaceChip, SlotLine, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, useTaskDrag } from '../shared'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -32,7 +32,7 @@ function Card({ task }: { task: Task }) {
         {...rowKeys(() => useStore.getState().select(task.id))}
         onPointerDown={(e) => onPointerDown(e)}
         style={colorVars(hue, effectiveUrgency(task))}
-        className={`tint lift-on-press rise-in group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 rounded-2xl px-2.5 py-2 shadow-[0_6px_20px_-10px_rgb(var(--lr-700)/0.3)] transition hover:-translate-y-0.5 ${leave}`}
+        className={`tint lift-on-press rise-in group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 rounded-2xl px-2.5 py-2 transition hover:-translate-y-0.5 ${leave}`}
       >
         <div className="flex items-start gap-2 pr-5">
           <DoneButton task={task} size={20} />
@@ -52,6 +52,7 @@ function Card({ task }: { task: Task }) {
         )}
         <div className="mt-0.5 flex flex-wrap items-center gap-1 pl-7 empty:hidden">
           <DueChip task={task} />
+          <ItemBadges task={task} max={2} />
           <PlaceChip task={task} />
           <FolderChips task={task} max={2} />
         </div>

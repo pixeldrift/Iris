@@ -5,7 +5,7 @@ import { DoneButton, DueChip } from '../ui/shared'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
-import { dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
+import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { descendantsOf } from '../core/tree'
 import { cellW, ensureLayout, repose, separate, slotAt } from './layout'
 import { useSpatial } from './store'
@@ -32,7 +32,7 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
   const select = useStore((s) => s.select)
   if (!task) return null
   return (
-    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint flex cursor-grab items-center gap-2.5 rounded-xl px-2.5 py-2">
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint flex cursor-grab items-center gap-2.5 rounded-2xl px-2.5 py-2">
       <DoneButton task={task} size={22} />
       <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
         {t.title || 'Untitled'}
@@ -332,6 +332,8 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           // a tap on a group's name turns to it (the twirl and the buttons have their own taps)
           const el = e.target as HTMLElement
           if (pr.kind === 'group' && el.closest('[data-hub]') && !el.closest('button')) focus(pr.id)
+          // blank space inside a group's box: a new item there, tagged with the group
+          else if (pr.kind === 'group' && el.closest('[data-box]') && !el.closest('[data-task]') && !el.closest('button')) addInGroup(pr.id)
           return
         }
         gesture.current = pts.current.size === 1 ? { x: [...pts.current.values()][0].x, y: [...pts.current.values()][0].y, vx: v.x, vy: v.y, d: 0, k: v.k } : null

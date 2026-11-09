@@ -12,7 +12,7 @@ import { colorVars, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
 import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
 
 const SORTS: { id: SortKey; label: string }[] = [
@@ -93,7 +93,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
-      <div className="relative overflow-hidden rounded-2xl">
+      <div className="relative overflow-x-clip rounded-2xl">
         <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-white opacity-0" style={{ background: 'rgb(210 110 140 / 0.9)' }}>
           <IconTrash size={18} />
         </div>
@@ -118,6 +118,7 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
           <TaskFlower task={task} />
           <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
           <span data-lift-extra className="hidden items-center gap-1 sm:flex">
+            <ItemBadges task={task} />
             <PlaceChip task={task} />
             <FolderChips task={task} max={2} />
           </span>

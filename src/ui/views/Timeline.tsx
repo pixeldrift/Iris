@@ -106,7 +106,7 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
     <div
       onPointerDown={begin('move')}
       // the same look as the items everywhere else: the soft gradient with its solid outline
-      className={`tint absolute top-1 flex h-6 cursor-grab touch-none items-center overflow-hidden rounded-full px-5 text-xs transition-[box-shadow] hover:shadow-md ${isFinished(task) ? 'opacity-50' : ''} ${leave}`}
+      className={`tint absolute top-1 flex h-6 cursor-grab touch-none items-center overflow-hidden rounded-full px-5 text-xs ${isFinished(task) ? 'opacity-50' : ''} ${leave}`}
       // the grips and the arrow take the bubble's own colour (a deeper shade of it)
       style={{ left, width, color: `hsl(${hueRaw ?? 285}, ${55 * satOf(hueRaw ?? 285)}%, 38%)`, ...colorVars(hueRaw, effectiveUrgency(task)) }}
     >

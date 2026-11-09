@@ -23,8 +23,13 @@ export interface CardInfo {
   image?: HTMLImageElement | null
 }
 
-export const CARD_PX = { w: 384, h: 128 }
-const PAD = 8
+/** The card itself, and the room around it in the texture for its soft shadow. */
+const CARD_BODY = { w: 368, h: 112 }
+const PAD_X = 18
+const PAD_Y = 26
+export const CARD_PX = { w: CARD_BODY.w + PAD_X * 2, h: CARD_BODY.h + PAD_Y * 2 }
+/** How much bigger than the card the texture's plane must be, so the card keeps its world size. */
+export const CARD_PLANE = { x: CARD_PX.w / CARD_BODY.w, y: CARD_PX.h / CARD_BODY.h }
 /** The app's cream (--color-cream-50 / --color-cream-100), for blending the cards' gradient into the same background. */
 const CREAM_LIGHT = '#fffdf9'
 const CHIP: Record<DueTone, { fill: string; ink: string }> = {
@@ -81,18 +86,19 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const g = canvas.getContext('2d')!
   g.setTransform(scale, 0, 0, scale, 0, 0)
   g.clearRect(0, 0, CARD_PX.w, CARD_PX.h)
-  const x = PAD
-  const y = PAD
-  const w = CARD_PX.w - PAD * 2
-  const h = CARD_PX.h - PAD * 2
-  const R = 22 // the row's corner (rounded, not round)
+  const x = PAD_X
+  const y = PAD_Y
+  const w = CARD_BODY.w
+  const h = CARD_BODY.h
+  const R = 36 // the row's corner: well rounded (the card is 112 tall, so a full pill would be 56)
   const lk = look(c.hue, c.urgency)
   g.save()
   // opaque like the pond's bubbles look over the page (only a ticked-off one goes see-through)
   g.globalAlpha = c.done ? 0.5 : 1
   g.shadowColor = lhsla(lk.h, lk.shadow.s, lk.shadow.l, lk.shadow.a)
-  g.shadowBlur = 26
-  g.shadowOffsetY = 8
+  // the same one shadow as in CSS, at the card's scale (this texture is about 4x the size it shows at)
+  g.shadowBlur = LOOK.drop.blur * 1.6
+  g.shadowOffsetY = LOOK.drop.y * 1.8
   roundRect(g, x, y, w, h, R)
   g.fillStyle = CREAM_LIGHT
   g.fill()
@@ -120,14 +126,11 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   ellipse(LOOK.glow.at, LOOK.glow.stop, lhsla(lk.h, lk.fill.s, lk.fill.l, lk.fill.a))
   ellipse(LOOK.shine.at, LOOK.shine.stop, `rgba(255,255,255,${LOOK.shine.alpha})`)
   g.restore()
-  // the thin outline in the group's colour, with the bubble's white edge just inside it
+  // the 1px border in the group's colour. The card is drawn about 4x the size it shows at, so the line is thinner than 1px of texture and
+  // fully opaque: a hairline here is about one screen pixel at the usual zoom, and grows and shrinks with the card when it is zoomed
   roundRect(g, x, y, w, h, R)
-  g.lineWidth = 4
-  g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l, lk.outline.a)
-  g.stroke()
-  roundRect(g, x + 2.5, y + 2.5, w - 5, h - 5, R - 2.5)
-  g.lineWidth = 2
-  g.strokeStyle = LOOK.border
+  g.lineWidth = 2.5
+  g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l - 4, 1)
   g.stroke()
   if (c.image) {
     g.save()
@@ -198,6 +201,9 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const tx = cx + cr + 18
   const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0)
   g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : TOKENS['--color-ink']
+  // a little white glow around the words, as on every other item
+  g.shadowColor = LOOK.textGlow.color
+  g.shadowBlur = LOOK.textGlow.blur
   g.textBaseline = 'middle'
   g.font = `600 29px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
   const lines = wrapTitle(g, c.title || 'Untitled', maxW, 2)
@@ -207,6 +213,8 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.fillText(ln, tx, top + i * lh)
     if (c.done) g.fillRect(tx, top + i * lh, g.measureText(ln).width, 2.5)
   })
+  g.shadowColor = 'transparent'
+  g.shadowBlur = 0
   if (c.progress && c.progress > 0 && c.progress < 100 && !c.done) {
     const bw = x + w - 22 - tx
     roundRect(g, tx, y + h - 14, bw, 6, 3)

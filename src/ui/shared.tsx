@@ -9,7 +9,9 @@ import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useBoardSlot } from './boardSlot'
 import { useDnd, usePointerDrag } from './dnd'
-import { IconCheck, IconCheckHint, IconLink, IconPin } from './icons'
+import { IconBell, IconCheck, IconCheckHint, IconImage, IconLink, IconPerson, IconPin, IconRepeat } from './icons'
+import { hasProgress, progressOf } from '../core/progress'
+import { habitStreak } from '../core/tasks'
 import { isLink, mapsUrl } from '../core/place'
 import { checkVars, useTaskHue } from './taskColor'
 import { ExampleHint, useExampleIndex } from './ExampleHint'
@@ -89,13 +91,44 @@ export function FolderChips({ task, max = 3 }: { task: Task; max?: number }) {
       {mine.slice(0, max).map((f) => (
         <span
           key={f!.id}
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-[0.7rem] leading-none"
-          style={{ background: `${tint(f!.hue, 70, 88, .85)}`, color: `${tint(f!.hue, 35, 32)}` }}
+          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[0.7rem] leading-none"
+          style={{ background: `${tint(f!.hue, 70, 88, .85)}`, color: `${tint(f!.hue, 35, 32)}`, borderColor: tint(f!.hue, 50, 66, 0.7) }}
         >
           {f!.name}
         </span>
       ))}
       {mine.length > max && <span className="text-[0.7rem] text-ink-faint">+{mine.length - max}</span>}
+    </>
+  )
+}
+
+/**
+ * The little extras an item can carry, as small chips in the same family as the date chip (a 1px border, a soft tint): a reminder, a
+ * repeat with its streak, how far along it is, a checklist count, who it is given to, a picture. Only what is set is shown, at most
+ * `max` of them, the rest as "+N". Place and group have their own chips.
+ */
+export function ItemBadges({ task, max = 3 }: { task: Task; max?: number }) {
+  const people = useStore((s) => s.people)
+  const out: { key: string; label: string; node: React.ReactNode }[] = []
+  if ((task.remindAt !== null && !task.reminded) || (task.dueRemindAt != null && !task.dueReminded) || (task.alerts?.length ?? 0) > 0) out.push({ key: 'bell', label: 'Reminder set', node: <IconBell size={11} /> })
+  const streak = habitStreak(task)
+  if (task.repeat || task.kind === 'habit')
+    out.push({ key: 'repeat', label: streak > 0 ? `Repeats, ${streak} in a row` : 'Repeats', node: <><IconRepeat size={11} />{streak > 0 && <span className="tabular-nums">{streak}</span>}</> })
+  if (task.kind === 'list' && task.listStyle === 'check' && task.items.length > 0) out.push({ key: 'list', label: 'Checklist', node: <span className="tabular-nums">{task.items.filter((i) => i.done).length}/{task.items.length}</span> })
+  else if (hasProgress(task.kind) && task.status !== 'done' && progressOf(task) > 0) out.push({ key: 'progress', label: `${progressOf(task)}% done`, node: <span className="tabular-nums">{task.tally ? `${task.tally.done}/${task.tally.total}` : `${progressOf(task)}%`}</span> })
+  const who = people.find((p) => task.personIds.includes(p.id))
+  if (who) out.push({ key: 'person', label: `With ${who.name}`, node: <><IconPerson size={11} /><span className="max-w-[5rem] truncate">{who.name.split(' ')[0]}</span></> })
+  if (task.image) out.push({ key: 'image', label: 'Has a picture', node: <IconImage size={11} /> })
+  if (!out.length) return null
+  const shown = out.slice(0, max)
+  return (
+    <>
+      {shown.map((b) => (
+        <span key={b.key} title={b.label} role="img" aria-label={b.label} className="inline-flex items-center gap-1 rounded-full border border-ink-faint/40 bg-white/55 px-1.5 py-0.5 text-[0.7rem] leading-none text-ink-soft">
+          {b.node}
+        </span>
+      ))}
+      {out.length > max && <span className="text-[0.7rem] text-ink-faint">+{out.length - max}</span>}
     </>
   )
 }
@@ -133,7 +166,7 @@ export function SlotLine({ at }: { at: 'top' | 'bottom' }) {
 export function PlaceChip({ task }: { task: Task }) {
   if (!task.place.trim()) return null
   return (
-    <span title={task.place} className="inline-flex max-w-[10rem] items-center gap-1 rounded-full bg-white/55 px-2 py-0.5 text-[0.7rem] leading-none text-ink-soft">
+    <span title={task.place} className="inline-flex max-w-[10rem] items-center gap-1 rounded-full border border-ink-faint/40 bg-white/55 px-2 py-0.5 text-[0.7rem] leading-none text-ink-soft">
       <IconPin size={10} />
       <span className="truncate">{task.place}</span>
     </span>
