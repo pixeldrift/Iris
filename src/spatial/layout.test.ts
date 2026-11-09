@@ -219,3 +219,26 @@ describe('spatial layout', () => {
   })
 })
 
+
+import { linkGeometry } from './links'
+
+describe('connector ribbons', () => {
+  it('are finite, and every branch runs downhill from its group to its subgroup', () => {
+    const l = ensureLayout(empty, {
+      clusters: [
+        { id: 'p', parent: null, depth: 0, order: 0 },
+        { id: 'c', parent: 'p', depth: 1, order: 1 },
+      ],
+      tasks: [{ id: 't1', cluster: 'p' }, { id: 't2', cluster: 'c' }],
+      allTaskIds: new Set(['t1', 't2']),
+      allClusterIds: new Set(['p', 'c']),
+    })
+    const g = linkGeometry([{ id: 'p', parent: null, hue: 200 }, { id: 'c', parent: 'p', hue: 300 }], l.clusters)!
+    expect(g.pos.length).toBeGreaterThan(0)
+    expect(g.pos.every(Number.isFinite)).toBe(true)
+    // the first ribbon vertices (the start) are higher than the last (the end)
+    const ys = g.pos.filter((_, i) => i % 3 === 1)
+    expect(ys[0]).toBeGreaterThan(ys[ys.length - 1])
+    expect(linkGeometry([{ id: 'p', parent: null, hue: 200 }], l.clusters)).toBeNull() // (no subgroups: nothing to draw)
+  })
+})
