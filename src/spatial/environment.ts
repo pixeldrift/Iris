@@ -149,7 +149,7 @@ export class SharedCameraEnvironment implements EnvironmentProvider {
     return true
   }
   dispose() {
-    this.cam.show('thumb') // (the camera itself belongs to Wall mode, which stops it)
+    this.cam.show('hidden') // (the camera itself belongs to Wall mode, which stops it)
   }
 }
 
