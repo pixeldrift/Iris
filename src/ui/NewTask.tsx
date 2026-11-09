@@ -1,3 +1,4 @@
+import { useDialogKeys } from './dialogs'
 import { composeOpen } from '../audio/engine'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { EXAMPLES, ExampleHint } from './ExampleHint'
@@ -108,6 +109,7 @@ export function NewTask() {
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const ref = useRef<HTMLInputElement>(null)
+  const sheet = useRef<HTMLDivElement>(null)
   const [hint, setHint] = useState(0)
   useEffect(() => {
     if (!open) return
@@ -262,6 +264,7 @@ export function NewTask() {
     ref.current?.focus() // keep typing
   }
 
+  useDialogKeys(sheet, mounted && !closing)
   if (!mounted) return null
   return (
     <div
@@ -271,6 +274,11 @@ export function NewTask() {
       onClick={dismiss}
     >
       <div
+        ref={sheet}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="New item"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') closeCompose()
@@ -279,7 +287,7 @@ export function NewTask() {
             take(sug[0].text)
           }
         }}
-        className={`glass glass-strong relative flex max-h-full w-full flex-col ${land ? 'max-w-3xl rounded-[1.5rem] p-3' : 'max-w-md rounded-[2rem] p-4'} ${closing ? 'pop-out' : 'box-spring'}`}
+        className={`outline-none glass glass-strong relative flex max-h-full w-full flex-col ${land ? 'max-w-3xl rounded-[1.5rem] p-3' : 'max-w-md rounded-[2rem] p-4'} ${closing ? 'pop-out' : 'box-spring'}`}
       >
         <input ref={photo} type="file" accept="image/*" hidden aria-label="Choose a photo" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void takePhoto(f) }} />
         {land ? (
