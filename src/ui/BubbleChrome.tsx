@@ -3,6 +3,8 @@ import { habitStreak } from '../core/tasks'
 import type { Task } from '../core/types'
 import { useStore } from '../state/store'
 import { IconBell, IconChat, IconMail, IconPhone, IconPin, KindIcon } from './icons'
+import { hasProgress, progressOf } from '../core/progress'
+import { isDoneNow } from '../core/recurrence'
 import { DoneButton } from './shared'
 
 /**
@@ -77,6 +79,7 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { t
       <span title={task.kind} className="absolute left-1/2 top-[5.5%] -translate-x-1/2 text-lilac-600/70" aria-hidden>
         <KindIcon kind={task.kind} size={Math.round(Math.max(12, Math.min(16, r * 0.19)))} />
       </span>
+      <ProgressArc task={task} r={r} />
       <span className="pointer-events-auto absolute bottom-[7%] left-1/2 -translate-x-1/2">
         <DoneButton task={task} size={cb} />
       </span>
@@ -86,5 +89,29 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { t
         </span>
       ))}
     </span>
+  )
+}
+
+/**
+ * How far along an item is, as a short arc hugging the bottom of the bubble, under the checkbox and almost touching the rim, filling from
+ * left to right. (A curve that follows the bubble, not a smile: it is a thin line, the same width all along, with a faint track.) Only
+ * for items that have progress; at 0% or when done there is nothing to show.
+ */
+function ProgressArc({ task, r }: { task: Task; r: number }) {
+  if (!hasProgress(task.kind) || isDoneNow(task)) return null
+  const pct = progressOf(task)
+  if (pct <= 0) return null
+  const sw = Math.max(2.5, r * 0.045)
+  const R = r - sw / 2 - r * 0.03
+  const span = 124 // degrees of rim it covers, centred on the very bottom
+  const at = (deg: number) => [r + R * Math.cos((deg * Math.PI) / 180), r + R * Math.sin((deg * Math.PI) / 180)]
+  const [lx, ly] = at(90 + span / 2) // the left end (SVG angles run clockwise from 3 o'clock, so the bottom is 90)
+  const [rx, ry] = at(90 - span / 2)
+  const [px, py] = at(90 + span / 2 - (span * Math.min(100, pct)) / 100)
+  return (
+    <svg aria-hidden width={r * 2} height={r * 2} viewBox={`0 0 ${r * 2} ${r * 2}`} className="pointer-events-none absolute left-0 top-0 overflow-visible">
+      <path d={`M${lx},${ly} A${R},${R} 0 0 0 ${rx},${ry}`} fill="none" style={{ stroke: 'hsla(var(--h, 285), calc(50% * var(--s, 1)), 62%, 0.22)' }} strokeWidth={sw} strokeLinecap="round" />
+      <path d={`M${lx},${ly} A${R},${R} 0 0 0 ${px},${py}`} fill="none" style={{ stroke: 'hsl(var(--h, 285), calc(58% * var(--s, 1)), 58%)' }} strokeWidth={sw} strokeLinecap="round" />
+    </svg>
   )
 }

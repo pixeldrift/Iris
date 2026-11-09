@@ -18,7 +18,7 @@ describe('the item look', () => {
   })
   it('is the same as the stylesheet draws', () => {
     const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
-    const block = css.slice(css.indexOf('.pad,\n.tint {'), css.indexOf('.tint:hover'))
+    const block = css.slice(css.indexOf('.pad,\n.tint,\n.chip-bubble {'), css.indexOf('.tint:hover'))
     expect(block).toContain('calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5)))')
     expect(block).toContain('calc(95% - 20% * var(--u, 0.5))')
     expect(block).toContain('calc(0.35 + 0.6 * var(--u, 0.5))')

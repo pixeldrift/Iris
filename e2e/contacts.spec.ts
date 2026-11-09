@@ -135,3 +135,25 @@ test.describe('the address book', () => {
     await expect(page.getByRole('dialog', { name: /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/ })).toBeVisible()
   })
 })
+
+test.describe('tapping away from an edit keeps it', () => {
+  test.beforeEach(({ page }) => open(page))
+
+  test('a new contact and an edited one are saved, not thrown away, when the box is tapped away', async ({ page }) => {
+    await page.getByRole('button', { name: /Address book/ }).first().click()
+    await page.getByRole('button', { name: 'Add a person' }).last().click()
+    await page.getByPlaceholder('First name').fill('Quinn')
+    await page.getByPlaceholder('Phone').fill('5551234567')
+    await page.mouse.click(5, 5) // outside the box
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Quinn/ })).toBeVisible()
+    // and an existing one, edited then tapped away from
+    await page.getByRole('button', { name: /^Quinn/ }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Edit', exact: true }).click()
+    await page.getByPlaceholder('Email').fill('quinn@example.com')
+    await page.mouse.click(5, 5)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.people.find((p: { name: string }) => p.name.startsWith('Quinn')))
+    expect(saved.email).toBe('quinn@example.com')
+  })
+})
