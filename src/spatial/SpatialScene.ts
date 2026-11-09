@@ -12,8 +12,7 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   Group,
-  Points,
-  PointsMaterial,
+  ShaderMaterial,
   LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
@@ -163,9 +162,7 @@ export class SpatialScene {
 
   /* ---------- wall mode ---------- */
 
-  private wallGroup?: Group
-  private wallFrameMesh?: Mesh
-  private wallDots?: Points
+  private wallGroup?: Mesh
   /** The wall mode's world: the surface's width in world units, and where the groups' middle is (the surface's middle is put there). */
   private wallBox = { w: 120, ox: 0, oy: 0 }
 
@@ -244,56 +241,49 @@ export class SpatialScene {
     const g = this.setGroup
     if (!g) return
     const kind = this.env?.kind
-    g.visible = kind !== 'camera'
+    g.visible = kind !== 'camera' && this.wallReveal > 0
+    for (const m of Object.values(this.setParts ?? {})) (m.material as MeshBasicMaterial).opacity = this.wallReveal
     // a picture behind is busy enough: the floor and walls are only for the virtual room
     if (this.setParts) for (const m of [this.setParts.floor, this.setParts.left, this.setParts.right]) m.visible = kind === 'virtual' || kind === undefined
   }
 
   private buildWallOverlay() {
-    const g = new Group()
-    g.visible = false
-    g.renderOrder = 0
-    // a glowing outline for the surface that was found (drawn once into a picture and stretched to fit)
-    const c = document.createElement('canvas')
-    c.width = 256
-    c.height = 256
-    const x = c.getContext('2d')!
-    const glow = x.createLinearGradient(0, 0, 256, 256)
-    glow.addColorStop(0, 'rgba(190,140,255,0.95)')
-    glow.addColorStop(1, 'rgba(120,200,255,0.95)')
-    x.strokeStyle = glow
-    x.shadowColor = 'rgba(190,150,255,0.95)'
-    x.shadowBlur = 18
-    x.lineWidth = 7
-    x.strokeRect(14, 14, 228, 228)
-    x.shadowBlur = 0
-    x.fillStyle = 'rgba(190,150,255,0.08)'
-    x.fillRect(14, 14, 228, 228)
-    const tex = new CanvasTexture(c)
-    tex.colorSpace = SRGBColorSpace
-    const frame = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: DoubleSide }))
-    frame.renderOrder = 0
-    g.add(frame)
-    // the points being followed, pinned on the surface: if they slide off what they were stuck to, the hold is slipping
-    const dc = document.createElement('canvas')
-    dc.width = 32
-    dc.height = 32
-    const dx = dc.getContext('2d')!
-    const rg = dx.createRadialGradient(16, 16, 0, 16, 16, 15)
-    rg.addColorStop(0, 'rgba(255,255,255,1)')
-    rg.addColorStop(0.45, 'rgba(210,170,255,0.95)')
-    rg.addColorStop(1, 'rgba(210,170,255,0)')
-    dx.fillStyle = rg
-    dx.fillRect(0, 0, 32, 32)
-    const dtex = new CanvasTexture(dc)
-    const pts = new Points(new BufferGeometry(), new PointsMaterial({ map: dtex, size: 1.1 * K, transparent: true, depthWrite: false, sizeAttenuation: true }))
-    pts.frustumCulled = false
-    g.add(pts)
-    this.scene.add(g)
-    this.wallGroup = g
-    this.wallFrameMesh = frame
-    this.wallDots = pts
+    // a one-time "scanned" effect when the surface is first found: a soft outline, and a grid of dots wiping across it (then the virtual
+    // wall is revealed). It is a single plane with a small shader, sized to the surface, and gone a couple of seconds later.
+    const mat = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: DoubleSide,
+      uniforms: { uWipe: { value: 0 }, uFade: { value: 0 }, uOutline: { value: 0 }, uAsp: { value: 1 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: `varying vec2 vUv; uniform float uWipe; uniform float uFade; uniform float uOutline; uniform float uAsp;
+        void main(){
+          // the plane is a little larger than the surface, so the glow can fade away on both sides of its border
+          vec2 q = (vUv - 0.5) * 1.3 + 0.5;
+          vec2 e = min(q, 1.0 - q) * vec2(uAsp, 1.0);
+          float d = min(e.x, e.y); // (negative outside the surface)
+          float glow = exp(-pow(d / 0.045, 2.0)) * 0.7 + exp(-pow(d / 0.016, 2.0)) * 0.25;
+          float inside = smoothstep(0.0, 0.03, d);
+          // dots on a grid, lit where the wipe has passed (brightest right at its edge, then settling)
+          vec2 cell = vec2(q.x * uAsp, q.y) * 18.0;
+          float dot = smoothstep(0.2, 0.0, length(fract(cell) - 0.5) - 0.12);
+          float behind = uWipe - q.x;
+          float lit = smoothstep(0.0, 0.05, behind) * (0.35 + 0.65 * exp(-behind * 6.0));
+          float edge = exp(-pow(behind / 0.05, 2.0)) * inside;
+          vec3 col = mix(vec3(0.74, 0.56, 1.0), vec3(0.62, 0.82, 1.0), vUv.y);
+          float a = (glow * uOutline + dot * lit * inside * 0.8 + edge * 0.12) * uFade;
+          gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+        }`,
+    })
+    const scan = new Mesh(new PlaneGeometry(1, 1), mat)
+    scan.renderOrder = 0
+    scan.visible = false
+    scan.frustumCulled = false
+    this.scene.add(scan)
+    this.wallGroup = scan
   }
+
+  private wallScan = { t0: 0, held: false, quad: null as null | { x: number; y: number }[] }
 
   /** Size the wall world to the layout (the surface's width is the layout's) and tell the tracker. */
   private fitWall() {
@@ -315,25 +305,39 @@ export class SpatialScene {
     this.fitWallSet()
   }
 
-  /** Draw the surface's outline and followed points where the tracker says they are (in the world: the surface, a little behind the groups). */
+  /** The first-found effect (about 2.4 s), and the reveal of the virtual wall that follows it. */
   private updateWallOverlay() {
     const wall = this.wall
-    const g = this.wallGroup
-    if (!wall || !g || !this.wallFrameMesh || !this.wallDots) return
+    const scan = this.wallGroup as Mesh | undefined
+    if (!wall || !scan) return
     const ov = wall.getOverlay()
-    g.visible = ov.phase === 'holding' && !!ov.quad
-    if (!wall.takeFresh() || !ov.quad) return
-    const { w, ox, oy } = this.wallBox
-    const z = -0.9 * K
-    const xs = ov.quad.map((p) => p.x * w + ox)
-    const ys = ov.quad.map((p) => p.y * w + oy)
-    this.wallFrameMesh.position.set((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, z)
-    this.wallFrameMesh.scale.set(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1)
-    const pos: number[] = []
-    for (const p of ov.points) pos.push(p.x * w + ox, p.y * w + oy, z + 0.02 * K)
-    this.wallDots.geometry.setAttribute('position', new Float32BufferAttribute(pos, 3))
-    this.wallDots.geometry.computeBoundingSphere()
+    const st = this.wallScan
+    const holding = ov.phase === 'holding' && !!ov.quad
+    if (holding && !st.held) {
+      st.t0 = performance.now() // (found, or found again after being lost)
+      const { w, ox, oy } = this.wallBox
+      const xs = ov.quad!.map((p) => p.x * w + ox)
+      const ys = ov.quad!.map((p) => p.y * w + oy)
+      const sw = Math.max(...xs) - Math.min(...xs)
+      const sh = Math.max(...ys) - Math.min(...ys)
+      scan.position.set((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, -0.9 * K)
+      scan.scale.set(sw * 1.3, sh * 1.3, 1)
+      ;(scan.material as ShaderMaterial).uniforms.uAsp.value = sw / Math.max(1e-3, sh)
+    }
+    st.held = holding
+    const t = (performance.now() - st.t0) / 1000
+    const on = st.t0 > 0 && t < 2.5
+    scan.visible = on
+    if (on) {
+      const u = (scan.material as ShaderMaterial).uniforms
+      u.uWipe.value = Math.min(1.4, t / 1.2 * 1.4) - 0.1
+      u.uFade.value = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (2.5 - t) / 1.0))
+      u.uOutline.value = Math.min(1, t / 0.4) * Math.min(1, Math.max(0, (1.6 - t) / 0.8))
+    }
+    // the virtual wall is revealed as the scan finishes
+    this.wallReveal = st.t0 > 0 ? Math.min(1, Math.max(0, (t - 0.8) / 1.2)) : 0
   }
+  private wallReveal = 0
   get wallPhase() {
     return this.wall?.phase ?? null
   }
@@ -809,6 +813,10 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
     }
     this.plates.clear()
+    if (this.wallGroup) {
+      this.wallGroup.geometry.dispose()
+      ;(this.wallGroup.material as ShaderMaterial).dispose()
+    }
     if (this.setParts) {
       for (const m of Object.values(this.setParts)) {
         m.geometry.dispose()

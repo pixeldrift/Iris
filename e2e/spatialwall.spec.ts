@@ -41,6 +41,10 @@ test.describe('wall mode', () => {
     await expect(page.locator('[data-wall-status]')).toBeVisible()
     await expect(page.locator('video')).toHaveCount(1)
     await expect(page.locator('[data-wall-status="holding"]')).toBeVisible({ timeout: 15000 })
+    if (process.env.SHOT) {
+      await page.waitForTimeout(Number(process.env.SHOT_AT ?? 0))
+      await page.screenshot({ path: process.env.SHOT })
+    }
     // the picture is hidden (2px) while the background is Virtual; Camera shows it full size, Photo or Virtual puts it back
     const box = () => page.locator('video').evaluate((v) => v.getBoundingClientRect().width)
     expect(await box()).toBeLessThan(10)
@@ -50,7 +54,6 @@ test.describe('wall mode', () => {
     await page.getByRole('radio', { name: 'Virtual' }).click()
     await expect.poll(box).toBeLessThan(10)
     await page.keyboard.press('Escape')
-    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
     const stream = await page.evaluateHandle(() => document.querySelector('video')!.srcObject as MediaStream)
     await page.getByRole('radio', { name: '3D' }).click()
     await expect(page.locator('[data-wall-status]')).toHaveCount(0)
