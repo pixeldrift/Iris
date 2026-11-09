@@ -7,7 +7,7 @@ import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
 import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { descendantsOf } from '../core/tree'
-import { cellW, ensureLayout, repose, separate, slotAt } from './layout'
+import { cellH, cellW, ensureLayout, nearestFreeSlot, repose, separate, slotAt, snapCluster, snapFree, tidyClusters, tidyEverything } from './layout'
 import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
 
@@ -20,7 +20,7 @@ const TASK_W = 220
 const MOVE = 6
 const SPRING_MS = 700
 
-type Box = { x: number; y: number; w: number; cols: number; h: number; n: number }
+type Box = { x: number; y: number; w: number; cols: number; h: number; n: number; rows: number }
 type Carry = { kind: 'task' | 'group'; id: string; x: number; y: number; dx: number; dy: number; hover: string | null }
 
 /**
@@ -50,6 +50,7 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
  */
 export function StaticCanvas({ content, layout, fitTick = 0 }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number }) {
   const toggleCollapsed = useSpatial((s) => s.toggleCollapsed)
+  const tidy = useSpatial((s) => s.tidy)
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
   const pts = useRef(new Map<number, { x: number; y: number }>())
@@ -80,9 +81,10 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
       const p = L.clusters[c.id]
       if (!p) continue
       const n = inGrid.get(c.id)?.length ?? 0
-      const rows = Math.max(1, Math.ceil(n / p.cols))
+      // as many rows as the cards need (a card tidied into a low slot makes the box taller)
+      const rows = Math.max(1, Math.ceil(n / p.cols), ...(inGrid.get(c.id) ?? []).map((t) => Math.floor((L.tasks[t.id]?.slot ?? 0) / p.cols) + 1))
       const w = p.cols * (cellW * PX) - 14
-      out.set(c.id, { x: p.a * p.r * PX - w / 2, y: -(p.y + 1.2 * K) * PY, w, cols: p.cols, n, h: HEAD + (n && !c.collapsed ? 24 + rows * ROW + (rows - 1) * 8 : 0) })
+      out.set(c.id, { x: p.a * p.r * PX - w / 2, y: -(p.y + 1.2 * K) * PY, w, cols: p.cols, n, rows, h: HEAD + (n && !c.collapsed ? 24 + rows * ROW + (rows - 1) * 8 : 0) })
     }
     return out
   }, [content, L, inGrid])
@@ -203,13 +205,22 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
       const cl = L.clusters[over.id]
       const used = new Set(Object.values(L.tasks).filter((t) => t.c === over.id && !t.free && t !== tp).map((t) => t.slot))
       let slot = 0
-      if (over.id === own && !tp.free) slot = tp.slot
+      if (over.id === own && !tp.free && !tidy) slot = tp.slot
       else while (used.has(slot)) slot++
-      const { u, v: vv } = slotAt(slot, cl.cols)
+      let { u, v: vv } = slotAt(slot, cl.cols)
+      const bx = places.get(over.id)
+      if (tidy && !over.name && bx) {
+        // keep tidy: the nearest free slot to where it was let go in the box
+        const cw = (bx.w - 24 - (cl.cols - 1) * 8) / cl.cols
+        const col = (c.x - bx.x - 12) / (cw + 8) - 0.5
+        const row = (c.y - bx.y - HEAD - 12) / (ROW + 8) - 0.5
+        ;({ slot, u, v: vv } = nearestFreeSlot(used, cl.cols, (col - (cl.cols - 1) / 2) * cellW, -(row + 1) * cellH))
+      }
       writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: over.id, u, v: vv, dz: 0, slot, free: undefined } } })
       if (over.id !== own) retagTask(c.id, over.id)
     } else {
-      writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: { a: c.x / PX / r0, y: -c.y / PY } } } })
+      const free = { a: c.x / PX / r0, y: -c.y / PY }
+      writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: tidy ? snapFree(free) : free } } })
     }
     closeSprung(over?.id ?? null)
   }
@@ -226,10 +237,24 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
       const moved = repose(p, (left + b.w / 2) / (PX * p.r), -(top / PY) - 1.2 * K)
       const next = { ...L.clusters, [c.id]: moved }
       for (const k of kidsOf(c.id)) next[k] = repose(L.clusters[k], L.clusters[k].a + (moved.a - p.a), L.clusters[k].y + (moved.y - p.y))
-      writeLayout({ ...L, clusters: separate(next, new Set([c.id, ...kidsOf(c.id)])) })
+      if (tidy) {
+        // keep tidy: the group snaps to the grid (its subgroups keeping their places around it), and the others make room
+        const p1 = snapCluster(moved)
+        for (const k of kidsOf(c.id)) next[k] = repose(next[k], next[k].a + (p1.a - moved.a), next[k].y + (p1.y - moved.y))
+        next[c.id] = p1
+        writeLayout({ ...L, clusters: tidyClusters(next, new Set([c.id, ...kidsOf(c.id)])) })
+      } else writeLayout({ ...L, clusters: separate(next, new Set([c.id, ...kidsOf(c.id)])) })
     }
     closeSprung(over)
   }
+
+  // turning "keep tidy" on tidies what is already there (it glides into place)
+  const wasTidy = useRef(tidy)
+  useEffect(() => {
+    if (tidy && !wasTidy.current) writeLayout(tidyEverything(L))
+    wasTidy.current = tidy
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tidy])
 
   const links = content.clusters.filter((c) => c.parent && places.has(c.parent) && places.has(c.id))
   const free = content.tasks.filter((t) => L.tasks[t.id]?.free)
@@ -374,7 +399,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           const lit = carry?.hover === c.id
           const dragging = carry?.kind === 'group' && carry.id === c.id
           return (
-            <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w, zIndex: dragging ? 5 : 1, opacity: dragging ? 0.92 : 1 }} aria-label={c.name}>
+            <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w, zIndex: dragging ? 5 : 1, opacity: dragging ? 0.92 : 1, transition: carry?.kind === 'group' ? 'none' : 'left 0.38s cubic-bezier(0.3,1.1,0.5,1), top 0.38s cubic-bezier(0.3,1.1,0.5,1)' }} aria-label={c.name}>
               <h3
                 data-hub={c.id}
                 className={`mb-2 flex cursor-grab items-center gap-1.5 rounded-full px-1 font-display text-2xl font-bold italic transition-colors ${lit ? 'bg-white/80 ring-2 ring-white' : ''}`}
@@ -391,10 +416,20 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
               </h3>
               <div
                 data-box={c.id}
-                className={`grid gap-2 rounded-[2rem] border p-3 transition-shadow ${c.collapsed || grid.length === 0 ? 'hidden' : ''}`}
-                style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))`, background: `hsl(${Math.max(0, c.hue)},60%,${lit ? 78 : 84}%,${lit ? 0.6 : 0.3})`, borderColor: `hsl(${Math.max(0, c.hue)},55%,${lit ? 58 : 72}%,${lit ? 0.95 : 0.5})`, borderWidth: lit ? 3 : 1 }}
+                className={`relative rounded-[2rem] border transition-shadow ${c.collapsed || grid.length === 0 ? 'hidden' : ''}`}
+                style={{ height: 24 + p.rows * ROW + (p.rows - 1) * 8, background: `hsl(${Math.max(0, c.hue)},60%,${lit ? 78 : 84}%,${lit ? 0.6 : 0.3})`, borderColor: `hsl(${Math.max(0, c.hue)},55%,${lit ? 58 : 72}%,${lit ? 0.95 : 0.5})`, borderWidth: lit ? 3 : 1 }}
               >
-                {grid.map((t) => row(t, carry?.kind === 'task' && carry.id === t.id ? { opacity: 0.3 } : undefined))}
+                {grid.map((t) => {
+                  // each card sits in its slot of the group's grid, and glides there when the slot changes
+                  const slot = L.tasks[t.id]?.slot ?? 0
+                  const cw = (p.w - 24 - (p.cols - 1) * 8) / p.cols
+                  const ghost = carry?.kind === 'task' && carry.id === t.id
+                  return (
+                    <div key={t.id} className="absolute" style={{ left: 12 + (slot % p.cols) * (cw + 8), top: 12 + Math.floor(slot / p.cols) * (ROW + 8), width: cw, transition: carry ? 'none' : 'left 0.32s cubic-bezier(0.3,1.1,0.5,1), top 0.32s cubic-bezier(0.3,1.1,0.5,1)' }}>
+                      {row(t, ghost ? { opacity: 0.3 } : undefined)}
+                    </div>
+                  )
+                })}
               </div>
             </section>
           )
@@ -403,7 +438,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           const f = L.tasks[t.id].free!
           if (carry?.kind === 'task' && carry.id === t.id) return null
           return (
-            <div key={t.id} className="absolute" style={{ left: f.a * PX * r0 - TASK_W / 2, top: -f.y * PY - 20, width: TASK_W, zIndex: 3 }}>
+            <div key={t.id} className="absolute" style={{ left: f.a * PX * r0 - TASK_W / 2, top: -f.y * PY - 20, width: TASK_W, zIndex: 3, transition: carry ? 'none' : 'left 0.32s cubic-bezier(0.3,1.1,0.5,1), top 0.32s cubic-bezier(0.3,1.1,0.5,1)' }}>
               {row(t)}
             </div>
           )

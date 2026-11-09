@@ -25,7 +25,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
-  const { environment, tracking: trackPref, render, seen, tipSeen, links, radius, collapsed } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, radius: s.radius, collapsed: s.collapsed })))
+  const { environment, tracking: trackPref, render, seen, tipSeen, links, tidy, radius, collapsed } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -203,6 +203,9 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setRadius(radius)
   }, [radius, phase, simple])
+  useEffect(() => {
+    scene.current?.setTidy(tidy)
+  }, [tidy, phase, simple])
   // leaving: stop the sensors
   useEffect(
     () => () => {
@@ -336,6 +339,13 @@ export default function SpatialView() {
                   </div>
                 </div>
               )}
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
+                <span>
+                  Keep tidy
+                  <span className="block text-[0.68rem] text-ink-faint">things you let go settle onto a grid</span>
+                </span>
+                <input type="checkbox" checked={tidy} onChange={(e) => prefs({ tidy: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+              </label>
               {!simple && (
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
                   Connecting lines

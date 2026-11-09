@@ -132,7 +132,11 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
     if (own?.free && own.c === t.cluster) continue
     inGrid.set(t.cluster, [...(inGrid.get(t.cluster) ?? []), t])
   }
-  const rowsOf = (id: string, cols: number) => Math.max(1, Math.ceil((inGrid.get(id)?.length ?? 1) / cols))
+  // (a group is as many rows tall as its cards need: by count, or by the lowest slot one has been tidied into)
+  const rowsOf = (id: string, cols: number) => {
+    const lowest = (inGrid.get(id) ?? []).reduce((m, t) => Math.max(m, Math.floor((tasks[t.id]?.slot ?? 0) / cols) + 1), 0)
+    return Math.max(1, Math.ceil((inGrid.get(id)?.length ?? 1) / cols), lowest)
+  }
 
   const fresh = input.clusters.filter((c) => !clusters[c.id]).sort((a, b) => a.order - b.order)
   if (fresh.length) {
@@ -344,3 +348,98 @@ export function fromRadius(l: SpatialLayoutData, r: number): SpatialLayoutData {
 }
 /** The radius the testing slider offers (the default is the reference radius). */
 export const RADIUS = { start: 200, min: 25, max: 250 }
+
+
+/* ---------- keeping tidy: a grid to snap to ---------- */
+
+/** The grid groups snap to: half a card across (arc length) and one card row down, so groups line up with each other. */
+export const GROUP_GRID = { x: cellW / 2, y: cellH }
+/** The grid a floating card snaps to. */
+export const FREE_GRID = { x: cellW, y: cellH }
+
+/** A group moved to the nearest spot on the grid. */
+export function snapCluster(c: ClusterPlacement): ClusterPlacement {
+  return repose(c, (Math.round((c.a * c.r) / GROUP_GRID.x) * GROUP_GRID.x) / c.r, Math.round(c.y / GROUP_GRID.y) * GROUP_GRID.y)
+}
+
+/**
+ * Snap the groups in `moved` to the grid, then let the others make room (the moved ones stay put). Whatever was pushed aside is snapped
+ * too, so the whole layout stays on the grid, and made room for again, a few times over. Groups that were not touched are left alone.
+ */
+export function tidyClusters(clusters: Record<string, ClusterPlacement>, moved: ReadonlySet<string>): Record<string, ClusterPlacement> {
+  let out = { ...clusters }
+  for (const id of moved) if (out[id]) out[id] = snapCluster(out[id])
+  let pinned = new Set(moved)
+  for (let pass = 0; pass < 4; pass++) {
+    const next = separate(out, pinned)
+    const pushed = Object.keys(next).filter((id) => !pinned.has(id) && (next[id].a !== out[id].a || next[id].y !== out[id].y))
+    out = next
+    if (!pushed.length) break
+    for (const id of pushed) out[id] = snapCluster(out[id])
+    pinned = new Set([...pinned, ...pushed])
+  }
+  // (groups never overlap, even if that leaves one a little off the grid)
+  return separate(out, moved)
+}
+
+/**
+ * The slot of a group's grid nearest to where a card was let go (`u`, `v` in the group's own plane), skipping slots taken by other cards.
+ * Slots run along each row (columns 0..cols-1) and then down. Returns the slot and where it puts the card.
+ */
+export function nearestFreeSlot(taken: ReadonlySet<number>, cols: number, u: number, v: number): { slot: number; u: number; v: number } {
+  const wantCol = u / cellW + (cols - 1) / 2
+  const wantRow = -v / cellH - 1
+  let best = { slot: 0, d: Infinity }
+  const rows = Math.max(3, Math.ceil((taken.size + 1) / cols) + 2)
+  for (let row = 0; row < rows; row++)
+    for (let col = 0; col < cols; col++) {
+      const slot = row * cols + col
+      if (taken.has(slot)) continue
+      const d = Math.hypot(col - wantCol, row - wantRow)
+      if (d < best.d - 1e-9) best = { slot, d }
+    }
+  return { slot: best.slot, ...slotAt(best.slot, cols) }
+}
+
+/** A floating card snapped to the nearest spot of the free grid (angle in radians at the reference radius, height in world units). */
+export function snapFree(f: { a: number; y: number }): { a: number; y: number } {
+  return { a: (Math.round((f.a * WORLD.ring) / FREE_GRID.x) * FREE_GRID.x) / WORLD.ring, y: Math.round(f.y / FREE_GRID.y) * FREE_GRID.y }
+}
+
+/**
+ * Put everything on the grid: every card of every group into a slot (those off the grid go to the nearest free one), floating cards and
+ * groups onto their grids. Used when "keep tidy" is turned on.
+ */
+export function tidyEverything(l: SpatialLayoutData): SpatialLayoutData {
+  const tasks: Record<string, TaskPlacement> = { ...l.tasks }
+  const byGroup = new Map<string, string[]>()
+  for (const [id, t] of Object.entries(tasks)) if (!t.free) byGroup.set(t.c, [...(byGroup.get(t.c) ?? []), id])
+  for (const [cid, ids] of byGroup) {
+    const cols = l.clusters[cid]?.cols ?? 1
+    const taken = new Set<number>()
+    // the ones already on a slot keep it; the rest are placed by where they are
+    const onGrid = ids.filter((id) => {
+      const t = tasks[id]
+      const at = slotAt(t.slot, cols)
+      return Math.abs(at.u - t.u) < 0.01 && Math.abs(at.v - t.v) < 0.01
+    })
+    for (const id of onGrid) taken.add(tasks[id].slot)
+    for (const id of ids.filter((x) => !onGrid.includes(x)).sort((a, b) => tasks[a].slot - tasks[b].slot)) {
+      const t = tasks[id]
+      const n = nearestFreeSlot(taken, cols, t.u, t.v)
+      taken.add(n.slot)
+      tasks[id] = { ...t, slot: n.slot, u: n.u, v: n.v }
+    }
+  }
+  for (const [id, t] of Object.entries(tasks)) if (t.free) tasks[id] = { ...t, free: snapFree(t.free) }
+  // groups: all snapped, then any that now overlap make room for each other (and are snapped again), a few times over
+  let clusters = Object.fromEntries(Object.entries(l.clusters).map(([id, c]) => [id, snapCluster(c)]))
+  for (let pass = 0; pass < 6; pass++) {
+    const next = separate(clusters)
+    const pushed = Object.keys(next).filter((id) => next[id].a !== clusters[id].a || next[id].y !== clusters[id].y)
+    clusters = next
+    if (!pushed.length) break
+    for (const id of pushed) clusters[id] = snapCluster(clusters[id])
+  }
+  return { tasks, clusters: separate(clusters) }
+}

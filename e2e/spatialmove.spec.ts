@@ -156,3 +156,43 @@ test.describe('blank space in a group', () => {
     await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Blank tap')?.folderIds ?? []))).toContain('eng101')
   })
 })
+
+test.describe('keep tidy', () => {
+  test('a card let go inside a group settles into a slot of its grid; with "Keep tidy" off it stays where it was let go', async ({ page }) => {
+    await enter(page)
+    const slotUV = (cols: number, slot: number) => ({ u: ((slot % cols) - (cols - 1) / 2) * 18.7, v: -(Math.floor(slot / cols) + 1) * 7.6 })
+    // carry "Call grandma" a little way within Life: it lands on a slot (u, v exactly those of one)
+    const from = (await pt(page, 'task', 'demo-grandma'))!
+    const to = { x: from.x + 26, y: from.y + 14 }
+    await drag(page, from, to)
+    let l = await stored(page)
+    const t = l.tasks['demo-grandma']
+    const cols = l.clusters[t.c].cols
+    const want = slotUV(cols, t.slot)
+    expect(Math.abs(t.u - want.u)).toBeLessThan(0.5)
+    expect(Math.abs(t.v - want.v)).toBeLessThan(0.5)
+    // no two cards share a slot
+    const slots = Object.values(l.tasks as Record<string, { c: string; slot: number; free?: unknown }>).filter((x) => x.c === t.c && !x.free).map((x) => x.slot)
+    expect(new Set(slots).size).toBe(slots.length)
+    // switched off, it is left where it was let go (not on a slot)
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    await page.getByRole('checkbox', { name: /Keep tidy/ }).uncheck()
+    await page.keyboard.press('Escape')
+    const from2 = (await pt(page, 'task', 'demo-grandma'))!
+    await drag(page, from2, { x: from2.x + 9, y: from2.y + 7 })
+    l = await stored(page)
+    const t2 = l.tasks['demo-grandma']
+    const want2 = slotUV(cols, t2.slot)
+    expect(Math.abs(t2.u - want2.u) + Math.abs(t2.v - want2.v)).toBeGreaterThan(0.3)
+  })
+
+  test('a group let go settles onto the grid', async ({ page }) => {
+    await enter(page)
+    const hub = (await pt(page, 'hub', 'life'))!
+    await drag(page, { x: hub.x + 20, y: hub.y }, { x: hub.x + 57, y: hub.y + 23 })
+    const l = await stored(page)
+    const c = l.clusters.life
+    const gx = 18.7 / 2
+    expect(Math.abs(((c.a * c.r) / gx) - Math.round((c.a * c.r) / gx))).toBeLessThan(0.05)
+  })
+})

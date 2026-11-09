@@ -29,7 +29,7 @@ import { CARD_PLANE, HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type H
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
 import { linkGeometry } from './links'
-import { freePose, fromRadius, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
+import { freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
 
@@ -93,6 +93,10 @@ export class SpatialScene {
   private showLinks = true
   /** The radius of the cylinder the groups hang on (the layout itself is kept at WORLD.ring and bent to this). */
   private radius: number = WORLD.ring
+  /** "Keep tidy": things let go snap to a grid (smoothly), so the space stays organised. */
+  private tidy = true
+  /** Where each card is drawn right now, easing toward where the layout says it goes: a card never jumps, it glides. */
+  private taskShown = new Map<string, { c: string; free: boolean; x: number; y: number }>()
   /** Folded groups opened by lingering over them while carrying something (like spring-loaded folders), and the timer for the next. */
   private sprung = new Set<string>()
   private springTimer?: ReturnType<typeof setTimeout>
@@ -229,6 +233,28 @@ export class SpatialScene {
   /** Glide the drawn groups toward where they are meant to be; true while any is still on its way. */
   private glide(): boolean {
     let moving = false
+    // cards ease toward their places (a free one toward its spot on the cylinder, a grid one toward its slot in its group)
+    for (const t of this.content.tasks) {
+      const tp = this.layout.tasks[t.id]
+      if (!tp || (this.carry?.kind === 'task' && this.carry.id === t.id)) continue
+      const tx = tp.free ? tp.free.a : tp.u
+      const ty = tp.free ? tp.free.y : tp.v
+      const cur = this.taskShown.get(t.id)
+      if (!cur || cur.c !== tp.c || cur.free !== !!tp.free) {
+        this.taskShown.set(t.id, { c: tp.c, free: !!tp.free, x: tx, y: ty })
+        continue
+      }
+      const dx = tx - cur.x
+      const dy = ty - cur.y
+      const dist = Math.hypot(tp.free ? dx * this.radius : dx, dy)
+      if (dist < 0.02 * K) {
+        if (cur.x !== tx || cur.y !== ty) (cur.x = tx), (cur.y = ty)
+        continue
+      }
+      moving = true
+      cur.x += dx * 0.28
+      cur.y += dy * 0.28
+    }
     for (const [id, want] of Object.entries(this.layout.clusters)) {
       const cur = this.shown[id]
       if (!cur) {
@@ -261,7 +287,10 @@ export class SpatialScene {
         continue
       }
       n.mesh.visible = true
-      const fp = freePose(tp, this.radius)
+      const eased = this.taskShown.get(t.id)
+      // (where it is drawn now: easing toward the layout's place)
+      const tv = eased && eased.c === tp.c && eased.free === !!tp.free ? (tp.free ? { ...tp, free: { a: eased.x, y: eased.y } } : { ...tp, u: eased.x, v: eased.y }) : tp
+      const fp = freePose(tv, this.radius)
       const cp = S[tp.c]
       if (fp) {
         n.mesh.position.set(...fp.pos)
@@ -269,7 +298,7 @@ export class SpatialScene {
         n.mesh.scale.setScalar(1.04)
         n.mesh.renderOrder = 4 // (floating things are in front)
       } else if (cp) {
-        const [x, y, z] = taskWorld(tp, cp)
+        const [x, y, z] = taskWorld(tv, cp)
         n.mesh.position.set(x, y, z)
         n.mesh.rotation.set(cp.rx ?? 0, cp.ry, tp.rot ?? 0)
         n.mesh.scale.setScalar(cp.scale ?? 1)
@@ -379,6 +408,20 @@ export class SpatialScene {
     this.scene.add(this.links)
   }
 
+  /** Turn "keep tidy" on or off. Turning it on tidies everything now (smoothly). */
+  setTidy(on: boolean) {
+    const was = this.tidy
+    this.tidy = on
+    if (on && !was) this.tidyAll()
+  }
+  /** Put every card in a slot and every group and floating card on its grid, gliding there. */
+  tidyAll() {
+    const base = tidyEverything(fromRadius(this.layout, this.radius))
+    this.layout = withRadius(base, this.radius)
+    this.events.onLayout(base)
+    this.dirty = true
+    this.place()
+  }
   /** Hang the groups on a cylinder of this radius: the same layout, curled more around you when near and flatter when far. */
   setRadius(r: number) {
     const changed = Math.abs(r - this.radius) > 1e-9
@@ -900,12 +943,28 @@ export class SpatialScene {
           while (used.has(slot)) slot++
         }
         if (over.hub) ({ u, v } = slotAt(slot, cp.cols)) // (dropped on the name: it takes the next free place in the group)
+        else if (this.tidy) {
+          // keep tidy: it settles into the nearest free slot of the group's grid (not one already taken by another card)
+          const taken = new Set(Object.entries(L.tasks).filter(([id, t]) => id !== c.id && t.c === over.id && !t.free).map(([, t]) => t.slot))
+          ;({ slot, u, v } = nearestFreeSlot(taken, cp.cols, over.u, over.v))
+        }
+        // (it glides from where the finger let go to its place, rather than jumping)
+        const from = localIn(cp, [c.pos.x, c.pos.y, c.pos.z])
+        this.taskShown.set(c.id, { c: over.id, free: false, x: from.u, y: from.v })
         this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: over.id, u, v, dz: 0, slot, free: undefined } } }
         if (over.id !== (this.content.tasks.find((t) => t.id === c.id)?.cluster ?? tp.c)) this.events.onRetag?.(c.id, over.id)
       } else {
         // pulled out and let go in open space: it floats there
         const a = onCylinder([c.pos.x, c.pos.y, c.pos.z])
+        this.taskShown.set(c.id, { c: tp.c, free: true, x: a.a, y: a.y })
         this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: { a: a.a, y: a.y } } } }
+        if (this.tidy) {
+          // a floating card settles onto the free grid
+          const base = fromRadius(this.layout, this.radius)
+          const f = base.tasks[c.id].free
+          if (f) base.tasks[c.id] = { ...base.tasks[c.id], free: snapFree(f) }
+          this.layout = withRadius(base, this.radius)
+        }
       }
       this.events.onLayout(fromRadius(this.layout, this.radius))
       this.closeSprung(over?.id ?? null)
@@ -920,7 +979,22 @@ export class SpatialScene {
         this.layout = withRadius(this.content.layout, this.radius)
         this.events.onReparent?.(c.id, into)
       } else {
-        this.layout = { ...this.layout, clusters: separate(this.layout.clusters, new Set([c.id, ...c.kids])) }
+        const moved = new Set([c.id, ...c.kids])
+        if (this.tidy) {
+          // keep tidy: the group (and its subgroups, keeping their places around it) settle onto the grid, the others making room
+          const base = fromRadius(this.layout, this.radius)
+          const p0 = base.clusters[c.id]
+          const clusters = { ...base.clusters }
+          if (p0) {
+            const p1 = snapCluster(p0)
+            const da = p1.a - p0.a
+            const dy = p1.y - p0.y
+            clusters[c.id] = p1
+            for (const k of c.kids) if (clusters[k]) clusters[k] = repose(clusters[k], clusters[k].a + da, clusters[k].y + dy)
+          }
+          const tidied = { ...base, clusters: tidyClusters(clusters, moved) }
+          this.layout = withRadius(tidied, this.radius)
+        } else this.layout = { ...this.layout, clusters: separate(this.layout.clusters, moved) }
         this.events.onLayout(fromRadius(this.layout, this.radius))
       }
       this.closeSprung(into)

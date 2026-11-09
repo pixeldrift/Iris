@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { K, WORLD, type ClusterPlacement } from './types'
-import { ensureLayout, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { ensureLayout, slotAt, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -240,5 +240,47 @@ describe('connector ribbons', () => {
     const ys = g.pos.filter((_, i) => i % 3 === 1)
     expect(ys[0]).toBeGreaterThan(ys[ys.length - 1])
     expect(linkGeometry([{ id: 'p', parent: null, hue: 200 }], l.clusters)).toBeNull() // (no subgroups: nothing to draw)
+  })
+})
+
+import { FREE_GRID, GROUP_GRID, nearestFreeSlot, snapFree, tidyClusters, tidyEverything } from './layout'
+
+describe('keeping tidy', () => {
+  it('snaps a group onto the grid and keeps it clear of the others (which are snapped too)', () => {
+    const l = ensureLayout(empty, input({ a: ['a1', 'a2'], b: ['b1', 'b2'], c: ['c1'] }))
+    const ids = Object.keys(l.clusters)
+    const moved = { ...l.clusters, [ids[0]]: repose(l.clusters[ids[0]], l.clusters[ids[0]].a + 0.013, l.clusters[ids[0]].y + 0.4) }
+    const out = tidyClusters(moved, new Set([ids[0]]))
+    const c = out[ids[0]]
+    expect(Math.abs(((c.a * c.r) / GROUP_GRID.x) % 1)).toBeLessThan(1e-6)
+    expect(Math.abs((c.y / GROUP_GRID.y) % 1)).toBeLessThan(1e-6)
+    // no overlap afterwards: separating again changes nothing
+    const again = separate(out)
+    for (const id of ids) expect(again[id].a).toBeCloseTo(out[id].a, 9)
+  })
+  it('finds the nearest free slot, skipping taken ones, and returns where it puts the card', () => {
+    const cols = 2
+    const n = nearestFreeSlot(new Set([0]), cols, slotAt(0, cols).u + 0.1, slotAt(0, cols).v) // wants slot 0, which is taken
+    expect([1, 2]).toContain(n.slot)
+    expect(n.u).toBeCloseTo(slotAt(n.slot, cols).u, 9)
+    expect(nearestFreeSlot(new Set(), cols, slotAt(3, cols).u + 0.2, slotAt(3, cols).v - 0.2).slot).toBe(3)
+  })
+  it('snaps floating cards to the free grid', () => {
+    const f = snapFree({ a: 0.1234, y: 3.3 })
+    expect(Math.abs(((f.a * WORLD.ring) / FREE_GRID.x) % 1)).toBeLessThan(1e-6)
+    expect(Math.abs((f.y / FREE_GRID.y) % 1)).toBeLessThan(1e-6)
+  })
+  it('tidies a whole layout: cards on slots, none doubled up, groups on the grid', () => {
+    const l = ensureLayout(empty, input({ a: ['a1', 'a2', 'a3'], b: ['b1'] }))
+    const mess = { ...l, tasks: Object.fromEntries(Object.entries(l.tasks).map(([id, t]) => [id, { ...t, u: t.u + 0.7, v: t.v - 0.5 }])) }
+    const out = tidyEverything(mess)
+    const seen = new Set<string>()
+    for (const [id, t] of Object.entries(out.tasks)) {
+      const key = `${t.c}:${t.slot}`
+      expect(seen.has(key), id).toBe(false)
+      seen.add(key)
+      expect(t.u).toBeCloseTo(slotAt(t.slot, out.clusters[t.c].cols).u, 9)
+    }
+    for (const c of Object.values(out.clusters)) expect(Math.abs(((c.a * c.r) / GROUP_GRID.x) % 1) < 1e-6 || Math.abs(Math.abs(((c.a * c.r) / GROUP_GRID.x) % 1) - 1) < 1e-6).toBe(true)
   })
 })
