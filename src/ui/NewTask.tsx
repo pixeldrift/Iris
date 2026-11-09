@@ -278,7 +278,7 @@ export function NewTask() {
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="New item"
+        aria-label="Add something"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') closeCompose()

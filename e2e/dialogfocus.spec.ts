@@ -28,7 +28,7 @@ test('the new-item sheet is a dialog too: Tab stays in it, and focus returns to 
   const opener = page.getByRole('button', { name: 'New task', exact: true })
   await opener.focus()
   await opener.press('Enter')
-  const dialog = page.getByRole('dialog', { name: 'New item' })
+  const dialog = page.getByRole('dialog', { name: 'Add something' })
   await expect(dialog).toBeVisible()
   const inside = () => page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))
   await expect.poll(inside).toBe(true)
