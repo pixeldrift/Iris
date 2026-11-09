@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createFromLine, understandLine } from '../quickCreate'
 import { isDoneNow } from '../../core/recurrence'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
@@ -157,7 +158,6 @@ export function ListView() {
   const sortKey = useStore((s) => s.settings.sortKey)
   const sortDesc = useStore((s) => s.settings.sortDesc)
   const set = useStore((s) => s.setSetting)
-  const addTask = useStore((s) => s.addTask)
 
   const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
   // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
@@ -173,8 +173,22 @@ export function ListView() {
     return [...here, ...sorted.filter((t) => !set.has(t.id))]
   }, [sorted, fresh])
   const justAdded = useMemo(() => new Set(fresh), [fresh])
+  // the quick-add box reads what is typed the way the New dialog does: dates, times, repeats, #groups, @people, places, reminders
+  const qaMode = useStore((s) => s.settings.quickAdd)
+  const folders = useStore((s) => s.folders)
+  const people = useStore((s) => s.people)
+  const [line, setLine] = useState('')
+  const [accepted, setAccepted] = useState(false) // "suggest" mode: the suggestion was taken
+  const [plain, setPlain] = useState(false) // "keep as typed" for this line
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const understood = useMemo(() => (plain ? null : understandLine(line)), [line, plain, qaMode, folders, people])
+  const understoodChips = understood && understood.chips.length > 0 ? understood.chips : null
+  const applying = qaMode === 'auto' ? !plain : qaMode === 'suggest' ? accepted : false
   const quickAdd = (title: string) => {
-    const id = addTask({ title })
+    const id = createFromLine(title, applying)
+    setAccepted(false)
+    setPlain(false)
+    setLine('')
     setFresh((f) => [id, ...f])
     setAnnounce(`Added ${title}`)
     window.clearTimeout(freshTimer.current)
@@ -258,7 +272,38 @@ export function ListView() {
         </div>
       )}
       <BatchEditor ids={ids} open={batch && ids.length > 0} onClose={() => setBatch(false)} />
-      <QuickAdd examples onAdd={quickAdd} />
+      <QuickAdd
+        examples
+        onAdd={quickAdd}
+        onType={(t) => {
+          setLine(t)
+          if (!t.trim()) {
+            setAccepted(false)
+            setPlain(false)
+          }
+        }}
+        below={
+          understoodChips && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 px-1 text-[0.7rem] text-ink-soft" aria-live="polite">
+              <span>{qaMode === 'suggest' && !accepted ? 'Looks like:' : 'Understood:'}</span>
+              {understoodChips.map((c) => (
+                <span key={c} className="inline-flex items-center rounded-full border border-lilac-300/70 bg-lilac-100/70 px-2 py-0.5 leading-none text-lilac-700">
+                  {c}
+                </span>
+              ))}
+              {qaMode === 'suggest' && !accepted ? (
+                <button type="button" onClick={() => setAccepted(true)} className="whitespace-nowrap rounded-full bg-lilac-500 px-2.5 py-0.5 text-white">
+                  Use
+                </button>
+              ) : (
+                <button type="button" onClick={() => setPlain(true)} className="whitespace-nowrap rounded-full px-2 py-0.5 text-ink-faint underline-offset-2 hover:text-ink hover:underline">
+                  Keep as typed
+                </button>
+              )}
+            </div>
+          )
+        }
+      />
       <span role="status" aria-live="polite" className="sr-only">
         {announce}
       </span>

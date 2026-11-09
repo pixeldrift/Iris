@@ -267,6 +267,8 @@ export function QuickAdd({
   onAdd,
   autoFocus,
   examples = false,
+  onType,
+  below,
 }: {
   placeholder?: string
   /** What this box is for, for people using a screen reader and for the typing bar on a sideways phone (the placeholder is only a hint). */
@@ -275,6 +277,9 @@ export function QuickAdd({
   autoFocus?: boolean
   /** Show the same cross-fading examples as the Add dialog instead of a plain placeholder. */
   examples?: boolean
+  /** Told what is typed, as it is typed (to read it ahead of adding), and what to show under the box for it. */
+  onType?: (text: string) => void
+  below?: React.ReactNode
 }) {
   const [v, setV] = useState('')
   const hint = useExampleIndex(examples && !v)
@@ -289,6 +294,7 @@ export function QuickAdd({
         if (!v.trim()) return
         onAdd(v.trim())
         setV('')
+        onType?.('')
         // stay in the box, so a run of items can be typed one after another
         ref.current?.focus()
       }}
@@ -297,7 +303,10 @@ export function QuickAdd({
         <input
           ref={ref}
           value={v}
-          onChange={(e) => setV(e.target.value)}
+          onChange={(e) => {
+            setV(e.target.value)
+            onType?.(e.target.value)
+          }}
           placeholder={examples ? '' : placeholder}
           aria-label={label}
           data-proxy-commit
@@ -305,6 +314,7 @@ export function QuickAdd({
         />
         {examples && !v && <ExampleHint index={hint} className="left-4 right-3 text-sm" />}
       </div>
+      {below}
     </form>
   )
 }

@@ -30,3 +30,26 @@ test('quick add in the list: Enter adds, keeps the box focused for the next, sho
   const st = await saved(page)
   expect(st?.tasks.filter((t) => ['Zebra first', 'Aardvark second'].includes(t.title))).toHaveLength(2)
 })
+
+test('the list box reads a line the way the New dialog does, shows what it understood, and can be told to keep it as typed', async ({ page }) => {
+  await open(page)
+  await goto(page, 'List')
+  const box = page.getByLabel('Add a task')
+  await box.click()
+  await page.keyboard.type('Call the vet tomorrow at 3pm #Life')
+  await expect(page.getByText('Understood:')).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(box).toBeFocused()
+  await expect.poll(async () => (await saved(page))?.tasks.find((t) => t.title === 'Call the vet')).toBeTruthy()
+  const t = (await saved(page))!.tasks.find((x) => x.title === 'Call the vet')!
+  expect(t.time ?? t.dueTime ?? t.day ?? t.due).toBeTruthy()
+  expect(t.folderIds.length).toBe(1)
+  // "keep as typed": the words stay, nothing is read out of them
+  await page.keyboard.type('Dentist friday at 5pm')
+  await page.getByRole('button', { name: 'Keep as typed' }).click()
+  await box.click()
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await saved(page))?.tasks.find((x) => x.title === 'Dentist friday at 5pm')).toBeTruthy()
+  const plain = (await saved(page))!.tasks.find((x) => x.title === 'Dentist friday at 5pm')!
+  expect(plain.time).toBeFalsy()
+})
