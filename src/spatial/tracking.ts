@@ -152,6 +152,12 @@ export class SpatialTracking implements TrackingProvider {
     this.motionOn = false
     this.wanted = false
   }
+  /** The device's own rotation (from the sensors alone), for blending with what the camera sees. False when the sensors are not running. */
+  deviceRotation(out: Quaternion): boolean {
+    if (!this.motionOn) return false
+    this.sensor.read(out)
+    return true
+  }
   /** Motion was on and has gone quiet (e.g. the page was away). */
   get paused() {
     return this.wanted && !this.motionOn

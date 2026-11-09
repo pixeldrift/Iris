@@ -1,0 +1,295 @@
+// Wall mode's tracker: it watches the camera for a flat surface (a sheet of paper, a picture frame, a poster, or just a textured wall), holds
+// on to it from frame to frame, and says where the phone is relative to it, blended with the gyroscope so the view stays smooth between
+// camera frames and survives the surface being hidden for a moment. Nothing here needs a printed marker, and nothing needs to be to scale:
+// the surface is the unit everything is measured in. It does its best; it is not ARKit.
+
+import { Quaternion } from 'three'
+import { detectCorners } from './vision/features'
+import { cameraFromPlaneHomography, fitHomography, quatFromMat } from './vision/homography'
+import { rgbaToGray, type Gray } from './vision/image'
+import { apply, inv3, mul3, type Mat3, type Pt } from './vision/math'
+import { findQuads, type Quad } from './vision/quad'
+import { SurfaceTracker } from './vision/surface'
+import type { CameraPose, TrackingProvider, TrackingQuality, TrackingStatus } from './types'
+
+export type WallPhase = 'searching' | 'holding' | 'lost'
+
+/** What the scene draws on the surface: its outline and the points being followed, in the surface's own coordinates (width 1, y up). */
+export interface WallOverlay {
+  phase: WallPhase
+  quad: Pt[] | null
+  points: Pt[]
+  inliers: number
+  /** What was found: a sheet or frame, or just the middle of a textured wall. */
+  kind: 'rectangle' | 'texture' | null
+}
+
+const GRAY_W = 192
+const COMMON_ASPECTS = [1, 1.294, 1.414, 1.5, 1.333, 0.773, 0.707, 0.667, 0.75]
+
+type Listener = (s: TrackingStatus) => void
+
+export class WallTracking implements TrackingProvider {
+  readonly id = 'wall'
+  private video: HTMLVideoElement | null = null
+  private canvas = document.createElement('canvas')
+  private ctx = this.canvas.getContext('2d', { willReadFrequently: true })
+  private tracker = new SurfaceTracker()
+  private gray: Gray | null = null
+  private timer = 0
+  private stopped = true
+  private listeners = new Set<Listener>()
+  /** Where the surface is, in the first picture it was held in: surface coords (width 1, height = aspect, y up) -> picture pixels. */
+  private Hplane: Mat3 | null = null
+  private aspect = 1
+  private kind: WallOverlay['kind'] = null
+  phase: WallPhase = 'searching'
+  // the search
+  private seen: { quad: Quad; n: number } | null = null
+  private searchSince = 0
+  private lastSearch = 0
+  // the lens (set from the camera, adjustable)
+  private f = 800
+  private vw = 1280
+  private vh = 720
+  // the pose, blended
+  private offset = new Quaternion() // world <- device, corrected by what the camera sees
+  private haveOffset = false
+  private pos: [number, number, number] = [0, 0, 1.2]
+  private visQ = new Quaternion()
+  private q = new Quaternion()
+  private tmpQ = new Quaternion()
+  private scale = 100
+  private lift = 7
+  private origin: [number, number] = [0, 0]
+  private overlay: WallOverlay = { phase: 'searching', quad: null, points: [], inliers: 0, kind: null }
+  private fresh = false
+  private lastVisionAt = 0
+  /** The device's rotation, from the sensors (null when there are none). */
+  device: ((out: Quaternion) => boolean) | null = null
+
+  /** Use this camera picture. */
+  attach(video: HTMLVideoElement) {
+    this.video = video
+  }
+  /** Size the world: the surface's width, in world units, and how far in front of it the items float. */
+  configure(opts: { scale?: number; lift?: number; fovV?: number; origin?: [number, number] }) {
+    if (opts.scale) this.scale = opts.scale
+    if (opts.origin) this.origin = opts.origin
+    if (opts.lift !== undefined) this.lift = opts.lift
+    if (opts.fovV) this.f = (this.vh / 2) / Math.tan((opts.fovV * Math.PI) / 360)
+  }
+  get videoSize() {
+    return { w: this.vw, h: this.vh, f: this.f }
+  }
+
+  async start(): Promise<boolean> {
+    if (!this.video) return false
+    this.stopped = false
+    this.schedule()
+    this.report('visual', 'limited')
+    return true
+  }
+  stop() {
+    this.stopped = true
+    clearTimeout(this.timer)
+    this.tracker.reset()
+  }
+  /** Look for a surface again from scratch. */
+  recenter() {
+    this.tracker.reset()
+    this.Hplane = null
+    this.seen = null
+    this.searchSince = performance.now()
+    this.setPhase('searching')
+  }
+  /** Take the middle of what the camera sees as the surface now (for a wall with nothing rectangular on it). */
+  anchorHere() {
+    if (!this.gray) return
+    this.acquire(this.gray, this.centralRect(this.gray), 'texture')
+  }
+
+  onStatus(cb: Listener) {
+    this.listeners.add(cb)
+    return () => void this.listeners.delete(cb)
+  }
+  private report(source: TrackingStatus['source'], quality: TrackingQuality, note?: string) {
+    for (const l of this.listeners) l({ source, quality, note })
+  }
+  private setPhase(p: WallPhase) {
+    if (p === this.phase) return
+    this.phase = p
+    this.overlay.phase = p
+    this.report('visual', p === 'holding' ? 'good' : p === 'lost' ? 'limited' : 'limited')
+  }
+
+  getOverlay(): WallOverlay {
+    return this.overlay
+  }
+  /** True once since the overlay last changed (so the scene redraws it only when it must). */
+  takeFresh(): boolean {
+    const f = this.fresh
+    this.fresh = false
+    return f
+  }
+
+  getPose(): CameraPose {
+    // the rotation: the device's own, corrected by the camera; or the camera alone where there is no sensor
+    const gyro = this.device && this.device(this.tmpQ)
+    if (gyro && this.haveOffset) this.q.copy(this.offset).multiply(this.tmpQ)
+    else this.q.copy(this.visQ)
+    const quality: TrackingQuality = this.phase === 'holding' ? 'good' : this.haveOffset || !gyro ? 'limited' : 'none'
+    return {
+      q: [this.q.x, this.q.y, this.q.z, this.q.w],
+      position: [this.pos[0] * this.scale + this.origin[0], this.pos[1] * this.scale + this.origin[1], this.pos[2] * this.scale - this.lift],
+      quality,
+      source: 'visual',
+    }
+  }
+
+  /* ---------- the camera, frame by frame ---------- */
+
+  private schedule() {
+    if (this.stopped) return
+    const v = this.video as (HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }) | null
+    if (v && typeof v.requestVideoFrameCallback === 'function') v.requestVideoFrameCallback(() => this.tick())
+    else this.timer = window.setTimeout(() => this.tick(), 66)
+  }
+  private tick() {
+    if (this.stopped) return
+    try {
+      this.process()
+    } catch {
+      /* a bad frame is skipped */
+    }
+    this.schedule()
+  }
+
+  private process() {
+    const v = this.video
+    if (!v || v.readyState < 2 || !v.videoWidth || !this.ctx) return
+    const now = performance.now()
+    // about 20 pictures a second is plenty (and kinder to the battery)
+    if (now - this.lastVisionAt < 45) return
+    this.lastVisionAt = now
+    if (this.vw !== v.videoWidth || this.vh !== v.videoHeight) {
+      const fovV = 2 * Math.atan(this.vh / 2 / this.f)
+      this.vw = v.videoWidth
+      this.vh = v.videoHeight
+      this.f = this.vh / 2 / Math.tan(fovV / 2)
+    }
+    const gh = Math.max(8, Math.round((GRAY_W * v.videoHeight) / v.videoWidth))
+    if (this.canvas.width !== GRAY_W || this.canvas.height !== gh) {
+      this.canvas.width = GRAY_W
+      this.canvas.height = gh
+    }
+    this.ctx.drawImage(v, 0, 0, GRAY_W, gh)
+    const px = this.ctx.getImageData(0, 0, GRAY_W, gh)
+    const g = rgbaToGray(px.data, GRAY_W, gh, this.gray ?? undefined)
+    this.gray = g
+    if (this.phase === 'searching') this.search(g, now)
+    else this.follow(g)
+  }
+
+  /** Where a camera pixel is, in the small picture the tracker sees. */
+  private k() {
+    const s = GRAY_W / this.vw
+    return { f: this.f * s, cx: GRAY_W / 2, cy: (this.gray?.h ?? 0) / 2 }
+  }
+
+  private centralRect(g: Gray): Quad {
+    const mx = g.w * 0.2
+    const my = g.h * 0.2
+    return [{ x: mx, y: my }, { x: g.w - mx, y: my }, { x: g.w - mx, y: g.h - my }, { x: mx, y: g.h - my }]
+  }
+
+  private search(g: Gray, now: number) {
+    if (!this.searchSince) this.searchSince = now
+    if (now - this.lastSearch < 220) return
+    this.lastSearch = now
+    // a sheet, a frame, a poster: a rectangle that holds still for a few looks
+    const found = findQuads(g)[0]
+    if (found) {
+      const prev = this.seen
+      const same = prev && prev.quad.every((p, i) => Math.hypot(p.x - found.quad[i].x, p.y - found.quad[i].y) < 3.5)
+      this.seen = { quad: found.quad, n: same ? prev.n + 1 : 1 }
+      if (this.seen.n >= 3) return void this.acquire(g, found.quad, 'rectangle')
+    } else this.seen = null
+    // nothing rectangular after a moment: a textured wall will do (it just has to have enough to follow)
+    if (now - this.searchSince > 2200) {
+      const mid = this.centralRect(g)
+      const corners = detectCorners(g, { max: 60, minDist: 5, margin: 5, mask: (x, y) => x > mid[0].x && x < mid[2].x && y > mid[0].y && y < mid[2].y })
+      if (corners.length >= 40) this.acquire(g, mid, 'texture')
+    }
+  }
+
+  private acquire(g: Gray, quad: Quad, kind: 'rectangle' | 'texture') {
+    if (!this.tracker.acquire(g, quad)) return
+    // the surface's own coordinates: width 1, y up, its proportions worked out from how the corners look through the lens
+    const unit: Pt[] = [{ x: -0.5, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: -0.5 }, { x: -0.5, y: -0.5 }]
+    const Hu = fitHomography(unit, quad)
+    const est = Hu ? cameraFromPlaneHomography(Hu, this.k())?.aspect : null
+    let aspect = est && Number.isFinite(est) ? est : 1
+    // a sheet is a standard shape: snap to one when it is close
+    for (const a of COMMON_ASPECTS) if (Math.abs(aspect - a) / a < 0.07) aspect = a
+    this.aspect = aspect
+    // surface (width 1, height `aspect`) -> reference-picture pixels
+    this.Hplane = Hu ? mul3(Hu, [1, 0, 0, 0, 1 / aspect, 0, 0, 0, 1]) : null
+    this.kind = kind
+    this.seen = null
+    this.haveOffset = false
+    this.setPhase('holding')
+  }
+
+  private follow(g: Gray) {
+    const st = this.tracker.update(g)
+    if (st.status === 'lost' || !this.Hplane) {
+      this.setPhase('lost')
+      this.overlay = { phase: 'lost', quad: this.overlay.quad, points: [], inliers: 0, kind: this.kind }
+      this.fresh = true
+      // find the surface again where it was: if it is back in view the tracker picks it up by itself next frames; otherwise search anew
+      if (st.status === 'lost' && this.lostSince === 0) this.lostSince = performance.now()
+      if (this.lostSince && performance.now() - this.lostSince > 6000) {
+        this.lostSince = 0
+        this.recenter()
+      }
+      return
+    }
+    this.lostSince = 0
+    this.setPhase('holding')
+    // the surface as the camera now sees it: surface coords -> this picture's pixels
+    const Himg = mul3(st.H, this.Hplane)
+    const pose = cameraFromPlaneHomography(Himg, this.k())
+    if (pose) {
+      this.visQ.set(...quatFromMat(pose.R))
+      const p = pose.position
+      // the position is smoothed (the picture is a little noisy); the first reading is taken as it comes
+      const first = !this.havePos
+      this.pos = first ? [p[0], p[1], p[2]] : [this.pos[0] + (p[0] - this.pos[0]) * 0.45, this.pos[1] + (p[1] - this.pos[1]) * 0.45, this.pos[2] + (p[2] - this.pos[2]) * 0.45]
+      this.havePos = true
+      // blend with the gyroscope: its rotation, nudged toward the camera's reading a little each time
+      if (this.device && this.device(this.tmpQ)) {
+        const target = this.visQ.clone().multiply(this.tmpQ.clone().invert())
+        if (!this.haveOffset) {
+          this.offset.copy(target)
+          this.haveOffset = true
+        } else this.offset.slerp(target, 0.1)
+      }
+    }
+    // for the scene to draw: the outline and the points being followed, pinned on the surface itself
+    const toPlane = inv3(this.Hplane)
+    if (toPlane) {
+      const a2 = this.aspect / 2
+      this.overlay = {
+        phase: 'holding',
+        quad: [{ x: -0.5, y: a2 }, { x: 0.5, y: a2 }, { x: 0.5, y: -a2 }, { x: -0.5, y: -a2 }],
+        points: st.ref.map((p) => apply(toPlane, p.x, p.y)),
+        inliers: st.inliers,
+        kind: this.kind,
+      }
+      this.fresh = true
+    }
+  }
+  private lostSince = 0
+  private havePos = false
+}

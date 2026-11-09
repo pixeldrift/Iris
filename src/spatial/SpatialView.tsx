@@ -13,9 +13,11 @@ import { detectCapabilities } from './capabilities'
 import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
-import { RADIUS } from './layout'
+import { FLAT_R, RADIUS } from './layout'
+import { WallTracking, type WallPhase } from './wall'
+import { TrackingCamera } from './trackingCamera'
 import { DefaultDot } from '../ui/DefaultDot'
-import { CameraEnvironment, PanoramaEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
+import { CameraEnvironment, PanoramaEnvironment, SharedCameraEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
 import { SpatialScene } from './SpatialScene'
 import { StaticCanvas } from './StaticCanvas'
 import { useSpatial } from './store'
@@ -46,6 +48,8 @@ export default function SpatialView() {
   }, [content.layout, stored, setLayout])
 
   const simple = render === 'simple' || !caps.webgl
+  // wall mode: the camera finds a flat surface (a sheet, a frame, a wall) and the groups hang flat just in front of it
+  const wall = render === 'wall' && caps.webgl && !!navigator.mediaDevices?.getUserMedia
   const [phase, setPhase] = useState<'intro' | 'running'>('intro')
   const [status, setStatus] = useState<TrackingStatus>({ source: 'touch', quality: 'good' })
   const [note, setNote] = useState<string | null>(null)
@@ -58,6 +62,9 @@ export default function SpatialView() {
   const host = useRef<HTMLDivElement>(null)
   const menuBtn = useRef<HTMLButtonElement>(null)
   const track = useRef<SpatialTracking | null>(null)
+  const wallTrack = useRef<WallTracking | null>(null)
+  const wallCam = useRef<TrackingCamera | null>(null)
+  const [wallPhase, setWallPhase] = useState<WallPhase>('searching')
   const scene = useRef<SpatialScene | null>(null)
   const envRef = useRef<EnvironmentProvider | null>(null)
   const panoUrl = useRef<string | null>(null)
@@ -112,8 +119,8 @@ export default function SpatialView() {
       if (!sc) return
       let next: EnvironmentProvider
       if (kind === 'camera') {
-        const c = new CameraEnvironment()
-        c.onLost = () => {
+        const c = wallCam.current ? new SharedCameraEnvironment(wallCam.current) : new CameraEnvironment()
+        if (c instanceof CameraEnvironment) c.onLost = () => {
           setNote('The camera stopped, so you are back in the virtual room.')
           void chooseEnv('virtual')
         }
@@ -144,6 +151,15 @@ export default function SpatialView() {
     if (phase !== 'running' || simple || !host.current || !track.current) return
     let sc: SpatialScene
     try {
+      let wt: WallTracking | undefined
+      if (wall) {
+        wt = new WallTracking()
+        wt.device = (q) => track.current?.deviceRotation(q) ?? false
+        wt.onStatus(() => setWallPhase(wt!.phase))
+        wallTrack.current = wt
+        wallCam.current = new TrackingCamera()
+        setWallPhase('searching')
+      }
       sc = new SpatialScene(host.current, track.current, {
         onOpen: (id) => select(id),
         onToggle: (id) => toggleDone(id),
@@ -159,7 +175,7 @@ export default function SpatialView() {
         onFov: (f) => setFov(Math.round(f)),
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: retagTask,
-      })
+      }, wt)
     } catch {
       // the graphics could not start after all: fall back to the flat canvas
       setNote('3D could not start on this device, so here is the flat view.')
@@ -170,7 +186,22 @@ export default function SpatialView() {
     if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true) }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
-    void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
+    if (wall) {
+      // wall mode needs the camera: if it is not allowed, say so and go back to 3D
+      // (the tracker's own camera runs whatever the background is; the background is then chosen as usual)
+      const cam = wallCam.current!
+      void cam.start(host.current!).then((ok) => {
+        if (!ok) {
+          setNote('Wall mode needs the camera, which was not available (or not allowed), so here is the 3D view.')
+          prefs({ render: 'auto' })
+          return
+        }
+        wallTrack.current?.attach(cam.video!)
+        void wallTrack.current?.start()
+        cam.onLost = () => setNote('The camera stopped. Choose Wall again to start it.')
+        void chooseEnv(environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
+      })
+    } else void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
     const onVis = () => {
       if (document.visibilityState === 'hidden') sc.pause()
       else {
@@ -187,12 +218,16 @@ export default function SpatialView() {
     document.addEventListener('visibilitychange', onVis)
     return () => {
       document.removeEventListener('visibilitychange', onVis)
+      wallTrack.current?.stop()
+      wallTrack.current = null
+      wallCam.current?.stop()
+      wallCam.current = null
       sc.dispose() // (also lets go of the camera and the sky)
       scene.current = null
       envRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, simple])
+  }, [phase, simple, wall])
 
   useEffect(() => {
     scene.current?.setContent(shownContent)
@@ -201,8 +236,8 @@ export default function SpatialView() {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
   useEffect(() => {
-    scene.current?.setRadius(radius)
-  }, [radius, phase, simple])
+    scene.current?.setRadius(wall ? FLAT_R : radius)
+  }, [radius, phase, simple, wall])
   useEffect(() => {
     scene.current?.setTidy(tidy)
   }, [tidy, phase, simple])
@@ -262,7 +297,7 @@ export default function SpatialView() {
         <>
           <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between">
             <span className="pointer-events-auto">
-              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }]} onChange={(r) => prefs({ render: r })} />
+              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : render === 'wall' ? 'wall' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }, ...(caps.webgl && !!navigator.mediaDevices?.getUserMedia ? [{ id: 'wall' as const, label: 'Wall' }] : [])]} onChange={(r) => prefs({ render: r })} />
             </span>
             <button ref={menuBtn} type="button" aria-label="Spatial settings" aria-expanded={menu} onClick={() => setMenu((o) => !o)} className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-white/80 text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
               <IconSliders size={17} />
@@ -301,7 +336,7 @@ export default function SpatialView() {
                       label="Background"
                       value={env}
                       options={[
-                        { id: 'virtual', label: 'Space' },
+                        { id: 'virtual', label: 'Virtual' },
                         { id: 'camera', label: 'Camera' },
                         { id: 'panorama', label: 'Photo' },
                       ]}
@@ -315,9 +350,9 @@ export default function SpatialView() {
               )}
               {!simple && (
                 <div>
-                  View angle
+                  {wall ? 'Camera angle' : 'View angle'}
                   <div className="relative mt-1 pb-1">
-                    <input type="range" min={FOV.min} max={FOV.max} step={1} value={fov} aria-label="View angle" onChange={(e) => scene.current?.setFov(Number(e.target.value))} className="soft relative z-10" />
+                    <input type="range" min={FOV.min} max={FOV.max} step={1} value={fov} aria-label={wall ? 'Camera angle' : 'View angle'} onChange={(e) => { const v = Number(e.target.value); scene.current?.setFov(v); wallTrack.current?.configure({ fovV: v }) }} className="soft relative z-10" />
                     <DefaultDot at={(FOV.start - FOV.min) / (FOV.max - FOV.min)} label="Back to the usual view angle" onReset={() => scene.current?.setFov(FOV.start)} />
                   </div>
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
@@ -326,7 +361,7 @@ export default function SpatialView() {
                   </div>
                 </div>
               )}
-              {!simple && (
+              {!simple && !wall && (
                 <div>
                   Radius <span className="font-normal text-ink-faint">{radius}</span>
                   <div className="relative mt-1 pb-1">
@@ -372,13 +407,13 @@ export default function SpatialView() {
             <span className="pointer-events-auto flex flex-wrap items-center gap-1.5">
               {!simple && (
                 <button type="button" onClick={() => scene.current?.recenter()} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
-                  Recenter
+                  {wall ? 'Find again' : 'Recenter'}
                 </button>
               )}
-              <button type="button" onClick={() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll())} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
+              {!wall && <button type="button" onClick={() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll())} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
                 Fit all
-              </button>
-              <button
+              </button>}
+              {!wall && <button
                 type="button"
                 onClick={() => {
                   useSpatial.getState().resetLayout()
@@ -387,8 +422,22 @@ export default function SpatialView() {
                 className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white"
               >
                 Clean up
-              </button>
+              </button>}
             </span>
+            {wall && (
+              <p data-wall-status={wallPhase} className="pointer-events-auto absolute inset-x-6 bottom-16 mx-auto flex max-w-sm items-center justify-center gap-2 rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">
+                {wallPhase === 'searching' && (
+                  <>
+                    <span>Point at a wall, a sheet of paper or a picture frame.</span>
+                    <button type="button" onClick={() => wallTrack.current?.anchorHere()} className="whitespace-nowrap rounded-full bg-lilac-500 px-3 py-1 text-white hover:bg-lilac-600">
+                      Anchor here
+                    </button>
+                  </>
+                )}
+                {wallPhase === 'holding' && <span>Holding on to the surface.</span>}
+                {wallPhase === 'lost' && <span>Lost the surface. Look back at it, or tap Find again.</span>}
+              </p>
+            )}
             <span role="status" className="sr-only">
               {statusText}
             </span>

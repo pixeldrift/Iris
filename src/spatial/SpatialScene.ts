@@ -11,6 +11,8 @@ import {
   CanvasTexture,
   DoubleSide,
   Float32BufferAttribute,
+  Group,
+  ShaderMaterial,
   LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
@@ -29,8 +31,9 @@ import { CARD_PLANE, HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type H
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
 import { linkGeometry } from './links'
-import { freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
+import { FLAT_R, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
+import type { WallTracking } from './wall'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
 
 export interface SceneCluster extends HubInfo {
@@ -127,6 +130,8 @@ export class SpatialScene {
     private host: HTMLElement,
     private tracking: SpatialTracking,
     private events: SceneEvents,
+    /** Wall mode: the camera finds a flat surface and the view is held to it (the groups hang flat, a little in front of it). */
+    private wall?: WallTracking,
   ) {
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' })
     this.renderer.setClearColor(0x000000, 0)
@@ -146,8 +151,195 @@ export class SpatialScene {
     el.addEventListener('pointercancel', this.up)
     el.addEventListener('wheel', this.wheel, { passive: false })
     el.addEventListener('keydown', this.key)
+    if (wall) {
+      this.radius = FLAT_R
+      this.buildWallOverlay()
+      this.buildWallSet()
+    }
     this.loop = this.loop.bind(this)
     this.raf = requestAnimationFrame(this.loop)
+  }
+
+  /* ---------- wall mode ---------- */
+
+  private wallGroup?: Mesh
+  /** The wall mode's world: the surface's width in world units, and where the groups' middle is (the surface's middle is put there). */
+  private wallBox = { w: 120, ox: 0, oy: 0 }
+
+  // a quiet stand-in for the room behind the surface (when the background is not the camera): a dot grid on the wall, and a floor and
+  // two side walls of dots that fade into the mist toward the viewer
+  private setGroup?: Group
+  private setParts?: { wall: Mesh; floor: Mesh; left: Mesh; right: Mesh }
+
+  /** Dots on a transparent picture, with an alpha falloff `fade(u, v)` (0..1 across the picture, v up). */
+  private dotTexture(wU: number, hU: number, fade: (u: number, v: number) => number): CanvasTexture {
+    const PPU = 200 // pixels per unit (a unit is the surface's width)
+    const w = Math.round(wU * PPU)
+    const h = Math.round(hU * PPU)
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    const g = c.getContext('2d')!
+    const step = 0.2 * PPU
+    for (let y = step / 2; y < h; y += step) {
+      for (let x = step / 2; x < w; x += step) {
+        const a = fade(x / w, 1 - y / h)
+        if (a < 0.02) continue
+        g.fillStyle = `rgba(150,112,206,${(0.5 * a).toFixed(3)})`
+        g.beginPath()
+        g.arc(x, y, 2.4, 0, Math.PI * 2)
+        g.fill()
+      }
+    }
+    const t = new CanvasTexture(c)
+    t.colorSpace = SRGBColorSpace
+    return t
+  }
+
+  private buildWallSet() {
+    const g = new Group()
+    g.visible = false
+    const smooth = (x: number) => Math.max(0, Math.min(1, x)) ** 1.6
+    const mk = (tex: CanvasTexture, order: number) => {
+      const m = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: DoubleSide, fog: false }))
+      m.renderOrder = order
+      g.add(m)
+      return m
+    }
+    // (all in units of the surface's width; fitWall sizes them)
+    const wall = mk(this.dotTexture(5, 5, (u, v) => smooth(1 - Math.hypot(u - 0.5, v - 0.5) * 2)), -6)
+    const floor = mk(this.dotTexture(5, 2.2, (u, v) => smooth(v) * smooth(1 - Math.abs(u - 0.5) * 2)), -6)
+    const side = this.dotTexture(2.2, 3, (u, v) => smooth(u) * smooth(1 - v))
+    const left = mk(side, -6)
+    const right = mk(side, -6)
+    floor.rotation.x = -Math.PI / 2
+    left.rotation.y = Math.PI / 2
+    right.rotation.y = -Math.PI / 2
+    right.scale.x = -1
+    this.scene.add(g)
+    this.setGroup = g
+    this.setParts = { wall, floor, left, right }
+  }
+
+  private fitWallSet() {
+    const p = this.setParts
+    if (!p) return
+    const { w: W, ox, oy } = this.wallBox
+    const z = -0.9 * K - 0.03 * K
+    p.wall.scale.set(5 * W, 5 * W, 1)
+    p.wall.position.set(ox, oy, z)
+    const floorY = oy - 0.6 * W
+    p.floor.scale.set(5 * W, 2.2 * W, 1)
+    p.floor.position.set(ox, floorY, z + 1.1 * W)
+    for (const [m, sx] of [[p.left, -1], [p.right, 1]] as const) {
+      m.scale.set(2.2 * W * (sx === 1 ? -1 : 1), 3 * W, 1)
+      m.position.set(ox + sx * 1.3 * W, floorY + 1.5 * W, z + 1.1 * W)
+    }
+  }
+
+  private updateWallSet() {
+    const g = this.setGroup
+    if (!g) return
+    const kind = this.env?.kind
+    g.visible = kind !== 'camera' && this.wallReveal > 0
+    for (const m of Object.values(this.setParts ?? {})) (m.material as MeshBasicMaterial).opacity = this.wallReveal
+    // a picture behind is busy enough: the floor and walls are only for the virtual room
+    if (this.setParts) for (const m of [this.setParts.floor, this.setParts.left, this.setParts.right]) m.visible = kind === 'virtual' || kind === undefined
+  }
+
+  private buildWallOverlay() {
+    // a one-time "scanned" effect when the surface is first found: a soft outline, and a grid of dots wiping across it (then the virtual
+    // wall is revealed). It is a single plane with a small shader, sized to the surface, and gone a couple of seconds later.
+    const mat = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: DoubleSide,
+      uniforms: { uWipe: { value: 0 }, uFade: { value: 0 }, uOutline: { value: 0 }, uAsp: { value: 1 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: `varying vec2 vUv; uniform float uWipe; uniform float uFade; uniform float uOutline; uniform float uAsp;
+        void main(){
+          // the plane is a little larger than the surface, so the glow can fade away on both sides of its border
+          vec2 q = (vUv - 0.5) * 1.3 + 0.5;
+          vec2 e = min(q, 1.0 - q) * vec2(uAsp, 1.0);
+          float d = min(e.x, e.y); // (negative outside the surface)
+          float glow = exp(-pow(d / 0.045, 2.0)) * 0.7 + exp(-pow(d / 0.016, 2.0)) * 0.25;
+          float inside = smoothstep(0.0, 0.03, d);
+          // dots on a grid, lit where the wipe has passed (brightest right at its edge, then settling)
+          vec2 cell = vec2(q.x * uAsp, q.y) * 18.0;
+          float dot = smoothstep(0.2, 0.0, length(fract(cell) - 0.5) - 0.12);
+          float behind = uWipe - q.x;
+          float lit = smoothstep(0.0, 0.05, behind) * (0.35 + 0.65 * exp(-behind * 6.0));
+          float edge = exp(-pow(behind / 0.05, 2.0)) * inside;
+          vec3 col = mix(vec3(0.74, 0.56, 1.0), vec3(0.62, 0.82, 1.0), vUv.y);
+          float a = (glow * uOutline + dot * lit * inside * 0.8 + edge * 0.12) * uFade;
+          gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+        }`,
+    })
+    const scan = new Mesh(new PlaneGeometry(1, 1), mat)
+    scan.renderOrder = 0
+    scan.visible = false
+    scan.frustumCulled = false
+    this.scene.add(scan)
+    this.wallGroup = scan
+  }
+
+  private wallScan = { t0: 0, held: false, quad: null as null | { x: number; y: number }[] }
+
+  /** Size the wall world to the layout (the surface's width is the layout's) and tell the tracker. */
+  private fitWall() {
+    if (!this.wall) return
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    for (const c of Object.values(this.layout.clusters)) {
+      const hw = (c.cols * (WORLD.cardW + WORLD.gap)) / 2 + K
+      minX = Math.min(minX, c.x - hw)
+      maxX = Math.max(maxX, c.x + hw)
+      minY = Math.min(minY, c.y - (c.rows ?? 1) * (WORLD.cardH + WORLD.gap) - K)
+      maxY = Math.max(maxY, c.y + 1.5 * K)
+    }
+    if (!Number.isFinite(minX)) return
+    this.wallBox = { w: Math.max(40, (maxX - minX) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
+    this.wall.configure({ scale: this.wallBox.w, origin: [this.wallBox.ox, this.wallBox.oy], lift: 0.9 * K })
+    this.fitWallSet()
+  }
+
+  /** The first-found effect (about 2.4 s), and the reveal of the virtual wall that follows it. */
+  private updateWallOverlay() {
+    const wall = this.wall
+    const scan = this.wallGroup as Mesh | undefined
+    if (!wall || !scan) return
+    const ov = wall.getOverlay()
+    const st = this.wallScan
+    const holding = ov.phase === 'holding' && !!ov.quad
+    if (holding && !st.held) {
+      st.t0 = performance.now() // (found, or found again after being lost)
+      const { w, ox, oy } = this.wallBox
+      const xs = ov.quad!.map((p) => p.x * w + ox)
+      const ys = ov.quad!.map((p) => p.y * w + oy)
+      const sw = Math.max(...xs) - Math.min(...xs)
+      const sh = Math.max(...ys) - Math.min(...ys)
+      scan.position.set((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, -0.9 * K)
+      scan.scale.set(sw * 1.3, sh * 1.3, 1)
+      ;(scan.material as ShaderMaterial).uniforms.uAsp.value = sw / Math.max(1e-3, sh)
+    }
+    st.held = holding
+    const t = (performance.now() - st.t0) / 1000
+    const on = st.t0 > 0 && t < 2.5
+    scan.visible = on
+    if (on) {
+      const u = (scan.material as ShaderMaterial).uniforms
+      u.uWipe.value = Math.min(1.4, t / 1.2 * 1.4) - 0.1
+      u.uFade.value = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (2.5 - t) / 1.0))
+      u.uOutline.value = Math.min(1, t / 0.4) * Math.min(1, Math.max(0, (1.6 - t) / 0.8))
+    }
+    // the virtual wall is revealed as the scan finishes
+    this.wallReveal = st.t0 > 0 ? Math.min(1, Math.max(0, (t - 0.8) / 1.2)) : 0
+  }
+  private wallReveal = 0
+  get wallPhase() {
+    return this.wall?.phase ?? null
   }
 
   /* ---------- content ---------- */
@@ -381,6 +573,7 @@ export class SpatialScene {
       this.plates.delete(id)
     }
     this.buildLinks()
+    this.fitWall()
     this.dirty = true
   }
 
@@ -430,7 +623,7 @@ export class SpatialScene {
     this.shown = { ...this.layout.clusters }
     this.place()
     this.dirty = true
-    if (changed) this.frameAll(true) // (a new radius changes how big everything looks, so fit it again)
+    if (changed && !isFlat(r)) this.frameAll(true) // (a new radius changes how big everything looks, so fit it again)
   }
   getRadius() {
     return this.radius
@@ -466,6 +659,7 @@ export class SpatialScene {
   /* ---------- the camera ---------- */
 
   recenter() {
+    if (this.wall) return void this.wall.recenter() // (look for the surface again)
     this.tracking.recenter()
     this.dirty = true
   }
@@ -483,6 +677,7 @@ export class SpatialScene {
   }
   /** Turn to face a group (the view glides there). */
   focusCluster(id: string) {
+    if (this.wall) return // (the phone is how you move in wall mode)
     const cp = this.shown[id] ?? this.layout.clusters[id]
     if (!cp) return
     const { yaw, pitch } = lookAt(cp)
@@ -493,6 +688,7 @@ export class SpatialScene {
   }
   /** Turn and zoom so the whole wall is in view (as far as the widest lens allows). */
   frameAll(instant = false) {
+    if (this.wall) return
     const L = this.layout
     const ids = this.content.clusters.map((c) => c.id).filter((id) => L.clusters[id])
     if (!ids.length) return
@@ -617,6 +813,17 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
     }
     this.plates.clear()
+    if (this.wallGroup) {
+      this.wallGroup.geometry.dispose()
+      ;(this.wallGroup.material as ShaderMaterial).dispose()
+    }
+    if (this.setParts) {
+      for (const m of Object.values(this.setParts)) {
+        m.geometry.dispose()
+        ;(m.material as MeshBasicMaterial).map?.dispose()
+        ;(m.material as MeshBasicMaterial).dispose()
+      }
+    }
     if (this.links) {
       this.links.geometry.dispose()
       ;(this.links.material as MeshBasicMaterial).dispose()
@@ -651,7 +858,8 @@ export class SpatialScene {
     if (this.glide()) {
       this.place()
     }
-    const pose = this.tracking.getPose()
+    const pose = this.wall ? this.wall.getPose() : this.tracking.getPose()
+    if (this.wall) this.dirty = true // (the camera picture moves all the time: draw every frame)
     const sig = pose.q.map((x) => x.toFixed(4)).join(',') + this.fov
     // in touch mode nothing changes unless it is moved: draw only when something did (kinder to the battery)
     if (sig !== this.lastQ || this.dirty) {
@@ -661,7 +869,16 @@ export class SpatialScene {
       if (pose.position) this.camera.position.set(...pose.position)
       // the lens is described by its horizontal angle; the vertical one follows the window's shape
       const asp = this.camera.aspect
-      this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
+      if (this.wall) {
+        // the lens is the camera's: its picture fills the window the way the video does (cropped to cover), so the view lines up with it
+        const { w: vw, h: vh, f } = this.wall.videoSize
+        const Hc = Math.max(1, this.host.clientHeight)
+        const Wc = Math.max(1, this.host.clientWidth)
+        const cover = Math.max(Wc / vw, Hc / vh)
+        this.camera.fov = (2 * Math.atan(Hc / 2 / (f * cover)) * 180) / Math.PI
+        this.updateWallOverlay()
+        this.updateWallSet()
+      } else this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
       this.camera.updateProjectionMatrix()
       this.renderer.render(this.scene, this.camera)
       this.updateDots()
@@ -857,6 +1074,7 @@ export class SpatialScene {
         this.startCarry('cluster', p.hit.kind === 'hub' || p.hit.kind === 'plate' ? p.hit.id : '', { clientX: p.x, clientY: p.y })
       } else p.mode = 'look'
     }
+    if (p.mode === 'look' && this.wall) return // (in wall mode the phone is the way to look around)
     if (p.mode === 'look') {
       const k = this.radPerPx()
       this.tracking.touch.look((e.clientX - prev.x) * k, (e.clientY - prev.y) * k)

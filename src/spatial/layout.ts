@@ -49,8 +49,16 @@ export function tilt(c: ClusterPlacement): ClusterPlacement {
   return { ...c, rx: 0 }
 }
 
+/**
+ * A radius this large means a flat wall, not a cylinder (the Wall mode): positions run along a straight line (x is the arc length) and
+ * every group faces straight ahead, at the same depth, instead of curving round the viewer.
+ */
+export const FLAT_R = 1e6
+export const isFlat = (r: number) => r >= FLAT_R
+
 /** The same group at another angle on the cylinder and height (its other numbers follow). */
 export function repose(c: ClusterPlacement, a: number, y: number): ClusterPlacement {
+  if (isFlat(c.r)) return tilt({ ...c, a, y, x: a * c.r, z: 0, ry: 0 })
   return tilt({ ...c, a, y, x: c.r * Math.sin(a), z: -c.r * Math.cos(a), ry: -a })
 }
 
@@ -276,25 +284,32 @@ export function planeBasis(c: Pick<ClusterPlacement, 'ry' | 'rx'>): { right: Vec
   return { right: [cy, 0, -sy], up: [st * sy, ct, st * cy], normal: [ct * sy, -st, ct * cy] }
 }
 
+/** How far a card stands in front of its group's box. */
+export const TASK_LIFT = 0.28 * K
+
 /** Where a task is in the world: its cluster's place, then across and down (and out) in the cluster's own plane. */
 export function taskWorld(t: TaskPlacement, c: ClusterPlacement): Vec3 {
   const { right, up, normal } = planeBasis(c)
   const s = c.scale ?? 1
-  const [u, v, d] = [t.u * s, t.v * s, t.dz * s]
+  // (cards stand a little in front of their group's box, so it reads as a surface with things on it, and moving the view shows a little parallax)
+  const [u, v, d] = [t.u * s, t.v * s, (t.dz + TASK_LIFT) * s]
   return [c.x + right[0] * u + up[0] * v + normal[0] * d, c.y + right[1] * u + up[1] * v + normal[1] * d, c.z + right[2] * u + up[2] * v + normal[2] * d]
 }
 
 /** A task pulled out of its group floats on the cylinder, a little in front of the groups; this is where, and how it faces. */
 export function freePose(t: TaskPlacement, radius: number = WORLD.ring): { pos: Vec3; ry: number; rx: number } | null {
   if (!t.free) return null
+  // (on a flat wall a floating card hangs a little in front of the groups)
+  if (isFlat(radius)) return { pos: [t.free.a * radius, t.free.y, 0.7 * K], ry: 0, rx: 0 }
   const r = radius * 0.94
   return { pos: [r * Math.sin(t.free.a), t.free.y, -r * Math.cos(t.free.a)], ry: -t.free.a, rx: Math.atan2(t.free.y, r) }
 }
 /** The angle and height on the cylinder of a point in the world (where a dropped task floats). */
-export const onCylinder = (p: Vec3): { a: number; y: number } => ({ a: Math.atan2(p[0], -p[2]), y: p[1] })
+export const onCylinder = (p: Vec3, radius: number = WORLD.ring): { a: number; y: number } => (isFlat(radius) ? { a: p[0] / radius, y: p[1] } : { a: Math.atan2(p[0], -p[2]), y: p[1] })
 
 /** Move a cluster (and so everything in it) to a world position: its place on the cylinder follows, and it keeps facing the eye. */
 export function moveCluster(c: ClusterPlacement, to: Vec3): ClusterPlacement {
+  if (isFlat(c.r)) return repose(c, to[0] / c.r, to[1])
   return repose(c, Math.atan2(to[0], -to[2]), to[1])
 }
 
