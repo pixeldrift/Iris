@@ -9,6 +9,8 @@ import { MenuItem, Popover } from '../Popover'
 import { IconTrash } from '../icons'
 import { BatchEditor } from '../BatchEditor'
 import { colorVars, useTaskHue } from '../taskColor'
+import { rowKeys } from '../rowKeys'
+import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, WeightDot, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
@@ -99,12 +101,13 @@ function Row({ task, selected, selecting, onToggle }: { task: Task; selected: bo
           ref={el}
           data-lift-id={`task:${task.id}`}
           data-flip={task.id}
+          {...rowKeys(() => useStore.getState().select(task.id))}
           onPointerDown={(e) => {
             onPointerDown(e)
             swipe(e)
           }}
           style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
-          className={`tint lift-on-press group rise-in relative flex cursor-pointer items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
+          className={`tint lift-on-press group rise-in relative flex cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
         >
           {(selecting || selected) && (
             <span aria-hidden className={`well-circle grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.65rem] leading-none text-white ${selected ? 'is-on' : ''}`}>
@@ -235,7 +238,7 @@ export function ListView() {
             {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
           </div>
         ))}
-        {rows.length === 0 && <p className="py-16 text-center font-display text-lg italic text-ink-faint">Nothing here yet. Still water.</p>}
+        {rows.length === 0 && <EmptyState>Nothing here yet. Still water.</EmptyState>}
       </div>
       </ScrollFade>
       </div>

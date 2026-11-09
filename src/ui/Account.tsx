@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Tip } from './Tip'
 import { create } from 'zustand'
 import { accountsConfigured, authClient } from '../sync/auth'
 import { startConnect } from '../sync/connect'
@@ -174,9 +175,9 @@ export function AccountRow() {
   if (accountsConfigured) return <AccountMenu />
   // no accounts here: settings still need a way in
   return (
-    <button onClick={openSettings} aria-label="My settings" title="My settings" className="ml-auto grid h-7 w-7 place-items-center rounded-full text-ink-soft transition hover:bg-white/70">
+    <Tip label="My settings"><button onClick={openSettings} aria-label="My settings" className="ml-auto grid h-7 w-7 place-items-center rounded-full text-ink-soft transition hover:bg-white/70">
       <IconGear size={16} />
-    </button>
+    </button></Tip>
   )
 }
 
@@ -190,9 +191,9 @@ function AccountMenu() {
   if (!data) {
     return (
       <span className="ml-auto flex items-center gap-1">
-        <button onClick={openSettings} aria-label="My settings" title="My settings" className="grid h-7 w-7 place-items-center rounded-full text-ink-soft transition hover:bg-white/70">
+        <Tip label="My settings"><button onClick={openSettings} aria-label="My settings" className="grid h-7 w-7 place-items-center rounded-full text-ink-soft transition hover:bg-white/70">
           <IconGear size={16} />
-        </button>
+        </button></Tip>
         <button onClick={() => openAuth('in')} className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft transition hover:bg-white" title="Keep your pond on every device">
           Sign in
         </button>

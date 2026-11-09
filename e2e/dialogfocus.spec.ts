@@ -22,3 +22,21 @@ test('a dialog holds focus (Tab stays inside), is read as a dialog, and gives fo
   await expect(dialog).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent ?? '')).toMatch(/My settings/)
 })
+
+test('the new-item sheet is a dialog too: Tab stays in it, and focus returns to the New button', async ({ page }) => {
+  await open(page)
+  const opener = page.getByRole('button', { name: 'New task', exact: true })
+  await opener.focus()
+  await opener.press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'Add something' })
+  await expect(dialog).toBeVisible()
+  const inside = () => page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))
+  await expect.poll(inside).toBe(true)
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press('Tab')
+    expect(await inside()).toBe(true)
+  }
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')).toMatch(/New/)
+})

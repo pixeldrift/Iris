@@ -202,6 +202,44 @@ function ViewsPicker() {
   )
 }
 
+/** The gestures that are easy to miss, folded away until wanted. */
+const TIPS: { title: string; lines: string[] }[] = [
+  { title: 'Everywhere', lines: ['N adds an item; / searches; Ctrl or Cmd + Z undoes.', 'Drag an item onto a group in the sidebar to tag it; drag a group onto another to nest it.', 'On a list or board, Tab to a row, then the arrow keys move between rows and Enter opens one.'] },
+  { title: 'Pond', lines: ['Tap the water to add a thought; drag to pan; pinch or scroll to zoom.', 'Drag a group name to carry the whole group, or onto another group to put it inside.', 'Hold Shift (or turn on select) to pick several items.'] },
+  { title: 'Space', lines: ['Drag a task onto a group to move it, or out into the open to leave it floating.', 'Drag a group by its name or box; its subgroups come with it.', 'Hold a task over a folded group and it opens; carry it out over the sidebar to tag it.', 'The twirl beside a name folds the group; the sliders in the settings button change the angle and the radius.'] },
+  { title: 'Lists', lines: ['Swipe a row far to the left to delete it (Undo brings it back).', 'Tick a checklist entry for a small high chime; ticking a whole task plays the larger one.'] },
+]
+function TipsList() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="px-1">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left transition hover:bg-white/50">
+        <span className={`text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
+          <IconChevron size={14} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="text-sm">Tips and gestures</span>
+          <span className="block text-[0.7rem] text-ink-faint">the things that are easy to miss</span>
+        </span>
+      </button>
+      {open && (
+        <div className="mb-1 ml-6 mt-1 space-y-2.5 text-[0.8rem] text-ink-soft">
+          {TIPS.map((t) => (
+            <section key={t.title}>
+              <h5 className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">{t.title}</h5>
+              <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+                {t.lines.map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section>
     <h4 className="px-2 pb-0.5 pt-2 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">{title}</h4>
@@ -420,6 +458,9 @@ export function SettingsDialog() {
               Time zone <span className="ml-1 text-[0.7rem] text-ink-faint">{deviceTimeZone().replace(/_/g, ' ')} · follows this device</span>
             </div>
           </div>
+        </Group>
+        <Group title="Help">
+          <TipsList />
         </Group>
         <Group title="Demo data">
           <p className="px-2 pb-1 text-[0.7rem] text-ink-faint">A default sampling of imaginary tasks that demonstrate all the apps features.</p>

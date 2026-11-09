@@ -430,9 +430,9 @@ export function Sidebar() {
           >
             {/* everything sits in the middle of the strip's height (and the strip scrolls if the screen is too short) */}
             <div className="m-auto flex flex-col items-center gap-0.5">
-            <button type="button" aria-label="Show the menu" title="Show the menu" className="grid h-8 w-8 shrink-0 place-items-center rounded-full transition hover:bg-white/60" onClick={(e) => (e.stopPropagation(), setNavHidden(false))}>
+            <Tip label="Show the menu"><button type="button" aria-label="Show the menu" className="grid h-8 w-8 shrink-0 place-items-center rounded-full transition hover:bg-white/60" onClick={(e) => (e.stopPropagation(), setNavHidden(false))}>
               <Logo size={22} />
-            </button>
+            </button></Tip>
             <span aria-hidden className="my-px h-px w-5 shrink-0 bg-ink-faint/30" />
             {/* the views are purple here too, as in the open menu: white icons, the current one a white disc */}
             <div className="flex shrink-0 flex-col items-center gap-0.5 rounded-full bg-gradient-to-b from-lilac-400 to-lilac-600 p-0.5 shadow-md shadow-lilac-500/30">
@@ -451,16 +451,15 @@ export function Sidebar() {
               ))}
             </div>
             <span aria-hidden className="my-px h-px w-5 shrink-0 bg-ink-faint/30" />
-            <button
+            <Tip label="Everything"><button
               type="button"
               aria-label="Everything"
-              title="Everything"
               aria-pressed={scope.type === 'all'}
               className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-lilac-500 transition hover:bg-white/60 ${scope.type === 'all' ? 'bg-white/70' : ''}`}
               onClick={(e) => (e.stopPropagation(), setScope({ type: 'all' }))}
             >
               <IconAll />
-            </button>
+            </button></Tip>
             </div>
           </div>
         )}

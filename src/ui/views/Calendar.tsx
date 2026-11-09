@@ -1,3 +1,4 @@
+import { useDialogKeys } from '../dialogs'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { tint } from '../../core/color'
@@ -372,11 +373,12 @@ function DayPopup({ date, from, tasksOn, onNav, onClose, onLeave }: { date: stri
     return () => window.removeEventListener('keydown', key)
   }) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useDialogKeys(panel, true)
   const arrow = 'grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white/70'
   return createPortal(
     <div className="fixed inset-0 z-[var(--z-modal-low)] grid place-items-center py-3" style={{ paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}>
       <div ref={back} className="absolute inset-0 bg-ink/15 backdrop-blur-[3px]" onClick={close} />
-      <div ref={panel} role="dialog" aria-modal="true" aria-label={`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`} className="glass glass-strong relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[2rem]">
+      <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`} className="outline-none glass glass-strong relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[2rem]">
         <header className="px-3 pb-2 pt-3.5">
           <button onClick={close} className="absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink" aria-label="Close">
             <IconClose size={14} />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { isDoneNow } from '../../core/recurrence'
+import { rowKeys } from '../rowKeys'
 import { hasProgress, orderInStage, patchForStage, percentsFor, progressOf, stageIndex, stagesOf, topRank, type Stage } from '../../core/progress'
 import { NumberField } from '../NumberPad'
 import { sortTasks, effectiveUrgency } from '../../core/tasks'
@@ -28,9 +29,10 @@ function Card({ task }: { task: Task }) {
       <div
         ref={el}
         data-lift-id={`task:${task.id}`}
+        {...rowKeys(() => useStore.getState().select(task.id))}
         onPointerDown={(e) => onPointerDown(e)}
         style={colorVars(hue, effectiveUrgency(task))}
-        className={`tint lift-on-press rise-in group relative cursor-pointer rounded-2xl px-2.5 py-2 shadow-[0_6px_20px_-10px_rgb(var(--lr-700)/0.3)] transition hover:-translate-y-0.5 ${leave}`}
+        className={`tint lift-on-press rise-in group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 rounded-2xl px-2.5 py-2 shadow-[0_6px_20px_-10px_rgb(var(--lr-700)/0.3)] transition hover:-translate-y-0.5 ${leave}`}
       >
         <div className="flex items-start gap-2 pr-5">
           <DoneButton task={task} size={20} />

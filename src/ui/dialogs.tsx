@@ -1,5 +1,5 @@
 import { ScrollFade } from './ScrollFade'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useExit } from './anim'
 import { IconChevronDown } from './icons'
@@ -41,6 +41,48 @@ function close(ok: Record<string, string> | null) {
   s?.resolve(ok)
 }
 
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+/**
+ * What every modal box does for the keyboard, shared so the ones with their own look (the calendar's day panel, the new-item sheet)
+ * behave like `Modal`: Tab and Shift+Tab stay inside, focus goes into the box when it opens (unless something inside already took it)
+ * and back to where it was when it closes. `onEscape`, when given, closes it on Escape (boxes that handle Escape themselves leave it out).
+ */
+export function useDialogKeys(panel: React.RefObject<HTMLElement | null>, active: boolean, onEscape?: () => void) {
+  const closer = useRef(onEscape)
+  closer.current = onEscape // (a new function each render must not restart this: focus would jump)
+  // taken before anything inside the box can grab focus (a layout effect runs ahead of every ordinary one)
+  const was = useRef<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    if (active) was.current = document.activeElement as HTMLElement | null
+  }, [active])
+  useEffect(() => {
+    if (!active) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && closer.current) return e.stopPropagation(), closer.current()
+      if (e.key !== 'Tab' || !panel.current) return
+      const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null)
+      if (!items.length) return e.preventDefault()
+      const first = items[0]
+      const last = items[items.length - 1]
+      const at = document.activeElement
+      if (!panel.current.contains(at)) (e.preventDefault(), first.focus())
+      else if (e.shiftKey && at === first) (e.preventDefault(), last.focus())
+      else if (!e.shiftKey && at === last) (e.preventDefault(), first.focus())
+    }
+    window.addEventListener('keydown', onKey, true)
+    // something inside may have taken focus itself (a field with autofocus): otherwise the box does, so a screen reader reads it out
+    const t = window.setTimeout(() => panel.current && !panel.current.contains(document.activeElement) && panel.current.focus({ preventScroll: true }), 30)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('keydown', onKey, true)
+      const back = was.current
+      if (back && back.isConnected) back.focus({ preventScroll: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+}
+
 /** Generic centered modal with a springy pop-in/out. */
 export function Modal({
   open,
@@ -80,34 +122,7 @@ export function Modal({
   }, [crop])
   const peek = !!crop || clipping
   const panel = useRef<HTMLDivElement>(null)
-  const closer = useRef(onClose)
-  closer.current = onClose // (a new function each render must not restart this: focus would jump)
-  useEffect(() => {
-    if (!open) return
-    const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
-    // keyboard: Escape closes; Tab stays inside the dialog (it is modal), and focus goes back to where it was when the dialog closes
-    const was = document.activeElement as HTMLElement | null
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') return e.stopPropagation(), closer.current()
-      if (e.key !== 'Tab' || !panel.current) return
-      const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null)
-      if (!items.length) return e.preventDefault()
-      const first = items[0]
-      const last = items[items.length - 1]
-      const at = document.activeElement
-      if (!panel.current.contains(at)) (e.preventDefault(), first.focus())
-      else if (e.shiftKey && at === first) (e.preventDefault(), last.focus())
-      else if (!e.shiftKey && at === last) (e.preventDefault(), first.focus())
-    }
-    window.addEventListener('keydown', onKey, true)
-    // something inside may have taken focus itself (a field with autofocus): otherwise the dialog does, so a screen reader reads it out
-    const t = window.setTimeout(() => panel.current && !panel.current.contains(document.activeElement) && panel.current.focus({ preventScroll: true }), 30)
-    return () => {
-      window.clearTimeout(t)
-      window.removeEventListener('keydown', onKey, true)
-      if (was && was.isConnected) was.focus({ preventScroll: true })
-    }
-  }, [open])
+  useDialogKeys(panel, open, onClose)
   if (!mounted) return null
   return (
     <div
