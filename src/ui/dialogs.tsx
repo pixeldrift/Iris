@@ -111,7 +111,7 @@ export function Modal({
   if (!mounted) return null
   return (
     <div
-      className={`fixed inset-0 z-[120] grid place-items-center py-3 transition-[opacity,padding,background-color,backdrop-filter] duration-200 ease-out ${peek ? 'bg-transparent' : 'bg-ink/15 backdrop-blur-[3px]'} ${closing ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[var(--z-modal)] grid place-items-center py-3 transition-[opacity,padding,background-color,backdrop-filter] duration-200 ease-out ${peek ? 'bg-transparent' : 'bg-ink/15 backdrop-blur-[3px]'} ${closing ? 'opacity-0' : 'opacity-100'}`}
       style={{ paddingBottom: 'calc(var(--kb, 0px) + 0.75rem)', paddingLeft: 'max(1rem, var(--safe-l))', paddingRight: 'max(1rem, var(--safe-r))' }}
       onPointerDown={(e) => e.target === e.currentTarget && onClose()}
     >

@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
-import { checkVars } from '../ui/taskColor'
+import { checkVars, colorVars } from '../ui/taskColor'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
 import { dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
+import { descendantsOf } from '../core/tree'
 import { cellW, ensureLayout, repose, separate, slotAt } from './layout'
 import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
@@ -67,15 +68,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
     }
     return out
   }, [content, L, inGrid])
-  /** Every group inside a group, at any depth. */
-  const kidsOf = (id: string): Set<string> => {
-    const out = new Set<string>()
-    const walk = (p: string) => {
-      for (const c of content.clusters) if (c.parent === p && !out.has(c.id)) (out.add(c.id), walk(c.id))
-    }
-    walk(id)
-    return out
-  }
+  const kidsOf = (id: string): Set<string> => descendantsOf(content.clusters, id)
   const carriedKids = useMemo(() => (carry?.kind === 'group' ? kidsOf(carry.id) : new Set<string>()), [carry?.kind, carry?.id, content]) // eslint-disable-line react-hooks/exhaustive-deps
   const at = (id: string): Box | undefined => {
     const b = places.get(id)
@@ -225,7 +218,8 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
   const r0 = L.clusters[Object.keys(L.clusters)[0]]?.r ?? 80
 
   const row = (t: SceneTask, extra?: React.CSSProperties) => {
-    const vars = { ['--h' as string]: Math.max(0, t.hue), ['--s' as string]: t.hue < 0 ? 0 : 1, ['--u' as string]: 0.5, ...checkVars(t.hue) } as React.CSSProperties
+    // the same colour rules as the list row: the group's hue, deeper the more urgent
+    const vars = { ...colorVars(t.hue, t.urgency ?? 0.5), ...checkVars(t.hue) } as React.CSSProperties
     return (
       // the line view's row: its tint and outline, an inset check, the title on one line (cut with an ellipsis), the date that never wraps
       <div key={t.id} data-task={t.id} style={{ ...vars, ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint flex cursor-grab items-center gap-2.5 rounded-xl px-2.5 py-2">
@@ -236,7 +230,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           {t.title || 'Untitled'}
         </button>
         {t.due && (
-          <span className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.68rem]" style={{ background: `hsl(${Math.max(0, t.hue)},60%,88%)`, color: `hsl(${Math.max(0, t.hue)},40%,30%)` }}>
+          <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${t.late ? 'bg-rose-soft/80 text-danger-ink' : ''}`} style={t.late ? undefined : { background: `hsl(${Math.max(0, t.hue)},60%,88%)`, color: `hsl(${Math.max(0, t.hue)},40%,30%)` }}>
             {t.due}
           </span>
         )}

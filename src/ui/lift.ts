@@ -41,7 +41,7 @@ function copyOf(el: HTMLElement, r: DOMRect) {
   Object.assign(clone.style, { width: `${r.width}px`, height: `${r.height}px`, margin: '0', opacity: '1', transform: 'none', transition: 'none' })
   clone.classList.remove('opacity-40', 'rise-in', 'pop-in')
   const wrap = document.createElement('div')
-  wrap.style.cssText = 'position:fixed;left:0;top:0;z-index:100;pointer-events:none;will-change:transform;'
+  wrap.style.cssText = 'position:fixed;left:0;top:0;z-index:var(--z-drag);pointer-events:none;will-change:transform;'
   wrap.style.transform = `translate(${r.left}px, ${r.top}px)`
   wrap.appendChild(clone)
   document.body.appendChild(wrap)
@@ -143,7 +143,7 @@ export const lifter = {
     // the old copy, left behind where the item was picked up
     const old = copyOf(el, cur)
     old.clone.style.opacity = '0.4'
-    old.wrap.style.zIndex = '90'
+    old.wrap.style.zIndex = 'calc(var(--z-drag) - 10)'
 
     let done = false
     const finish = (dest?: Element | null) => {

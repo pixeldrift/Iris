@@ -75,7 +75,7 @@ export function Tip({ label, children }: { label: string; children: React.ReactE
           <span
             ref={bubble}
             key={tip.n}
-            className={`pointer-events-none fixed z-[200] whitespace-nowrap rounded-full bg-ink/90 px-3 py-1 text-xs text-white shadow-lg ${
+            className={`pointer-events-none fixed z-[var(--z-tip)] whitespace-nowrap rounded-full bg-ink/90 px-3 py-1 text-xs text-white shadow-lg ${
               tip.sticky ? 'pop-in' : 'tip-float'
             }`}
             style={{ left: tip.x, top: tip.y, transform: tip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)', ['--ox' as string]: '50%', ['--oy' as string]: tip.below ? '0%' : '100%' }}

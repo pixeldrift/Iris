@@ -98,7 +98,7 @@ export function ReminderHost() {
   const { t, note: text } = shown[0]
   const more = shown.length - 1
   return (
-    <div className="pointer-events-none fixed inset-x-3 top-3 z-[135] flex flex-col items-center md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
+    <div className="pointer-events-none fixed inset-x-3 top-3 z-[var(--z-alert)] flex flex-col items-center md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'var(--safe-l)', paddingRight: 'var(--safe-r)' }}>
       <div className="relative w-full max-w-sm">
         <ReminderCard key={t.id} id={t.id} title={t.title} text={text} habit={t.kind === 'habit'} />
         {more > 0 && (

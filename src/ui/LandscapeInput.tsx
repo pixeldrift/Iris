@@ -38,7 +38,7 @@ function fly(el: Field, from: DOMRect, text: string, onLanded?: () => void): boo
     position: 'fixed',
     left: '0',
     top: '0',
-    zIndex: '450',
+    zIndex: 'var(--z-input-top)',
     pointerEvents: 'none',
     overflow: 'hidden',
     boxSizing: 'border-box',
@@ -178,7 +178,7 @@ export function LandscapeInput() {
     <div
       data-input-proxy
       aria-hidden={!open}
-      className={`fixed inset-x-0 top-0 z-[400] flex justify-center transition-[opacity,transform] duration-150 ${open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`}
+      className={`fixed inset-x-0 top-0 z-[var(--z-input)] flex justify-center transition-[opacity,transform] duration-150 ${open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`}
       style={{ paddingTop: '0.4rem', paddingLeft: 'max(0.5rem, var(--safe-l))', paddingRight: 'max(0.5rem, var(--safe-r))' }}
     >
       <div className={`glass glass-strong flex w-full max-w-3xl gap-2 rounded-2xl px-3 py-1.5 ${shown?.multi ? 'items-start' : 'items-center'}`}>

@@ -117,7 +117,7 @@ export function Popover({
       onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`glass glass-strong fixed z-[150] min-w-[12rem] rounded-2xl p-1.5 ${footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} ${closing ? 'pop-out' : 'pop-in'} ${className}`}
+      className={`glass glass-strong fixed z-[var(--z-popover)] min-w-[12rem] rounded-2xl p-1.5 ${footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} ${closing ? 'pop-out' : 'pop-in'} ${className}`}
     >
       {footer ? (
         <>

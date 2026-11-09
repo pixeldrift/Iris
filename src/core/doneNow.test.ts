@@ -17,3 +17,27 @@ describe('isDoneNow: one answer for every view', () => {
     expect(isDoneNow({ ...t, log: ['2026-10-25'] }, '2026-10-26')).toBe(false)
   })
 })
+
+import { descendantsOf } from './tree'
+import { matchesScope, scopeMatcher } from './tasks'
+
+describe('shared helpers', () => {
+  it('descendantsOf walks any depth and leaves the start out', () => {
+    const items = [
+      { id: 'a', parent: null },
+      { id: 'b', parent: 'a' },
+      { id: 'c', parent: 'b' },
+      { id: 'd', parent: null },
+    ]
+    expect([...descendantsOf(items, 'a')].sort()).toEqual(['b', 'c'])
+    expect(descendantsOf(items, 'd').size).toBe(0)
+  })
+  it('scopeMatcher gives the same answers as matchesScope', () => {
+    const { tasks, folders } = seedData()
+    const school = folders.find((f) => f.name === 'School')!
+    for (const scope of [{ type: 'all' }, { type: 'inbox' }, { type: 'folder', id: school.id }, { type: 'multi', parts: [{ type: 'folder', id: school.id }] }] as never[]) {
+      const m = scopeMatcher(scope, folders)
+      for (const t of tasks) expect(m(t)).toBe(matchesScope(t, scope, folders))
+    }
+  })
+})

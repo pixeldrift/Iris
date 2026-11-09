@@ -27,6 +27,7 @@ import {
 import { edgeDots } from '../core/edges'
 import { HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
+import { descendantsOf } from '../core/tree'
 import { freePose, fromRadius, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
@@ -780,21 +781,12 @@ export class SpatialScene {
     const plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), mesh.position)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
     const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
-    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? this.descendantsOf(id) : new Set() }
+    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? descendantsOf(this.content.clusters, id) : new Set() }
     if (kind === 'task') {
       mesh.renderOrder = 6
       mesh.scale.multiplyScalar(1.08)
     }
     if (navigator.vibrate) navigator.vibrate(6)
-  }
-  /** Every group inside this one, at any depth. */
-  private descendantsOf(id: string): Set<string> {
-    const out = new Set<string>()
-    const walk = (p: string) => {
-      for (const c of this.content.clusters) if (c.parent === p && !out.has(c.id)) (out.add(c.id), walk(c.id))
-    }
-    walk(id)
-    return out
   }
   private cancelCarry() {
     if (!this.carry) return
