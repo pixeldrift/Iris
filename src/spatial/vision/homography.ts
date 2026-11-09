@@ -1,0 +1,168 @@
+import { apply, cross, dot, inv3, mul3, mulVec, norm, rng, solve, transpose3, type Mat3, type Pt, type Vec3 } from './math'
+
+/** The homography taking `src` to `dst` (least squares over four or more pairs, with the points first normalised for stability). */
+export function fitHomography(src: Pt[], dst: Pt[]): Mat3 | null {
+  const n = src.length
+  if (n < 4) return null
+  const norm = (pts: Pt[]) => {
+    let cx = 0
+    let cy = 0
+    for (const p of pts) (cx += p.x), (cy += p.y)
+    cx /= pts.length
+    cy /= pts.length
+    let m = 0
+    for (const p of pts) m += Math.hypot(p.x - cx, p.y - cy)
+    m /= pts.length
+    const s = m > 1e-9 ? Math.SQRT2 / m : 1
+    const T: Mat3 = [s, 0, -s * cx, 0, s, -s * cy, 0, 0, 1]
+    return { T, pts: pts.map((p) => ({ x: (p.x - cx) * s, y: (p.y - cy) * s })) }
+  }
+  const a = norm(src)
+  const b = norm(dst)
+  // normal equations for the 8 unknowns (h9 = 1)
+  const AtA = Array.from({ length: 8 }, () => new Array(8).fill(0))
+  const Atb = new Array(8).fill(0)
+  for (let i = 0; i < n; i++) {
+    const { x, y } = a.pts[i]
+    const { x: u, y: v } = b.pts[i]
+    const r1 = [x, y, 1, 0, 0, 0, -u * x, -u * y]
+    const r2 = [0, 0, 0, x, y, 1, -v * x, -v * y]
+    for (let j = 0; j < 8; j++) {
+      for (let k = 0; k < 8; k++) AtA[j][k] += r1[j] * r1[k] + r2[j] * r2[k]
+      Atb[j] += r1[j] * u + r2[j] * v
+    }
+  }
+  const h = solve(AtA, Atb)
+  if (!h || h.some((v) => !Number.isFinite(v))) return null
+  const Hn: Mat3 = [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1]
+  const Tb = inv3(b.T)
+  if (!Tb) return null
+  const H = mul3(mul3(Tb, Hn), a.T)
+  const k = H[8]
+  return Math.abs(k) < 1e-12 ? null : (H.map((v) => v / k) as Mat3)
+}
+
+/**
+ * The homography that most pairs agree on (RANSAC): try many from four random pairs, keep the one most pairs fit within `thresh` pixels,
+ * then refit to all that fit. Returns which pairs fit.
+ */
+export function ransacHomography(src: Pt[], dst: Pt[], opts: { iters?: number; thresh?: number; seed?: number } = {}): { H: Mat3; inliers: boolean[]; count: number } | null {
+  const n = src.length
+  if (n < 4) return null
+  const iters = opts.iters ?? 80
+  const thresh = opts.thresh ?? 2.5
+  const rand = rng(opts.seed ?? 1)
+  let best: { H: Mat3; count: number } | null = null
+  const fits = (H: Mat3) => {
+    const flags: boolean[] = []
+    let count = 0
+    for (let i = 0; i < n; i++) {
+      const p = apply(H, src[i].x, src[i].y)
+      const ok = Math.hypot(p.x - dst[i].x, p.y - dst[i].y) < thresh
+      flags.push(ok)
+      if (ok) count++
+    }
+    return { flags, count }
+  }
+  for (let it = 0; it < iters; it++) {
+    const idx = new Set<number>()
+    while (idx.size < 4) idx.add(Math.floor(rand() * n))
+    const pick = [...idx]
+    const H = fitHomography(pick.map((i) => src[i]), pick.map((i) => dst[i]))
+    if (!H) continue
+    const { count } = fits(H)
+    if (!best || count > best.count) best = { H, count }
+    if (best.count > n * 0.9) break
+  }
+  if (!best || best.count < 4) return null
+  const { flags } = fits(best.H)
+  const s2 = src.filter((_, i) => flags[i])
+  const d2 = dst.filter((_, i) => flags[i])
+  const refit = fitHomography(s2, d2)
+  const H = refit ?? best.H
+  const fin = fits(H)
+  return fin.count >= best.count * 0.8 ? { H, inliers: fin.flags, count: fin.count } : { H: best.H, inliers: flags, count: best.count }
+}
+
+/** The camera's lens, in pixels: focal length and where the middle of the picture is. */
+export interface Intrinsics {
+  f: number
+  cx: number
+  cy: number
+}
+export const kMatrix = (k: Intrinsics): Mat3 => [k.f, 0, k.cx, 0, k.f, k.cy, 0, 0, 1]
+
+/**
+ * Where the camera is relative to a flat surface, from the homography taking the surface's own coordinates (x right, y up, z out
+ * toward the viewer, in whatever unit the homography was made with) to image pixels.
+ *
+ * Returns the camera's position in the surface's coordinates and its orientation as a rotation matrix (columns are the camera's right,
+ * up and backward axes in the surface's coordinates, the way a Three.js camera is posed: it looks down its own -z), plus the surface's
+ * aspect (height over width) that the homography implies if it was made from a rectangle of unit width.
+ */
+export function cameraFromPlaneHomography(H: Mat3, k: Intrinsics): { position: Vec3; R: Mat3; aspect: number } | null {
+  const Ki = inv3(kMatrix(k))
+  if (!Ki) return null
+  const h1: Vec3 = [H[0], H[3], H[6]]
+  const h2: Vec3 = [H[1], H[4], H[7]]
+  const h3: Vec3 = [H[2], H[5], H[8]]
+  let a1 = mulVec(Ki, h1)
+  let a2 = mulVec(Ki, h2)
+  let a3 = mulVec(Ki, h3)
+  const lambda = 1 / (norm(a1) || 1)
+  a1 = a1.map((v) => v * lambda) as Vec3
+  a2 = a2.map((v) => v * lambda) as Vec3
+  a3 = a3.map((v) => v * lambda) as Vec3
+  // the surface is in front of the camera
+  if (a3[2] < 0) {
+    a1 = a1.map((v) => -v) as Vec3
+    a2 = a2.map((v) => -v) as Vec3
+    a3 = a3.map((v) => -v) as Vec3
+  }
+  // r1, r2, r3 as an orthonormal frame (Gram-Schmidt: r1 kept, r2 made square to it)
+  const r1 = a1.map((v) => v / (norm(a1) || 1)) as Vec3
+  let r2 = a2.map((v, i) => v - dot(a2, r1) * r1[i]) as Vec3
+  r2 = r2.map((v) => v / (norm(r2) || 1)) as Vec3
+  const r3 = cross(r1, r2)
+  // surface -> camera (OpenCV: x right, y down, z forward): columns r1, r2, r3 ; translation a3
+  const Rcw: Mat3 = [r1[0], r2[0], r3[0], r1[1], r2[1], r3[1], r1[2], r2[2], r3[2]]
+  const Rwc = transpose3(Rcw) // camera axes in surface coordinates, rows = camera x,y,z
+  const position = mulVec(Rwc, a3).map((v) => -v) as Vec3
+  // Three.js camera axes: x right (same), y up (= -OpenCV y), z backward (= -OpenCV z); as matrix columns in surface coordinates
+  const R: Mat3 = [Rwc[0], -Rwc[1], -Rwc[2], Rwc[3], -Rwc[4], -Rwc[5], Rwc[6], -Rwc[7], -Rwc[8]]
+  const aspect = norm(mulVec(Ki, h2)) / (norm(mulVec(Ki, h1)) || 1)
+  return { position, R, aspect }
+}
+
+/** A quaternion (x, y, z, w) from a rotation matrix. */
+export function quatFromMat(m: Mat3): [number, number, number, number] {
+  const t = m[0] + m[4] + m[8]
+  let x: number, y: number, z: number, w: number
+  if (t > 0) {
+    const s = Math.sqrt(t + 1) * 2
+    w = 0.25 * s
+    x = (m[7] - m[5]) / s
+    y = (m[2] - m[6]) / s
+    z = (m[3] - m[1]) / s
+  } else if (m[0] > m[4] && m[0] > m[8]) {
+    const s = Math.sqrt(1 + m[0] - m[4] - m[8]) * 2
+    w = (m[7] - m[5]) / s
+    x = 0.25 * s
+    y = (m[1] + m[3]) / s
+    z = (m[2] + m[6]) / s
+  } else if (m[4] > m[8]) {
+    const s = Math.sqrt(1 + m[4] - m[0] - m[8]) * 2
+    w = (m[2] - m[6]) / s
+    x = (m[1] + m[3]) / s
+    y = 0.25 * s
+    z = (m[5] + m[7]) / s
+  } else {
+    const s = Math.sqrt(1 + m[8] - m[0] - m[4]) * 2
+    w = (m[3] - m[1]) / s
+    x = (m[2] + m[6]) / s
+    y = (m[5] + m[7]) / s
+    z = 0.25 * s
+  }
+  const n = Math.hypot(x, y, z, w) || 1
+  return [x / n, y / n, z / n, w / n]
+}

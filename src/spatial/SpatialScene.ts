@@ -11,6 +11,9 @@ import {
   CanvasTexture,
   DoubleSide,
   Float32BufferAttribute,
+  Group,
+  Points,
+  PointsMaterial,
   LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
@@ -29,8 +32,9 @@ import { CARD_PLANE, HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type H
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
 import { linkGeometry } from './links'
-import { freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
+import { FLAT_R, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
+import type { WallTracking } from './wall'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
 
 export interface SceneCluster extends HubInfo {
@@ -127,6 +131,8 @@ export class SpatialScene {
     private host: HTMLElement,
     private tracking: SpatialTracking,
     private events: SceneEvents,
+    /** Wall mode: the camera finds a flat surface and the view is held to it (the groups hang flat, a little in front of it). */
+    private wall?: WallTracking,
   ) {
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' })
     this.renderer.setClearColor(0x000000, 0)
@@ -146,8 +152,108 @@ export class SpatialScene {
     el.addEventListener('pointercancel', this.up)
     el.addEventListener('wheel', this.wheel, { passive: false })
     el.addEventListener('keydown', this.key)
+    if (wall) {
+      this.radius = FLAT_R
+      this.buildWallOverlay()
+    }
     this.loop = this.loop.bind(this)
     this.raf = requestAnimationFrame(this.loop)
+  }
+
+  /* ---------- wall mode ---------- */
+
+  private wallGroup?: Group
+  private wallFrameMesh?: Mesh
+  private wallDots?: Points
+  /** The wall mode's world: the surface's width in world units, and where the groups' middle is (the surface's middle is put there). */
+  private wallBox = { w: 120, ox: 0, oy: 0 }
+
+  private buildWallOverlay() {
+    const g = new Group()
+    g.visible = false
+    g.renderOrder = 0
+    // a glowing outline for the surface that was found (drawn once into a picture and stretched to fit)
+    const c = document.createElement('canvas')
+    c.width = 256
+    c.height = 256
+    const x = c.getContext('2d')!
+    const glow = x.createLinearGradient(0, 0, 256, 256)
+    glow.addColorStop(0, 'rgba(190,140,255,0.95)')
+    glow.addColorStop(1, 'rgba(120,200,255,0.95)')
+    x.strokeStyle = glow
+    x.shadowColor = 'rgba(190,150,255,0.95)'
+    x.shadowBlur = 18
+    x.lineWidth = 7
+    x.strokeRect(14, 14, 228, 228)
+    x.shadowBlur = 0
+    x.fillStyle = 'rgba(190,150,255,0.08)'
+    x.fillRect(14, 14, 228, 228)
+    const tex = new CanvasTexture(c)
+    tex.colorSpace = SRGBColorSpace
+    const frame = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: DoubleSide }))
+    frame.renderOrder = 0
+    g.add(frame)
+    // the points being followed, pinned on the surface: if they slide off what they were stuck to, the hold is slipping
+    const dc = document.createElement('canvas')
+    dc.width = 32
+    dc.height = 32
+    const dx = dc.getContext('2d')!
+    const rg = dx.createRadialGradient(16, 16, 0, 16, 16, 15)
+    rg.addColorStop(0, 'rgba(255,255,255,1)')
+    rg.addColorStop(0.45, 'rgba(210,170,255,0.95)')
+    rg.addColorStop(1, 'rgba(210,170,255,0)')
+    dx.fillStyle = rg
+    dx.fillRect(0, 0, 32, 32)
+    const dtex = new CanvasTexture(dc)
+    const pts = new Points(new BufferGeometry(), new PointsMaterial({ map: dtex, size: 1.1 * K, transparent: true, depthWrite: false, sizeAttenuation: true }))
+    pts.frustumCulled = false
+    g.add(pts)
+    this.scene.add(g)
+    this.wallGroup = g
+    this.wallFrameMesh = frame
+    this.wallDots = pts
+  }
+
+  /** Size the wall world to the layout (the surface's width is the layout's) and tell the tracker. */
+  private fitWall() {
+    if (!this.wall) return
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    for (const c of Object.values(this.layout.clusters)) {
+      const hw = (c.cols * (WORLD.cardW + WORLD.gap)) / 2 + K
+      minX = Math.min(minX, c.x - hw)
+      maxX = Math.max(maxX, c.x + hw)
+      minY = Math.min(minY, c.y - (c.rows ?? 1) * (WORLD.cardH + WORLD.gap) - K)
+      maxY = Math.max(maxY, c.y + 1.5 * K)
+    }
+    if (!Number.isFinite(minX)) return
+    this.wallBox = { w: Math.max(40, (maxX - minX) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
+    this.wall.configure({ scale: this.wallBox.w, origin: [this.wallBox.ox, this.wallBox.oy], lift: 0.9 * K })
+  }
+
+  /** Draw the surface's outline and followed points where the tracker says they are (in the world: the surface, a little behind the groups). */
+  private updateWallOverlay() {
+    const wall = this.wall
+    const g = this.wallGroup
+    if (!wall || !g || !this.wallFrameMesh || !this.wallDots) return
+    const ov = wall.getOverlay()
+    g.visible = ov.phase === 'holding' && !!ov.quad
+    if (!wall.takeFresh() || !ov.quad) return
+    const { w, ox, oy } = this.wallBox
+    const z = -0.9 * K
+    const xs = ov.quad.map((p) => p.x * w + ox)
+    const ys = ov.quad.map((p) => p.y * w + oy)
+    this.wallFrameMesh.position.set((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, z)
+    this.wallFrameMesh.scale.set(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1)
+    const pos: number[] = []
+    for (const p of ov.points) pos.push(p.x * w + ox, p.y * w + oy, z + 0.02 * K)
+    this.wallDots.geometry.setAttribute('position', new Float32BufferAttribute(pos, 3))
+    this.wallDots.geometry.computeBoundingSphere()
+  }
+  get wallPhase() {
+    return this.wall?.phase ?? null
   }
 
   /* ---------- content ---------- */
@@ -381,6 +487,7 @@ export class SpatialScene {
       this.plates.delete(id)
     }
     this.buildLinks()
+    this.fitWall()
     this.dirty = true
   }
 
@@ -430,7 +537,7 @@ export class SpatialScene {
     this.shown = { ...this.layout.clusters }
     this.place()
     this.dirty = true
-    if (changed) this.frameAll(true) // (a new radius changes how big everything looks, so fit it again)
+    if (changed && !isFlat(r)) this.frameAll(true) // (a new radius changes how big everything looks, so fit it again)
   }
   getRadius() {
     return this.radius
@@ -466,6 +573,7 @@ export class SpatialScene {
   /* ---------- the camera ---------- */
 
   recenter() {
+    if (this.wall) return void this.wall.recenter() // (look for the surface again)
     this.tracking.recenter()
     this.dirty = true
   }
@@ -483,6 +591,7 @@ export class SpatialScene {
   }
   /** Turn to face a group (the view glides there). */
   focusCluster(id: string) {
+    if (this.wall) return // (the phone is how you move in wall mode)
     const cp = this.shown[id] ?? this.layout.clusters[id]
     if (!cp) return
     const { yaw, pitch } = lookAt(cp)
@@ -493,6 +602,7 @@ export class SpatialScene {
   }
   /** Turn and zoom so the whole wall is in view (as far as the widest lens allows). */
   frameAll(instant = false) {
+    if (this.wall) return
     const L = this.layout
     const ids = this.content.clusters.map((c) => c.id).filter((id) => L.clusters[id])
     if (!ids.length) return
@@ -651,7 +761,8 @@ export class SpatialScene {
     if (this.glide()) {
       this.place()
     }
-    const pose = this.tracking.getPose()
+    const pose = this.wall ? this.wall.getPose() : this.tracking.getPose()
+    if (this.wall) this.dirty = true // (the camera picture moves all the time: draw every frame)
     const sig = pose.q.map((x) => x.toFixed(4)).join(',') + this.fov
     // in touch mode nothing changes unless it is moved: draw only when something did (kinder to the battery)
     if (sig !== this.lastQ || this.dirty) {
@@ -661,7 +772,15 @@ export class SpatialScene {
       if (pose.position) this.camera.position.set(...pose.position)
       // the lens is described by its horizontal angle; the vertical one follows the window's shape
       const asp = this.camera.aspect
-      this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
+      if (this.wall) {
+        // the lens is the camera's: its picture fills the window the way the video does (cropped to cover), so the view lines up with it
+        const { w: vw, h: vh, f } = this.wall.videoSize
+        const Hc = Math.max(1, this.host.clientHeight)
+        const Wc = Math.max(1, this.host.clientWidth)
+        const cover = Math.max(Wc / vw, Hc / vh)
+        this.camera.fov = (2 * Math.atan(Hc / 2 / (f * cover)) * 180) / Math.PI
+        this.updateWallOverlay()
+      } else this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
       this.camera.updateProjectionMatrix()
       this.renderer.render(this.scene, this.camera)
       this.updateDots()
@@ -857,6 +976,7 @@ export class SpatialScene {
         this.startCarry('cluster', p.hit.kind === 'hub' || p.hit.kind === 'plate' ? p.hit.id : '', { clientX: p.x, clientY: p.y })
       } else p.mode = 'look'
     }
+    if (p.mode === 'look' && this.wall) return // (in wall mode the phone is the way to look around)
     if (p.mode === 'look') {
       const k = this.radPerPx()
       this.tracking.touch.look((e.clientX - prev.x) * k, (e.clientY - prev.y) * k)

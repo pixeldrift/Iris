@@ -141,6 +141,8 @@ export class PanoramaEnvironment implements EnvironmentProvider {
 /** The rear camera behind the (transparent) 3D canvas. It is only started on request, and every track is stopped on exit. */
 export class CameraEnvironment implements EnvironmentProvider {
   readonly kind = 'camera' as const
+  /** `clear`: the picture as it is (Wall mode follows it, so it must not be blurred or washed out). */
+  constructor(private opts: { clear?: boolean } = {}) {}
   private video?: HTMLVideoElement
   private wash?: HTMLDivElement
   private stream?: MediaStream
@@ -158,9 +160,9 @@ export class CameraEnvironment implements EnvironmentProvider {
     v.autoplay = true
     v.srcObject = this.stream
     // the picture is made quieter (desaturated, a little less contrast, softly blurred) and washed with the app's cream, so the bubbles stand out
-    Object.assign(v.style, { position: 'absolute', inset: '-12px', width: 'calc(100% + 24px)', height: 'calc(100% + 24px)', objectFit: 'cover', zIndex: '0', pointerEvents: 'none', filter: 'saturate(0.45) contrast(0.82) blur(5px)' })
+    Object.assign(v.style, { position: 'absolute', inset: this.opts.clear ? '0' : '-12px', width: this.opts.clear ? '100%' : 'calc(100% + 24px)', height: this.opts.clear ? '100%' : 'calc(100% + 24px)', objectFit: 'cover', zIndex: '0', pointerEvents: 'none', filter: this.opts.clear ? 'none' : 'saturate(0.45) contrast(0.82) blur(5px)' })
     const wash = document.createElement('div')
-    Object.assign(wash.style, { position: 'absolute', inset: '0', background: 'rgba(250,245,236,0.34)', zIndex: '0', pointerEvents: 'none' })
+    Object.assign(wash.style, { position: 'absolute', inset: '0', background: this.opts.clear ? 'rgba(250,245,236,0.06)' : 'rgba(250,245,236,0.34)', zIndex: '0', pointerEvents: 'none' })
     host.insertBefore(wash, host.firstChild)
     host.insertBefore(v, wash)
     this.wash = wash
@@ -172,6 +174,10 @@ export class CameraEnvironment implements EnvironmentProvider {
       /* it starts on the first tap if the page was not allowed to autoplay */
     }
     return true
+  }
+  /** The camera picture (for the Wall mode's tracker to read). */
+  get videoElement(): HTMLVideoElement | undefined {
+    return this.video
   }
   /** The stream is still live (it can be taken away when the app goes to the background). */
   get live(): boolean {

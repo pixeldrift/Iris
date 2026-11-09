@@ -108,3 +108,14 @@ Every item has a real 1px border in its group's colour and a soft white glow aro
 
 ## Keep tidy
 Space is the organised view (the pond is the free one): with **Keep tidy** on (the default; a checkbox in the Space settings), things let go settle onto a grid, gliding there rather than jumping. A card let go in a group goes to the nearest free slot of that group's grid; a group snaps to a half-card grid across and a card-row grid down, its subgroups keeping their places around it, and the others make room (and are snapped too); a floating card snaps to a coarser grid. Turning it on tidies what is already there; turning it off leaves things where they are let go. Pure maths in `layout.ts` (`snapCluster`, `tidyClusters`, `nearestFreeSlot`, `snapFree`, `tidyEverything`), tested in `layout.test.ts`; the 3D scene eases each card toward its place, and the flat canvas does the same with CSS transitions.
+
+## Wall mode (third drawing: 3D, Flat, Wall)
+
+Wall mode uses the camera to find a flat surface and hangs the groups flat, just in front of it, so moving the phone moves you across them (a replacement for finger navigation, not measured AR). All of it is plain TypeScript in `src/spatial/vision/` plus `src/spatial/wall.ts`; nothing here needs ARKit or WebXR (iPhone Safari has neither).
+
+- **Finding the surface.** A bright or dark rectangle (a sheet of paper, a poster, a frame) that stays put for three looks becomes the surface (`rectangle`). With no rectangle for about 2 s and enough corners in the middle of the picture, the middle of the picture is used (`texture`). "Anchor here" does that on demand. A paper-shaped rectangle is snapped to A4/Letter ratios.
+- **Following it.** Harris corners tracked with pyramidal Lucas-Kanade (forward/back checked), a RANSAC homography against the first picture, then decomposed to a camera pose in plane units (surface width = 1). The pose is blended with the gyro: the vision pose nudges an offset quaternion, so between pictures the gyro carries the view.
+- **What you see.** A small glowing frame on the surface when it is first acquired, plus dots pinned to the surface so slippage shows. The Space plane floats a little in front of the wall, so drift is hard to notice. Scale is deliberately loose.
+- **Depth.** Cards stand `TASK_LIFT` in front of their group's plate in every mode, including 3D.
+- **Limits, not yet verified on a real phone.** Camera intrinsics are guessed (the "Camera angle" slider calibrates); blank walls give no corners; heat and battery are untested; the camera must be allowed, otherwise it falls back to 3D with a note. A native app would replace `WallTracking` with ARKit behind the same `TrackingProvider`.
+- **Tests.** `vision.test.ts` (synthetic images), `e2e/spatialwall.spec.ts` (a streamed canvas of a textured wall with a sheet on it reaches "holding" and releases the camera).

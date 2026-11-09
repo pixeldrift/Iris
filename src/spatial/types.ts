@@ -68,7 +68,7 @@ export type TrackingQuality = 'good' | 'limited' | 'none'
 export type TrackingSource = 'touch' | 'motion' | 'visual' | 'native'
 export type EnvironmentKind = 'virtual' | 'camera' | 'panorama'
 export type TrackingPreference = 'auto' | 'motion' | 'touch'
-export type RenderMode = 'auto' | 'simple'
+export type RenderMode = 'auto' | 'simple' | 'wall'
 
 /** What the renderer is given each frame. */
 export interface CameraPose {

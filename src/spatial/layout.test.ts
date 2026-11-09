@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { K, WORLD, type ClusterPlacement } from './types'
-import { ensureLayout, slotAt, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { ensureLayout, slotAt, FLAT_R, TASK_LIFT, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -143,7 +143,7 @@ describe('spatial layout', () => {
       const w = taskWorld(t, c)
       const bs = planeBasis(c)
       const off = (w[0] - c.x) * bs.normal[0] + (w[1] - c.y) * bs.normal[1] + (w[2] - c.z) * bs.normal[2]
-      expect(Math.abs(off)).toBeLessThan(1e-6)
+      expect(Math.abs(off - TASK_LIFT)).toBeLessThan(1e-6) // (a card stands a fixed little way in front of its group's box)
     }
   })
   it('bends the same layout to another radius without changing sizes or overlap, and back again', () => {
@@ -282,5 +282,19 @@ describe('keeping tidy', () => {
       expect(t.u).toBeCloseTo(slotAt(t.slot, out.clusters[t.c].cols).u, 9)
     }
     for (const c of Object.values(out.clusters)) expect(Math.abs(((c.a * c.r) / GROUP_GRID.x) % 1) < 1e-6 || Math.abs(Math.abs(((c.a * c.r) / GROUP_GRID.x) % 1) - 1) < 1e-6).toBe(true)
+  })
+})
+
+describe('a flat wall', () => {
+  it('lays every group out in a straight line at one depth, facing ahead, and converts back exactly', () => {
+    const l = ensureLayout(empty, input({ a: ['a1', 'a2'], b: ['b1'], c: ['c1', 'c2', 'c3'] }))
+    const flat = withRadius(l, FLAT_R)
+    for (const [id, c] of Object.entries(flat.clusters)) {
+      expect(c.z).toBe(0)
+      expect(c.ry).toBe(0)
+      expect(c.x).toBeCloseTo(l.clusters[id].a * l.clusters[id].r, 6) // x is the arc length of the cylinder layout
+    }
+    const back = fromRadius(flat, FLAT_R)
+    for (const id of Object.keys(l.clusters)) expect(back.clusters[id].a).toBeCloseTo(l.clusters[id].a, 9)
   })
 })
