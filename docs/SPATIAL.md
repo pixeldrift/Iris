@@ -119,3 +119,6 @@ Wall mode uses the camera to find a flat surface and hangs the groups flat, just
 - **Depth.** Cards stand `TASK_LIFT` in front of their group's plate in every mode, including 3D.
 - **Limits, not yet verified on a real phone.** Camera intrinsics are guessed (the "Camera angle" slider calibrates); blank walls give no corners; heat and battery are untested; the camera must be allowed, otherwise it falls back to 3D with a note. A native app would replace `WallTracking` with ARKit behind the same `TrackingProvider`.
 - **Tests.** `vision.test.ts` (synthetic images), `e2e/spatialwall.spec.ts` (a streamed canvas of a textured wall with a sheet on it reaches "holding" and releases the camera).
+
+### Wall mode: the tracker's camera and the background are separate
+`TrackingCamera` (`trackingCamera.ts`) is the camera the tracker reads (asked for at 640x480; 1280x720 only while it is the background). The background uses the same control as 3D: **Virtual** (default: a dot grid on the wall, plus a dot floor and side walls fading into mist), **Camera** (that same camera picture, full size, through `SharedCameraEnvironment`, so it is not opened twice) and **Photo**. Whenever the background is not Camera, the camera shows as a small corner picture so you can see what it is locked onto.

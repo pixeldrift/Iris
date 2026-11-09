@@ -15,8 +15,9 @@ import { buildContent, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { FLAT_R, RADIUS } from './layout'
 import { WallTracking, type WallPhase } from './wall'
+import { TrackingCamera } from './trackingCamera'
 import { DefaultDot } from '../ui/DefaultDot'
-import { CameraEnvironment, PanoramaEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
+import { CameraEnvironment, PanoramaEnvironment, SharedCameraEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
 import { SpatialScene } from './SpatialScene'
 import { StaticCanvas } from './StaticCanvas'
 import { useSpatial } from './store'
@@ -62,6 +63,7 @@ export default function SpatialView() {
   const menuBtn = useRef<HTMLButtonElement>(null)
   const track = useRef<SpatialTracking | null>(null)
   const wallTrack = useRef<WallTracking | null>(null)
+  const wallCam = useRef<TrackingCamera | null>(null)
   const [wallPhase, setWallPhase] = useState<WallPhase>('searching')
   const scene = useRef<SpatialScene | null>(null)
   const envRef = useRef<EnvironmentProvider | null>(null)
@@ -117,8 +119,8 @@ export default function SpatialView() {
       if (!sc) return
       let next: EnvironmentProvider
       if (kind === 'camera') {
-        const c = new CameraEnvironment({ clear: !!wallTrack.current })
-        c.onLost = () => {
+        const c = wallCam.current ? new SharedCameraEnvironment(wallCam.current) : new CameraEnvironment()
+        if (c instanceof CameraEnvironment) c.onLost = () => {
           setNote('The camera stopped, so you are back in the virtual room.')
           void chooseEnv('virtual')
         }
@@ -139,13 +141,8 @@ export default function SpatialView() {
         return
       }
       envRef.current = next
-      if (wallTrack.current && next instanceof CameraEnvironment && next.videoElement) {
-        // wall mode: the tracker reads the camera picture
-        wallTrack.current.attach(next.videoElement)
-        void wallTrack.current.start()
-      }
       setEnv(next.kind)
-      if (!wallTrack.current) prefs({ environment: next.kind })
+      prefs({ environment: next.kind })
     },
     [prefs],
   )
@@ -160,6 +157,7 @@ export default function SpatialView() {
         wt.device = (q) => track.current?.deviceRotation(q) ?? false
         wt.onStatus(() => setWallPhase(wt!.phase))
         wallTrack.current = wt
+        wallCam.current = new TrackingCamera()
         setWallPhase('searching')
       }
       sc = new SpatialScene(host.current, track.current, {
@@ -190,11 +188,18 @@ export default function SpatialView() {
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     if (wall) {
       // wall mode needs the camera: if it is not allowed, say so and go back to 3D
-      void chooseEnv('camera').then(() => {
-        if (!(envRef.current instanceof CameraEnvironment)) {
+      // (the tracker's own camera runs whatever the background is; the background is then chosen as usual)
+      const cam = wallCam.current!
+      void cam.start(host.current!).then((ok) => {
+        if (!ok) {
           setNote('Wall mode needs the camera, which was not available (or not allowed), so here is the 3D view.')
           prefs({ render: 'auto' })
+          return
         }
+        wallTrack.current?.attach(cam.video!)
+        void wallTrack.current?.start()
+        cam.onLost = () => setNote('The camera stopped. Choose Wall again to start it.')
+        void chooseEnv(environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
       })
     } else void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
     const onVis = () => {
@@ -215,6 +220,8 @@ export default function SpatialView() {
       document.removeEventListener('visibilitychange', onVis)
       wallTrack.current?.stop()
       wallTrack.current = null
+      wallCam.current?.stop()
+      wallCam.current = null
       sc.dispose() // (also lets go of the camera and the sky)
       scene.current = null
       envRef.current = null
@@ -329,7 +336,7 @@ export default function SpatialView() {
                       label="Background"
                       value={env}
                       options={[
-                        { id: 'virtual', label: 'Space' },
+                        { id: 'virtual', label: 'Virtual' },
                         { id: 'camera', label: 'Camera' },
                         { id: 'panorama', label: 'Photo' },
                       ]}

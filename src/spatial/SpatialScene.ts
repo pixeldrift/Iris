@@ -155,6 +155,7 @@ export class SpatialScene {
     if (wall) {
       this.radius = FLAT_R
       this.buildWallOverlay()
+      this.buildWallSet()
     }
     this.loop = this.loop.bind(this)
     this.raf = requestAnimationFrame(this.loop)
@@ -167,6 +168,86 @@ export class SpatialScene {
   private wallDots?: Points
   /** The wall mode's world: the surface's width in world units, and where the groups' middle is (the surface's middle is put there). */
   private wallBox = { w: 120, ox: 0, oy: 0 }
+
+  // a quiet stand-in for the room behind the surface (when the background is not the camera): a dot grid on the wall, and a floor and
+  // two side walls of dots that fade into the mist toward the viewer
+  private setGroup?: Group
+  private setParts?: { wall: Mesh; floor: Mesh; left: Mesh; right: Mesh }
+
+  /** Dots on a transparent picture, with an alpha falloff `fade(u, v)` (0..1 across the picture, v up). */
+  private dotTexture(wU: number, hU: number, fade: (u: number, v: number) => number): CanvasTexture {
+    const PPU = 200 // pixels per unit (a unit is the surface's width)
+    const w = Math.round(wU * PPU)
+    const h = Math.round(hU * PPU)
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    const g = c.getContext('2d')!
+    const step = 0.2 * PPU
+    for (let y = step / 2; y < h; y += step) {
+      for (let x = step / 2; x < w; x += step) {
+        const a = fade(x / w, 1 - y / h)
+        if (a < 0.02) continue
+        g.fillStyle = `rgba(150,112,206,${(0.5 * a).toFixed(3)})`
+        g.beginPath()
+        g.arc(x, y, 2.4, 0, Math.PI * 2)
+        g.fill()
+      }
+    }
+    const t = new CanvasTexture(c)
+    t.colorSpace = SRGBColorSpace
+    return t
+  }
+
+  private buildWallSet() {
+    const g = new Group()
+    g.visible = false
+    const smooth = (x: number) => Math.max(0, Math.min(1, x)) ** 1.6
+    const mk = (tex: CanvasTexture, order: number) => {
+      const m = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: DoubleSide, fog: false }))
+      m.renderOrder = order
+      g.add(m)
+      return m
+    }
+    // (all in units of the surface's width; fitWall sizes them)
+    const wall = mk(this.dotTexture(5, 5, (u, v) => smooth(1 - Math.hypot(u - 0.5, v - 0.5) * 2)), -6)
+    const floor = mk(this.dotTexture(5, 2.2, (u, v) => smooth(v) * smooth(1 - Math.abs(u - 0.5) * 2)), -6)
+    const side = this.dotTexture(2.2, 3, (u, v) => smooth(u) * smooth(1 - v))
+    const left = mk(side, -6)
+    const right = mk(side, -6)
+    floor.rotation.x = -Math.PI / 2
+    left.rotation.y = Math.PI / 2
+    right.rotation.y = -Math.PI / 2
+    right.scale.x = -1
+    this.scene.add(g)
+    this.setGroup = g
+    this.setParts = { wall, floor, left, right }
+  }
+
+  private fitWallSet() {
+    const p = this.setParts
+    if (!p) return
+    const { w: W, ox, oy } = this.wallBox
+    const z = -0.9 * K - 0.03 * K
+    p.wall.scale.set(5 * W, 5 * W, 1)
+    p.wall.position.set(ox, oy, z)
+    const floorY = oy - 0.6 * W
+    p.floor.scale.set(5 * W, 2.2 * W, 1)
+    p.floor.position.set(ox, floorY, z + 1.1 * W)
+    for (const [m, sx] of [[p.left, -1], [p.right, 1]] as const) {
+      m.scale.set(2.2 * W * (sx === 1 ? -1 : 1), 3 * W, 1)
+      m.position.set(ox + sx * 1.3 * W, floorY + 1.5 * W, z + 1.1 * W)
+    }
+  }
+
+  private updateWallSet() {
+    const g = this.setGroup
+    if (!g) return
+    const kind = this.env?.kind
+    g.visible = kind !== 'camera'
+    // a picture behind is busy enough: the floor and walls are only for the virtual room
+    if (this.setParts) for (const m of [this.setParts.floor, this.setParts.left, this.setParts.right]) m.visible = kind === 'virtual' || kind === undefined
+  }
 
   private buildWallOverlay() {
     const g = new Group()
@@ -231,6 +312,7 @@ export class SpatialScene {
     if (!Number.isFinite(minX)) return
     this.wallBox = { w: Math.max(40, (maxX - minX) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
     this.wall.configure({ scale: this.wallBox.w, origin: [this.wallBox.ox, this.wallBox.oy], lift: 0.9 * K })
+    this.fitWallSet()
   }
 
   /** Draw the surface's outline and followed points where the tracker says they are (in the world: the surface, a little behind the groups). */
@@ -727,6 +809,13 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
     }
     this.plates.clear()
+    if (this.setParts) {
+      for (const m of Object.values(this.setParts)) {
+        m.geometry.dispose()
+        ;(m.material as MeshBasicMaterial).map?.dispose()
+        ;(m.material as MeshBasicMaterial).dispose()
+      }
+    }
     if (this.links) {
       this.links.geometry.dispose()
       ;(this.links.material as MeshBasicMaterial).dispose()
@@ -780,6 +869,7 @@ export class SpatialScene {
         const cover = Math.max(Wc / vw, Hc / vh)
         this.camera.fov = (2 * Math.atan(Hc / 2 / (f * cover)) * 180) / Math.PI
         this.updateWallOverlay()
+        this.updateWallSet()
       } else this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
       this.camera.updateProjectionMatrix()
       this.renderer.render(this.scene, this.camera)

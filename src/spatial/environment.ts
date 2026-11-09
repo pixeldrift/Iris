@@ -5,6 +5,7 @@
 
 import { BackSide, CanvasTexture, Mesh, MeshBasicMaterial, SphereGeometry, SRGBColorSpace, Texture, TextureLoader, type Scene } from 'three'
 import { K, type EnvironmentKind } from './types'
+import type { TrackingCamera } from './trackingCamera'
 
 export interface EnvironmentProvider {
   readonly kind: EnvironmentKind
@@ -135,6 +136,20 @@ export class PanoramaEnvironment implements EnvironmentProvider {
     }
     this.tex?.dispose()
     URL.revokeObjectURL(this.url)
+  }
+}
+
+/** Wall mode's camera as the background: the tracker's own camera picture, shown full size (it is not opened a second time). */
+export class SharedCameraEnvironment implements EnvironmentProvider {
+  readonly kind = 'camera' as const
+  constructor(private cam: TrackingCamera) {}
+  async start(): Promise<boolean> {
+    if (!this.cam.video || !this.cam.live) return false
+    this.cam.show('full')
+    return true
+  }
+  dispose() {
+    this.cam.show('thumb') // (the camera itself belongs to Wall mode, which stops it)
   }
 }
 

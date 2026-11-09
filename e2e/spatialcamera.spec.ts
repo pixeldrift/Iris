@@ -24,7 +24,7 @@ test.describe('camera background', () => {
     expect(await live()).toBe(true)
     // back to the virtual room: the camera's tracks are stopped
     const stream = await page.evaluateHandle(() => document.querySelector('video')!.srcObject as MediaStream)
-    await page.getByRole('radio', { name: 'Space' }).click()
+    await page.getByRole('radio', { name: 'Virtual' }).click()
     await expect(intro(page).locator('video')).toHaveCount(0)
     await expect.poll(() => stream.evaluate((s) => (s as MediaStream).getTracks().every((t) => t.readyState === 'ended'))).toBe(true)
     // and leaving while it is on stops it too
@@ -45,7 +45,7 @@ test.describe('camera denied', () => {
     await page.getByRole('button', { name: 'Spatial settings' }).click()
     await page.getByRole('radio', { name: 'Camera' }).click()
     await expect(page.getByText(/camera was not available/)).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Space' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Virtual' })).toBeChecked()
     await expect(intro(page).locator('canvas')).toBeVisible()
   })
 })
