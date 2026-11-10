@@ -6,7 +6,7 @@ import { apply, inv3, mul3, rng, type Mat3, type Pt } from './math'
 import { trackPoints } from './lk'
 import { findQuads } from './quad'
 import { SurfaceTracker } from './surface'
-import { focalFromHomography } from './homography'
+import { focalFromHomography, planeColumns, turnHomography } from './homography'
 import { surfaceFrame } from './plane'
 
 /** A textured greyscale picture (smoothed noise, so there is something to follow at every scale). */
@@ -245,5 +245,45 @@ describe('following a surface', () => {
     expect(up.R[3]).toBeCloseTo(col(0)[1], 6)
     expect(up.R[4]).toBeCloseTo(col(1)[1], 6)
     expect(up.R[5]).toBeCloseTo(col(2)[1], 6)
+  })
+
+  it('draws a point a little off the surface where a real camera would (the step off the plane uses the pose, the plane itself is exact)', () => {
+    const k = { f: 180, cx: 96, cy: 72 }
+    const [a, b] = [0.4, -0.3]
+    const Rx: Mat3 = [1, 0, 0, 0, Math.cos(a), -Math.sin(a), 0, Math.sin(a), Math.cos(a)]
+    const Ry: Mat3 = [Math.cos(b), 0, Math.sin(b), 0, 1, 0, -Math.sin(b), 0, Math.cos(b)]
+    const R = mul3(Ry, Rx) // surface -> camera, columns r1 r2 r3
+    const t = [0.1, -0.2, 2]
+    const P: Mat3 = [R[0], R[1], t[0], R[3], R[4], t[1], R[6], R[7], t[2]]
+    const H = mul3([k.f, 0, k.cx, 0, k.f, k.cy, 0, 0, 1], P)
+    for (const scale of [1, -2.5]) {
+      const pc = planeColumns(H.map((v) => v * scale) as Mat3, k)!
+      for (const [x, y, z] of [[0.3, -0.2, 0.5], [-0.4, 0.1, -0.3], [0, 0, 0]]) {
+        const cam = [R[0] * x + R[1] * y + R[2] * z + t[0], R[3] * x + R[4] * y + R[5] * z + t[1], R[6] * x + R[7] * y + R[8] * z + t[2]]
+        const want = { x: k.cx + (k.f * cam[0]) / cam[2], y: k.cy + (k.f * cam[1]) / cam[2] }
+        const hx = pc.H[0] * x + pc.H[1] * y + pc.H[2] + pc.zcol[0] * z
+        const hy = pc.H[3] * x + pc.H[4] * y + pc.H[5] + pc.zcol[1] * z
+        const hw = pc.H[6] * x + pc.H[7] * y + pc.H[8] + pc.zcol[2] * z
+        expect(hx / hw).toBeCloseTo(want.x, 3)
+        expect(hy / hw).toBeCloseTo(want.y, 3)
+        expect(hw).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('follows a turn of the phone by the gyro alone: pixels move as a camera turned by that much would see them', () => {
+    const k = { f: 180, cx: 96, cy: 72 }
+    const a = 0.12 // turned about the camera's y (left or right) by this much
+    // direction (old axes) -> (new axes): the new camera is turned by +a, so directions rotate by -a
+    const rel: Mat3 = [Math.cos(a), 0, -Math.sin(a), 0, 1, 0, Math.sin(a), 0, Math.cos(a)]
+    const T = turnHomography(rel, k)!
+    const pix = (v: number[]) => ({ x: k.cx + (k.f * v[0]) / -v[2], y: k.cy - (k.f * v[1]) / -v[2] })
+    for (const v of [[0.2, 0.1, -1], [-0.3, 0.25, -1.4], [0, 0, -1]]) {
+      const w = [rel[0] * v[0] + rel[1] * v[1] + rel[2] * v[2], rel[3] * v[0] + rel[4] * v[1] + rel[5] * v[2], rel[6] * v[0] + rel[7] * v[1] + rel[8] * v[2]]
+      const want = pix(w)
+      const got = apply(T, pix(v).x, pix(v).y)
+      expect(got.x).toBeCloseTo(want.x, 4)
+      expect(got.y).toBeCloseTo(want.y, 4)
+    }
   })
 })

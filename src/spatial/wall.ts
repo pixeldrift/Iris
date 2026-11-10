@@ -3,12 +3,12 @@
 // camera frames and survives the surface being hidden for a moment. Nothing here needs a printed marker, and nothing needs to be to scale:
 // the surface is the unit everything is measured in. It does its best; it is not ARKit.
 
-import { Quaternion, Vector3 } from 'three'
+import { Matrix4, Quaternion, Vector3 } from 'three'
 import { detectCorners } from './vision/features'
-import { cameraFromPlaneHomography, focalFromHomography, quatFromMat } from './vision/homography'
+import { cameraFromPlaneHomography, fitHomography, focalFromHomography, planeColumns, quatFromMat, turnHomography } from './vision/homography'
 import { surfaceFrame } from './vision/plane'
 import { rgbaToGray, type Gray } from './vision/image'
-import { apply, inv3, mul3, type Mat3, type Pt } from './vision/math'
+import { apply, inv3, mul3, mulVec, type Mat3, type Pt, type Vec3 } from './vision/math'
 import { findQuads, type Quad } from './vision/quad'
 import { SurfaceTracker } from './vision/surface'
 import type { CameraPose, TrackingProvider, TrackingQuality, TrackingStatus } from './types'
@@ -69,6 +69,11 @@ export class WallTracking implements TrackingProvider {
   private overlay: WallOverlay = { phase: 'searching', quad: null, points: [], inliers: 0, kind: null }
   private fresh = false
   private lastVisionAt = 0
+  // the surface's picture, kept as the tracker made it (lightly smoothed) and brought up to date from the gyro between pictures
+  private Hs: Mat3 | null = null
+  private corners: Pt[] | null = null
+  private qFrame = new Quaternion()
+  private haveQ = false
   // measurements, for finding out where a problem is (see `diagnostics`)
   private stat = { ms: 0, max: 0, recent: [] as number[], frames: 0, seen: 0, windowStart: 0, fps: 0, camFps: 0, seenWin: 0, resid: 0, points: 0, gyroGap: 0, lostCount: 0, lastGap: 0, lastDone: 0 }
   private lastSt: { now: Pt[]; ref: Pt[] } = { now: [], ref: [] }
@@ -108,6 +113,8 @@ export class WallTracking implements TrackingProvider {
   /** Look for a surface again from scratch. */
   recenter() {
     this.tracker.reset()
+    this.Hs = null
+    this.corners = null
     this.Hplane = null
     this.seen = null
     this.searchSince = performance.now()
@@ -223,6 +230,37 @@ export class WallTracking implements TrackingProvider {
     }
   }
 
+  /**
+   * Where the surface is in the camera's picture right now, for the scene to draw with: the surface's x, y and 1 -> picture (as fractions
+   * of the picture's width and height), and where a step toward the viewer goes. Brought up to date from the gyroscope since the last
+   * picture (a turn of the phone is a known change of view, so it is applied at once, which is what keeps up in a quick move); with no gyro
+   * it is the last picture's. Null before a surface has been found.
+   */
+  getSurface(): { H: Mat3; zcol: Vec3 } | null {
+    if (!this.Hs || !this.gray) return null
+    const k = this.k()
+    const pc = planeColumns(this.Hs, k)
+    if (!pc) return null
+    let H = pc.H
+    let z = pc.zcol
+    if (this.haveQ && this.device && this.device(this.tmpQ)) {
+      const rel = this.tmpQ.clone().invert().multiply(this.qFrame) // camera at the last picture -> camera now
+      if (rel.angleTo(new Quaternion()) < 0.6) {
+        const m = new Matrix4().makeRotationFromQuaternion(rel).elements // column-major
+        const R: Mat3 = [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => m[c * 4 + r])) as Mat3
+        const T = turnHomography(R, k)
+        if (T) {
+          H = mul3(T, H)
+          z = mulVec(T, z)
+        }
+      }
+    }
+    const gw = GRAY_W
+    const gh = this.gray.h
+    const S: Mat3 = [1 / gw, 0, 0, 0, 1 / gh, 0, 0, 0, 1]
+    return { H: mul3(S, H), zcol: [z[0] / gw, z[1] / gh, z[2]] }
+  }
+
   /** What the tracker is doing, as numbers (for the details display): speed, how well the fit holds, and how far the gyro and camera disagree. */
   diagnostics() {
     const s = this.stat
@@ -290,6 +328,8 @@ export class WallTracking implements TrackingProvider {
     const fr = surfaceFrame({ cx: k.cx, cy: k.cy, f: k.f, center: centre, width: w, aspect, axes })
     // surface (width 1, height `aspect`) -> reference-picture pixels
     this.Hplane = fr ? fr.H : null
+    this.Hs = null
+    this.corners = null
     this.kind = kind
     this.seen = null
     this.haveOffset = false
@@ -318,6 +358,20 @@ export class WallTracking implements TrackingProvider {
     // the surface as the camera now sees it: surface coords -> this picture's pixels
     const Himg = mul3(st.H, this.Hplane)
     this.learnFocal(Himg)
+    // The surface's picture is what the scene draws with (not a pose worked out from it): so what sits on the surface is exactly where
+    // the followed points are. It is lightly smoothed through the four corners of a patch of the surface (more when it moves quickly).
+    {
+      const unit: Pt[] = [{ x: -1, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }]
+      const cs = unit.map((p) => apply(Himg, p.x, p.y))
+      if (!this.corners) this.corners = cs
+      else {
+        const moved = cs.reduce((s, c, i) => s + Math.hypot(c.x - this.corners![i].x, c.y - this.corners![i].y), 0) / 4
+        const a = Math.min(1, 0.4 + moved * 0.12)
+        this.corners = this.corners.map((c, i) => ({ x: c.x + (cs[i].x - c.x) * a, y: c.y + (cs[i].y - c.y) * a }))
+      }
+      this.Hs = fitHomography(unit, this.corners) ?? Himg
+      this.haveQ = !!(this.device && this.device(this.qFrame))
+    }
     const pose = cameraFromPlaneHomography(Himg, this.k())
     if (pose) {
       this.visQ.set(...quatFromMat(pose.R))
@@ -366,13 +420,13 @@ export class WallTracking implements TrackingProvider {
     const fg = focalFromHomography(Himg, GRAY_W / 2, this.gray.h / 2)
     if (fg === null) return
     const f = fg / s
-    if (f < this.fBase * 0.6 || f > this.fBase * 2.2) return
+    if (f < this.fBase * 0.75 || f > this.fBase * 1.4) return
     this.fSamples.push(f)
-    if (this.fSamples.length > 60) this.fSamples.shift()
-    if (this.fSamples.length < 12) return
+    if (this.fSamples.length > 150) this.fSamples.shift()
+    if (this.fSamples.length < 40) return
     const sorted = [...this.fSamples].sort((x, y) => x - y)
     const med = sorted[sorted.length >> 1]
-    this.f += (med - this.f) * 0.08
+    this.f += (med - this.f) * 0.02
   }
   private havePos = false
 }

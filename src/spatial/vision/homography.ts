@@ -135,6 +135,45 @@ export function cameraFromPlaneHomography(H: Mat3, k: Intrinsics): { position: V
 }
 
 /**
+ * The surface's picture as three columns, for drawing things on it and a little off it: `H` (the surface's x and y and 1 -> picture) with
+ * its sign made so that the surface is in front of the camera, and `zcol`, where a point one surface unit toward the viewer goes. A
+ * point (x, y, z) of the surface's frame is at H*(x, y, 1) + zcol*z in the picture (homogeneous). In the plane it is exactly the
+ * homography the tracker followed; only the small step off it uses the pose.
+ */
+export function planeColumns(H: Mat3, k: Intrinsics): { H: Mat3; zcol: Vec3 } | null {
+  const K = kMatrix(k)
+  const Ki = inv3(K)
+  if (!Ki) return null
+  let h: Mat3 = H
+  const a1 = mulVec(Ki, [h[0], h[3], h[6]])
+  const a2 = mulVec(Ki, [h[1], h[4], h[7]])
+  const a3 = mulVec(Ki, [h[2], h[5], h[8]])
+  let sign = 1
+  if (a3[2] < 0) sign = -1
+  if (sign < 0) h = h.map((v) => -v) as Mat3
+  const l = norm(a1) || 1
+  const r1 = a1.map((v) => v / l) as Vec3
+  let r2 = a2.map((v, i) => v - dot(a2, r1) * r1[i]) as Vec3
+  r2 = r2.map((v) => v / (norm(r2) || 1)) as Vec3
+  const r3 = cross(r1, r2)
+  const z = mulVec(K, r3).map((v) => v * l) as Vec3
+  void a3
+  return { H: h, zcol: z }
+}
+
+/**
+ * How the picture changes when the camera only turns: a turn `rel` (a rotation matrix taking a direction in the old camera's axes, x right,
+ * y up, z back, to the new one's) moves every pixel by K * R * K^-1 in the picture's own axes (x right, y down, z forward).
+ */
+export function turnHomography(rel: Mat3, k: Intrinsics): Mat3 | null {
+  const Ki = inv3(kMatrix(k))
+  if (!Ki) return null
+  const f = [1, -1, -1]
+  const R = [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => rel[r * 3 + c] * f[r] * f[c])) as Mat3
+  return mul3(mul3(kMatrix(k), R), Ki)
+}
+
+/**
  * The lens's focal length (in the picture's pixels) as one picture of a flat surface implies it, taking the middle of the picture as the
  * lens's centre: the surface's two axes must be square to each other, which fixes the focal length whenever the surface is seen at a slant.
  * Null for a surface seen square-on (it says nothing then) or when the answer is not possible.
