@@ -32,6 +32,7 @@ import { edgeDots } from '../core/edges'
 import { CARD_PLANE, HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
+import { apply, inv3, mul3, mulVec, type Mat3 } from './vision/math'
 import { linkGeometry } from './links'
 import { FLAT_R, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
@@ -352,20 +353,86 @@ export class SpatialScene {
     this.dirty = true
   }
 
+  /**
+   * The world -> screen map of what is on and just off the surface (3 rows of 4, row-major; a point (x, y, z) is at M*(x, y, z, 1)
+   * homogeneous, in pixels of the view). It is made straight from the picture of the surface the tracker follows, so anything on the
+   * surface is exactly where the followed points are, and moves toward and away from you as the surface does. Null before one is found.
+   */
+  private wallMatrix(): number[] | null {
+    const wall = this.wall
+    const surf = wall?.getSurface()
+    if (!wall || !surf) return null
+    const { w: vw, h: vh } = wall.videoSize
+    const Wc = Math.max(1, this.host.clientWidth)
+    const Hc = Math.max(1, this.host.clientHeight)
+    const cover = Math.max(Wc / vw, Hc / vh)
+    // (the picture is shown cropped to cover the view, centred)
+    const S: Mat3 = [vw * cover, 0, (Wc - vw * cover) / 2, 0, vh * cover, (Hc - vh * cover) / 2, 0, 0, 1]
+    const H = mul3(S, surf.H)
+    const z = mulVec(S, surf.zcol)
+    const { w: s, ox, oy } = this.wallBox
+    const M: number[] = []
+    for (let r = 0; r < 3; r++) M.push(H[r * 3] / s, H[r * 3 + 1] / s, z[r] / s, H[r * 3 + 2] - (H[r * 3] * ox) / s - (H[r * 3 + 1] * oy) / s + (z[r] * WALL_LIFT) / s)
+    return M
+  }
+
+  /** Where a point of the surface plane (world x, y) is on screen. */
+  private wallScreen(M: number[], x: number, y: number): [number, number] {
+    const z = -WALL_LIFT
+    const w = M[8] * x + M[9] * y + M[10] * z + M[11]
+    return [(M[0] * x + M[1] * y + M[2] * z + M[3]) / w, (M[4] * x + M[5] * y + M[6] * z + M[7]) / w]
+  }
+
+  /** The point of the surface plane that is at a place on screen. */
+  private planePointAt(sx: number, sy: number): readonly [number, number] | null {
+    const M = this.wallMatrix()
+    if (!M) return null
+    const z = -WALL_LIFT
+    const G: Mat3 = [M[0], M[1], M[2] * z + M[3], M[4], M[5], M[6] * z + M[7], M[8], M[9], M[10] * z + M[11]]
+    const inv = inv3(G)
+    if (!inv) return null
+    const p = apply(inv, sx, sy)
+    return [p.x, p.y]
+  }
+
+  /** Make the 3D camera exactly the one the surface's picture describes (its own matrices, not a position and a turn). */
+  private applyWallCamera(M0: number[]): boolean {
+    const { ox, oy } = this.wallBox
+    let M = M0
+    let w0 = M[8] * ox + M[9] * oy + M[10] * -WALL_LIFT + M[11]
+    if (w0 < 0) {
+      M = M.map((v) => -v)
+      w0 = -w0
+    }
+    if (!(w0 > 1e-12)) return false
+    const Wc = Math.max(1, this.host.clientWidth)
+    const Hc = Math.max(1, this.host.clientHeight)
+    const n = 0.04 * w0
+    const f = 80 * w0
+    const a = (f + n) / (f - n)
+    const b = (-2 * f * n) / (f - n)
+    const row = (r: number) => M.slice(r * 4, r * 4 + 4)
+    const [m0, m1, m2] = [row(0), row(1), row(2)]
+    const clip = [m0.map((v, i) => (2 / Wc) * v - m2[i]), m1.map((v, i) => (-2 / Hc) * v + m2[i]), m2.map((v, i) => a * v + (i === 3 ? b : 0)), m2]
+    // where the camera is: the point every ray passes through (A * C + b = 0)
+    const A: Mat3 = [m0[0], m0[1], m0[2], m1[0], m1[1], m1[2], m2[0], m2[1], m2[2]]
+    const Ai = inv3(A)
+    if (!Ai) return false
+    const C = mulVec(Ai, [m0[3], m1[3], m2[3]]).map((v) => -v)
+    this.camera.position.set(C[0], C[1], C[2])
+    this.camera.quaternion.identity()
+    this.camera.updateMatrixWorld(true)
+    // (the view matrix is the move by -C, so the projection takes the move back)
+    const P = clip.map((r) => [r[0], r[1], r[2], r[3] + r[0] * C[0] + r[1] * C[1] + r[2] * C[2]])
+    this.camera.projectionMatrix.set(P[0][0], P[0][1], P[0][2], P[0][3], P[1][0], P[1][1], P[1][2], P[1][3], P[2][0], P[2][1], P[2][2], P[2][3], P[3][0], P[3][1], P[3][2], P[3][3])
+    this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert()
+    return true
+  }
+
   /** Zoom about the middle of the screen: what is there stays there. */
   private setWallZoom(z: number) {
     if (!this.wall) return
-    const centre = () => {
-      const p = this.wall!.getPose()
-      // (the camera looks down its own -z)
-      const dirZ = -(1 - 2 * (p.q[0] * p.q[0] + p.q[1] * p.q[1]))
-      const dirX = -(2 * (p.q[0] * p.q[2] + p.q[3] * p.q[1]))
-      const dirY = -(2 * (p.q[1] * p.q[2] - p.q[3] * p.q[0]))
-      const pos = p.position ?? [0, 0, 0]
-      if (dirZ > -0.05) return null
-      const t = -pos[2] / dirZ
-      return [pos[0] + dirX * t, pos[1] + dirY * t] as const
-    }
+    const centre = () => this.planePointAt(this.host.clientWidth / 2, this.host.clientHeight / 2)
     const before = centre()
     this.wallZoom = Math.min(8, Math.max(0.6, z))
     this.applyWall()
@@ -1011,7 +1078,8 @@ export class SpatialScene {
         this.updateWallOverlay()
         this.updateWallSet()
       } else this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
-      this.camera.updateProjectionMatrix()
+      const wm = this.wall ? this.wallMatrix() : null
+      if (!(wm && this.applyWallCamera(wm))) this.camera.updateProjectionMatrix()
       this.renderer.render(this.scene, this.camera)
       this.updateDots()
     }
@@ -1209,11 +1277,17 @@ export class SpatialScene {
     }
     if (p.mode === 'look' && this.wall) {
       // in wall mode the phone is the way to look around; a drag on empty space slides the virtual world under the surface instead
-      const el = this.renderer.domElement
-      const fpx = el.clientHeight / 2 / Math.tan((this.camera.fov * Math.PI) / 360)
-      const k = Math.max(1, Math.abs(this.camera.position.z)) / Math.max(1, fpx)
-      this.wallPan[0] -= (e.clientX - prev.x) * k
-      this.wallPan[1] += (e.clientY - prev.y) * k
+      const M = this.wallMatrix()
+      if (!M) return
+      // (a world unit on the surface is this many pixels here)
+      const { ox, oy } = this.wallBox
+      const a = this.wallScreen(M, ox, oy)
+      const b = this.wallScreen(M, ox + 1, oy)
+      const c = this.wallScreen(M, ox, oy + 1)
+      const pxX = Math.max(1e-3, Math.abs(b[0] - a[0]))
+      const pxY = Math.max(1e-3, Math.abs(c[1] - a[1]))
+      this.wallPan[0] -= (e.clientX - prev.x) / pxX
+      this.wallPan[1] += (e.clientY - prev.y) / pxY
       this.applyWall()
       return
     }
