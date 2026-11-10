@@ -28,7 +28,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
-  const { environment, tracking: trackPref, render, seen, tipSeen, links, tidy, radius, collapsed } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed })))
+  const { environment, tracking: trackPref, render, seen, tipSeen, links, tidy, radius, collapsed, wallSmooth } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed, wallSmooth: s.wallSmooth })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -169,6 +169,10 @@ export default function SpatialView() {
     return () => cancelAnimationFrame(raf)
   }, [wall, details, phase])
 
+  useEffect(() => {
+    wallTrack.current?.configure({ smooth: wallSmooth })
+  }, [wallSmooth, wall, phase])
+
   /* ---------- the 3D scene ---------- */
   const chooseEnv = useCallback(
     async (kind: EnvironmentKind, url?: string) => {
@@ -211,6 +215,7 @@ export default function SpatialView() {
       let wt: WallTracking | undefined
       if (wall) {
         wt = new WallTracking()
+        wt.smoothing = useSpatial.getState().wallSmooth
         wt.device = (q, ageMs) => track.current?.deviceRaw(q, ageMs) ?? false
         wt.onStatus(() => setWallPhase(wt!.phase))
         wallTrack.current = wt
@@ -425,6 +430,19 @@ export default function SpatialView() {
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
                     <span>Closer</span>
                     <span>Wider</span>
+                  </div>
+                </div>
+              )}
+              {wall && (
+                <div>
+                  Smoothing
+                  <div className="relative mt-1 pb-1">
+                    <input type="range" min={0} max={1} step={0.05} value={wallSmooth} aria-label="Smoothing" onChange={(e) => prefs({ wallSmooth: Number(e.target.value) })} className="soft relative z-10" />
+                    <DefaultDot at={0.6} label="Back to the usual smoothing" onReset={() => prefs({ wallSmooth: 0.6 })} />
+                  </div>
+                  <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
+                    <span>Responsive</span>
+                    <span>Steady</span>
                   </div>
                 </div>
               )}

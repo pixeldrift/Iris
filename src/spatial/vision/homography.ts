@@ -46,6 +46,49 @@ export function fitHomography(src: Pt[], dst: Pt[]): Mat3 | null {
  * The homography that most pairs agree on (RANSAC): try many from four random pairs, keep the one most pairs fit within `thresh` pixels,
  * then refit to all that fit. Returns which pairs fit.
  */
+/**
+ * The affine map (no perspective) taking `src` to `dst`, least squares. Fewer numbers to get wrong than a homography, so steadier: used
+ * in place of it unless the picture shows the perspective really did change.
+ */
+export function fitAffine(src: Pt[], dst: Pt[]): Mat3 | null {
+  const n = src.length
+  if (n < 3) return null
+  // centre on the mean, so the three unknowns of each row are well conditioned
+  let mx = 0
+  let my = 0
+  for (const p of src) (mx += p.x), (my += p.y)
+  mx /= n
+  my /= n
+  let sxx = 0, sxy = 0, syy = 0
+  const rx = [0, 0, 0]
+  const ry = [0, 0, 0]
+  let dmx = 0
+  let dmy = 0
+  for (const p of dst) (dmx += p.x), (dmy += p.y)
+  dmx /= n
+  dmy /= n
+  for (let i = 0; i < n; i++) {
+    const x = src[i].x - mx
+    const y = src[i].y - my
+    sxx += x * x
+    sxy += x * y
+    syy += y * y
+    rx[0] += x * (dst[i].x - dmx)
+    rx[1] += y * (dst[i].x - dmx)
+    ry[0] += x * (dst[i].y - dmy)
+    ry[1] += y * (dst[i].y - dmy)
+  }
+  const det = sxx * syy - sxy * sxy
+  if (Math.abs(det) < 1e-9) return null
+  const a = (rx[0] * syy - rx[1] * sxy) / det
+  const b = (rx[1] * sxx - rx[0] * sxy) / det
+  const d = (ry[0] * syy - ry[1] * sxy) / det
+  const e = (ry[1] * sxx - ry[0] * sxy) / det
+  const c = dmx - a * mx - b * my
+  const f = dmy - d * mx - e * my
+  return [a, b, c, d, e, f, 0, 0, 1]
+}
+
 export function ransacHomography(src: Pt[], dst: Pt[], opts: { iters?: number; thresh?: number; seed?: number } = {}): { H: Mat3; inliers: boolean[]; count: number } | null {
   const n = src.length
   if (n < 4) return null

@@ -1194,11 +1194,15 @@ export class SpatialScene {
     const mesh = kind === 'task' ? this.tasks.get(id)?.mesh : this.hubs.get(id)?.mesh
     if (!mesh) return
     const dir = this.camera.getWorldDirection(new Vector3())
-    const plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), mesh.position)
+    // a task is lifted a little toward the viewer, and then stays flat to the screen (not tilted to the wall or the cylinder it came from)
+    const from = kind === 'task' ? mesh.position.clone().addScaledVector(dir, -0.4 * K) : mesh.position
+    const plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), from)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
     const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
-    this.carry = { kind, id, plane, offset: at ? mesh.position.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? descendantsOf(this.content.clusters, id) : new Set() }
+    this.carry = { kind, id, plane, offset: at ? from.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? descendantsOf(this.content.clusters, id) : new Set() }
     if (kind === 'task') {
+      mesh.position.copy(from)
+      mesh.quaternion.copy(this.camera.quaternion)
       mesh.renderOrder = 6
       mesh.scale.multiplyScalar(1.08)
     }
@@ -1316,8 +1320,7 @@ export class SpatialScene {
       const mesh = this.tasks.get(c.id)?.mesh
       if (!mesh) return
       mesh.position.copy(at)
-      const a = onCylinder([at.x, at.y, at.z])
-      mesh.rotation.set(Math.atan2(at.y, Math.hypot(at.x, at.z)), -a.a, 0)
+      mesh.quaternion.copy(this.camera.quaternion) // (flat to the screen, whatever it was lying on)
       // the group it would join if let go here lights up
       this.hoverTo(this.groupUnder(e, '')?.id ?? null)
       this.dirty = true

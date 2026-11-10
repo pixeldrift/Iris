@@ -87,7 +87,10 @@ export class WallTracking implements TrackingProvider {
     this.video = video
   }
   /** Size the world: the surface's width, in world units, and how far in front of it the items float. */
-  configure(opts: { scale?: number; lift?: number; fovV?: number; origin?: [number, number] }) {
+  /** How much the view is smoothed, 0 (every twitch) to 1 (very steady). */
+  smoothing = 0.6
+  configure(opts: { scale?: number; lift?: number; fovV?: number; origin?: [number, number]; smooth?: number }) {
+    if (opts.smooth !== undefined) this.smoothing = opts.smooth
     if (opts.scale) this.scale = opts.scale
     if (opts.origin) this.origin = opts.origin
     if (opts.lift !== undefined) this.lift = opts.lift
@@ -370,7 +373,8 @@ export class WallTracking implements TrackingProvider {
       if (!this.corners) this.corners = cs
       else {
         const moved = cs.reduce((s, c, i) => s + Math.hypot(c.x - this.corners![i].x, c.y - this.corners![i].y), 0) / 4
-        const a = Math.min(1, 0.4 + moved * 0.12)
+        // (steadier when still, quick when the phone really moves)
+        const a = Math.min(1, 0.5 - 0.44 * this.smoothing + moved * (0.14 - 0.08 * this.smoothing))
         this.corners = this.corners.map((c, i) => ({ x: c.x + (cs[i].x - c.x) * a, y: c.y + (cs[i].y - c.y) * a }))
       }
       this.Hs = fitHomography(unit, this.corners) ?? Himg
