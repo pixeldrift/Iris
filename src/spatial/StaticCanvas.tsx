@@ -8,7 +8,7 @@ import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
 import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { descendantsOf } from '../core/tree'
-import { cellH, cellW, ensureLayout, nearestFreeSlot, repose, separate, slotAt, snapCluster, snapFree, tidyClusters, tidyEverything } from './layout'
+import { LOOSE, cellH, cellW, ensureLayout, nearestFreeSlot, repose, separate, slotAt, snapCluster, snapFree, tidyClusters, tidyEverything } from './layout'
 import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
 
@@ -221,7 +221,9 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
       if (over.id !== own) retagTask(c.id, over.id)
     } else {
       const free = { a: c.x / PX / r0, y: -c.y / PY }
-      writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: tidy ? snapFree(free) : free } } })
+      // let go in open space: left there, in no group (unsorted, anywhere on the wall)
+      writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: LOOSE, free: tidy ? snapFree(free) : free } } })
+      if (tp.c !== LOOSE) retagTask(c.id, LOOSE)
     }
     closeSprung(over?.id ?? null)
   }

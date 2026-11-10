@@ -50,8 +50,9 @@ test.describe('the flat canvas does everything the 3D space does', () => {
     const canvas = (await page.locator('[aria-label^="Your tasks by group"]').boundingBox())!
     await drag(page, from, { x: canvas.x + 70, y: canvas.y + 60 })
     expect((await stored(page)).tasks['demo-grandma'].free).toBeTruthy()
-    const was = await folderOf(page, 'demo-grandma')
-    expect(was).toBeTruthy()
+    // left there, in no group
+    await expect.poll(() => folderOf(page, 'demo-grandma')).toBeFalsy()
+    expect((await stored(page)).tasks['demo-grandma'].c).toBe('none')
     const f = await centre(page, '[data-task="demo-grandma"] button:nth-child(2)')
     await drag(page, f, await centre(page, '[data-box="demo-writing"]'))
     await expect.poll(() => folderOf(page, 'demo-grandma')).toBe('demo-writing')

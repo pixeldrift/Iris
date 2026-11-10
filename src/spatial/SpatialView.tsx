@@ -12,7 +12,7 @@ import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
 import { Tip } from '../ui/Tip'
 import { detectCapabilities } from './capabilities'
 import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
-import { buildContent, sameLayout } from './content'
+import { buildContent, NONE, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { FLAT_R, RADIUS } from './layout'
 import { WallTracking, type WallPhase } from './wall'
@@ -94,7 +94,7 @@ export default function SpatialView() {
     return {
       ...content,
       clusters: content.clusters.filter((c) => keep.has(c.id)).map((c) => ({ ...c, collapsed: !!collapsed[c.id], count: collapsed[c.id] ? (total.get(c.id) ?? c.count) : c.count })),
-      tasks: content.tasks.filter((t) => keep.has(t.cluster)),
+      tasks: content.tasks.filter((t) => t.cluster === NONE || keep.has(t.cluster)), // (a loose task is in no group, so no fold can hide it)
     }
   }, [content, collapsed])
   const live = useRef(shownContent)
@@ -250,7 +250,7 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), dbgTasks: () => { const s = sc as unknown as { tasks: Map<string, { mesh: { visible: boolean; position: { x: number; y: number; z: number } } }>; layout: { tasks: Record<string, unknown> } }; return [...s.tasks].slice(0, 40).map(([id, n]) => [id, n.mesh.visible, Math.round(n.mesh.position.x), Math.round(n.mesh.position.y), Math.round(n.mesh.position.z), JSON.stringify(s.layout.tasks[id])]) }, surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     if (wall) {

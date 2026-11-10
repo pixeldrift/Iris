@@ -118,9 +118,9 @@ test.describe('moving things in the space', () => {
     await drag(page, from, open)
     const l = await stored(page)
     expect(l.tasks['demo-grandma'].free).toBeTruthy()
-    // still in its group as far as its tags go, until it is dropped into one
-    const folder = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { id: string }) => t.id === 'demo-grandma').folderIds[0])
-    expect(folder).toBeTruthy()
+    // left there, in no group: on the wall it is "unsorted, anywhere", and everywhere else it shows in the Unsorted group
+    expect(l.tasks['demo-grandma'].c).toBe('none')
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { id: string }) => t.id === 'demo-grandma').folderIds.length)).toBe(0)
     // now drop it into Writing
     const now = (await pt(page, 'task', 'demo-grandma'))!
     const to = (await pt(page, 'plate', 'demo-writing'))!

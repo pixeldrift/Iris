@@ -34,7 +34,7 @@ import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
 import { apply, inv3, mul3, mulVec, type Mat3 } from './vision/math'
 import { linkGeometry } from './links'
-import { FLAT_R, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
+import { FLAT_R, LOOSE, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
 import { VIDEO_LAG, type WallTracking } from './wall'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
@@ -330,6 +330,16 @@ export class SpatialScene {
       maxX = Math.max(maxX, c.x + hw)
       minY = Math.min(minY, c.y - (c.rows ?? 1) * (WORLD.cardH + WORLD.gap) - K)
       maxY = Math.max(maxY, c.y + 1.5 * K)
+    }
+    // (and the cards left loose on the wall)
+    for (const t of this.content.tasks) {
+      const tp = this.layout.tasks[t.id]
+      const fp = tp?.free ? freePose(tp, this.radius) : null
+      if (!fp) continue
+      minX = Math.min(minX, fp.pos[0] - WORLD.cardW / 2)
+      maxX = Math.max(maxX, fp.pos[0] + WORLD.cardW / 2)
+      minY = Math.min(minY, fp.pos[1] - WORLD.cardH / 2)
+      maxY = Math.max(maxY, fp.pos[1] + WORLD.cardH / 2)
     }
     if (!Number.isFinite(minX)) return
     this.wallLay = { w: Math.max(40, (maxX - minX) * 1.04), h: Math.max(30, (maxY - minY) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
@@ -953,7 +963,8 @@ export class SpatialScene {
     if (this.wall) return instant ? undefined : this.frameWall() // (the first call, at the start, leaves the usual size alone)
     const L = this.layout
     const ids = this.content.clusters.map((c) => c.id).filter((id) => L.clusters[id])
-    if (!ids.length) return
+    const loose = this.content.tasks.filter((t) => L.tasks[t.id]?.free)
+    if (!ids.length && !loose.length) return
     let minY = Infinity
     let maxY = -Infinity
     let minP = Infinity
@@ -981,6 +992,19 @@ export class SpatialScene {
         minP = Math.min(minP, pit)
         maxP = Math.max(maxP, pit)
       }
+    }
+    // (and the cards left loose on the wall)
+    for (const t of loose) {
+      const fp = freePose(L.tasks[t.id], this.radius)
+      if (!fp) continue
+      const [x, y, z] = fp.pos
+      const yaw = Math.atan2(x, -z)
+      const pit = Math.atan2(y, Math.hypot(x, z))
+      const m = WORLD.cardW / 2 / WORLD.ring
+      minY = Math.min(minY, yaw - m)
+      maxY = Math.max(maxY, yaw + m)
+      minP = Math.min(minP, pit - m * 0.4)
+      maxP = Math.max(maxP, pit + m * 0.4)
     }
     const yaw0 = (minY + maxY) / 2
     const pit0 = (minP + maxP) / 2
@@ -1431,6 +1455,7 @@ export class SpatialScene {
       const L = this.layout
       const tp = L.tasks[c.id]
       const over = this.groupUnder(e, '')
+      let unsort = false
       if (!tp) {
         this.place()
         return
@@ -1459,10 +1484,11 @@ export class SpatialScene {
         this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: over.id, u, v, dz: 0, slot, free: undefined } } }
         if (over.id !== (this.content.tasks.find((t) => t.id === c.id)?.cluster ?? tp.c)) this.events.onRetag?.(c.id, over.id)
       } else {
-        // pulled out and let go in open space: it floats there
-        const a = onCylinder([c.pos.x, c.pos.y, c.pos.z])
-        this.taskShown.set(c.id, { c: tp.c, free: true, x: a.a, y: a.y })
-        this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, free: { a: a.a, y: a.y } } } }
+        // pulled out and let go in open space: it is left there, in no group (unsorted, anywhere on the wall)
+        const a = onCylinder([c.pos.x, c.pos.y, c.pos.z], this.radius)
+        this.taskShown.set(c.id, { c: LOOSE, free: true, x: a.a, y: a.y })
+        this.layout = { ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: LOOSE, free: { a: a.a, y: a.y } } } }
+        unsort = tp.c !== LOOSE
         if (this.tidy) {
           // a floating card settles onto the free grid
           const base = fromRadius(this.layout, this.radius)
@@ -1472,6 +1498,7 @@ export class SpatialScene {
         }
       }
       this.events.onLayout(fromRadius(this.layout, this.radius))
+      if (unsort) this.events.onRetag?.(c.id, LOOSE) // (after the layout is stored, so the new place is the one it is built from)
       this.closeSprung(over?.id ?? null)
       this.place()
       return

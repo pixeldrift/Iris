@@ -126,16 +126,28 @@ export function separate(clusters: Record<string, ClusterPlacement>, pinned: Rea
  * as a family tree: top-level groups along the first row, each subgroup on the row below its group, centred under it where there is
  * room, within a wide stretch straight ahead (never behind the viewer). New tasks take the first free slot in their group's grid.
  */
+/** The cluster id of a task that is in no group: it is not in a box, it sits on the wall wherever it was put. */
+export const LOOSE = 'none'
+
 export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): SpatialLayoutData {
   let clusters: Record<string, ClusterPlacement> = {}
   const tasks: Record<string, TaskPlacement> = {}
   // places are kept for anything that still exists, shown or not (hidden for now, or filtered out)
   for (const [id, p] of Object.entries(prev.clusters)) if (input.allClusterIds.has(id)) clusters[id] = p
   for (const [id, p] of Object.entries(prev.tasks)) if (input.allTaskIds.has(id)) tasks[id] = p
+  // anything in no group is not in a box: it is on the wall where it was put (a place below the groups for any with none yet, below)
+  delete clusters[LOOSE]
+  const loose = input.tasks.filter((t) => t.cluster === LOOSE)
+  for (const t of loose) {
+    const own = tasks[t.id]
+    if (own?.free) tasks[t.id] = { ...own, c: LOOSE }
+    else delete tasks[t.id]
+  }
 
   // the tasks that live in each group's grid (a task pulled out and floating does not take a slot)
   const inGrid = new Map<string, LayoutTask[]>()
   for (const t of input.tasks) {
+    if (t.cluster === LOOSE) continue
     const own = tasks[t.id]
     if (own?.free && own.c === t.cluster) continue
     inGrid.set(t.cluster, [...(inGrid.get(t.cluster) ?? []), t])
@@ -255,6 +267,7 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
   const slotsTaken = new Map<string, Set<number>>()
   for (const [id, p] of Object.entries(tasks)) if (input.allTaskIds.has(id) && !p.free) slotsTaken.set(p.c, (slotsTaken.get(p.c) ?? new Set()).add(p.slot))
   for (const t of input.tasks) {
+    if (t.cluster === LOOSE) continue
     const have = tasks[t.id]
     if (have && have.c === t.cluster) continue
     if (have && !have.free) slotsTaken.get(have.c)?.delete(have.slot) // moved to another group: its old slot is free
@@ -267,6 +280,29 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
     slotsTaken.set(t.cluster, used)
     const { u, v } = slotAt(slot, cl.cols)
     tasks[t.id] = { c: t.cluster, u, v, dz: 0, slot }
+  }
+  // loose tasks with no place yet: a tray under the groups, left to right, wrapping, skipping any spot already taken
+  const unplaced = loose.filter((t) => !tasks[t.id])
+  if (unplaced.length) {
+    const real = Object.values(clusters)
+    const bottom = real.length ? Math.min(...real.map((c) => c.y - heightOf(c.rows ?? 1))) : 0
+    const left = real.length ? Math.min(...real.map((c) => c.a - widthOf(c.cols) / (2 * c.r))) : -START_SPAN / 2
+    const right = real.length ? Math.max(...real.map((c) => c.a + widthOf(c.cols) / (2 * c.r))) : START_SPAN / 2
+    const step = FREE_GRID.x / WORLD.ring
+    const perRow = Math.max(3, Math.floor((right - left) / step))
+    const key = (f: { a: number; y: number }) => `${Math.round(f.a / step)},${Math.round(f.y / FREE_GRID.y)}`
+    const taken = new Set(Object.values(tasks).filter((p) => p.free).map((p) => key(p.free!)))
+    let n = 0
+    for (const t of unplaced) {
+      let f = { a: left, y: bottom - 1.4 * K }
+      for (;;) {
+        f = { a: left + (n % perRow) * step, y: bottom - 1.4 * K - Math.floor(n / perRow) * FREE_GRID.y }
+        n++
+        if (!taken.has(key(f))) break
+      }
+      taken.add(key(f))
+      tasks[t.id] = { c: LOOSE, u: 0, v: 0, dz: 0, slot: 0, free: f }
+    }
   }
   return { clusters, tasks }
 }
