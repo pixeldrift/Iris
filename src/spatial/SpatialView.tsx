@@ -512,6 +512,32 @@ export default function SpatialView() {
                   Recenter
                 </button>
               )}
+              {wall && (
+                <button
+                  type="button"
+                  data-wall-status={wallPhase}
+                  aria-label={wallPhase === 'holding' ? 'Surface held. Tap to look for the surface again' : 'Surface not found. Point at a wall, a sheet of paper or a picture frame, or tap to use what the camera sees'}
+                  onClick={() => (wallPhase === 'holding' ? scene.current?.recenter() : wallTrack.current?.anchorHere())}
+                  className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-lilac-600 transition hover:bg-white/80 active:scale-95"
+                >
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+                    <rect x="5" y="5" width="14" height="14" rx="2.5" strokeOpacity={wallPhase === 'holding' ? 0.55 : 0.3} strokeDasharray={wallPhase === 'holding' ? undefined : '2 2.4'} />
+                    {[[5, 5], [19, 5], [5, 19], [19, 19]].map(([x, y]) => (
+                      <circle key={`${x}${y}`} cx={x} cy={y} r="1.9" fill="currentColor" stroke="none" />
+                    ))}
+                    {wallPhase === 'holding' ? (
+                      <>
+                        {/* a target: tap to look for the surface again */}
+                        <circle cx="12" cy="12" r="3.3" />
+                        <path d="M12 7.3v2.3M12 14.4v2.3M7.3 12h2.3M14.4 12h2.3" strokeLinecap="round" />
+                        <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+                      </>
+                    ) : (
+                      <path d="M9.9 9.7a2.2 2.2 0 1 1 3.2 2c-.7.4-1.1.8-1.1 1.6M12 15.9v.1" strokeLinecap="round" strokeWidth="1.6" />
+                    )}
+                  </svg>
+                </button>
+              )}
               {!wall && <button type="button" onClick={() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll())} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
                 Fit all
               </button>}
@@ -526,25 +552,6 @@ export default function SpatialView() {
                 Clean up
               </button>}
             </span>
-            {wall && (
-              <button
-                type="button"
-                data-wall-status={wallPhase}
-                aria-label={wallPhase === 'holding' ? 'Surface held. Tap to look for the surface again' : 'Surface not found. Point at a wall, a sheet of paper or a picture frame, or tap to use what the camera sees'}
-                onClick={() => (wallPhase === 'holding' ? scene.current?.recenter() : wallTrack.current?.anchorHere())}
-                className={`pointer-events-auto absolute bottom-1 left-1/2 -translate-x-1/2 p-1.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.9)] transition ${wallPhase === 'holding' ? 'text-lilac-600' : 'text-lilac-700'}`}
-              >
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-                  <rect x="5" y="5" width="14" height="14" rx="2.5" strokeOpacity={wallPhase === 'holding' ? 0.55 : 0.3} strokeDasharray={wallPhase === 'holding' ? undefined : '2 2.4'} />
-                  {[[5, 5], [19, 5], [5, 19], [19, 19]].map(([x, y]) => (
-                    <circle key={`${x}${y}`} cx={x} cy={y} r="1.9" fill="currentColor" stroke="none" />
-                  ))}
-                  {wallPhase !== 'holding' && (
-                    <path d="M9.9 9.7a2.2 2.2 0 1 1 3.2 2c-.7.4-1.1.8-1.1 1.6M12 15.9v.1" strokeLinecap="round" strokeWidth="1.6" />
-                  )}
-                </svg>
-              </button>
-            )}
             <span role="status" className="sr-only">
               {statusText}
             </span>
