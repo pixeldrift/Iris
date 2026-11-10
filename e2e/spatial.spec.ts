@@ -250,7 +250,8 @@ test.describe('a lot of tasks', () => {
     expect(Object.keys(layout.tasks).length).toBeGreaterThan(300)
     // no two tasks share a spot in the same group
     const seen = new Set<string>()
-    for (const t of Object.values(layout.tasks) as { c: string; u: number; v: number }[]) {
+    for (const t of Object.values(layout.tasks) as { c: string; u: number; v: number; free?: unknown }[]) {
+      if (t.free) continue // (loose cards are placed on the wall, not in a group's grid)
       const k = `${t.c}:${t.u.toFixed(2)}:${t.v.toFixed(2)}`
       expect(seen.has(k)).toBe(false)
       seen.add(k)

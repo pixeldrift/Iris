@@ -8,10 +8,11 @@ import { useStore } from '../state/store'
 import { useVisibleTasks } from '../ui/useVisible'
 import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
-import { IconCube, IconSliders } from '../ui/icons'
+import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
+import { Tip } from '../ui/Tip'
 import { detectCapabilities } from './capabilities'
 import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
-import { buildContent, sameLayout } from './content'
+import { buildContent, NONE, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { FLAT_R, RADIUS } from './layout'
 import { WallTracking, type WallPhase } from './wall'
@@ -93,7 +94,7 @@ export default function SpatialView() {
     return {
       ...content,
       clusters: content.clusters.filter((c) => keep.has(c.id)).map((c) => ({ ...c, collapsed: !!collapsed[c.id], count: collapsed[c.id] ? (total.get(c.id) ?? c.count) : c.count })),
-      tasks: content.tasks.filter((t) => keep.has(t.cluster)),
+      tasks: content.tasks.filter((t) => t.cluster === NONE || keep.has(t.cluster)), // (a loose task is in no group, so no fold can hide it)
     }
   }, [content, collapsed])
   const live = useRef(shownContent)
@@ -249,7 +250,7 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), dbgTasks: () => { const s = sc as unknown as { tasks: Map<string, { mesh: { visible: boolean; position: { x: number; y: number; z: number } } }>; layout: { tasks: Record<string, unknown> } }; return [...s.tasks].slice(0, 40).map(([id, n]) => [id, n.mesh.visible, Math.round(n.mesh.position.x), Math.round(n.mesh.position.y), Math.round(n.mesh.position.z), JSON.stringify(s.layout.tasks[id])]) }, surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     if (wall) {
@@ -537,6 +538,20 @@ export default function SpatialView() {
                     )}
                   </svg>
                 </button>
+              )}
+              {wall && (
+                <>
+                  <Tip label="Level and straight on: face the groups this way">
+                    <button type="button" aria-label="Level and straight on" onClick={() => scene.current?.levelNow()} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
+                      <IconLevel size={22} />
+                    </button>
+                  </Tip>
+                  <Tip label="Frame all">
+                    <button type="button" aria-label="Frame all" onClick={() => scene.current?.frameAll()} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
+                      <IconFrameAll size={22} />
+                    </button>
+                  </Tip>
+                </>
               )}
               {!wall && <button type="button" onClick={() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll())} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
                 Fit all

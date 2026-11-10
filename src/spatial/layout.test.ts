@@ -297,4 +297,26 @@ describe('a flat wall', () => {
     const back = fromRadius(flat, FLAT_R)
     for (const id of Object.keys(l.clusters)) expect(back.clusters[id].a).toBeCloseTo(l.clusters[id].a, 9)
   })
+  it('leaves tasks in no group loose on the wall: no box for them, a tray of places below the groups, and a dropped place is kept', () => {
+    const base = input({ school: ['a', 'b'] })
+    const inp: LayoutInput = { ...base, tasks: [...base.tasks, { id: 'x', cluster: 'none' }, { id: 'y', cluster: 'none' }, { id: 'z', cluster: 'none' }], allTaskIds: new Set(['a', 'b', 'x', 'y', 'z']), allClusterIds: new Set(['school', 'none']) }
+    const l = ensureLayout(empty, inp)
+    expect(Object.keys(l.clusters)).toEqual(['school']) // (there is no Unsorted box)
+    const school = l.clusters.school
+    for (const id of ['x', 'y', 'z']) {
+      expect(l.tasks[id].c).toBe('none')
+      expect(l.tasks[id].free).toBeTruthy()
+      expect(l.tasks[id].free!.y).toBeLessThan(school.y - (school.rows ?? 1) * WORLD.cardH) // below the groups
+    }
+    // different places
+    expect(new Set(['x', 'y', 'z'].map((id) => `${l.tasks[id].free!.a.toFixed(3)},${l.tasks[id].free!.y.toFixed(1)}`)).size).toBe(3)
+    // one put somewhere by hand keeps its place when the layout is made again
+    const moved = { ...l, tasks: { ...l.tasks, x: { ...l.tasks.x, free: { a: 0.4, y: 12 } } } }
+    expect(ensureLayout(moved, inp).tasks.x.free).toEqual({ a: 0.4, y: 12 })
+    // and one that was in a group and has been left loose (untagged) keeps where it was put
+    const was = { ...l, tasks: { ...l.tasks, a: { ...l.tasks.a, c: 'school', free: { a: -0.2, y: 5 } } } }
+    const after = ensureLayout(was, { ...inp, tasks: inp.tasks.map((t) => (t.id === 'a' ? { ...t, cluster: 'none' } : t)) })
+    expect(after.tasks.a.c).toBe('none')
+    expect(after.tasks.a.free).toEqual({ a: -0.2, y: 5 })
+  })
 })

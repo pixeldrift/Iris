@@ -47,6 +47,13 @@ test.describe('wall mode', () => {
       await page.waitForTimeout(Number(process.env.SHOT_AT ?? 0))
       await page.screenshot({ path: process.env.SHOT })
     }
+    // the groups' own controls: level them, and bring them all into view (neither should throw)
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    await page.getByRole('button', { name: 'Level and straight on' }).click()
+    await page.getByRole('button', { name: 'Frame all' }).click()
+    await page.waitForTimeout(300)
+    expect(errors).toEqual([])
     // the picture is hidden (2px) while the background is Virtual; Camera shows it full size, Photo or Virtual puts it back
     const bg = page.getByRole('radiogroup', { name: 'Background' })
     const box = () => page.locator('video').evaluate((v) => v.getBoundingClientRect().width)

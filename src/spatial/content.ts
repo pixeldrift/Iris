@@ -8,11 +8,11 @@ import { dueInfo, dueLine } from '../core/rowModel'
 import { effectiveUrgency } from '../core/tasks'
 import type { Folder, Task } from '../core/types'
 import { bubbleHue } from '../ui/pond/hue'
-import { ensureLayout, type LayoutCluster, type LayoutTask } from './layout'
+import { ensureLayout, LOOSE, type LayoutCluster, type LayoutTask } from './layout'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialLayoutData } from './types'
 
-export const NONE = 'none'
+export const NONE = LOOSE
 
 export interface SpatialContent {
   clusters: SceneCluster[]
@@ -27,8 +27,10 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
   const shown = new Set<string>()
   for (const t of visible) {
     const c = clusterOf(t)
+    // (a task in no group is not in a box: it sits loose on the wall, so there is no Unsorted group to show)
+    if (c === NONE) continue
     shown.add(c)
-    if (c !== NONE) for (const a of pathOf(folders, c)) shown.add(a.id)
+    for (const a of pathOf(folders, c)) shown.add(a.id)
   }
   // the order of the sidebar's tree, parents before children
   const order: string[] = []
@@ -39,7 +41,6 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
     }
   }
   walk(null)
-  if (shown.has(NONE)) order.push(NONE)
   const parentOf = (id: string): string | null => {
     if (id === NONE) return null
     const f = folders.find((x) => x.id === id)

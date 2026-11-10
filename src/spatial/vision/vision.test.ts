@@ -7,7 +7,7 @@ import { trackPoints } from './lk'
 import { findQuads } from './quad'
 import { SurfaceTracker } from './surface'
 import { fitAffine, focalFromHomography, planeColumns, turnHomography } from './homography'
-import { surfaceFrame } from './plane'
+import { levelFrame, surfaceFrame } from './plane'
 import { translationFromRotation } from './pose'
 
 /** A textured greyscale picture (smoothed noise, so there is something to follow at every scale). */
@@ -338,5 +338,27 @@ describe('following a surface', () => {
     expect(got[0]).toBeCloseTo(t[0], 1)
     expect(got[1]).toBeCloseTo(t[1], 1)
     expect(got[2]).toBeCloseTo(t[2], 1)
+  })
+
+  it('makes the virtual wall face the camera and stand level', () => {
+    // a camera turned and tipped: its axes in the tracked surface's frame, and which way is up there
+    const cs = Math.cos(0.5)
+    const sn = Math.sin(0.5)
+    const axes = { right: [cs, 0, -sn] as [number, number, number], up: [0, 1, 0] as [number, number, number], back: [sn, 0, cs] as [number, number, number] }
+    const up: [number, number, number] = [0.2, 0.9, 0.1] // not quite the camera's up: the phone is rolled
+    const R = levelFrame(axes, up)!
+    const col = (c: number) => [R[c], R[3 + c], R[6 + c]]
+    const [x, y, n] = [col(0), col(1), col(2)]
+    const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+    expect(n[0]).toBeCloseTo(axes.back[0], 6)
+    expect(dot(x, y)).toBeCloseTo(0, 6)
+    expect(dot(x, n)).toBeCloseTo(0, 6)
+    expect(dot(y, n)).toBeCloseTo(0, 6)
+    expect(Math.hypot(...(y as [number, number, number]))).toBeCloseTo(1, 6)
+    // level: the wall's own x axis has no height, i.e. it is square to "up"
+    expect(dot(x, up)).toBeCloseTo(0, 6)
+    // with no sense of up it keeps the camera's own
+    const R2 = levelFrame(axes)!
+    expect([R2[1], R2[4], R2[7]]).toEqual(axes.up)
   })
 })

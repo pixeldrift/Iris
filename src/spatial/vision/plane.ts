@@ -52,3 +52,30 @@ export function surfaceFrame(opts: { cx: number; cy: number; f: number; center: 
   const R: Mat3 = [right[0], up[0], back[0], right[1], up[1], back[1], right[2], up[2], back[2]]
   return { H, R }
 }
+
+/**
+ * The frame for the *virtual* wall (where the groups live), as a turn of the tracked surface's frame: facing the camera exactly (its normal
+ * is the camera's own back axis) and level (its up is the world's up as seen across that normal, so no roll). Without a sense of up it
+ * just faces the camera, keeping the camera's own up. All in the tracked surface's frame; `p_surface = R * p_virtual` with the result's
+ * columns being the virtual wall's x, y and normal. Null when the camera's axes make no sense.
+ */
+export function levelFrame(axes: { right: Vec3; up: Vec3; back: Vec3 }, worldUp?: Vec3): Mat3 | null {
+  const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+  const unit = (v: Vec3): Vec3 | null => {
+    const l = Math.hypot(v[0], v[1], v[2])
+    return l > 1e-6 ? [v[0] / l, v[1] / l, v[2] / l] : null
+  }
+  const n = unit(axes.back)
+  if (!n) return null
+  let u: Vec3 | null = null
+  if (worldUp) {
+    const d = dot(worldUp, n)
+    u = unit([worldUp[0] - d * n[0], worldUp[1] - d * n[1], worldUp[2] - d * n[2]])
+    // (looking straight up or down: there is no level to speak of)
+    if (u && Math.hypot(worldUp[0] - d * n[0], worldUp[1] - d * n[1], worldUp[2] - d * n[2]) < 0.2) u = null
+  }
+  u ??= unit(axes.up)
+  if (!u) return null
+  const r: Vec3 = [u[1] * n[2] - u[2] * n[1], u[2] * n[0] - u[0] * n[2], u[0] * n[1] - u[1] * n[0]] // up x normal
+  return [r[0], u[0], n[0], r[1], u[1], n[1], r[2], u[2], n[2]]
+}
