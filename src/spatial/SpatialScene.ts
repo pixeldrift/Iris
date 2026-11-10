@@ -36,7 +36,7 @@ import { apply, inv3, mul3, mulVec, type Mat3 } from './vision/math'
 import { linkGeometry } from './links'
 import { FLAT_R, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
-import type { WallTracking } from './wall'
+import { VIDEO_LAG, type WallTracking } from './wall'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
 
 export interface SceneCluster extends HubInfo {
@@ -360,7 +360,7 @@ export class SpatialScene {
    */
   private wallMatrix(): number[] | null {
     const wall = this.wall
-    const surf = wall?.getSurface()
+    const surf = wall?.getSurface(this.env?.kind === 'camera' ? VIDEO_LAG : 0)
     if (!wall || !surf) return null
     const { w: vw, h: vh } = wall.videoSize
     const Wc = Math.max(1, this.host.clientWidth)
@@ -374,6 +374,13 @@ export class SpatialScene {
     const M: number[] = []
     for (let r = 0; r < 3; r++) M.push(H[r * 3] / s, H[r * 3 + 1] / s, z[r] / s, H[r * 3 + 2] - (H[r * 3] * ox) / s - (H[r * 3 + 1] * oy) / s + (z[r] * WALL_LIFT) / s)
     return M
+  }
+
+  /** (for tests) where the middle of the surface is on screen. */
+  wallProbe(): [number, number] | null {
+    const M = this.wallMatrix()
+    if (!M) return null
+    return this.wallScreen(M, this.wallBox.ox, this.wallBox.oy)
   }
 
   /** Where a point of the surface plane (world x, y) is on screen. */

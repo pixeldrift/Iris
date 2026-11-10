@@ -50,6 +50,8 @@ export class TouchTracking {
 /** Orientation from the browser's motion sensors. */
 export class SensorTracking {
   private target = new Quaternion()
+  /** The last second or two of raw readings, with their times (for asking what the phone was doing a moment ago). */
+  private history: { t: number; q: Quaternion }[] = []
   private smooth = new Quaternion()
   private yawRef = 0
   private haveRef = false
@@ -64,6 +66,8 @@ export class SensorTracking {
     orientationToQuaternion(e.alpha, e.beta, e.gamma, angle, this.target)
     const first = this.last === 0
     this.last = performance.now()
+    this.history.push({ t: this.last, q: this.target.clone() })
+    if (this.history.length > 150) this.history.shift()
     if (!this.haveRef) this.recenter()
     if (first) {
       this.smooth.copy(this.target)
@@ -113,6 +117,26 @@ export class SensorTracking {
     const age = performance.now() - this.last
     return age < 600 ? 'good' : age < 2500 ? 'limited' : 'none'
   }
+  /**
+   * The rotation as the sensor reports it, with no smoothing, as it was `ageMs` ago (0: the latest). For following a camera picture, which
+   * needs the phone's true turn at the moment it was taken, not a calmed-down one (reading it does not change anything).
+   */
+  raw(out = new Quaternion(), ageMs = 0): Quaternion {
+    const h = this.history
+    let q = this.target
+    if (ageMs > 0 && h.length > 1) {
+      const t = performance.now() - ageMs
+      let i = h.length - 1
+      while (i > 0 && h[i - 1].t > t) i--
+      if (i === 0) q = h[0].q
+      else {
+        const a = h[i - 1]
+        const b = h[i]
+        q = a.q.clone().slerp(b.q, Math.min(1, Math.max(0, (t - a.t) / Math.max(1, b.t - a.t))))
+      }
+    }
+    return out.setFromAxisAngle(YAXIS, -this.yawRef).multiply(q)
+  }
   /** The smoothed rotation relative to the reference. Small movements are smoothed hard (no jitter), big ones follow quickly. */
   read(out = new Quaternion()): Quaternion {
     const angle = this.smooth.angleTo(this.target)
@@ -153,6 +177,11 @@ export class SpatialTracking implements TrackingProvider {
     this.wanted = false
   }
   /** The device's own rotation (from the sensors alone), for blending with what the camera sees. False when the sensors are not running. */
+  deviceRaw(out: Quaternion, ageMs = 0): boolean {
+    if (!this.motionOn) return false
+    this.sensor.raw(out, ageMs)
+    return true
+  }
   deviceRotation(out: Quaternion): boolean {
     if (!this.motionOn) return false
     this.sensor.read(out)

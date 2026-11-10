@@ -211,7 +211,7 @@ export default function SpatialView() {
       let wt: WallTracking | undefined
       if (wall) {
         wt = new WallTracking()
-        wt.device = (q) => track.current?.deviceRotation(q) ?? false
+        wt.device = (q, ageMs) => track.current?.deviceRaw(q, ageMs) ?? false
         wt.onStatus(() => setWallPhase(wt!.phase))
         wallTrack.current = wt
         wallCam.current = new TrackingCamera()
@@ -244,7 +244,7 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true) }
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     if (wall) {

@@ -26,6 +26,8 @@ export interface WallOverlay {
 }
 
 const GRAY_W = 192
+/** About how long ago the camera picture being handled was taken, when it reaches the code (the camera's own delay): the gyro is asked for that moment. */
+export const VIDEO_LAG = 45
 const COMMON_ASPECTS = [1, 1.294, 1.414, 1.5, 1.333, 0.773, 0.707, 0.667, 0.75]
 
 type Listener = (s: TrackingStatus) => void
@@ -78,7 +80,7 @@ export class WallTracking implements TrackingProvider {
   private stat = { ms: 0, max: 0, recent: [] as number[], frames: 0, seen: 0, windowStart: 0, fps: 0, camFps: 0, seenWin: 0, resid: 0, points: 0, gyroGap: 0, lostCount: 0, lastGap: 0, lastDone: 0 }
   private lastSt: { now: Pt[]; ref: Pt[] } = { now: [], ref: [] }
   /** The device's rotation, from the sensors (null when there are none). */
-  device: ((out: Quaternion) => boolean) | null = null
+  device: ((out: Quaternion, ageMs?: number) => boolean) | null = null
 
   /** Use this camera picture. */
   attach(video: HTMLVideoElement) {
@@ -188,7 +190,7 @@ export class WallTracking implements TrackingProvider {
     const now = performance.now()
     this.stat.seen++
     // about 20 pictures a second is plenty (and kinder to the battery)
-    if (now - this.lastVisionAt < 45) return
+    if (now - this.lastVisionAt < Math.max(28, this.stat.ms * 1.2)) return
     this.lastVisionAt = now
     const t0 = now
     if (this.vw !== v.videoWidth || this.vh !== v.videoHeight) {
@@ -206,7 +208,8 @@ export class WallTracking implements TrackingProvider {
     }
     this.ctx.drawImage(v, 0, 0, GRAY_W, gh)
     const px = this.ctx.getImageData(0, 0, GRAY_W, gh)
-    const g = rgbaToGray(px.data, GRAY_W, gh, this.gray ?? undefined)
+    // (a new picture each time: the tracker keeps the previous one to compare with, and must not have it overwritten)
+    const g = rgbaToGray(px.data, GRAY_W, gh)
     this.gray = g
     if (this.phase === 'searching') this.search(g, now)
     else this.follow(g)
@@ -234,16 +237,17 @@ export class WallTracking implements TrackingProvider {
    * Where the surface is in the camera's picture right now, for the scene to draw with: the surface's x, y and 1 -> picture (as fractions
    * of the picture's width and height), and where a step toward the viewer goes. Brought up to date from the gyroscope since the last
    * picture (a turn of the phone is a known change of view, so it is applied at once, which is what keeps up in a quick move); with no gyro
-   * it is the last picture's. Null before a surface has been found.
+   * it is the last picture's. `lagMs`: how far behind "now" the picture being shown is (0 for a virtual background, which is drawn for now;
+   * about VIDEO_LAG when the camera itself is shown, so the two agree). Null before a surface has been found.
    */
-  getSurface(): { H: Mat3; zcol: Vec3 } | null {
+  getSurface(lagMs = 0): { H: Mat3; zcol: Vec3 } | null {
     if (!this.Hs || !this.gray) return null
     const k = this.k()
     const pc = planeColumns(this.Hs, k)
     if (!pc) return null
     let H = pc.H
     let z = pc.zcol
-    if (this.haveQ && this.device && this.device(this.tmpQ)) {
+    if (this.haveQ && this.device && this.device(this.tmpQ, lagMs)) {
       const rel = this.tmpQ.clone().invert().multiply(this.qFrame) // camera at the last picture -> camera now
       if (rel.angleTo(new Quaternion()) < 0.6) {
         const m = new Matrix4().makeRotationFromQuaternion(rel).elements // column-major
@@ -319,7 +323,7 @@ export class WallTracking implements TrackingProvider {
     this.aspect = aspect
     const k = this.k()
     let axes: { right: [number, number, number]; up: [number, number, number]; back: [number, number, number] } | undefined
-    if (this.device && this.device(this.tmpQ)) {
+    if (this.device && this.device(this.tmpQ, VIDEO_LAG)) {
       const v = (x: number, y: number, z: number) => new Vector3(x, y, z).applyQuaternion(this.tmpQ)
       const [r, u, b] = [v(1, 0, 0), v(0, 1, 0), v(0, 0, 1)]
       axes = { right: [r.x, r.y, r.z], up: [u.x, u.y, u.z], back: [b.x, b.y, b.z] }
@@ -370,7 +374,7 @@ export class WallTracking implements TrackingProvider {
         this.corners = this.corners.map((c, i) => ({ x: c.x + (cs[i].x - c.x) * a, y: c.y + (cs[i].y - c.y) * a }))
       }
       this.Hs = fitHomography(unit, this.corners) ?? Himg
-      this.haveQ = !!(this.device && this.device(this.qFrame))
+      this.haveQ = !!(this.device && this.device(this.qFrame, VIDEO_LAG))
     }
     const pose = cameraFromPlaneHomography(Himg, this.k())
     if (pose) {

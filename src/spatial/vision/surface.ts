@@ -22,6 +22,9 @@ export interface SurfaceState {
   residual: number
 }
 
+/** The tracker keeps the previous picture to compare with: its own copy, so a caller that reuses one buffer for every picture cannot overwrite it (that once made every point look like it had not moved at the finest scale). */
+const own = (g: Gray): Gray => ({ w: g.w, h: g.h, d: g.d.slice() })
+
 const MAX_POINTS = 140
 const MIN_POINTS = 24 // (below this it is topped up every other frame)
 const TOP_UP_BELOW = 110
@@ -48,7 +51,7 @@ export class SurfaceTracker {
 
   /** Start following the surface whose region is `quad` in `g`. False when there is nothing in it worth following. */
   acquire(g: Gray, quad: Quad): boolean {
-    this.prev = pyramid(g, 3)
+    this.prev = pyramid(own(g), 3)
     this.region = quad
     this.H = IDENTITY
     const pts = detectCorners(g, { max: MAX_POINTS, minDist: 5, margin: 5, mask: (x, y) => pointInQuad(quad, x, y) })
@@ -81,7 +84,7 @@ export class SurfaceTracker {
 
   update(g: Gray): SurfaceState {
     if (this.status === 'idle' || !this.prev || !this.region) return this.state()
-    const cur = pyramid(g, 3)
+    const cur = pyramid(own(g), 3)
     const fwd = trackPoints(this.prev, cur, this.cur)
     // a point that cannot be followed back to where it started was followed wrongly
     const back = trackPoints(cur, this.prev, fwd.pts)
