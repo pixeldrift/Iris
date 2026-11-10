@@ -17,6 +17,7 @@ import { FLAT_R, RADIUS } from './layout'
 import { WallTracking, type WallPhase } from './wall'
 import { TrackingCamera } from './trackingCamera'
 import { DefaultDot } from '../ui/DefaultDot'
+import { ZoomControl } from '../ui/ZoomControl'
 import { CameraEnvironment, PanoramaEnvironment, SharedCameraEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
 import { SpatialScene } from './SpatialScene'
 import { StaticCanvas } from './StaticCanvas'
@@ -65,6 +66,16 @@ export default function SpatialView() {
   const wallTrack = useRef<WallTracking | null>(null)
   const wallCam = useRef<TrackingCamera | null>(null)
   const [wallPhase, setWallPhase] = useState<WallPhase>('searching')
+  // tracking details (Wall mode): speed, fit quality, and each followed point drawn twice (where the tracker saw it, where the scene draws it)
+  const [details, setDetails] = useState(() => {
+    try {
+      return localStorage.getItem('lilac-walldetails') === '1'
+    } catch {
+      return false
+    }
+  })
+  const dbgCanvas = useRef<HTMLCanvasElement>(null)
+  const [hud, setHud] = useState('')
   const scene = useRef<SpatialScene | null>(null)
   const envRef = useRef<EnvironmentProvider | null>(null)
   const panoUrl = useRef<string | null>(null)
@@ -111,6 +122,52 @@ export default function SpatialView() {
   useEffect(() => {
     if (phase === 'intro' && seen && !caps.motionNeedsPermission) begin(true)
   }, [phase, seen, caps.motionNeedsPermission, begin])
+
+  useEffect(() => {
+    if (!wall || !details || phase !== 'running') return void setHud('')
+    let raf = 0
+    let last = 0
+    const tick = (t: number) => {
+      raf = requestAnimationFrame(tick)
+      const sc = scene.current
+      const wt = wallTrack.current
+      const cv = dbgCanvas.current
+      if (!sc || !wt || !cv) return
+      const r = cv.getBoundingClientRect()
+      if (cv.width !== Math.round(r.width) || cv.height !== Math.round(r.height)) {
+        cv.width = Math.round(r.width)
+        cv.height = Math.round(r.height)
+      }
+      const g = cv.getContext('2d')
+      if (!g) return
+      g.clearRect(0, 0, cv.width, cv.height)
+      const d = sc.wallDebug()
+      for (let i = 0; i < d.tracked.length; i++) {
+        const [tx, ty] = d.tracked[i]
+        const [dx, dy] = d.drawn[i]
+        g.strokeStyle = 'rgba(255,80,160,0.6)'
+        g.beginPath()
+        g.moveTo(tx, ty)
+        g.lineTo(dx, dy)
+        g.stroke()
+        g.fillStyle = 'rgb(40,210,120)' // where the tracker saw it
+        g.fillRect(tx - 2, ty - 2, 4, 4)
+        g.fillStyle = 'rgb(255,150,30)' // where the scene draws it
+        g.fillRect(dx - 2, dy - 2, 4, 4)
+      }
+      if (t - last > 400) {
+        last = t
+        const s = wt.diagnostics()
+        setHud(
+          `${s.phase} · camera ${s.camFps.toFixed(0)}/s, followed ${s.fps.toFixed(0)}/s · ${s.ms.toFixed(0)} ms each (worst ${s.max.toFixed(0)})\n` +
+            `${s.points} points · fit off by ${s.resid.toFixed(2)} px · lost ${s.lostCount}x\n` +
+            `lens ${s.fovV.toFixed(0)}° ${s.auto ? '(learned)' : '(set)'} · gyro vs camera ${s.gyroGap.toFixed(1)}°`,
+        )
+      }
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [wall, details, phase])
 
   /* ---------- the 3D scene ---------- */
   const chooseEnv = useCallback(
@@ -299,6 +356,12 @@ export default function SpatialView() {
 
       {phase === 'running' && (
         <>
+          {wall && details && (
+            <>
+              <canvas ref={dbgCanvas} data-wall-debug className="pointer-events-none absolute inset-0 z-[5] h-full w-full" />
+              <pre className="pointer-events-none absolute left-3 top-14 z-10 whitespace-pre rounded-lg bg-black/55 px-2 py-1 font-mono text-[0.62rem] leading-tight text-white">{hud}</pre>
+            </>
+          )}
           <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between">
             <span className="pointer-events-auto">
               <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : render === 'wall' ? 'wall' : 'auto'} options={[...(caps.webgl && !!navigator.mediaDevices?.getUserMedia ? [{ id: 'wall' as const, label: 'Wall' }] : []), { id: 'auto' as const, label: 'Virtual' }, { id: 'simple' as const, label: '2D' }]} onChange={(r) => prefs({ render: r })} />
@@ -364,6 +427,23 @@ export default function SpatialView() {
                     <span>Wider</span>
                   </div>
                 </div>
+              )}
+              {wall && (
+                <label className="flex items-center gap-2 font-normal">
+                  <input
+                    type="checkbox"
+                    checked={details}
+                    onChange={(e) => {
+                      setDetails(e.target.checked)
+                      try {
+                        localStorage.setItem('lilac-walldetails', e.target.checked ? '1' : '0')
+                      } catch {
+                        /* not saved */
+                      }
+                    }}
+                  />
+                  Show tracking details
+                </label>
               )}
               {!simple && !wall && (
                 <div>
@@ -450,18 +530,7 @@ export default function SpatialView() {
             <span role="status" className="sr-only">
               {statusText}
             </span>
-            {!simple ? (
-              <span className="pointer-events-auto flex flex-col gap-1">
-                <button type="button" aria-label="Zoom in" onClick={() => scene.current?.zoom(1.25)} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-lg text-ink-soft shadow-md backdrop-blur hover:bg-white">
-                  +
-                </button>
-                <button type="button" aria-label="Zoom out" onClick={() => scene.current?.zoom(1 / 1.25)} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-lg text-ink-soft shadow-md backdrop-blur hover:bg-white">
-                  −
-                </button>
-              </span>
-            ) : (
-              <span />
-            )}
+            {!simple ? <ZoomControl className="pointer-events-auto" onZoom={(f) => scene.current?.zoom(f)} /> : <span />}
           </div>
           {!note && !showPaused && !tipSeen && !simple && (
             <button type="button" onClick={() => prefs({ tipSeen: true })} className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">

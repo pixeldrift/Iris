@@ -437,6 +437,29 @@ export class SpatialScene {
     }
   }
   private wallReveal = 0
+  /**
+   * For finding out where a problem is: each followed point twice, as the tracker saw it in the camera picture, and as this scene draws
+   * the same point of the surface (through the pose it is using). If the two sit apart, the fault is in how the pose is worked out or
+   * shown; if both slide off the real features, it is in the following itself. Pixels within the view.
+   */
+  wallDebug(): { tracked: [number, number][]; drawn: [number, number][] } {
+    const wall = this.wall
+    if (!wall) return { tracked: [], drawn: [] }
+    const { w: vw, h: vh } = wall.videoSize
+    const Wc = Math.max(1, this.host.clientWidth)
+    const Hc = Math.max(1, this.host.clientHeight)
+    const cover = Math.max(Wc / vw, Hc / vh)
+    const tracked: [number, number][] = []
+    const drawn: [number, number][] = []
+    const v = new Vector3()
+    const { w, ox, oy } = this.wallBox
+    for (const p of wall.debugFrame()) {
+      tracked.push([p.u * vw * cover + (Wc - vw * cover) / 2, p.v * vh * cover + (Hc - vh * cover) / 2])
+      v.set(p.plane.x * w + ox, p.plane.y * w + oy, -0.9 * K).project(this.camera)
+      drawn.push([((v.x + 1) / 2) * Wc, ((1 - v.y) / 2) * Hc])
+    }
+    return { tracked, drawn }
+  }
   get wallPhase() {
     return this.wall?.phase ?? null
   }

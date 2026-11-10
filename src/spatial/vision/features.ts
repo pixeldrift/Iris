@@ -50,7 +50,8 @@ export function detectCorners(g: Gray, opts: { max: number; minDist: number; mar
       if (r > best) best = r
     }
   if (best <= 0) return []
-  const thresh = best * (opts.quality ?? 0.02)
+  // (a low bar: one very strong corner, like the edge of a bright sheet, must not hide all the gentler texture; spread is kept by the cells below)
+  const thresh = best * (opts.quality ?? 0.0015)
   const cand: { i: number; r: number }[] = []
   for (let y = margin; y < h - margin; y++)
     for (let x = margin; x < w - margin; x++) {
@@ -66,6 +67,14 @@ export function detectCorners(g: Gray, opts: { max: number; minDist: number; mar
   const out: Pt[] = []
   const md2 = opts.minDist * opts.minDist
   const taken = opts.avoid ? [...opts.avoid] : []
+  // at most a few to a patch of the picture, so they are spread over the surface and not bunched on its strongest part
+  const CELL = 24
+  const cellsX = Math.ceil(w / CELL)
+  const count = new Uint8Array(cellsX * Math.ceil(h / CELL))
+  for (const p of taken) {
+    const ci = Math.floor(p.y / CELL) * cellsX + Math.floor(p.x / CELL)
+    if (ci >= 0 && ci < count.length) count[ci]++
+  }
   for (const c of cand) {
     const x = c.i % w
     const y = (c.i / w) | 0
@@ -79,6 +88,9 @@ export function detectCorners(g: Gray, opts: { max: number; minDist: number; mar
       }
     }
     if (!ok) continue
+    const ci = Math.floor(y / CELL) * cellsX + Math.floor(x / CELL)
+    if (count[ci] >= 5) continue
+    count[ci]++
     out.push({ x, y })
     taken.push({ x, y })
     if (out.length >= opts.max) break

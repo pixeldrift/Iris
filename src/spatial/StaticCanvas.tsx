@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ZoomControl } from '../ui/ZoomControl'
 import { useStore } from '../state/store'
 import { colorVars } from '../ui/taskColor'
 import { DoneButton, DueChip } from '../ui/shared'
@@ -454,13 +455,8 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           })()}
         {content.tasks.length === 0 && <p className="p-6 text-sm text-ink-faint">Nothing to show here yet.</p>}
       </div>
-      <div className="absolute bottom-3 right-3 flex flex-col gap-1">
-        <button type="button" aria-label="Zoom in" onClick={() => zoomAt(1.2, centre().x, centre().y)} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-lg shadow">
-          +
-        </button>
-        <button type="button" aria-label="Zoom out" onClick={() => zoomAt(1 / 1.2, centre().x, centre().y)} className="grid h-9 w-9 place-items-center rounded-full bg-white/80 text-lg shadow">
-          −
-        </button>
+      <div data-ui className="absolute bottom-3 right-3 z-10">
+        <ZoomControl onZoom={(f) => zoomAt(f, centre().x, centre().y)} />
       </div>
     </div>
   )
