@@ -7,6 +7,7 @@ import { trackPoints } from './lk'
 import { findQuads } from './quad'
 import { SurfaceTracker } from './surface'
 import { focalFromHomography } from './homography'
+import { surfaceFrame } from './plane'
 
 /** A textured greyscale picture (smoothed noise, so there is something to follow at every scale). */
 function texture(w: number, h: number, seed = 3): Gray {
@@ -214,5 +215,35 @@ describe('following a surface', () => {
     expect(got).not.toBeNull()
     expect(Math.abs(got! - f) / f).toBeLessThan(0.01)
     expect(focalFromHomography(make(0, 0), cx, cy)).toBeNull()
+  })
+
+  it('declares a new surface square-on to the camera, or upright when the phone knows which way is up', () => {
+    const k = { f: 180, cx: 96, cy: 72 }
+    // no sensors: the surface fills the region it was found in, with no perspective
+    const flat = surfaceFrame({ ...k, center: { x: 96, y: 72 }, width: 80, aspect: 1.25 })!
+    const p = (x: number, y: number) => apply(flat.H, x, y)
+    expect(p(-0.5, 0.625).x).toBeCloseTo(56, 3)
+    expect(p(0.5, 0.625).x).toBeCloseTo(136, 3)
+    expect(p(0.5, 0.625).y).toBeCloseTo(p(-0.5, 0.625).y, 3)
+    expect(p(0.5, -0.625).y - p(0.5, 0.625).y).toBeCloseTo(100, 3)
+    // a phone turned 30 degrees, tipped down 12 and rolled 5: the surface is upright (its up is the world's), and the pose read back from the
+    // picture is the one that was set
+    const cs = (a: number) => Math.cos(a)
+    const sn = (a: number) => Math.sin(a)
+    const yaw = 0.52, pitch = -0.21, roll = 0.09
+    // camera axes in the world: R = Ry(yaw) * Rx(pitch) * Rz(roll)
+    const mulM = (A: number[], B: number[]) => [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => A[r * 3] * B[c] + A[r * 3 + 1] * B[3 + c] + A[r * 3 + 2] * B[6 + c]))
+    const Ry = [cs(yaw), 0, sn(yaw), 0, 1, 0, -sn(yaw), 0, cs(yaw)]
+    const Rx = [1, 0, 0, 0, cs(pitch), -sn(pitch), 0, sn(pitch), cs(pitch)]
+    const Rz = [cs(roll), -sn(roll), 0, sn(roll), cs(roll), 0, 0, 0, 1]
+    const M = mulM(mulM(Ry, Rx), Rz) // columns: right, up, back
+    const col = (c: number): [number, number, number] => [M[c], M[3 + c], M[6 + c]]
+    const up = surfaceFrame({ ...k, center: { x: 110, y: 60 }, width: 70, aspect: 1, axes: { right: col(0), up: col(1), back: col(2) } })!
+    const pose = cameraFromPlaneHomography(up.H, k)!
+    for (let i = 0; i < 9; i++) expect(pose.R[i]).toBeCloseTo(up.R[i], 3)
+    // upright: the surface's y axis is the world's up, so each camera axis has the same height in the surface's frame as in the world
+    expect(up.R[3]).toBeCloseTo(col(0)[1], 6)
+    expect(up.R[4]).toBeCloseTo(col(1)[1], 6)
+    expect(up.R[5]).toBeCloseTo(col(2)[1], 6)
   })
 })

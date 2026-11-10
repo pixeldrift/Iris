@@ -3,9 +3,10 @@
 // camera frames and survives the surface being hidden for a moment. Nothing here needs a printed marker, and nothing needs to be to scale:
 // the surface is the unit everything is measured in. It does its best; it is not ARKit.
 
-import { Quaternion } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import { detectCorners } from './vision/features'
-import { cameraFromPlaneHomography, fitHomography, focalFromHomography, quatFromMat } from './vision/homography'
+import { cameraFromPlaneHomography, focalFromHomography, quatFromMat } from './vision/homography'
+import { surfaceFrame } from './vision/plane'
 import { rgbaToGray, type Gray } from './vision/image'
 import { apply, inv3, mul3, type Mat3, type Pt } from './vision/math'
 import { findQuads, type Quad } from './vision/quad'
@@ -269,16 +270,26 @@ export class WallTracking implements TrackingProvider {
 
   private acquire(g: Gray, quad: Quad, kind: 'rectangle' | 'texture') {
     if (!this.tracker.acquire(g, quad)) return
-    // the surface's own coordinates: width 1, y up, its proportions worked out from how the corners look through the lens
-    const unit: Pt[] = [{ x: -0.5, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: -0.5 }, { x: -0.5, y: -0.5 }]
-    const Hu = fitHomography(unit, quad)
-    const est = Hu ? cameraFromPlaneHomography(Hu, this.k())?.aspect : null
-    let aspect = est && Number.isFinite(est) ? est : 1
+    // The surface is declared, not measured (see surfaceFrame): as wide and as tall as the region looks on screen, facing the viewer, and
+    // standing upright when the phone's sensors say which way is up. The region's own perspective is not used: it may not be a rectangle.
+    const w = (Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y) + Math.hypot(quad[2].x - quad[3].x, quad[2].y - quad[3].y)) / 2
+    const h = (Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y) + Math.hypot(quad[2].x - quad[1].x, quad[2].y - quad[1].y)) / 2
+    let aspect = h / Math.max(1, w)
     // a sheet is a standard shape: snap to one when it is close
     for (const a of COMMON_ASPECTS) if (Math.abs(aspect - a) / a < 0.07) aspect = a
+    aspect = Math.min(2.5, Math.max(0.4, aspect))
     this.aspect = aspect
+    const k = this.k()
+    let axes: { right: [number, number, number]; up: [number, number, number]; back: [number, number, number] } | undefined
+    if (this.device && this.device(this.tmpQ)) {
+      const v = (x: number, y: number, z: number) => new Vector3(x, y, z).applyQuaternion(this.tmpQ)
+      const [r, u, b] = [v(1, 0, 0), v(0, 1, 0), v(0, 0, 1)]
+      axes = { right: [r.x, r.y, r.z], up: [u.x, u.y, u.z], back: [b.x, b.y, b.z] }
+    }
+    const centre = { x: (quad[0].x + quad[1].x + quad[2].x + quad[3].x) / 4, y: (quad[0].y + quad[1].y + quad[2].y + quad[3].y) / 4 }
+    const fr = surfaceFrame({ cx: k.cx, cy: k.cy, f: k.f, center: centre, width: w, aspect, axes })
     // surface (width 1, height `aspect`) -> reference-picture pixels
-    this.Hplane = Hu ? mul3(Hu, [1, 0, 0, 0, 1 / aspect, 0, 0, 0, 1]) : null
+    this.Hplane = fr ? fr.H : null
     this.kind = kind
     this.seen = null
     this.haveOffset = false
@@ -317,7 +328,7 @@ export class WallTracking implements TrackingProvider {
       if (!this.havePos) this.pos = [p[0], p[1], p[2]]
       else {
         const d = Math.hypot(p[0] - this.pos[0], p[1] - this.pos[1], p[2] - this.pos[2])
-        const a = Math.min(0.92, 0.45 + d * 18)
+        const a = Math.min(0.9, 0.3 + d * 18)
         this.pos = [this.pos[0] + (p[0] - this.pos[0]) * a, this.pos[1] + (p[1] - this.pos[1]) * a, this.pos[2] + (p[2] - this.pos[2]) * a]
       }
       this.havePos = true
@@ -329,7 +340,7 @@ export class WallTracking implements TrackingProvider {
         } else {
           const ang = this.offset.angleTo(target)
           this.stat.gyroGap += ((ang * 180) / Math.PI - this.stat.gyroGap) * 0.2
-          this.offset.slerp(target, Math.min(0.92, 0.5 + ang * 6))
+          this.offset.slerp(target, Math.min(0.9, 0.3 + ang * 8))
         }
       }
     }

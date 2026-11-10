@@ -144,3 +144,8 @@ Settings (Wall mode) has **Show tracking details**. It shows, top left: how many
 - Few "followed/s" next to "camera/s", or "ms each" near the gap between pictures: the processing cannot keep up.
 - Headless Chromium with a moving synthetic wall: about 8-10 ms a picture and a fit within 0.3 px, with green and orange squares together. Phones are several times slower, so real numbers are needed from a phone.
 Corner picking is now spread over the picture (up to 5 per 24 px patch, a low relative bar), so one very strong corner (the edge of a bright sheet) no longer leaves only a few points to follow.
+
+### Wall mode: how a new surface is framed, and what sticks to what
+- **No more skewed starts.** A newly found region (a sheet, or the middle of a wall) used to be taken as a rectangle seen with whatever perspective the corners showed; when the region was not really a rectangle, or the lens guess was off, the whole wall started out skewed until you tapped Find again. The surface is now *declared* (`surfaceFrame`, `vision/plane.ts`): as wide as the region on screen, centred on it, facing the camera square-on, or standing upright and facing the way the phone points when the motion sensors are on. The followed points still stick to the real features, because they are tied to the picture; only the starting frame changed. (The HUD's "gyro vs camera 0.0" means no sensor was in use: with Motion off the surface faces the camera at the start.)
+- **Tasks stick with the dots.** The real surface used to be placed 0.9 units behind the groups, which let them slide against the pins when the phone moved sideways. It is now 0.12, so the groups and the pins move together.
+- Smoothing is a little stronger when the view is steady (the camera still wins in a quick move).
