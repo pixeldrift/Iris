@@ -55,7 +55,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
   const pts = useRef(new Map<number, { x: number; y: number }>())
-  const gesture = useRef<{ x: number; y: number; vx: number; vy: number; d: number; k: number } | null>(null)
+  const gesture = useRef<{ x: number; y: number; vx: number; vy: number; d: number; k: number; blank?: boolean } | null>(null)
   const [carry, setCarry] = useState<Carry | null>(null)
   const press = useRef<{ pid: number; sx: number; sy: number; kind: 'task' | 'group'; id: string; started: boolean } | null>(null)
   const suppress = useRef(false)
@@ -299,7 +299,8 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           return
         }
         e.currentTarget.setPointerCapture(e.pointerId)
-        gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: 0, k: v.k }
+        // (`blank`: it began on empty canvas, not on a button over it, so a tap there adds an item)
+        gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: 0, k: v.k, blank: !el.closest('[data-ui], button') }
       }}
       onPointerMove={(e) => {
         if (pts.current.has(e.pointerId)) pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -345,7 +346,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         const pr = press.current
         // a tap on empty canvas: a new item left there
         const g0 = gesture.current
-        if (!pr && g0 && g0.d === 0 && pts.current.size === 0 && Math.hypot(e.clientX - g0.x, e.clientY - g0.y) < MOVE) {
+        if (!pr && g0 && g0.blank && g0.d === 0 && pts.current.size === 0 && Math.hypot(e.clientX - g0.x, e.clientY - g0.y) < MOVE) {
           const c = canvasPoint(e)
           const free = { a: c.x / PX / r0, y: -c.y / PY }
           addLoose(tidy ? snapFree(free).a : free.a, tidy ? snapFree(free).y : free.y)

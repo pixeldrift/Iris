@@ -59,6 +59,17 @@ test.describe('the flat canvas does everything the 3D space does', () => {
     expect((await stored(page)).tasks['demo-grandma'].free).toBeUndefined()
   })
 
+  test('a tap on empty canvas opens the new-item box, and what is made is left there in no group', async ({ page }) => {
+    await enterFlat(page)
+    const canvas = (await page.locator('[aria-label^="Your tasks by group"]').boundingBox())!
+    await page.mouse.click(canvas.x + 70, canvas.y + 60)
+    await page.getByLabel('New item').first().fill('Flat tap')
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Flat tap')?.folderIds))).toEqual([])
+    const id = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Flat tap').id)
+    expect((await stored(page)).tasks[id].free).toBeTruthy()
+  })
+
   test('a task carried onto a folded name opens it after a short linger, and lands in it', async ({ page }) => {
     await fold(page, ['demo-writing'])
     await enterFlat(page)
