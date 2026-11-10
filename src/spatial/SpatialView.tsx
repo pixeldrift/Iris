@@ -507,9 +507,9 @@ export default function SpatialView() {
           />
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex items-end justify-between gap-2">
             <span className="pointer-events-auto flex flex-wrap items-center gap-1.5">
-              {!simple && (
+              {!simple && !wall && (
                 <button type="button" onClick={() => scene.current?.recenter()} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
-                  {wall ? 'Find again' : 'Recenter'}
+                  Recenter
                 </button>
               )}
               {!wall && <button type="button" onClick={() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll())} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
@@ -530,8 +530,8 @@ export default function SpatialView() {
               <button
                 type="button"
                 data-wall-status={wallPhase}
-                aria-label={wallPhase === 'holding' ? 'Surface found and being followed' : 'Surface not found. Point at a wall, a sheet of paper or a picture frame, or tap to use what the camera sees'}
-                onClick={() => wallPhase !== 'holding' && wallTrack.current?.anchorHere()}
+                aria-label={wallPhase === 'holding' ? 'Surface held. Tap to look for the surface again' : 'Surface not found. Point at a wall, a sheet of paper or a picture frame, or tap to use what the camera sees'}
+                onClick={() => (wallPhase === 'holding' ? scene.current?.recenter() : wallTrack.current?.anchorHere())}
                 className={`pointer-events-auto absolute bottom-1 left-1/2 -translate-x-1/2 p-1.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.9)] transition ${wallPhase === 'holding' ? 'text-lilac-600' : 'text-lilac-700'}`}
               >
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
