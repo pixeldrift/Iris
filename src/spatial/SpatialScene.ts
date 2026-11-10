@@ -51,6 +51,9 @@ export interface SceneContent {
   tasks: SceneTask[]
   layout: SpatialLayoutData
 }
+/** How far behind the groups the real surface is, in Wall mode: small, so what is on it (the pins, the groups) stays together when the phone moves sideways. */
+const WALL_LIFT = 0.12 * K
+
 export interface SceneEvents {
   onOpen(taskId: string): void
   onToggle(taskId: string): void
@@ -229,7 +232,7 @@ export class SpatialScene {
     const p = this.setParts
     if (!p) return
     const { w: W, ox, oy } = this.wallLay
-    const z = -0.9 * K - 0.03 * K
+    const z = -WALL_LIFT - 0.03 * K
     p.wall.scale.set(5 * W, 5 * W, 1)
     p.wall.position.set(ox, oy, z)
     const floorY = oy - 0.6 * W
@@ -344,7 +347,7 @@ export class SpatialScene {
     if (!this.wall) return
     const L = this.wallLay
     this.wallBox = { w: L.w / this.wallZoom, ox: L.ox + this.wallPan[0], oy: L.oy + this.wallPan[1] }
-    this.wall.configure({ scale: this.wallBox.w, origin: [this.wallBox.ox, this.wallBox.oy], lift: 0.9 * K })
+    this.wall.configure({ scale: this.wallBox.w, origin: [this.wallBox.ox, this.wallBox.oy], lift: WALL_LIFT })
     this.pinsDirty = true
     this.dirty = true
   }
@@ -389,7 +392,7 @@ export class SpatialScene {
       const ys = ov.quad!.map((p) => p.y * w + oy)
       const sw = Math.max(...xs) - Math.min(...xs)
       const sh = Math.max(...ys) - Math.min(...ys)
-      scan.position.set((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, -0.9 * K)
+      scan.position.set((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, -WALL_LIFT)
       scan.scale.set(sw * 1.3, sh * 1.3, 1)
       ;(scan.material as ShaderMaterial).uniforms.uAsp.value = sw / Math.max(1e-3, sh)
     }
@@ -404,7 +407,7 @@ export class SpatialScene {
       this.pinsDirty = false
       const { w, ox, oy } = this.wallBox
       const pos: number[] = []
-      for (const p of ov.points) pos.push(p.x * w + ox, p.y * w + oy, -0.9 * K + 0.02 * K)
+      for (const p of ov.points) pos.push(p.x * w + ox, p.y * w + oy, -WALL_LIFT + 0.02 * K)
       if (pos.length / 3 !== this.pinCount) {
         pins.geometry.setAttribute('position', new Float32BufferAttribute(pos, 3))
         pins.geometry.computeBoundingSphere()
@@ -455,7 +458,7 @@ export class SpatialScene {
     const { w, ox, oy } = this.wallBox
     for (const p of wall.debugFrame()) {
       tracked.push([p.u * vw * cover + (Wc - vw * cover) / 2, p.v * vh * cover + (Hc - vh * cover) / 2])
-      v.set(p.plane.x * w + ox, p.plane.y * w + oy, -0.9 * K).project(this.camera)
+      v.set(p.plane.x * w + ox, p.plane.y * w + oy, -WALL_LIFT).project(this.camera)
       drawn.push([((v.x + 1) / 2) * Wc, ((1 - v.y) / 2) * Hc])
     }
     return { tracked, drawn }
