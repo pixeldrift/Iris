@@ -7,7 +7,7 @@ import { Matrix4, Quaternion, Vector3 } from 'three'
 import { translationFromRotation } from './vision/pose'
 import { detectCorners } from './vision/features'
 import { cameraFromPlaneHomography, fitHomography, focalFromHomography, planeColumns, quatFromMat, turnHomography } from './vision/homography'
-import { surfaceFrame } from './vision/plane'
+import { levelFrame, surfaceFrame } from './vision/plane'
 import { rgbaToGray, type Gray } from './vision/image'
 import { apply, inv3, mul3, mulVec, type Mat3, type Pt, type Vec3 } from './vision/math'
 import { findQuads, type Quad } from './vision/quad'
@@ -292,6 +292,28 @@ export class WallTracking implements TrackingProvider {
     const gh = this.gray.h
     const S: Mat3 = [1 / gw, 0, 0, 0, 1 / gh, 0, 0, 0, 1]
     return { H: mul3(S, H), zcol: [z[0] / gw, z[1] / gh, z[2]] }
+  }
+
+  /**
+   * For "level": the frame of a wall that faces the camera exactly and stands level, as a turn of the tracked surface's frame (the
+   * groups are drawn on that wall, so they stop being skewed by whatever angle the surface was first declared at). Null with nothing
+   * to go on yet.
+   */
+  levelNow(): Mat3 | null {
+    let q: Quaternion | null = null
+    let up: Vec3 | undefined
+    if (this.Wp && this.haveOff && this.device && this.device(this.tmpQ, 0)) {
+      const m = this.off.clone().multiply(this.Wp)
+      q = m.clone().multiply(this.tmpQ)
+      const u = new Vector3(0, 1, 0).applyQuaternion(m)
+      up = [u.x, u.y, u.z]
+    } else if (this.havePos) q = this.visQ.clone()
+    if (!q) return null
+    const axis = (x: number, y: number, z: number): Vec3 => {
+      const v = new Vector3(x, y, z).applyQuaternion(q as Quaternion)
+      return [v.x, v.y, v.z]
+    }
+    return levelFrame({ right: axis(1, 0, 0), up: axis(0, 1, 0), back: axis(0, 0, 1) }, up)
   }
 
   /** The camera's turn `q` (camera -> the surface's frame, the 3D camera's axes) as the matrix taking the surface's axes to the picture's. */

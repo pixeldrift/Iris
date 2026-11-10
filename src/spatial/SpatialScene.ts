@@ -332,7 +332,7 @@ export class SpatialScene {
       maxY = Math.max(maxY, c.y + 1.5 * K)
     }
     if (!Number.isFinite(minX)) return
-    this.wallLay = { w: Math.max(40, (maxX - minX) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
+    this.wallLay = { w: Math.max(40, (maxX - minX) * 1.04), h: Math.max(30, (maxY - minY) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
     this.applyWall()
     this.fitWallSet()
   }
@@ -341,7 +341,7 @@ export class SpatialScene {
   private wallZoom = 2.2
   /** Where the virtual world is slid to under the surface (a drag on empty space). */
   private wallPan: [number, number] = [0, 0]
-  private wallLay = { w: 120, ox: 0, oy: 0 }
+  private wallLay = { w: 120, h: 80, ox: 0, oy: 0 }
 
   /** The surface's size and middle in the world, from the layout, the zoom and the slide; told to the tracker. */
   private applyWall() {
@@ -371,8 +371,18 @@ export class SpatialScene {
     const H = mul3(S, surf.H)
     const z = mulVec(S, surf.zcol)
     const { w: s, ox, oy } = this.wallBox
+    // the groups' wall may be turned from the tracked surface (see levelNow): V axis i is the surface's R[., i]
+    const R = this.levelRot ?? [1, 0, 0, 0, 1, 0, 0, 0, 1]
     const M: number[] = []
-    for (let r = 0; r < 3; r++) M.push(H[r * 3] / s, H[r * 3 + 1] / s, z[r] / s, H[r * 3 + 2] - (H[r * 3] * ox) / s - (H[r * 3 + 1] * oy) / s + (z[r] * WALL_LIFT) / s)
+    for (let r = 0; r < 3; r++) {
+      const hx = H[r * 3]
+      const hy = H[r * 3 + 1]
+      const hz = z[r]
+      const cx = (hx * R[0] + hy * R[3] + hz * R[6]) / s
+      const cy = (hx * R[1] + hy * R[4] + hz * R[7]) / s
+      const cz = (hx * R[2] + hy * R[5] + hz * R[8]) / s
+      M.push(cx, cy, cz, H[r * 3 + 2] - cx * ox - cy * oy + cz * WALL_LIFT)
+    }
     return M
   }
 
@@ -381,6 +391,29 @@ export class SpatialScene {
     const M = this.wallMatrix()
     if (!M) return null
     return this.wallScreen(M, this.wallBox.ox, this.wallBox.oy)
+  }
+
+  /** The groups' wall as a turn of the tracked surface (null: the same). Set by `levelNow`. */
+  private levelRot: Mat3 | null = null
+
+  /** Face the groups straight on and level, from where the phone is now (the tracked surface itself is untouched). */
+  levelNow() {
+    const R = this.wall?.levelNow()
+    if (!R) return
+    this.levelRot = R
+    this.pinsDirty = true
+    this.dirty = true
+  }
+
+  /** A point of the tracked surface (its own x, y) in the groups' world, for things that belong to the real wall (the pins). */
+  private surfaceToWorld(x: number, y: number, z = 0): [number, number, number] {
+    const { w, ox, oy } = this.wallBox
+    const R = this.levelRot
+    // p_virtual = R^T * p_surface
+    const p0 = R ? R[0] * x + R[3] * y + R[6] * z : x
+    const p1 = R ? R[1] * x + R[4] * y + R[7] * z : y
+    const p2 = R ? R[2] * x + R[5] * y + R[8] * z : z
+    return [ox + w * p0, oy + w * p1, -WALL_LIFT + w * p2]
   }
 
   /** Where a point of the surface plane (world x, y) is on screen. */
@@ -436,6 +469,32 @@ export class SpatialScene {
     return true
   }
 
+  /** Wall mode: bring every group into view (the zoom that fits them at the distance the phone is at, centred on the screen). */
+  private frameWall() {
+    const L = this.wallLay
+    const M = this.wallMatrix()
+    const Wc = Math.max(1, this.host.clientWidth)
+    const Hc = Math.max(1, this.host.clientHeight)
+    if (M) {
+      const a = this.wallScreen(M, L.ox, L.oy)
+      const b = this.wallScreen(M, L.ox + 1, L.oy)
+      const c = this.wallScreen(M, L.ox, L.oy + 1)
+      const pxX = Math.max(1e-3, Math.abs(b[0] - a[0]))
+      const pxY = Math.max(1e-3, Math.abs(c[1] - a[1]))
+      // (a world unit is this many pixels now; pixels per unit grow with the zoom)
+      const want = Math.min((0.9 * Wc) / (L.w * pxX), (0.9 * Hc) / (L.h * pxY))
+      this.wallZoom = Math.min(8, Math.max(0.3, this.wallZoom * want))
+    } else this.wallZoom = 1
+    this.wallPan = [0, 0]
+    this.applyWall()
+    // then slide them so their middle is the middle of the screen
+    const P = this.planePointAt(Wc / 2, Hc / 2)
+    if (P) {
+      this.wallPan = [L.ox - P[0], L.oy - P[1]]
+      this.applyWall()
+    }
+  }
+
   /** Zoom about the middle of the screen: what is there stays there. */
   private setWallZoom(z: number) {
     if (!this.wall) return
@@ -473,15 +532,18 @@ export class SpatialScene {
     if (ov.phase === 'searching') {
       st.t0 = 0 // (looking again: the camera comes back)
       st.held = false
+      this.levelRot = null
     }
     st.held = holding
     // the pins (every point pinned so far, in the world on the surface's plane)
     const pins = this.wallPins
     if (pins && ov.quad && (wall.takeFresh() || this.pinsDirty)) {
       this.pinsDirty = false
-      const { w, ox, oy } = this.wallBox
       const pos: number[] = []
-      for (const p of ov.points) pos.push(p.x * w + ox, p.y * w + oy, -WALL_LIFT + 0.02 * K)
+      for (const p of ov.points) {
+        const q = this.surfaceToWorld(p.x, p.y)
+        pos.push(q[0], q[1], q[2] + 0.02 * K)
+      }
       if (pos.length / 3 !== this.pinCount) {
         pins.geometry.setAttribute('position', new Float32BufferAttribute(pos, 3))
         pins.geometry.computeBoundingSphere()
@@ -529,10 +591,9 @@ export class SpatialScene {
     const tracked: [number, number][] = []
     const drawn: [number, number][] = []
     const v = new Vector3()
-    const { w, ox, oy } = this.wallBox
     for (const p of wall.debugFrame()) {
       tracked.push([p.u * vw * cover + (Wc - vw * cover) / 2, p.v * vh * cover + (Hc - vh * cover) / 2])
-      v.set(p.plane.x * w + ox, p.plane.y * w + oy, -WALL_LIFT).project(this.camera)
+      v.set(...this.surfaceToWorld(p.plane.x, p.plane.y)).project(this.camera)
       drawn.push([((v.x + 1) / 2) * Wc, ((1 - v.y) / 2) * Hc])
     }
     return { tracked, drawn }
@@ -889,7 +950,7 @@ export class SpatialScene {
   }
   /** Turn and zoom so the whole wall is in view (as far as the widest lens allows). */
   frameAll(instant = false) {
-    if (this.wall) return
+    if (this.wall) return instant ? undefined : this.frameWall() // (the first call, at the start, leaves the usual size alone)
     const L = this.layout
     const ids = this.content.clusters.map((c) => c.id).filter((id) => L.clusters[id])
     if (!ids.length) return

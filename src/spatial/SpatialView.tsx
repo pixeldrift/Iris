@@ -8,7 +8,8 @@ import { useStore } from '../state/store'
 import { useVisibleTasks } from '../ui/useVisible'
 import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
-import { IconCube, IconSliders } from '../ui/icons'
+import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
+import { Tip } from '../ui/Tip'
 import { detectCapabilities } from './capabilities'
 import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, sameLayout } from './content'
@@ -537,6 +538,20 @@ export default function SpatialView() {
                     )}
                   </svg>
                 </button>
+              )}
+              {wall && (
+                <>
+                  <Tip label="Level and straight on: face the groups this way">
+                    <button type="button" aria-label="Level and straight on" onClick={() => scene.current?.levelNow()} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
+                      <IconLevel size={22} />
+                    </button>
+                  </Tip>
+                  <Tip label="Frame all">
+                    <button type="button" aria-label="Frame all" onClick={() => scene.current?.frameAll()} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
+                      <IconFrameAll size={22} />
+                    </button>
+                  </Tip>
+                </>
               )}
               {!wall && <button type="button" onClick={() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll())} className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
                 Fit all

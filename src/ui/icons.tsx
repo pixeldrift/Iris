@@ -330,6 +330,21 @@ export const IconImage = (p: P) => (
     <path d="m4.5 17 4.5-4.5 3.5 3.5 3-3 4 4" />
   </Svg>
 )
+/** Four corner brackets round a dot: bring everything into view. */
+export const IconFrameAll = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 9V5.8A1.8 1.8 0 0 1 5.8 4H9M15 4h3.2A1.8 1.8 0 0 1 20 5.8V9M20 15v3.2a1.8 1.8 0 0 1-1.8 1.8H15M9 20H5.8A1.8 1.8 0 0 1 4 18.2V15" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+  </Svg>
+)
+/** A bubble level: a tube with the bubble in the middle. */
+export const IconLevel = (p: P) => (
+  <Svg {...p}>
+    <rect x="2.8" y="8" width="18.4" height="8" rx="4" />
+    <circle cx="12" cy="12" r="2" />
+    <path d="M8.6 10v4M15.4 10v4" />
+  </Svg>
+)
 export const IconCube = (p: P) => (
   <Svg {...p}>
     {/* the inside of the cube: two walls and the floor meeting at a corner */}
