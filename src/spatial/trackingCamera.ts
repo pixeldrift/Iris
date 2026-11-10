@@ -23,9 +23,9 @@ export class TrackingCamera {
     v.autoplay = true
     v.srcObject = this.stream
     this.video = v
+    host.insertBefore(v, host.firstChild)
     this.show('full')
     v.style.opacity = '1'
-    host.insertBefore(v, host.firstChild)
     for (const t of this.stream.getTracks()) t.onended = () => this.onLost?.()
     try {
       await v.play()
@@ -36,6 +36,8 @@ export class TrackingCamera {
   }
 
   private mode: CameraShow | null = null
+  private wash?: HTMLDivElement
+  private muted = false
   private sharp = false
 
   /**
@@ -46,9 +48,10 @@ export class TrackingCamera {
     const v = this.video
     if (!v) return
     if (mode !== this.mode) {
-      if (mode === 'full') Object.assign(v.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover', zIndex: '0', pointerEvents: 'none' })
+      if (mode === 'full') Object.assign(v.style, { position: 'absolute', objectFit: 'cover', zIndex: '0', pointerEvents: 'none' })
       else Object.assign(v.style, { position: 'absolute', inset: 'auto', top: '0', left: '0', width: '2px', height: '2px', opacity: '0', zIndex: '0', pointerEvents: 'none' })
       this.mode = mode
+      this.applyLook()
       void v.play().catch(() => undefined)
     }
     const want = mode === 'full' && sharp
@@ -59,17 +62,47 @@ export class TrackingCamera {
     }
   }
 
+  /**
+   * How the picture looks when it is the background: `muted` is the same quieter look the 3D view's camera has (less colour and contrast,
+   * a soft blur, the app's cream over it) so the bubbles stand out; `clear` is the picture as it is (while the surface is being found).
+   * Only the display changes: the tracker reads the unfiltered picture.
+   */
+  private applyLook() {
+    const v = this.video
+    if (!v) return
+    const full = this.mode === 'full'
+    const m = full && this.muted
+    Object.assign(v.style, full ? { inset: m ? '-12px' : '0', width: m ? 'calc(100% + 24px)' : '100%', height: m ? 'calc(100% + 24px)' : '100%', filter: m ? 'saturate(0.45) contrast(0.82) blur(5px)' : 'none' } : { filter: 'none' })
+    if (!this.wash && v.parentElement) {
+      const w = document.createElement('div')
+      Object.assign(w.style, { position: 'absolute', inset: '0', background: 'rgba(250,245,236,0.34)', zIndex: '0', pointerEvents: 'none' })
+      v.parentElement.insertBefore(w, v.nextSibling)
+      this.wash = w
+    }
+    if (this.wash) this.wash.style.display = m ? 'block' : 'none'
+  }
+  private look(muted: boolean) {
+    if (muted === this.muted) return
+    this.muted = muted
+    this.applyLook()
+  }
+
   /** Wall mode with a virtual background: the camera is what is shown while the surface is being found (0), and fades away (1) once it has settled. */
   setReveal(r: number) {
     const v = this.video
     if (!v) return
-    if (r >= 1) return this.show('hidden')
+    if (r >= 1) {
+      this.look(false)
+      return this.show('hidden')
+    }
+    this.look(false)
     this.show('full')
     v.style.opacity = String(1 - r)
   }
 
   /** The camera is the background: fully showing, and sharp. */
   showBackground() {
+    this.look(true)
     this.show('full', true)
     if (this.video) this.video.style.opacity = '1'
   }
@@ -80,6 +113,8 @@ export class TrackingCamera {
 
   stop() {
     for (const t of this.stream?.getTracks() ?? []) t.stop()
+    this.wash?.remove()
+    this.wash = undefined
     if (this.video) {
       this.video.srcObject = null
       this.video.remove()

@@ -131,3 +131,8 @@ The tracker no longer depends on the surface it first found. Each frame, new cor
 - **Size.** The groups are 2.2 times as wide as the surface (a sheet) by default, so moving the phone closer inspects tasks. Pinch (or the + and - buttons, the wheel) zooms about the middle of the screen; a drag on empty space slides the virtual world under the surface. Neither is saved yet.
 - **Status.** A small icon at the bottom: a square with four dots at its corners while the surface is held; a dashed square with a question mark while it is not (tap it to use what the camera sees). Pins are small and faint.
 - **Order of the drawing switch:** Wall, Virtual (the 3D room), 2D.
+
+### Wall mode: following the camera more closely
+- The view now follows the camera's reading closely instead of leaning on the gyroscope: each reading pulls the view toward it harder the further it is from where the view was (so a quick move does not lag and the virtual wall does not slide against the real one), with only a little smoothing; the gyro just fills the gaps between pictures and covers a moment without the surface.
+- The lens is learned while you use it: when the surface is seen at a slant, its two axes must be square to each other, which fixes the focal length (`focalFromHomography`, tested). A running median moves the lens toward it. Setting the Camera angle slider by hand switches this off. A wrong lens was a likely reason pins did not sit on the points being followed.
+- With **Camera** as the background in Wall mode the picture gets the same quieter look as the 3D view's camera (less colour and contrast, a soft blur, cream over it). Only the display is filtered; the tracker reads the unfiltered picture. While the surface is being found the picture is shown as it is.

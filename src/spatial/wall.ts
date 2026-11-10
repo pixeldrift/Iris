@@ -5,7 +5,7 @@
 
 import { Quaternion } from 'three'
 import { detectCorners } from './vision/features'
-import { cameraFromPlaneHomography, fitHomography, quatFromMat } from './vision/homography'
+import { cameraFromPlaneHomography, fitHomography, focalFromHomography, quatFromMat } from './vision/homography'
 import { rgbaToGray, type Gray } from './vision/image'
 import { apply, inv3, mul3, type Mat3, type Pt } from './vision/math'
 import { findQuads, type Quad } from './vision/quad'
@@ -50,6 +50,9 @@ export class WallTracking implements TrackingProvider {
   private lastSearch = 0
   // the lens (set from the camera, adjustable)
   private f = 800
+  private autoF = true
+  private fBase = 0
+  private fSamples: number[] = []
   private vw = 1280
   private vh = 720
   // the pose, blended
@@ -77,7 +80,10 @@ export class WallTracking implements TrackingProvider {
     if (opts.scale) this.scale = opts.scale
     if (opts.origin) this.origin = opts.origin
     if (opts.lift !== undefined) this.lift = opts.lift
-    if (opts.fovV) this.f = (this.vh / 2) / Math.tan((opts.fovV * Math.PI) / 360)
+    if (opts.fovV) {
+      this.f = (this.vh / 2) / Math.tan((opts.fovV * Math.PI) / 360)
+      this.autoF = false // (set by hand: stop adjusting it)
+    }
   }
   get videoSize() {
     return { w: this.vw, h: this.vh, f: this.f }
@@ -177,7 +183,9 @@ export class WallTracking implements TrackingProvider {
       this.vw = v.videoWidth
       this.vh = v.videoHeight
       this.f = this.vh / 2 / Math.tan(fovV / 2)
+      this.fBase = 0
     }
+    if (!this.fBase) this.fBase = this.f
     const gh = Math.max(8, Math.round((GRAY_W * v.videoHeight) / v.videoWidth))
     if (this.canvas.width !== GRAY_W || this.canvas.height !== gh) {
       this.canvas.width = GRAY_W
@@ -259,21 +267,30 @@ export class WallTracking implements TrackingProvider {
     this.setPhase('holding')
     // the surface as the camera now sees it: surface coords -> this picture's pixels
     const Himg = mul3(st.H, this.Hplane)
+    this.learnFocal(Himg)
     const pose = cameraFromPlaneHomography(Himg, this.k())
     if (pose) {
       this.visQ.set(...quatFromMat(pose.R))
       const p = pose.position
-      // the position is smoothed (the picture is a little noisy); the first reading is taken as it comes
-      const first = !this.havePos
-      this.pos = first ? [p[0], p[1], p[2]] : [this.pos[0] + (p[0] - this.pos[0]) * 0.45, this.pos[1] + (p[1] - this.pos[1]) * 0.45, this.pos[2] + (p[2] - this.pos[2]) * 0.45]
+      // The picture is the main source: each reading is followed closely (more closely the further it is from where the view was, so a
+      // quick move is not lagged behind and the virtual wall does not slip against the real one) and only a little is smoothed away.
+      // The gyroscope fills the gaps between pictures and covers a moment without the surface.
+      if (!this.havePos) this.pos = [p[0], p[1], p[2]]
+      else {
+        const d = Math.hypot(p[0] - this.pos[0], p[1] - this.pos[1], p[2] - this.pos[2])
+        const a = Math.min(0.92, 0.45 + d * 18)
+        this.pos = [this.pos[0] + (p[0] - this.pos[0]) * a, this.pos[1] + (p[1] - this.pos[1]) * a, this.pos[2] + (p[2] - this.pos[2]) * a]
+      }
       this.havePos = true
-      // blend with the gyroscope: its rotation, nudged toward the camera's reading a little each time
       if (this.device && this.device(this.tmpQ)) {
         const target = this.visQ.clone().multiply(this.tmpQ.clone().invert())
         if (!this.haveOffset) {
           this.offset.copy(target)
           this.haveOffset = true
-        } else this.offset.slerp(target, 0.1)
+        } else {
+          const ang = this.offset.angleTo(target)
+          this.offset.slerp(target, Math.min(0.92, 0.5 + ang * 6))
+        }
       }
     }
     // for the scene to draw: the outline and the points being followed, pinned on the surface itself
@@ -291,5 +308,20 @@ export class WallTracking implements TrackingProvider {
     }
   }
   private lostSince = 0
+  /** Work out the lens from how the surface looks when it is seen at a slant, and move toward it (a median, so a bad reading does not count). */
+  private learnFocal(Himg: Mat3) {
+    if (!this.autoF || !this.gray) return
+    const s = GRAY_W / this.vw
+    const fg = focalFromHomography(Himg, GRAY_W / 2, this.gray.h / 2)
+    if (fg === null) return
+    const f = fg / s
+    if (f < this.fBase * 0.6 || f > this.fBase * 2.2) return
+    this.fSamples.push(f)
+    if (this.fSamples.length > 60) this.fSamples.shift()
+    if (this.fSamples.length < 12) return
+    const sorted = [...this.fSamples].sort((x, y) => x - y)
+    const med = sorted[sorted.length >> 1]
+    this.f += (med - this.f) * 0.08
+  }
   private havePos = false
 }
