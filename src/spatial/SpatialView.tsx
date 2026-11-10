@@ -173,6 +173,10 @@ export default function SpatialView() {
         onDropOut: dropOutside,
         onAddIn: addInGroup,
         onFov: (f) => setFov(Math.round(f)),
+        // wall mode: the camera shows until the surface has been found, then gives way to the virtual wall (unless the camera is the background)
+        onWallReveal: (r) => {
+          if (envRef.current?.kind !== 'camera') wallCam.current?.setReveal(r)
+        },
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: retagTask,
       }, wt)
@@ -297,7 +301,7 @@ export default function SpatialView() {
         <>
           <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between">
             <span className="pointer-events-auto">
-              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : render === 'wall' ? 'wall' : 'auto'} options={[{ id: 'auto', label: '3D' }, { id: 'simple', label: 'Flat' }, ...(caps.webgl && !!navigator.mediaDevices?.getUserMedia ? [{ id: 'wall' as const, label: 'Wall' }] : [])]} onChange={(r) => prefs({ render: r })} />
+              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : render === 'wall' ? 'wall' : 'auto'} options={[...(caps.webgl && !!navigator.mediaDevices?.getUserMedia ? [{ id: 'wall' as const, label: 'Wall' }] : []), { id: 'auto' as const, label: 'Virtual' }, { id: 'simple' as const, label: '2D' }]} onChange={(r) => prefs({ render: r })} />
             </span>
             <button ref={menuBtn} type="button" aria-label="Spatial settings" aria-expanded={menu} onClick={() => setMenu((o) => !o)} className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-white/80 text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
               <IconSliders size={17} />
@@ -425,18 +429,23 @@ export default function SpatialView() {
               </button>}
             </span>
             {wall && (
-              <p data-wall-status={wallPhase} className="pointer-events-auto absolute inset-x-6 bottom-16 mx-auto flex max-w-sm items-center justify-center gap-2 rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">
-                {wallPhase === 'searching' && (
-                  <>
-                    <span>Point at a wall, a sheet of paper or a picture frame.</span>
-                    <button type="button" onClick={() => wallTrack.current?.anchorHere()} className="whitespace-nowrap rounded-full bg-lilac-500 px-3 py-1 text-white hover:bg-lilac-600">
-                      Anchor here
-                    </button>
-                  </>
-                )}
-                {wallPhase === 'holding' && <span>Holding on to the surface.</span>}
-                {wallPhase === 'lost' && <span>Lost the surface. Look back at it, or tap Find again.</span>}
-              </p>
+              <button
+                type="button"
+                data-wall-status={wallPhase}
+                aria-label={wallPhase === 'holding' ? 'Surface found and being followed' : 'Surface not found. Point at a wall, a sheet of paper or a picture frame, or tap to use what the camera sees'}
+                onClick={() => wallPhase !== 'holding' && wallTrack.current?.anchorHere()}
+                className={`pointer-events-auto absolute bottom-1 left-1/2 -translate-x-1/2 p-1.5 drop-shadow-[0_0_4px_rgba(255,255,255,0.9)] transition ${wallPhase === 'holding' ? 'text-lilac-600' : 'text-lilac-700'}`}
+              >
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                  <rect x="5" y="5" width="14" height="14" rx="2.5" strokeOpacity={wallPhase === 'holding' ? 0.55 : 0.3} strokeDasharray={wallPhase === 'holding' ? undefined : '2 2.4'} />
+                  {[[5, 5], [19, 5], [5, 19], [19, 19]].map(([x, y]) => (
+                    <circle key={`${x}${y}`} cx={x} cy={y} r="1.9" fill="currentColor" stroke="none" />
+                  ))}
+                  {wallPhase !== 'holding' && (
+                    <path d="M9.9 9.7a2.2 2.2 0 1 1 3.2 2c-.7.4-1.1.8-1.1 1.6M12 15.9v.1" strokeLinecap="round" strokeWidth="1.6" />
+                  )}
+                </svg>
+              </button>
             )}
             <span role="status" className="sr-only">
               {statusText}

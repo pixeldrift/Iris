@@ -210,17 +210,17 @@ test.describe('spatial workspace', () => {
   test('fit, clean up and the 3D / Flat switch are always on the canvas', async ({ page }) => {
     await enter(page)
     for (const n of ['Fit all', 'Clean up', 'Recenter']) await expect(page.getByRole('button', { name: n })).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Flat' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: '2D' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0)
-    await page.getByRole('radio', { name: 'Flat' }).click()
+    await page.getByRole('radio', { name: '2D' }).click()
     for (const n of ['Fit all', 'Clean up']) await expect(page.getByRole('button', { name: n })).toBeVisible()
-    await page.getByRole('radio', { name: '3D' }).click()
+    await page.getByRole('radio', { name: 'Virtual' }).click()
     await expect(intro(page).locator('canvas')).toBeVisible()
   })
 
   test('the flat view can be chosen by hand', async ({ page }) => {
     await enter(page)
-    await page.getByRole('radio', { name: 'Flat' }).click()
+    await page.getByRole('radio', { name: '2D' }).click()
     await expect(intro(page).locator('canvas')).toHaveCount(0)
     await expect(page.getByRole('region', { name: 'School' })).toBeVisible()
   })
