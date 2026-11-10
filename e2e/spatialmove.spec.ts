@@ -157,6 +157,26 @@ test.describe('blank space in a group', () => {
   })
 })
 
+test.describe('blank space on the wall', () => {
+  test('a tap on empty space opens the new-item box, and what is made is left there, in no group', async ({ page }) => {
+    await enter(page)
+    const at = (await empty(page))!
+    expect(at).toBeTruthy()
+    await page.mouse.click(at.x, at.y)
+    await page.getByLabel('New item').first().fill('Hang the picture')
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Hang the picture')?.folderIds))).toEqual([])
+    const made = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Hang the picture').id)
+    const l = await stored(page)
+    expect(l.tasks[made].c).toBe('none')
+    expect(l.tasks[made].free).toBeTruthy()
+    // and it is about where the tap was (it settles onto the free grid, which keeps tidy)
+    await page.waitForTimeout(600)
+    const now = (await pt(page, 'task', made))!
+    expect(Math.hypot(now.x - at.x, now.y - at.y)).toBeLessThan(170)
+  })
+})
+
 test.describe('keep tidy', () => {
   test('a card let go inside a group settles into a slot of its grid; with "Keep tidy" off it stays where it was let go', async ({ page }) => {
     await enter(page)

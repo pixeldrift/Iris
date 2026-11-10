@@ -24,6 +24,8 @@ interface ComposeState {
   at: { x: number; y: number } | null
   /** What the new item starts with (from the + beside a group, person or type). */
   preset: ComposePreset | null
+  /** Called with the new item's id once it is made (not if the box is closed without one). */
+  onMade?: (id: string) => void
 }
 export interface ComposePreset {
   folderIds?: string[]
@@ -31,8 +33,8 @@ export interface ComposePreset {
   kind?: TaskKind
 }
 const useCompose = create<ComposeState>(() => ({ open: false, at: null, preset: null }))
-export const openCompose = (at: { x: number; y: number } | null = null, preset: ComposePreset | null = null) => useCompose.setState({ open: true, at, preset })
-const closeCompose = () => useCompose.setState({ open: false })
+export const openCompose = (at: { x: number; y: number } | null = null, preset: ComposePreset | null = null, onMade?: (id: string) => void) => useCompose.setState({ open: true, at, preset, onMade })
+const closeCompose = () => useCompose.setState({ open: false, onMade: undefined })
 
 
 /** One exclusive pill: the highlight slides to whichever type is chosen, with a single soft overshoot. */
@@ -198,6 +200,9 @@ export function NewTask() {
     drop(0)
     const name = title.trim()
     const done = (id: string) => {
+      const made0 = useCompose.getState().onMade
+      useCompose.setState({ onMade: undefined })
+      made0?.(id) // (whoever asked for it can place it: the Space view puts it where it was tapped)
       // a due date typed into the box brings its reminder, like one chosen in the details
       const made = useStore.getState().tasks.find((x) => x.id === id)
       if (made?.due && made.kind !== 'idea') useStore.getState().setDue(id, made.due, made.dueTime ?? null)

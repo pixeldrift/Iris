@@ -3,6 +3,8 @@ import * as sound from '../audio/engine'
 import { useStore } from '../state/store'
 import { targetAt, useDnd } from '../ui/dnd'
 import { openCompose } from '../ui/NewTask'
+import { LOOSE } from './layout'
+import { useSpatial } from './store'
 
 /** A task dropped into another group joins it (and leaves the one it was in). 'none' takes it out of its group. */
 export function retagTask(id: string, clusterId: string) {
@@ -46,4 +48,12 @@ export function dropOutside(kind: 'task' | 'group', id: string, x: number, y: nu
 /** Tapping blank space inside a group: the new-item box opens with that group already on it (as in the pond). Unsorted has no group to add. */
 export function addInGroup(id: string) {
   openCompose(null, id === 'none' ? null : { folderIds: [id] })
+}
+
+/** A tap on empty wall: the new-item box opens, and what is made is left there, in no group (a loose card at that spot). */
+export function addLoose(a: number, y: number) {
+  openCompose(null, null, (id) => {
+    const st = useSpatial.getState()
+    st.setLayout({ ...st.layout, tasks: { ...st.layout.tasks, [id]: { c: LOOSE, u: 0, v: 0, dz: 0, slot: 0, free: { a, y } } } })
+  })
 }

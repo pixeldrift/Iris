@@ -11,12 +11,12 @@ import { Popover } from '../ui/Popover'
 import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
 import { Tip } from '../ui/Tip'
 import { detectCapabilities } from './capabilities'
-import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
+import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, NONE, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { FLAT_R, RADIUS } from './layout'
 import { WallTracking, type WallPhase } from './wall'
-import { TrackingCamera } from './trackingCamera'
+import { TrackingCamera } from './wall'
 import { DefaultDot } from '../ui/DefaultDot'
 import { ZoomControl } from '../ui/ZoomControl'
 import { CameraEnvironment, PanoramaEnvironment, SharedCameraEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
@@ -235,6 +235,7 @@ export default function SpatialView() {
         onCarryEnd: endCarry,
         onDropOut: dropOutside,
         onAddIn: addInGroup,
+        onAddAt: addLoose,
         onFov: (f) => setFov(Math.round(f)),
         // wall mode: the camera shows until the surface has been found, then gives way to the virtual wall (unless the camera is the background)
         onWallReveal: (r) => {

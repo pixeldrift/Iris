@@ -6,7 +6,7 @@ import { DoneButton, DueChip } from '../ui/shared'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
-import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
+import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { descendantsOf } from '../core/tree'
 import { LOOSE, cellH, cellW, ensureLayout, nearestFreeSlot, repose, separate, slotAt, snapCluster, snapFree, tidyClusters, tidyEverything } from './layout'
 import { useSpatial } from './store'
@@ -343,6 +343,13 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
       onPointerUp={(e) => {
         pts.current.delete(e.pointerId)
         const pr = press.current
+        // a tap on empty canvas: a new item left there
+        const g0 = gesture.current
+        if (!pr && g0 && g0.d === 0 && pts.current.size === 0 && Math.hypot(e.clientX - g0.x, e.clientY - g0.y) < MOVE) {
+          const c = canvasPoint(e)
+          const free = { a: c.x / PX / r0, y: -c.y / PY }
+          addLoose(tidy ? snapFree(free).a : free.a, tidy ? snapFree(free).y : free.y)
+        }
         if (pr && pr.pid === e.pointerId) {
           press.current = null
           if (pr.started && carry) {

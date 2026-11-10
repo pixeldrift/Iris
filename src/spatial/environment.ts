@@ -5,7 +5,7 @@
 
 import { BackSide, CanvasTexture, Mesh, MeshBasicMaterial, SphereGeometry, SRGBColorSpace, Texture, TextureLoader, type Scene } from 'three'
 import { K, type EnvironmentKind } from './types'
-import type { TrackingCamera } from './trackingCamera'
+import type { TrackingCamera } from './wall'
 
 export interface EnvironmentProvider {
   readonly kind: EnvironmentKind
