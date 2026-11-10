@@ -286,4 +286,21 @@ describe('following a surface', () => {
       expect(got.y).toBeCloseTo(want.y, 4)
     }
   })
+
+  it('follows motion when the caller reuses one buffer for every picture', () => {
+    const base = texture(160, 120, 11)
+    const buf: Gray = { w: 160, h: 120, d: new Float32Array(160 * 120) }
+    const feed = (g: Gray) => {
+      buf.d.set(g.d)
+      return buf
+    }
+    const tr = new SurfaceTracker()
+    const region = [{ x: 30, y: 24 }, { x: 130, y: 24 }, { x: 130, y: 96 }, { x: 30, y: 96 }] as [Pt, Pt, Pt, Pt]
+    expect(tr.acquire(feed(base), region)).toBe(true)
+    let st = tr.state()
+    for (let i = 1; i <= 8; i++) st = tr.update(feed(warp(base, shift(2 * i, -1.5 * i))))
+    expect(st.status).toBe('tracking')
+    expect(st.H[2]).toBeCloseTo(16, 0)
+    expect(st.H[5]).toBeCloseTo(-12, 0)
+  })
 })
