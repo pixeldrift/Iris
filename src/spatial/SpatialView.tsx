@@ -28,7 +28,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
-  const { environment, tracking: trackPref, render, seen, tipSeen, links, tidy, radius, collapsed, wallSmooth } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed, wallSmooth: s.wallSmooth })))
+  const { environment, tracking: trackPref, render, seen, tipSeen, links, tidy, radius, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed, wallSteady: s.wallSteady })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -170,8 +170,8 @@ export default function SpatialView() {
   }, [wall, details, phase])
 
   useEffect(() => {
-    wallTrack.current?.configure({ smooth: wallSmooth })
-  }, [wallSmooth, wall, phase])
+    wallTrack.current?.configure({ smooth: wallSteady })
+  }, [wallSteady, wall, phase])
 
   /* ---------- the 3D scene ---------- */
   const chooseEnv = useCallback(
@@ -215,7 +215,7 @@ export default function SpatialView() {
       let wt: WallTracking | undefined
       if (wall) {
         wt = new WallTracking()
-        wt.smoothing = useSpatial.getState().wallSmooth
+        wt.smoothing = useSpatial.getState().wallSteady
         wt.device = (q, ageMs) => track.current?.deviceRaw(q, ageMs) ?? false
         wt.onStatus(() => setWallPhase(wt!.phase))
         wallTrack.current = wt
@@ -249,7 +249,7 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     if (wall) {
@@ -437,8 +437,8 @@ export default function SpatialView() {
                 <div>
                   Smoothing
                   <div className="relative mt-1 pb-1">
-                    <input type="range" min={0} max={1} step={0.05} value={wallSmooth} aria-label="Smoothing" onChange={(e) => prefs({ wallSmooth: Number(e.target.value) })} className="soft relative z-10" />
-                    <DefaultDot at={0.6} label="Back to the usual smoothing" onReset={() => prefs({ wallSmooth: 0.6 })} />
+                    <input type="range" min={0} max={1} step={0.05} value={wallSteady} aria-label="Smoothing" onChange={(e) => prefs({ wallSteady: Number(e.target.value) })} className="soft relative z-10" />
+                    <DefaultDot at={0.15} label="Back to the usual smoothing" onReset={() => prefs({ wallSteady: 0.15 })} />
                   </div>
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
                     <span>Responsive</span>
