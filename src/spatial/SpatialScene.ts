@@ -61,6 +61,8 @@ export interface SceneEvents {
   onLayout(layout: SpatialLayoutData): void
   /** The lens changed (a zoom, a fit): the horizontal angle in degrees. */
   onFov?(fov: number): void
+  /** Wall mode: how much of the virtual wall is showing instead of the camera (0 while looking for the surface, 1 once it has settled). */
+  onWallReveal?(reveal: number): void
   /** The twirl on a group's name was tapped. */
   onCollapse?(id: string): void
   /** Blank space inside a group's box was tapped: add a new item there. */
@@ -123,7 +125,7 @@ export class SpatialScene {
   private pointers = new Map<number, { x: number; y: number }>()
   private press?: { id: number; x: number; y: number; t0: number; hit: Hit | null; mode: 'pending' | 'look' | 'task' | 'cluster' }
   private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3; kids: Set<string> }
-  private pinch?: { d: number; fov: number }
+  private pinch?: { d: number; fov: number; zoom: number }
   private disposed = false
   /** Soft glowing dots on the frame for groups out of view (the Pond's edge dots, here for the room around you). */
   private dotEls = new Map<string, HTMLButtonElement>()
@@ -226,7 +228,7 @@ export class SpatialScene {
   private fitWallSet() {
     const p = this.setParts
     if (!p) return
-    const { w: W, ox, oy } = this.wallBox
+    const { w: W, ox, oy } = this.wallLay
     const z = -0.9 * K - 0.03 * K
     p.wall.scale.set(5 * W, 5 * W, 1)
     p.wall.position.set(ox, oy, z)
@@ -244,6 +246,7 @@ export class SpatialScene {
     if (!g) return
     const kind = this.env?.kind
     g.visible = kind !== 'camera' && this.wallReveal > 0
+    if (kind !== 'camera') this.env?.setOpacity?.(this.wallReveal) // (the virtual sky or photo comes in as the camera goes)
     for (const m of Object.values(this.setParts ?? {})) (m.material as MeshBasicMaterial).opacity = this.wallReveal
     // a picture behind is busy enough: the floor and walls are only for the virtual room
     if (this.setParts) for (const m of [this.setParts.floor, this.setParts.left, this.setParts.right]) m.visible = kind === 'virtual' || kind === undefined
@@ -304,6 +307,8 @@ export class SpatialScene {
     this.wallPins = pins
   }
   private wallPins?: Points
+  private pinsDirty = false
+  private lastReveal = -1
   private pinCount = -1
 
   private wallScan = { t0: 0, held: false, quad: null as null | { x: number; y: number }[] }
@@ -323,9 +328,50 @@ export class SpatialScene {
       maxY = Math.max(maxY, c.y + 1.5 * K)
     }
     if (!Number.isFinite(minX)) return
-    this.wallBox = { w: Math.max(40, (maxX - minX) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
-    this.wall.configure({ scale: this.wallBox.w, origin: [this.wallBox.ox, this.wallBox.oy], lift: 0.9 * K })
+    this.wallLay = { w: Math.max(40, (maxX - minX) * 1.04), ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 }
+    this.applyWall()
     this.fitWallSet()
+  }
+
+  /** How many times bigger the world is than the surface it hangs on (2: the groups are twice as wide as the sheet). Pinch to change. */
+  private wallZoom = 2.2
+  /** Where the virtual world is slid to under the surface (a drag on empty space). */
+  private wallPan: [number, number] = [0, 0]
+  private wallLay = { w: 120, ox: 0, oy: 0 }
+
+  /** The surface's size and middle in the world, from the layout, the zoom and the slide; told to the tracker. */
+  private applyWall() {
+    if (!this.wall) return
+    const L = this.wallLay
+    this.wallBox = { w: L.w / this.wallZoom, ox: L.ox + this.wallPan[0], oy: L.oy + this.wallPan[1] }
+    this.wall.configure({ scale: this.wallBox.w, origin: [this.wallBox.ox, this.wallBox.oy], lift: 0.9 * K })
+    this.pinsDirty = true
+    this.dirty = true
+  }
+
+  /** Zoom about the middle of the screen: what is there stays there. */
+  private setWallZoom(z: number) {
+    if (!this.wall) return
+    const centre = () => {
+      const p = this.wall!.getPose()
+      // (the camera looks down its own -z)
+      const dirZ = -(1 - 2 * (p.q[0] * p.q[0] + p.q[1] * p.q[1]))
+      const dirX = -(2 * (p.q[0] * p.q[2] + p.q[3] * p.q[1]))
+      const dirY = -(2 * (p.q[1] * p.q[2] - p.q[3] * p.q[0]))
+      const pos = p.position ?? [0, 0, 0]
+      if (dirZ > -0.05) return null
+      const t = -pos[2] / dirZ
+      return [pos[0] + dirX * t, pos[1] + dirY * t] as const
+    }
+    const before = centre()
+    this.wallZoom = Math.min(8, Math.max(0.6, z))
+    this.applyWall()
+    const after = centre()
+    if (before && after) {
+      this.wallPan[0] += before[0] - after[0]
+      this.wallPan[1] += before[1] - after[1]
+      this.applyWall()
+    }
   }
 
   /** The first-found effect (about 2.4 s), and the reveal of the virtual wall that follows it. */
@@ -347,10 +393,15 @@ export class SpatialScene {
       scan.scale.set(sw * 1.3, sh * 1.3, 1)
       ;(scan.material as ShaderMaterial).uniforms.uAsp.value = sw / Math.max(1e-3, sh)
     }
+    if (ov.phase === 'searching') {
+      st.t0 = 0 // (looking again: the camera comes back)
+      st.held = false
+    }
     st.held = holding
     // the pins (every point pinned so far, in the world on the surface's plane)
     const pins = this.wallPins
-    if (pins && ov.quad && wall.takeFresh()) {
+    if (pins && ov.quad && (wall.takeFresh() || this.pinsDirty)) {
+      this.pinsDirty = false
       const { w, ox, oy } = this.wallBox
       const pos: number[] = []
       for (const p of ov.points) pos.push(p.x * w + ox, p.y * w + oy, -0.9 * K + 0.02 * K)
@@ -363,7 +414,7 @@ export class SpatialScene {
         attr.set(pos)
         attr.needsUpdate = true
       }
-      ;(pins.material as PointsMaterial).size = 0.1 * w
+      ;(pins.material as PointsMaterial).size = 0.035 * this.wallLay.w
     }
     const t = (performance.now() - st.t0) / 1000
     const on = st.t0 > 0 && t < 2.5
@@ -376,9 +427,13 @@ export class SpatialScene {
     }
     // the virtual wall is revealed as the scan finishes
     this.wallReveal = st.t0 > 0 ? Math.min(1, Math.max(0, (t - 0.8) / 1.2)) : 0
+    if (Math.abs(this.wallReveal - this.lastReveal) > 0.005 || this.wallReveal === 0 || this.wallReveal === 1) {
+      if (this.wallReveal !== this.lastReveal) this.events.onWallReveal?.(this.wallReveal)
+      this.lastReveal = this.wallReveal
+    }
     if (pins) {
       pins.visible = this.wallReveal > 0 && ov.phase !== 'searching'
-      ;(pins.material as PointsMaterial).opacity = 0.95 * this.wallReveal
+      ;(pins.material as PointsMaterial).opacity = 0.5 * this.wallReveal
     }
   }
   private wallReveal = 0
@@ -692,6 +747,7 @@ export class SpatialScene {
         return false
       }
       this.env = env
+      this.lastReveal = -1
       this.dirty = true
       return true
     }
@@ -717,6 +773,7 @@ export class SpatialScene {
     this.events.onFov?.(this.fov)
   }
   zoom(factor: number) {
+    if (this.wall) return this.setWallZoom(this.wallZoom * factor)
     this.setFov(this.fov / factor)
   }
   /** Turn to face a group (the view glides there). */
@@ -1025,7 +1082,7 @@ export class SpatialScene {
       this.press = undefined
       this.cancelCarry()
       const [a, b] = [...this.pointers.values()]
-      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: this.fov }
+      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: this.fov, zoom: this.wallZoom }
       return
     }
     this.press = { id: e.pointerId, x: e.clientX, y: e.clientY, t0: performance.now(), hit: this.pick(e), mode: 'pending' }
@@ -1108,7 +1165,8 @@ export class SpatialScene {
     if (this.pinch && this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()]
       const d = Math.hypot(a.x - b.x, a.y - b.y)
-      this.setFov(this.pinch.fov * (this.pinch.d / Math.max(10, d)))
+      if (this.wall) this.setWallZoom(this.pinch.zoom * (d / Math.max(10, this.pinch.d)))
+      else this.setFov(this.pinch.fov * (this.pinch.d / Math.max(10, d)))
       return
     }
     const p = this.press
@@ -1123,7 +1181,16 @@ export class SpatialScene {
         this.startCarry('cluster', p.hit.kind === 'hub' || p.hit.kind === 'plate' ? p.hit.id : '', { clientX: p.x, clientY: p.y })
       } else p.mode = 'look'
     }
-    if (p.mode === 'look' && this.wall) return // (in wall mode the phone is the way to look around)
+    if (p.mode === 'look' && this.wall) {
+      // in wall mode the phone is the way to look around; a drag on empty space slides the virtual world under the surface instead
+      const el = this.renderer.domElement
+      const fpx = el.clientHeight / 2 / Math.tan((this.camera.fov * Math.PI) / 360)
+      const k = Math.max(1, Math.abs(this.camera.position.z)) / Math.max(1, fpx)
+      this.wallPan[0] -= (e.clientX - prev.x) * k
+      this.wallPan[1] += (e.clientY - prev.y) * k
+      this.applyWall()
+      return
+    }
     if (p.mode === 'look') {
       const k = this.radPerPx()
       this.tracking.touch.look((e.clientX - prev.x) * k, (e.clientY - prev.y) * k)

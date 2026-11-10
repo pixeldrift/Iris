@@ -40,22 +40,31 @@ test.describe('wall mode', () => {
     await page.getByRole('radio', { name: 'Wall' }).click()
     await expect(page.locator('[data-wall-status]')).toBeVisible()
     await expect(page.locator('video')).toHaveCount(1)
+    // the camera is what shows while the surface is being found
+    expect(await page.locator('video').evaluate((v) => v.getBoundingClientRect().width)).toBeGreaterThan(300)
     await expect(page.locator('[data-wall-status="holding"]')).toBeVisible({ timeout: 15000 })
     if (process.env.SHOT) {
       await page.waitForTimeout(Number(process.env.SHOT_AT ?? 0))
       await page.screenshot({ path: process.env.SHOT })
     }
     // the picture is hidden (2px) while the background is Virtual; Camera shows it full size, Photo or Virtual puts it back
+    const bg = page.getByRole('radiogroup', { name: 'Background' })
     const box = () => page.locator('video').evaluate((v) => v.getBoundingClientRect().width)
-    expect(await box()).toBeLessThan(10)
+    await expect.poll(box, { timeout: 8000 }).toBeLessThan(10)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
-    await page.getByRole('radio', { name: 'Camera' }).click()
+    await bg.getByRole('radio', { name: 'Camera' }).click()
     await expect.poll(box).toBeGreaterThan(300)
-    await page.getByRole('radio', { name: 'Virtual' }).click()
+    if (process.env.SHOT2) {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(600)
+      await page.screenshot({ path: process.env.SHOT2 })
+      await page.getByRole('button', { name: 'Spatial settings' }).click()
+    }
+    await bg.getByRole('radio', { name: 'Virtual' }).click()
     await expect.poll(box).toBeLessThan(10)
     await page.keyboard.press('Escape')
     const stream = await page.evaluateHandle(() => document.querySelector('video')!.srcObject as MediaStream)
-    await page.getByRole('radio', { name: '3D' }).click()
+    await page.getByRole('radiogroup', { name: 'Drawing' }).getByRole('radio', { name: 'Virtual' }).click()
     await expect(page.locator('[data-wall-status]')).toHaveCount(0)
     await expect.poll(() => stream.evaluate((s) => (s as MediaStream).getTracks().every((t) => t.readyState === 'ended'))).toBe(true)
   })

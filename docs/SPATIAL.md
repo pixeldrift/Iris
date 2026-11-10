@@ -125,3 +125,9 @@ Wall mode uses the camera to find a flat surface and hangs the groups flat, just
 
 ### Wall mode: a map that keeps growing, and pins
 The tracker no longer depends on the surface it first found. Each frame, new corners are picked up anywhere the camera sees and stored in the surface's own coordinates through the current fit, so the hold passes on from older points to newer ones as the camera moves (`SurfaceTracker`, tested by panning well past the first region). Every point pinned so far (up to 320, kept even when out of view) is drawn as a large soft pin on the wall plane in the virtual world, so some are always in view; the wall's own dot grid is smaller and lighter. When vision is lost the gyro carries the view and the pins stay where they were. Errors still accumulate slowly, since each new point inherits the fit's error: it is a viewport, not a measurement.
+
+### Wall mode: camera first, size, and the status icon
+- **Camera first.** Whatever the background, Wall starts by showing the camera while it looks for the surface. When it locks, the scan effect plays over the camera and the camera fades out as the virtual wall (and its sky or photo) fades in. "Find again" brings the camera back. With **Camera** as the background it simply stays. The tracker's own camera is kept playing even when hidden.
+- **Size.** The groups are 2.2 times as wide as the surface (a sheet) by default, so moving the phone closer inspects tasks. Pinch (or the + and - buttons, the wheel) zooms about the middle of the screen; a drag on empty space slides the virtual world under the surface. Neither is saved yet.
+- **Status.** A small icon at the bottom: a square with four dots at its corners while the surface is held; a dashed square with a question mark while it is not (tap it to use what the camera sees). Pins are small and faint.
+- **Order of the drawing switch:** Wall, Virtual (the 3D room), 2D.

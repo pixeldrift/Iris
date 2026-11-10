@@ -11,6 +11,8 @@ export interface EnvironmentProvider {
   readonly kind: EnvironmentKind
   /** Begin (a camera asks for permission here). Resolves with whether it is now showing. */
   start(host: HTMLElement, scene: Scene): Promise<boolean>
+  /** Wall mode: fade the whole background in (1) or out (0). */
+  setOpacity?(a: number): void
   /** Called each frame with the time, for anything that drifts. */
   tick?(t: number): void
   /** Let go of everything: textures, streams, elements. */
@@ -79,7 +81,7 @@ export function mutedCanvas(src: CanvasImageSource, w: number, h: number): HTMLC
 
 function skySphere(map: Texture): Mesh {
   map.colorSpace = SRGBColorSpace
-  const m = new Mesh(new SphereGeometry(120 * K, 48, 24), new MeshBasicMaterial({ map, side: BackSide, depthWrite: false, fog: false }))
+  const m = new Mesh(new SphereGeometry(120 * K, 48, 24), new MeshBasicMaterial({ map, side: BackSide, depthWrite: false, fog: false, transparent: true }))
   m.scale.x = -1 // (seen from inside, so the picture is not mirrored)
   m.renderOrder = -10
   return m
@@ -96,6 +98,9 @@ export class VirtualEnvironment implements EnvironmentProvider {
     this.sky = skySphere(this.tex)
     scene.add(this.sky)
     return true
+  }
+  setOpacity(a: number) {
+    if (this.sky) (this.sky.material as MeshBasicMaterial).opacity = a
   }
   dispose() {
     if (this.sky) {
@@ -128,6 +133,9 @@ export class PanoramaEnvironment implements EnvironmentProvider {
     scene.add(this.sky)
     return true
   }
+  setOpacity(a: number) {
+    if (this.sky) (this.sky.material as MeshBasicMaterial).opacity = a
+  }
   dispose() {
     if (this.sky) {
       this.scene?.remove(this.sky)
@@ -145,11 +153,11 @@ export class SharedCameraEnvironment implements EnvironmentProvider {
   constructor(private cam: TrackingCamera) {}
   async start(): Promise<boolean> {
     if (!this.cam.video || !this.cam.live) return false
-    this.cam.show('full')
+    this.cam.showBackground()
     return true
   }
   dispose() {
-    this.cam.show('hidden') // (the camera itself belongs to Wall mode, which stops it)
+    this.cam.setReveal(1) // (the camera itself belongs to Wall mode, which stops it)
   }
 }
 

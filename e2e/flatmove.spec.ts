@@ -8,7 +8,7 @@ async function enterFlat(page: P) {
   await page.locator('button', { hasText: /^Space/ }).first().click()
   await page.getByRole('button', { name: 'Use touch only' }).click()
   await page.getByRole('button', { name: 'Got it' }).click().catch(() => {})
-  await page.getByRole('radio', { name: 'Flat' }).click()
+  await page.getByRole('radio', { name: '2D' }).click()
   await page.locator('[data-hub]').first().waitFor()
   await page.waitForTimeout(400)
 }
