@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
-import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
+import { filterTasks, formatTime, groupOrder, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
@@ -75,6 +75,16 @@ describe('tasks', () => {
   it('sorts by flow, heaviest first', () => {
     const sorted = sortTasks(tasks, 'flow', false)
     expect(weightOf(sorted[0])).toBeGreaterThanOrEqual(weightOf(sorted[1]))
+  })
+  it('sorts by group in the sidebar\'s order (parents before their children, no group last), by priority within one', () => {
+    const order = groupOrder(folders)
+    const sorted = sortTasks(tasks, 'group', false, folders)
+    const at = (t: (typeof tasks)[number]) => t.folderIds.map((id) => order.get(id)).find((n) => n !== undefined) ?? Infinity
+    for (let i = 1; i < sorted.length; i++) expect(at(sorted[i - 1])).toBeLessThanOrEqual(at(sorted[i]))
+    // within one group, the heaviest first
+    for (let i = 1; i < sorted.length; i++) if (at(sorted[i - 1]) === at(sorted[i])) expect(weightOf(sorted[i - 1])).toBeGreaterThanOrEqual(weightOf(sorted[i]))
+    // reversed is the same list backwards
+    expect(sortTasks(tasks, 'group', true, folders).map((t) => t.id)).toEqual(sorted.map((t) => t.id).reverse())
   })
 })
 

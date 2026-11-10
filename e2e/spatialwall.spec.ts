@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }) => {
 test.describe('wall mode', () => {
   test('finds a sheet of paper and holds on to it; leaving lets go of the camera', async ({ page }) => {
     await open(page)
-    await goto(page, 'Space')
+    await goto(page, 'Spatial')
     await page.getByRole('button', { name: 'Use touch only' }).click()
     await page.getByRole('radio', { name: 'Wall' }).click()
     await expect(page.locator('[data-wall-status]')).toBeVisible()

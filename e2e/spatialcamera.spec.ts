@@ -8,7 +8,7 @@ const intro = (page: import('@playwright/test').Page) => page.getByRole('region'
 
 async function enter(page: import('@playwright/test').Page) {
   await open(page)
-  await goto(page, 'Space')
+  await goto(page, 'Spatial')
   await page.getByRole('button', { name: 'Use touch only' }).click()
 }
 

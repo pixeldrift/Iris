@@ -617,8 +617,11 @@ body.scrubbing .glow-breathe {
 @keyframes edge-breathe { 0%, 100% { transform: scale(0.92); } 50% { transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { .edge-dot { animation: edge-in 0.45s ease-out forwards; } }
 
-/* The app is not a document: dragging across it never highlights text or images. Text boxes (and anything marked .select-text) still select. */
-html, body, #root {
+/* The app is not a document: dragging across its views, controls and canvases never highlights text or images. This is NOT put on html,
+   body or #root (as it was): text boxes and notes inside dialogs then sit under nothing that switches selection off, so what is selected
+   in them can really be copied (on iPhone a copy from a note put nothing on the clipboard). Text boxes and .select-text select. */
+main, button, [role='button'], [role='tab'], [role='radio'], [role='menuitem'], summary, nav, aside, header, canvas, svg,
+.pad, .tint, .chip-bubble, [data-node], [data-task], [data-card-id], [data-hub], [data-box], [draggable='true'] {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;

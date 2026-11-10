@@ -44,6 +44,29 @@ test.describe('on a phone', () => {
     expect(await rows.count()).toBe(n)
   })
 
+  test('swiping a list row to the right checks it off, with a line drawn across its name; a short swipe does not', async ({ page }) => {
+    await toList(page)
+    const rows = page.locator('[data-lift-id^="task:"]')
+    const t = await touch(page)
+    const row = rows.filter({ hasText: 'Lab report' }).first() // (a plain task: a repeating one is ticked in its log, not its status)
+    const id = (await row.getAttribute('data-lift-id'))!.slice('task:'.length)
+    const status = () => page.evaluate((i) => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((x: { id: string }) => x.id === i).status, id)
+    expect(await status()).not.toBe('done')
+    // short: springs back
+    const b = (await row.boundingBox())!
+    await t('touchStart', b.x + 100, b.y + 20)
+    for (let i = 1; i <= 5; i++) await t('touchMove', b.x + 100 + i * 10, b.y + 20)
+    await t('touchEnd')
+    await page.waitForTimeout(600)
+    expect(await status()).not.toBe('done')
+    // long: the line goes across, and it is ticked
+    const b2 = (await row.boundingBox())!
+    await t('touchStart', b2.x + 100, b2.y + 20)
+    for (let i = 1; i <= 14; i++) await t('touchMove', b2.x + 100 + i * 20, b2.y + 20)
+    await t('touchEnd')
+    await expect.poll(status, { timeout: 4000 }).toBe('done')
+  })
+
   test('a field that the keyboard would cover is scrolled back into view', async ({ page }) => {
     await toList(page)
     await page.locator('[data-lift-id^="task:"]').first().tap()

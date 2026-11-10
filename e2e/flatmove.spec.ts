@@ -5,7 +5,7 @@ async function enterFlat(page: P) {
   await page.goto('/?spacetest')
   await page.locator('[data-node]').first().waitFor()
   await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
-  await page.locator('button', { hasText: /^Space/ }).first().click()
+  await page.locator('button', { hasText: /^Spatial/ }).first().click()
   await page.getByRole('button', { name: 'Use touch only' }).click()
   await page.getByRole('button', { name: 'Got it' }).click().catch(() => {})
   await page.getByRole('radio', { name: '2D' }).click()

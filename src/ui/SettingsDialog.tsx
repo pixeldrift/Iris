@@ -206,7 +206,7 @@ function ViewsPicker() {
 const TIPS: { title: string; lines: string[] }[] = [
   { title: 'Everywhere', lines: ['N adds an item; / searches; Ctrl or Cmd + Z undoes.', 'Drag an item onto a group in the sidebar to tag it; drag a group onto another to nest it.', 'On a list or board, Tab to a row, then the arrow keys move between rows and Enter opens one.'] },
   { title: 'Pond', lines: ['Tap the water to add a thought; drag to pan; pinch or scroll to zoom.', 'Drag a group name to carry the whole group, or onto another group to put it inside.', 'Hold Shift (or turn on select) to pick several items.'] },
-  { title: 'Space', lines: ['Drag a task onto a group to move it, or out into the open to leave it floating.', 'Drag a group by its name or box; its subgroups come with it.', 'Hold a task over a folded group and it opens; carry it out over the sidebar to tag it.', 'The twirl beside a name folds the group; the sliders in the settings button change the angle and the radius.'] },
+  { title: 'Spatial', lines: ['Drag a task onto a group to move it, or out into the open to leave it there, in no group. Tap empty space to add an item there.', 'Drag a group by its name or box; its subgroups come with it.', 'Hold a task over a folded group and it opens; carry it out over the sidebar to tag it.', 'The twirl beside a name folds the group; the sliders in the settings button change the angle and the radius.'] },
   { title: 'Lists', lines: ['Swipe a row far to the left to delete it (Undo brings it back).', 'Tick a checklist entry for a small high chime; ticking a whole task plays the larger one.'] },
 ]
 function TipsList() {

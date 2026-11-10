@@ -6,7 +6,7 @@ test.describe('nothing is highlighted by dragging', () => {
     await open(page)
     for (const view of ['Pond', 'List', 'Progress', 'Priority', 'Calendar', 'Timeline', 'Overview']) {
       await goto(page, view)
-      const sel = await page.evaluate(() => getComputedStyle(document.body).userSelect || getComputedStyle(document.body).webkitUserSelect)
+      const sel = await page.evaluate(() => getComputedStyle(document.querySelector('main')!).userSelect || getComputedStyle(document.querySelector('main')!).webkitUserSelect)
       expect(sel).toBe('none')
       // drag across the middle of the page: nothing ends up selected
       const box = (await page.locator('main').boundingBox())!

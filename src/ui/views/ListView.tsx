@@ -7,7 +7,7 @@ import { sortTasks, effectiveUrgency } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { MenuItem, Popover } from '../Popover'
-import { IconTrash } from '../icons'
+import { IconCheck, IconTrash } from '../icons'
 import { BatchEditor } from '../BatchEditor'
 import { colorVars, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
@@ -22,15 +22,17 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'urgency', label: 'Urgency' },
   { id: 'due', label: 'Due date' },
   { id: 'created', label: 'Newest' },
+  { id: 'group', label: 'Group' },
   { id: 'title', label: 'A → Z' },
   { id: 'manual', label: 'My order' },
 ]
 
 /**
- * Swipe a row left to delete it (touch). It only takes over when the finger clearly moves sideways, so scrolling
- * stays vertical, and a press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
+ * Swipe a row sideways (touch): left deletes it, right checks it off (a line is drawn across its name as it is ticked; swiped right again,
+ * the line is taken back off). It only takes over when the finger clearly moves sideways, so scrolling stays vertical, and a
+ * press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
  */
-function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: React.RefObject<HTMLDivElement | null>, onDelete: () => void) {
+function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, onDelete: () => void, onCheck: () => void) {
   return (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return
     const el = row.current
@@ -40,7 +42,8 @@ function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: R
     let swiping = false
     const apply = (dx: number) => {
       el.style.transform = `translateX(${dx}px)`
-      if (reveal.current) reveal.current.style.opacity = String(Math.min(1, Math.abs(dx) / 80))
+      if (revealDelete.current) revealDelete.current.style.opacity = String(dx < 0 ? Math.min(1, -dx / 80) : 0)
+      if (revealCheck.current) revealCheck.current.style.opacity = String(dx > 0 ? Math.min(1, dx / 80) : 0)
     }
     const end = (commit: boolean, dx: number) => {
       window.removeEventListener('pointermove', move)
@@ -48,18 +51,21 @@ function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: R
       window.removeEventListener('pointercancel', cancel)
       if (!swiping) return
       el.style.transition = 'transform 0.22s ease-out'
-      const far = commit && (dx < -el.offsetWidth * 0.35 || dx < -120)
-      if (far) {
+      const need = Math.min(el.offsetWidth * 0.35, 120)
+      if (commit && dx < -need) {
         el.style.transform = 'translateX(-110%)'
         onDelete()
-      } else {
-        apply(0)
-        window.setTimeout(() => {
-          el.style.transition = ''
-          el.style.transform = ''
-          if (reveal.current) reveal.current.style.opacity = '0'
-        }, 240)
+        return
       }
+      const check = commit && dx > need
+      apply(0)
+      window.setTimeout(() => {
+        el.style.transition = ''
+        el.style.transform = ''
+        if (revealDelete.current) revealDelete.current.style.opacity = '0'
+        if (revealCheck.current) revealCheck.current.style.opacity = '0'
+      }, 240)
+      if (check) onCheck() // (the row springs back, and the line goes across its name)
     }
     const move = (ev: PointerEvent) => {
       if (document.body.classList.contains('dragging')) return end(false, 0) // it was picked up to be dragged instead
@@ -67,12 +73,12 @@ function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: R
       const dy = ev.clientY - sy
       if (!swiping) {
         if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) return end(false, 0) // a scroll
-        if (dx < -12 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+        if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.6) {
           swiping = true
           el.style.transition = 'none'
         } else return
       }
-      apply(Math.min(0, dx))
+      apply(dx)
     }
     const up = (ev: PointerEvent) => end(true, ev.clientX - sx)
     const cancel = () => end(false, 0)
@@ -85,18 +91,41 @@ function useSwipeToDelete(row: React.RefObject<HTMLDivElement | null>, reveal: R
 function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void; /** Just added from the quick-add box: it glows for a moment. */ fresh?: boolean }) {
   const el = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
+  const revealCheck = useRef<HTMLDivElement>(null)
+  const strike = useRef<HTMLSpanElement>(null)
   const hue = useTaskHue(task)
   // Shift-click (or select mode) picks the item instead of opening it
   const onPointerDown = useTaskDrag(task, el, (e) => (e.shiftKey || selecting ? onToggle() : useStore.getState().select(task.id)))
   const del = useStore((s) => s.deleteTask)
-  const swipe = useSwipeToDelete(el, reveal, () => del(task.id))
+  const toggleDone = useStore((s) => s.toggleDone)
   const done = isDoneNow(task)
+  // checking off by swipe: a line is drawn across the name (left to right), then the item is ticked; swiping a done one back draws it off again
+  const check = () => {
+    const line = strike.current
+    const finish = () => {
+      toggleDone(task.id)
+      if (line) window.setTimeout(() => (line.style.opacity = '0'), 160)
+    }
+    if (!line || (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches)) return finish()
+    line.style.opacity = '1'
+    const frames = done ? [{ transform: 'scaleX(1)', transformOrigin: 'right' }, { transform: 'scaleX(0)', transformOrigin: 'right' }] : [{ transform: 'scaleX(0)', transformOrigin: 'left' }, { transform: 'scaleX(1)', transformOrigin: 'left' }]
+    const a = line.animate(frames, { duration: 380, easing: 'cubic-bezier(0.3, 0.8, 0.3, 1)', fill: 'forwards' })
+    void a.finished.then(() => {
+      finish()
+      a.cancel()
+      line.style.transform = ''
+    }).catch(() => finish())
+  }
+  const swipe = useSwipe(el, reveal, revealCheck, () => del(task.id), check)
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
       <div className="relative overflow-x-clip rounded-2xl">
         <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-white opacity-0" style={{ background: 'rgb(210 110 140 / 0.9)' }}>
           <IconTrash size={18} />
+        </div>
+        <div ref={revealCheck} aria-hidden className="absolute inset-0 flex items-center justify-start rounded-2xl pl-5 text-white opacity-0" style={{ background: 'rgb(var(--lr-500) / 0.9)' }}>
+          <IconCheck size={18} />
         </div>
         <div
           ref={el}
@@ -117,7 +146,13 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
           )}
           <DoneButton task={task} />
           <TaskFlower task={task} />
-          <span className={`min-w-0 flex-1 truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
+          <span className="min-w-0 flex-1">
+            <span className="relative inline-block max-w-full align-top">
+              <span className={`block truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
+              {/* the line that is drawn across the name when it is swiped off (hidden otherwise) */}
+              <span ref={strike} aria-hidden className="pointer-events-none absolute inset-x-0 top-1/2 -mt-px h-[2px] rounded-full bg-lilac-500/80 opacity-0" />
+            </span>
+          </span>
           {/* the chips, with how far along it is as a thin bar underneath them */}
           <div className="flex shrink-0 flex-col items-stretch gap-0.5">
             <div className="flex items-center justify-end gap-1">
@@ -159,7 +194,8 @@ export function ListView() {
   const sortDesc = useStore((s) => s.settings.sortDesc)
   const set = useStore((s) => s.setSetting)
 
-  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
+  const allFolders = useStore((s) => s.folders)
+  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc, allFolders), [visible, sortKey, sortDesc, allFolders])
   // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
   // one, they glide to where the sort puts them (the list animates the move, so you can see where each went).
   const [fresh, setFresh] = useState<string[]>([])

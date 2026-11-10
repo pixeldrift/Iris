@@ -129,7 +129,7 @@ export function separate(clusters: Record<string, ClusterPlacement>, pinned: Rea
 /** The cluster id of a task that is in no group: it is not in a box, it sits on the wall wherever it was put. */
 export const LOOSE = 'none'
 
-export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): SpatialLayoutData {
+export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: { span?: number } = {}): SpatialLayoutData {
   let clusters: Record<string, ClusterPlacement> = {}
   const tasks: Record<string, TaskPlacement> = {}
   // places are kept for anything that still exists, shown or not (hidden for now, or filtered out)
@@ -168,7 +168,7 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
     if (!had.length) {
       // a brand-new layout, drawn like an org chart: each group centred over its subgroups, which sit on the row below it. Top-level
       // groups go side by side across the stretch ahead; when they would run past it, the next ones start a new band underneath.
-      const arc = START_SPAN * WORLD.ring
+      const arc = (opts.span ?? START_SPAN) * WORLD.ring // (how wide a band of top-level groups may be before the next band starts under it)
       const byId = new Map(sized.map((s) => [s.c.id, s]))
       const kids = new Map<string, typeof sized>()
       const roots: typeof sized = []
@@ -305,6 +305,43 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput): Spati
     }
   }
   return { clusters, tasks }
+}
+
+/**
+ * Lay the groups out again to suit the screen: wide for a landscape screen, tall for a portrait one. The same family-tree layout is made
+ * with several widths for its bands, and the one whose overall shape is closest to the screen's (`aspect`, width over height) is kept.
+ * Cards keep their places inside their groups; loose cards a group now sits on go back to the tray under the groups.
+ */
+export function arrangeFor(prev: SpatialLayoutData, input: LayoutInput, aspect: number): SpatialLayoutData {
+  const ring = WORLD.ring
+  const measure = (l: SpatialLayoutData) => {
+    const cs = Object.values(l.clusters)
+    if (!cs.length) return null
+    const left = Math.min(...cs.map((c) => c.a * ring - widthOf(c.cols) / 2))
+    const right = Math.max(...cs.map((c) => c.a * ring + widthOf(c.cols) / 2))
+    const top = Math.max(...cs.map((c) => c.y + 1.2 * K))
+    const bottom = Math.min(...cs.map((c) => c.y - heightOf(c.rows ?? 1)))
+    return { left, right, top, bottom, aspect: (right - left) / Math.max(1, top - bottom) }
+  }
+  const from = { clusters: {}, tasks: prev.tasks }
+  let best: { l: SpatialLayoutData; err: number } | null = null
+  for (const span of [0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2, 2.6, 3.2, 4, 5]) {
+    const l = ensureLayout(from, input, { span })
+    const m = measure(l)
+    if (!m) return l
+    const err = Math.abs(Math.log(m.aspect / Math.max(0.2, aspect)))
+    if (!best || err < best.err - 1e-9) best = { l, err }
+  }
+  const laid = best!.l
+  // loose cards that now lie on a group go back to the tray (a place is made for them again)
+  const tasks: Record<string, TaskPlacement> = { ...laid.tasks }
+  for (const [id, t] of Object.entries(tasks)) {
+    if (!t.free || t.c !== LOOSE) continue
+    const x = t.free.a * ring
+    const onGroup = Object.values(laid.clusters).some((c) => Math.abs(x - c.a * ring) < (widthOf(c.cols) + cellW) / 2 && t.free!.y < c.y + 1.2 * K + cellH / 2 && t.free!.y > c.y - heightOf(c.rows ?? 1) - cellH / 2)
+    if (onGroup) delete tasks[id]
+  }
+  return ensureLayout({ clusters: laid.clusters, tasks }, input)
 }
 
 export type Vec3 = [number, number, number]

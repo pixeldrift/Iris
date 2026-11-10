@@ -9,7 +9,7 @@ export const VIEWS: { id: ViewId; label: string; hint: string; icon: typeof Icon
   { id: 'calendar', label: 'Calendar', hint: 'Schedule', icon: IconCalendar },
   { id: 'timeline', label: 'Timeline', hint: 'Gantt', icon: IconTimeline },
   { id: 'overview', label: 'Overview', hint: 'Stats', icon: IconChart },
-  { id: 'spatial', label: 'Space', hint: '3D', icon: IconCube },
+  { id: 'spatial', label: 'Spatial', hint: '3D', icon: IconCube },
 ]
 
 /** The views in the order chosen in Settings (any not yet placed follow in their usual order). */

@@ -187,3 +187,10 @@ The old approach (a camera pose worked out from the surface and blended with the
 
 ### Tap to add on the wall
 A tap on empty space (Wall, Virtual and 2D) opens the new-item box; what is made is left at that spot in no group (a loose card), via `addLoose` (`actions.ts`) and the new `onMade` callback of `openCompose`, which says the new item's id once it is made (nothing happens if the box is closed without one).
+
+### Names, sorting and Frame all
+- The view is called **Spatial** in the app (its menu entry; the notes and code still say "Space" in places).
+- **Frame all** (Wall) now lays the groups out again for the shape of the screen, then brings them into view: `arrangeFor` (`layout.ts`) makes the family-tree layout with several widths for its bands and keeps the one whose overall shape is closest to the screen's (tall for portrait, wide for landscape); cards keep their places in their groups, and loose cards a group now sits on go back to the tray.
+- **List: sort by Group** follows the sidebar's order of groups (parents before children), no group last, by priority within a group (`groupOrder`, `sortTasks(..., folders)`).
+- **List: swipe right** checks an item off, with a line drawn across its name (and drawn off again for a done one); swipe left still deletes.
+- **Copy and paste:** user-select used to be switched off on html, body and #root, which on iPhone left text selected in a note without anything reaching the clipboard. It is now off on the views, controls and canvases only (`index.css`); text boxes and notes sit under nothing that switches selection off.

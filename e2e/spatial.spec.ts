@@ -5,14 +5,14 @@ const intro = (page: import('@playwright/test').Page) => page.getByRole('region'
 
 async function enter(page: import('@playwright/test').Page, how: 'Start looking around' | 'Use touch only' | 'Start' = 'Use touch only') {
   await open(page)
-  await goto(page, 'Space')
+  await goto(page, 'Spatial')
   await page.getByRole('button', { name: how }).click()
 }
 
 test.describe('spatial workspace', () => {
   test('opens with a short explanation, then shows the tasks in 3D with touch navigation when there is no motion sensor @smoke', async ({ page }) => {
     await open(page)
-    await goto(page, 'Space')
+    await goto(page, 'Spatial')
     await expect(page.getByText('Look around your tasks')).toBeVisible()
     await page.getByRole('button', { name: 'Start looking around' }).click() // (a desktop browser has no motion: it falls back to touch)
     await expect(intro(page).locator('canvas')).toBeVisible()
@@ -39,7 +39,7 @@ test.describe('spatial workspace', () => {
     const before = JSON.stringify(layout)
     await goto(page, 'Pond')
     await expect(page.locator('[data-node]').first()).toBeVisible() // (the pond again)
-    await goto(page, 'Space')
+    await goto(page, 'Spatial')
     await page.getByRole('button', { name: 'Use touch only' }).click()
     await expect.poll(async () => JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v5')!).state.layout))).toBe(before)
   })
@@ -130,7 +130,7 @@ test.describe('spatial workspace', () => {
       } as typeof get
     })
     await open(page)
-    await goto(page, 'Space')
+    await goto(page, 'Spatial')
     await page.getByRole('button', { name: /^Start/ }).first().click()
     await expect(intro(page).locator('canvas')).toHaveCount(0)
     await expect(page.getByText('Flat view', { exact: true })).toBeVisible()
@@ -242,7 +242,7 @@ test.describe('a lot of tasks', () => {
     })
     await page.reload()
     await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
-    await goto(page, 'Space')
+    await goto(page, 'Spatial')
     await page.getByRole('button', { name: 'Use touch only' }).click()
     await expect(intro(page).locator('canvas')).toBeVisible()
     await page.waitForTimeout(1500)

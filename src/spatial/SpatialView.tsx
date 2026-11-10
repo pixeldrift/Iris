@@ -100,6 +100,14 @@ export default function SpatialView() {
   const live = useRef(shownContent)
   live.current = shownContent
 
+  // Frame all (Wall): lay the groups out for the shape of the screen (wide in landscape, tall in portrait), then bring them all into view
+  const arrangeAndFrame = () => {
+    const el = host.current
+    const aspect = el && el.clientHeight > 0 ? el.clientWidth / el.clientHeight : 1
+    setLayout(buildContent(visible, allTasks, folders, stored, aspect).layout)
+    window.setTimeout(() => scene.current?.frameAll(), 160) // (after the scene has taken the new places)
+  }
+
   /* ---------- starting: the first call must be inside the tap (iOS asks for motion permission only from one) ---------- */
   const begin = useCallback(
     (wantMotion: boolean) => {
@@ -548,7 +556,7 @@ export default function SpatialView() {
                     </button>
                   </Tip>
                   <Tip label="Frame all">
-                    <button type="button" aria-label="Frame all" onClick={() => scene.current?.frameAll()} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
+                    <button type="button" aria-label="Frame all" onClick={arrangeAndFrame} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
                       <IconFrameAll size={22} />
                     </button>
                   </Tip>

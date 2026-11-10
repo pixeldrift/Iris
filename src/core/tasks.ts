@@ -1,7 +1,7 @@
 import { addDays, diffDays, fromISO, today } from './dates'
 import { formatClock } from './locale'
 import { currentOccurrence, repeatOf, repeatStreak, taskOnDate } from './recurrence'
-import { descendantIds } from './folders'
+import { childrenOf, descendantIds } from './folders'
 import type { Folder, Scope, SortKey, Task } from './types'
 
 export const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
@@ -90,7 +90,28 @@ export function filterTasks(tasks: Task[], scope: Scope, folders: Folder[], show
 
 const byDue = (a: Task, b: Task) => (a.due ?? a.day ?? '9999').localeCompare(b.due ?? b.day ?? '9999')
 
-export function sortTasks(tasks: Task[], key: SortKey, desc: boolean): Task[] {
+/** Where each group sits in the sidebar's tree (parents before their children, in the order shown): for sorting by group. */
+export function groupOrder(folders: Folder[]): Map<string, number> {
+  const order = new Map<string, number>()
+  const walk = (parent: string | null) => {
+    for (const f of childrenOf(folders, parent)) {
+      order.set(f.id, order.size)
+      walk(f.id)
+    }
+  }
+  walk(null)
+  return order
+}
+
+export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: Folder[] = []): Task[] {
+  if (key === 'group') {
+    // by the sidebar's order of the group each one is in (a task in no group comes last), then by priority within a group
+    const order = groupOrder(folders)
+    const at = (t: Task) => t.folderIds.map((id) => order.get(id)).find((n) => n !== undefined) ?? Infinity
+    const by = sortTasks(tasks, 'flow', false)
+    const out = by.map((t, i) => ({ t, i, g: at(t) })).sort((a, b) => (a.g === b.g ? a.i - b.i : a.g < b.g ? -1 : 1)).map((x) => x.t)
+    return desc ? out.reverse() : out
+  }
   if (key === 'manual') {
     // the order you gave them (by rank), then anything not placed yet by priority
     const by = sortTasks(tasks, 'flow', false)
@@ -107,6 +128,7 @@ export function sortTasks(tasks: Task[], key: SortKey, desc: boolean): Task[] {
     importance: (a, b) => b.importance - a.importance,
     urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
     manual: () => 0,
+    group: () => 0,
   }
   return [...tasks].sort((a, b) => cmp[key](a, b) * dir || a.createdAt - b.createdAt)
 }
