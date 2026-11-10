@@ -18,6 +18,8 @@ export interface SurfaceState {
   inliers: number
   /** Every point ever pinned to the surface (reference-picture coordinates), the ones out of view included: the surface's map. */
   landmarks: Pt[]
+  /** How far the followed points sit from where the fit says they should be: the root-mean-square, in this picture's pixels. */
+  residual: number
 }
 
 const MAX_POINTS = 140
@@ -41,6 +43,7 @@ export class SurfaceTracker {
   private region: Quad | null = null
   private frame = 0
   private landmarks: Pt[] = []
+  private residual = 0
   status: SurfaceState['status'] = 'idle'
 
   /** Start following the surface whose region is `quad` in `g`. False when there is nothing in it worth following. */
@@ -98,6 +101,7 @@ export class SurfaceTracker {
     }
     this.status = 'tracking'
     this.H = fit.H
+    this.residual = 0
     const ref: Pt[] = []
     const now: Pt[] = []
     keep.forEach((k, j) => {
@@ -106,6 +110,12 @@ export class SurfaceTracker {
         now.push(fwd.pts[k])
       }
     })
+    let sq = 0
+    for (let i = 0; i < ref.length; i++) {
+      const q = apply(this.H, ref[i].x, ref[i].y)
+      sq += (q.x - now[i].x) ** 2 + (q.y - now[i].y) ** 2
+    }
+    this.residual = ref.length ? Math.sqrt(sq / ref.length) : 0
     this.ref = ref
     this.cur = now
     this.prev = cur
@@ -132,6 +142,6 @@ export class SurfaceTracker {
 
   state(): SurfaceState {
     const quad = this.region ? (this.region.map((p) => apply(this.H, p.x, p.y)) as Quad) : null
-    return { status: this.status, H: this.H, quad, now: this.cur, ref: this.ref, inliers: this.cur.length, landmarks: this.landmarks }
+    return { status: this.status, H: this.H, quad, now: this.cur, ref: this.ref, inliers: this.cur.length, landmarks: this.landmarks, residual: this.residual }
   }
 }

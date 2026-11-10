@@ -68,6 +68,9 @@ export class WallTracking implements TrackingProvider {
   private overlay: WallOverlay = { phase: 'searching', quad: null, points: [], inliers: 0, kind: null }
   private fresh = false
   private lastVisionAt = 0
+  // measurements, for finding out where a problem is (see `diagnostics`)
+  private stat = { ms: 0, max: 0, recent: [] as number[], frames: 0, seen: 0, windowStart: 0, fps: 0, camFps: 0, seenWin: 0, resid: 0, points: 0, gyroGap: 0, lostCount: 0, lastGap: 0, lastDone: 0 }
+  private lastSt: { now: Pt[]; ref: Pt[] } = { now: [], ref: [] }
   /** The device's rotation, from the sensors (null when there are none). */
   device: ((out: Quaternion) => boolean) | null = null
 
@@ -175,9 +178,11 @@ export class WallTracking implements TrackingProvider {
     const v = this.video
     if (!v || v.readyState < 2 || !v.videoWidth || !this.ctx) return
     const now = performance.now()
+    this.stat.seen++
     // about 20 pictures a second is plenty (and kinder to the battery)
     if (now - this.lastVisionAt < 45) return
     this.lastVisionAt = now
+    const t0 = now
     if (this.vw !== v.videoWidth || this.vh !== v.videoHeight) {
       const fovV = 2 * Math.atan(this.vh / 2 / this.f)
       this.vw = v.videoWidth
@@ -197,6 +202,37 @@ export class WallTracking implements TrackingProvider {
     this.gray = g
     if (this.phase === 'searching') this.search(g, now)
     else this.follow(g)
+    // how long the whole picture took, and how many are being handled each second
+    const s = this.stat
+    const took = performance.now() - t0
+    s.ms += (took - s.ms) * 0.1
+    s.recent.push(took)
+    if (s.recent.length > 90) s.recent.shift()
+    s.max = Math.max(...s.recent)
+    s.frames++
+    s.lastGap = t0 - s.lastDone
+    s.lastDone = t0
+    if (!s.windowStart) s.windowStart = t0
+    if (t0 - s.windowStart >= 1000) {
+      s.fps = (s.frames * 1000) / (t0 - s.windowStart)
+      s.camFps = (this.stat.seen - s.seenWin) * 1000 / (t0 - s.windowStart)
+      s.seenWin = this.stat.seen
+      s.frames = 0
+      s.windowStart = t0
+    }
+  }
+
+  /** What the tracker is doing, as numbers (for the details display): speed, how well the fit holds, and how far the gyro and camera disagree. */
+  diagnostics() {
+    const s = this.stat
+    return { camFps: s.camFps, ms: s.ms, max: s.max, fps: s.fps, seen: s.seen, points: s.points, resid: s.resid, gyroGap: s.gyroGap, lostCount: s.lostCount, fovV: (2 * Math.atan(this.vh / 2 / this.f) * 180) / Math.PI, auto: this.autoF, phase: this.phase }
+  }
+  /** The points being followed: where each is now (as a fraction across and down the camera picture), and where it sits on the surface. */
+  debugFrame(): { u: number; v: number; plane: Pt }[] {
+    const inv = this.Hplane ? inv3(this.Hplane) : null
+    if (!inv || !this.gray) return []
+    const { now, ref } = this.lastSt
+    return now.map((p, i) => ({ u: p.x / this.gray!.w, v: p.y / this.gray!.h, plane: apply(inv, ref[i].x, ref[i].y) }))
   }
 
   /** Where a camera pixel is, in the small picture the tracker sees. */
@@ -251,12 +287,15 @@ export class WallTracking implements TrackingProvider {
 
   private follow(g: Gray) {
     const st = this.tracker.update(g)
+    this.stat.resid += (st.residual - this.stat.resid) * 0.2
+    this.stat.points = st.inliers
+    this.lastSt = { now: st.now, ref: st.ref }
     if (st.status === 'lost' || !this.Hplane) {
       this.setPhase('lost')
       this.overlay = { phase: 'lost', quad: this.overlay.quad, points: this.overlay.points, inliers: 0, kind: this.kind }
       this.fresh = true
       // find the surface again where it was: if it is back in view the tracker picks it up by itself next frames; otherwise search anew
-      if (st.status === 'lost' && this.lostSince === 0) this.lostSince = performance.now()
+      if (st.status === 'lost' && this.lostSince === 0) (this.lostSince = performance.now()), this.stat.lostCount++
       if (this.lostSince && performance.now() - this.lostSince > 6000) {
         this.lostSince = 0
         this.recenter()
@@ -289,6 +328,7 @@ export class WallTracking implements TrackingProvider {
           this.haveOffset = true
         } else {
           const ang = this.offset.angleTo(target)
+          this.stat.gyroGap += ((ang * 180) / Math.PI - this.stat.gyroGap) * 0.2
           this.offset.slerp(target, Math.min(0.92, 0.5 + ang * 6))
         }
       }
