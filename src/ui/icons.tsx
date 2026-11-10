@@ -81,9 +81,9 @@ export const IconList = (p: P) => (
 )
 export const IconBoard = (p: P) => (
   <Svg {...p}>
-    <rect x="3.5" y="4" width="5" height="16" rx="1.6" />
-    <rect x="10" y="4" width="5" height="10" rx="1.6" />
-    <rect x="16.5" y="4" width="4" height="13" rx="1.6" />
+    <rect x="3.5" y="4" width="4.67" height="16" rx="1.6" />
+    <rect x="9.67" y="4" width="4.67" height="10" rx="1.6" />
+    <rect x="15.83" y="4" width="4.67" height="13" rx="1.6" />
   </Svg>
 )
 export const IconPriority = (p: P) => (
@@ -332,7 +332,8 @@ export const IconImage = (p: P) => (
 )
 export const IconCube = (p: P) => (
   <Svg {...p}>
+    {/* the inside of the cube: two walls and the floor meeting at a corner */}
     <path d="M12 3.5 19.5 7.7v8.6L12 20.5l-7.5-4.2V7.7L12 3.5Z" />
-    <path d="M4.5 7.7 12 12l7.5-4.3M12 12v8.5" />
+    <path d="M12 12V3.5M12 12l-7.5 4.3M12 12l7.5 4.3" />
   </Svg>
 )

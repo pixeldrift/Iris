@@ -8,6 +8,7 @@ import { findQuads } from './quad'
 import { SurfaceTracker } from './surface'
 import { fitAffine, focalFromHomography, planeColumns, turnHomography } from './homography'
 import { surfaceFrame } from './plane'
+import { translationFromRotation } from './pose'
 
 /** A textured greyscale picture (smoothed noise, so there is something to follow at every scale). */
 function texture(w: number, h: number, seed = 3): Gray {
@@ -316,5 +317,26 @@ describe('following a surface', () => {
     for (let i = 1; i <= 5; i++) st = tr.update(warp(base, shift(1.5 * i, 1 * i)))
     expect(st.H[6]).toBe(0)
     expect(st.H[7]).toBe(0)
+  })
+
+  it('finds where the camera is from the turn alone (the gyro) and the points of the surface', () => {
+    const k = { f: 180, cx: 96, cy: 72 }
+    const [a, b] = [0.3, -0.25]
+    const Rx: Mat3 = [1, 0, 0, 0, Math.cos(a), -Math.sin(a), 0, Math.sin(a), Math.cos(a)]
+    const Ry: Mat3 = [Math.cos(b), 0, Math.sin(b), 0, 1, 0, -Math.sin(b), 0, Math.cos(b)]
+    const R = mul3(Ry, Rx)
+    const t = [0.12, -0.2, 2.2]
+    const r = rng(5)
+    const pts = Array.from({ length: 40 }, () => {
+      const plane = { x: r() - 0.5, y: r() - 0.5 }
+      const c = [R[0] * plane.x + R[1] * plane.y + t[0], R[3] * plane.x + R[4] * plane.y + t[1], R[6] * plane.x + R[7] * plane.y + t[2]]
+      return { plane, pix: { x: k.cx + (k.f * c[0]) / c[2] + (r() - 0.5) * 0.4, y: k.cy + (k.f * c[1]) / c[2] + (r() - 0.5) * 0.4 } }
+    })
+    // a few that are not on the surface at all
+    for (let i = 0; i < 6; i++) pts[i].pix = { x: pts[i].pix.x + 15, y: pts[i].pix.y - 9 }
+    const got = translationFromRotation(R, k, pts)!
+    expect(got[0]).toBeCloseTo(t[0], 1)
+    expect(got[1]).toBeCloseTo(t[1], 1)
+    expect(got[2]).toBeCloseTo(t[2], 1)
   })
 })

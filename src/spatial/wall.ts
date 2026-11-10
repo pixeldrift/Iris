@@ -4,6 +4,7 @@
 // the surface is the unit everything is measured in. It does its best; it is not ARKit.
 
 import { Matrix4, Quaternion, Vector3 } from 'three'
+import { translationFromRotation } from './vision/pose'
 import { detectCorners } from './vision/features'
 import { cameraFromPlaneHomography, fitHomography, focalFromHomography, planeColumns, quatFromMat, turnHomography } from './vision/homography'
 import { surfaceFrame } from './vision/plane'
@@ -76,6 +77,12 @@ export class WallTracking implements TrackingProvider {
   private corners: Pt[] | null = null
   private qFrame = new Quaternion()
   private haveQ = false
+  // gyro-led mode: the turn comes from the gyroscope (so a quick move or a still hand is as steady as the gyro is), and the camera gives
+  // where the phone is (nearer, farther, to the side). The picture corrects the gyro's slow drift a little at a time (`off`).
+  private Wp: Quaternion | null = null // sensor world -> the surface's frame, fixed when the surface was found
+  private off = new Quaternion() // the picture's slow correction, in the surface's frame
+  private haveOff = false
+  private C: [number, number, number] | null = null // where the camera is, in the surface's frame (smoothed)
   // measurements, for finding out where a problem is (see `diagnostics`)
   private stat = { ms: 0, max: 0, recent: [] as number[], frames: 0, seen: 0, windowStart: 0, fps: 0, camFps: 0, seenWin: 0, resid: 0, points: 0, gyroGap: 0, lostCount: 0, lastGap: 0, lastDone: 0 }
   private lastSt: { now: Pt[]; ref: Pt[] } = { now: [], ref: [] }
@@ -88,7 +95,7 @@ export class WallTracking implements TrackingProvider {
   }
   /** Size the world: the surface's width, in world units, and how far in front of it the items float. */
   /** How much the view is smoothed, 0 (every twitch) to 1 (very steady). */
-  smoothing = 0.6
+  smoothing = 0.15
   configure(opts: { scale?: number; lift?: number; fovV?: number; origin?: [number, number]; smooth?: number }) {
     if (opts.smooth !== undefined) this.smoothing = opts.smooth
     if (opts.scale) this.scale = opts.scale
@@ -120,6 +127,9 @@ export class WallTracking implements TrackingProvider {
     this.tracker.reset()
     this.Hs = null
     this.corners = null
+    this.Wp = null
+    this.C = null
+    this.haveOff = false
     this.Hplane = null
     this.seen = null
     this.searchSince = performance.now()
@@ -246,6 +256,22 @@ export class WallTracking implements TrackingProvider {
   getSurface(lagMs = 0): { H: Mat3; zcol: Vec3 } | null {
     if (!this.Hs || !this.gray) return null
     const k = this.k()
+    // gyro-led: this very moment's turn from the gyroscope, and the position the picture gave
+    if (this.Wp && this.C && this.haveOff && this.device && this.device(this.tmpQ, lagMs)) {
+      const q = this.off.clone().multiply(this.Wp).multiply(this.tmpQ)
+      const R = this.surfaceToCamera(q)
+      const t: Vec3 = [0, 1, 2].map((r) => -(R[r * 3] * this.C![0] + R[r * 3 + 1] * this.C![1] + R[r * 3 + 2] * this.C![2])) as Vec3
+      const K = (v: Vec3): Vec3 => [k.f * v[0] + k.cx * v[2], k.f * v[1] + k.cy * v[2], v[2]]
+      const c0 = K([R[0], R[3], R[6]])
+      const c1 = K([R[1], R[4], R[7]])
+      const c3 = K(t)
+      const z = K([R[2], R[5], R[8]])
+      const gw = GRAY_W
+      const gh = this.gray.h
+      const H: Mat3 = [c0[0], c1[0], c3[0], c0[1], c1[1], c3[1], c0[2], c1[2], c3[2]]
+      const S: Mat3 = [1 / gw, 0, 0, 0, 1 / gh, 0, 0, 0, 1]
+      return { H: mul3(S, H), zcol: [z[0] / gw, z[1] / gh, z[2]] }
+    }
     const pc = planeColumns(this.Hs, k)
     if (!pc) return null
     let H = pc.H
@@ -268,10 +294,17 @@ export class WallTracking implements TrackingProvider {
     return { H: mul3(S, H), zcol: [z[0] / gw, z[1] / gh, z[2]] }
   }
 
+  /** The camera's turn `q` (camera -> the surface's frame, the 3D camera's axes) as the matrix taking the surface's axes to the picture's. */
+  private surfaceToCamera(q: Quaternion): Mat3 {
+    const m = new Matrix4().makeRotationFromQuaternion(q).elements // column-major: columns are the camera's axes in the surface's frame
+    const f = [1, -1, -1]
+    return [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => f[r] * m[r * 4 + c])) as Mat3
+  }
+
   /** What the tracker is doing, as numbers (for the details display): speed, how well the fit holds, and how far the gyro and camera disagree. */
   diagnostics() {
     const s = this.stat
-    return { camFps: s.camFps, ms: s.ms, max: s.max, fps: s.fps, seen: s.seen, points: s.points, resid: s.resid, gyroGap: s.gyroGap, lostCount: s.lostCount, fovV: (2 * Math.atan(this.vh / 2 / this.f) * 180) / Math.PI, auto: this.autoF, phase: this.phase }
+    return { gyroLed: !!(this.Wp && this.C && this.haveOff), hasWp: !!this.Wp, hasC: !!this.C, camFps: s.camFps, ms: s.ms, max: s.max, fps: s.fps, seen: s.seen, points: s.points, resid: s.resid, gyroGap: s.gyroGap, lostCount: s.lostCount, fovV: (2 * Math.atan(this.vh / 2 / this.f) * 180) / Math.PI, auto: this.autoF, phase: this.phase }
   }
   /** The points being followed: where each is now (as a fraction across and down the camera picture), and where it sits on the surface. */
   debugFrame(): { u: number; v: number; plane: Pt }[] {
@@ -337,6 +370,15 @@ export class WallTracking implements TrackingProvider {
     this.Hplane = fr ? fr.H : null
     this.Hs = null
     this.corners = null
+    this.Wp = null
+    this.C = null
+    this.haveOff = false
+    if (fr && axes && this.device && this.device(this.tmpQ, VIDEO_LAG)) {
+      // the camera's turn in the surface's frame now (from the frame just declared) and in the sensors' world: the link between the two
+      const m = new Matrix4().set(fr.R[0], fr.R[1], fr.R[2], 0, fr.R[3], fr.R[4], fr.R[5], 0, fr.R[6], fr.R[7], fr.R[8], 0, 0, 0, 0, 1)
+      const q0 = new Quaternion().setFromRotationMatrix(m)
+      this.Wp = q0.multiply(this.tmpQ.clone().invert())
+    }
     this.kind = kind
     this.seen = null
     this.haveOffset = false
@@ -374,7 +416,7 @@ export class WallTracking implements TrackingProvider {
       else {
         const moved = cs.reduce((s, c, i) => s + Math.hypot(c.x - this.corners![i].x, c.y - this.corners![i].y), 0) / 4
         // (steadier when still, quick when the phone really moves)
-        const a = Math.min(1, 0.5 - 0.44 * this.smoothing + moved * (0.14 - 0.08 * this.smoothing))
+        const a = Math.min(1, 0.06 * (1 - 0.7 * this.smoothing) + moved * (0.06 - 0.03 * this.smoothing))
         this.corners = this.corners.map((c, i) => ({ x: c.x + (cs[i].x - c.x) * a, y: c.y + (cs[i].y - c.y) * a }))
       }
       this.Hs = fitHomography(unit, this.corners) ?? Himg
@@ -384,25 +426,34 @@ export class WallTracking implements TrackingProvider {
     if (pose) {
       this.visQ.set(...quatFromMat(pose.R))
       const p = pose.position
-      // The picture is the main source: each reading is followed closely (more closely the further it is from where the view was, so a
-      // quick move is not lagged behind and the virtual wall does not slip against the real one) and only a little is smoothed away.
-      // The gyroscope fills the gaps between pictures and covers a moment without the surface.
       if (!this.havePos) this.pos = [p[0], p[1], p[2]]
-      else {
-        const d = Math.hypot(p[0] - this.pos[0], p[1] - this.pos[1], p[2] - this.pos[2])
-        const a = Math.min(0.9, 0.3 + d * 18)
-        this.pos = [this.pos[0] + (p[0] - this.pos[0]) * a, this.pos[1] + (p[1] - this.pos[1]) * a, this.pos[2] + (p[2] - this.pos[2]) * a]
-      }
+      else this.pos = [this.pos[0] + (p[0] - this.pos[0]) * 0.5, this.pos[1] + (p[1] - this.pos[1]) * 0.5, this.pos[2] + (p[2] - this.pos[2]) * 0.5]
       this.havePos = true
-      if (this.device && this.device(this.tmpQ)) {
-        const target = this.visQ.clone().multiply(this.tmpQ.clone().invert())
-        if (!this.haveOffset) {
-          this.offset.copy(target)
-          this.haveOffset = true
-        } else {
-          const ang = this.offset.angleTo(target)
-          this.stat.gyroGap += ((ang * 180) / Math.PI - this.stat.gyroGap) * 0.2
-          this.offset.slerp(target, Math.min(0.9, 0.3 + ang * 8))
+    }
+    // gyro-led: the turn from the gyroscope, the position from the picture given that turn
+    if (pose && this.Wp && this.haveQ) {
+      const qg = this.Wp.clone().multiply(this.qFrame) // the camera's turn in the surface's frame, by the gyro alone
+      const target = this.visQ.clone().multiply(qg.clone().invert())
+      const gap = (this.visQ.angleTo(qg) * 180) / Math.PI
+      this.stat.gyroGap += (gap - this.stat.gyroGap) * 0.2
+      if (!this.haveOff) {
+        this.off.copy(target)
+        this.haveOff = true
+      } else this.off.slerp(target, Math.min(0.5, 0.03 + gap * 0.02)) // (the picture only corrects slow drift; a big disagreement is pulled in faster)
+      const toP = inv3(this.Hplane)
+      if (toP) {
+        const q = this.off.clone().multiply(qg)
+        const Rcw = this.surfaceToCamera(q)
+        const pts = st.ref.map((r, i) => ({ plane: apply(toP, r.x, r.y), pix: st.now[i] }))
+        const t = translationFromRotation(Rcw, this.k(), pts)
+        if (t) {
+          const C: [number, number, number] = [0, 1, 2].map((i) => -(Rcw[i] * t[0] + Rcw[3 + i] * t[1] + Rcw[6 + i] * t[2])) as [number, number, number]
+          if (!this.C) this.C = C
+          else {
+            const d = Math.hypot(C[0] - this.C[0], C[1] - this.C[1], C[2] - this.C[2])
+            const a = Math.min(1, 0.16 - 0.12 * this.smoothing + d * (30 - 15 * this.smoothing))
+            this.C = [this.C[0] + (C[0] - this.C[0]) * a, this.C[1] + (C[1] - this.C[1]) * a, this.C[2] + (C[2] - this.C[2]) * a]
+          }
         }
       }
     }

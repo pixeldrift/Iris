@@ -22,12 +22,12 @@ interface SpatialState {
   /** The radius of the cylinder the groups hang on (a testing control). */
   radius: number
   /** Wall mode: how much the view is smoothed (0: follows every twitch, 1: very steady). */
-  wallSmooth: number
+  wallSteady: number
   /** Groups folded down to just their names. */
   collapsed: Record<string, true>
   toggleCollapsed: (id: string) => void
   setLayout: (l: SpatialLayoutData) => void
-  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'render' | 'seen' | 'tipSeen' | 'links' | 'tidy' | 'radius' | 'wallSmooth'>>) => void
+  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'render' | 'seen' | 'tipSeen' | 'links' | 'tidy' | 'radius' | 'wallSteady'>>) => void
   /** Forget where things were put (they are laid out afresh). */
   resetLayout: () => void
 }
@@ -44,7 +44,7 @@ export const useSpatial = create<SpatialState>()(
       links: true,
       tidy: true,
       radius: RADIUS.start,
-      wallSmooth: 0.6,
+      wallSteady: 0.15,
       collapsed: {},
       toggleCollapsed: (id) =>
         set((s) => {
@@ -67,7 +67,7 @@ export const useSpatial = create<SpatialState>()(
         return s as never
       },
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
-      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, wallSmooth: s.wallSmooth, collapsed: s.collapsed }),
+      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, wallSteady: s.wallSteady, collapsed: s.collapsed }),
     },
   ),
 )
