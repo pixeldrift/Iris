@@ -6,7 +6,7 @@ import { apply, inv3, mul3, rng, type Mat3, type Pt } from './math'
 import { trackPoints } from './lk'
 import { findQuads } from './quad'
 import { SurfaceTracker } from './surface'
-import { focalFromHomography, planeColumns, turnHomography } from './homography'
+import { fitAffine, focalFromHomography, planeColumns, turnHomography } from './homography'
 import { surfaceFrame } from './plane'
 
 /** A textured greyscale picture (smoothed noise, so there is something to follow at every scale). */
@@ -302,5 +302,19 @@ describe('following a surface', () => {
     expect(st.status).toBe('tracking')
     expect(st.H[2]).toBeCloseTo(16, 0)
     expect(st.H[5]).toBeCloseTo(-12, 0)
+  })
+
+  it('fits an affine map exactly, and the tracker keeps perspective out of plain motion', () => {
+    const src: Pt[] = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 8 }, { x: 7, y: 9 }, { x: 3, y: 4 }]
+    const A: Mat3 = [1.1, 0.2, 5, -0.1, 0.9, -3, 0, 0, 1]
+    const A2 = fitAffine(src, src.map((p) => apply(A, p.x, p.y)))!
+    for (let i = 0; i < 9; i++) expect(A2[i]).toBeCloseTo(A[i], 6)
+    const base = texture(160, 120, 13)
+    const tr = new SurfaceTracker()
+    expect(tr.acquire(base, [{ x: 30, y: 24 }, { x: 130, y: 24 }, { x: 130, y: 96 }, { x: 30, y: 96 }] as [Pt, Pt, Pt, Pt])).toBe(true)
+    let st = tr.state()
+    for (let i = 1; i <= 5; i++) st = tr.update(warp(base, shift(1.5 * i, 1 * i)))
+    expect(st.H[6]).toBe(0)
+    expect(st.H[7]).toBe(0)
   })
 })

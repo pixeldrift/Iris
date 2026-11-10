@@ -1,5 +1,5 @@
 import { detectCorners } from './features'
-import { ransacHomography } from './homography'
+import { fitAffine, ransacHomography } from './homography'
 import { pyramid, type Gray } from './image'
 import { apply, inv3, type Mat3, type Pt, IDENTITY } from './math'
 import { trackPoints } from './lk'
@@ -25,6 +25,8 @@ export interface SurfaceState {
 /** The tracker keeps the previous picture to compare with: its own copy, so a caller that reuses one buffer for every picture cannot overwrite it (that once made every point look like it had not moved at the finest scale). */
 const own = (g: Gray): Gray => ({ w: g.w, h: g.h, d: g.d.slice() })
 
+/** How much better (in pixels, root-mean-square) the full homography has to fit than the plain map before its perspective is believed. */
+const PERSPECTIVE_MARGIN = 0.22
 const MAX_POINTS = 140
 const MIN_POINTS = 24 // (below this it is topped up every other frame)
 const TOP_UP_BELOW = 110
@@ -103,7 +105,25 @@ export class SurfaceTracker {
       return this.state()
     }
     this.status = 'tracking'
-    this.H = fit.H
+    // A full homography has two perspective numbers that jump about with the noise in the points and make the surface look skewed. The
+    // plainer map (no perspective) is used unless the points really do fit the full one noticeably better.
+    let H = fit.H
+    {
+      const si: Pt[] = []
+      const di: Pt[] = []
+      keep.forEach((k, j) => {
+        if (fit.inliers[j]) {
+          si.push(this.ref[k])
+          di.push(fwd.pts[k])
+        }
+      })
+      const A = fitAffine(si, di)
+      if (A) {
+        const rms = (M: Mat3) => Math.sqrt(si.reduce((s, p, i) => s + (apply(M, p.x, p.y).x - di[i].x) ** 2 + (apply(M, p.x, p.y).y - di[i].y) ** 2, 0) / si.length)
+        if (rms(A) < rms(fit.H) + PERSPECTIVE_MARGIN) H = A
+      }
+    }
+    this.H = H
     this.residual = 0
     const ref: Pt[] = []
     const now: Pt[] = []
