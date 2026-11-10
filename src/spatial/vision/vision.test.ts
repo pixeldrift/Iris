@@ -6,6 +6,7 @@ import { apply, inv3, mul3, rng, type Mat3, type Pt } from './math'
 import { trackPoints } from './lk'
 import { findQuads } from './quad'
 import { SurfaceTracker } from './surface'
+import { focalFromHomography } from './homography'
 
 /** A textured greyscale picture (smoothed noise, so there is something to follow at every scale). */
 function texture(w: number, h: number, seed = 3): Gray {
@@ -194,5 +195,24 @@ describe('following a surface', () => {
     expect(Math.hypot(got.x - (50 - ox), got.y - 60)).toBeLessThan(6)
     // and the map has grown well past the first region
     expect(st.landmarks.some((p) => p.x > 200)).toBe(true)
+  })
+
+  it('works out the focal length from a surface seen at a slant (and says nothing for one seen square-on)', () => {
+    const f = 180
+    const [cx, cy] = [96, 72]
+    const K: Mat3 = [f, 0, cx, 0, f, cy, 0, 0, 1]
+    const make = (ax: number, ay: number): Mat3 => {
+      const [cxr, sxr, cyr, syr] = [Math.cos(ax), Math.sin(ax), Math.cos(ay), Math.sin(ay)]
+      // R = Ry * Rx ; columns r1, r2 are the surface's axes
+      const r1 = [cyr, 0, -syr]
+      const r2 = [syr * sxr, cxr, cyr * sxr]
+      const t = [0.1, -0.2, 2]
+      const P: Mat3 = [r1[0], r2[0], t[0], r1[1], r2[1], t[1], r1[2], r2[2], t[2]]
+      return mul3(K, P)
+    }
+    const got = focalFromHomography(make(0.5, 0.35), cx, cy)
+    expect(got).not.toBeNull()
+    expect(Math.abs(got! - f) / f).toBeLessThan(0.01)
+    expect(focalFromHomography(make(0, 0), cx, cy)).toBeNull()
   })
 })

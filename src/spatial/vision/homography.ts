@@ -134,6 +134,25 @@ export function cameraFromPlaneHomography(H: Mat3, k: Intrinsics): { position: V
   return { position, R, aspect }
 }
 
+/**
+ * The lens's focal length (in the picture's pixels) as one picture of a flat surface implies it, taking the middle of the picture as the
+ * lens's centre: the surface's two axes must be square to each other, which fixes the focal length whenever the surface is seen at a slant.
+ * Null for a surface seen square-on (it says nothing then) or when the answer is not possible.
+ */
+export function focalFromHomography(H: Mat3, cx: number, cy: number): number | null {
+  // centre the picture
+  const T: Mat3 = [1, 0, -cx, 0, 1, -cy, 0, 0, 1]
+  const Hc = mul3(T, H)
+  const [a1, b1, c1, a2, b2, c2] = [Hc[0], Hc[3], Hc[6], Hc[1], Hc[4], Hc[7]]
+  const n1 = Math.hypot(a1, b1)
+  const n2 = Math.hypot(a2, b2)
+  const num = a1 * a2 + b1 * b2
+  // (seen square-on the axes are still square in the picture, and there is nothing to learn)
+  if (n1 < 1e-9 || n2 < 1e-9 || Math.abs(num) / (n1 * n2) < 0.08) return null
+  const f2 = -num / (c1 * c2)
+  return f2 > 0 && Number.isFinite(f2) ? Math.sqrt(f2) : null
+}
+
 /** A quaternion (x, y, z, w) from a rotation matrix. */
 export function quatFromMat(m: Mat3): [number, number, number, number] {
   const t = m[0] + m[4] + m[8]
