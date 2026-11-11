@@ -215,7 +215,7 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   })
   g.shadowColor = 'transparent'
   g.shadowBlur = 0
-  if (c.progress && c.progress > 0 && c.progress < 100 && !c.done) {
+  if (c.progress != null && c.progress < 100 && !c.done) {
     const bw = x + w - 22 - tx
     roundRect(g, tx, y + h - 14, bw, 6, 3)
     g.fillStyle = 'rgba(255,255,255,0.8)'
