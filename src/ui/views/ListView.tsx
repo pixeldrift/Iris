@@ -22,7 +22,6 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'urgency', label: 'Urgency' },
   { id: 'due', label: 'Due date' },
   { id: 'created', label: 'Newest' },
-  { id: 'group', label: 'Group' },
   { id: 'title', label: 'A → Z' },
   { id: 'manual', label: 'My order' },
 ]
