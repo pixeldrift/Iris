@@ -261,7 +261,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
             }}
             aria-label="Delete"
             title="Delete"
-            className="absolute right-1.5 top-1/2 hidden h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-ink-faint opacity-0 shadow-sm transition hover:text-danger-deep md:grid md:group-hover:opacity-100"
+            className="relative z-10 grid h-7 w-0 shrink-0 -translate-y-0 place-items-center overflow-hidden rounded-full bg-white/85 text-ink-faint opacity-0 shadow-sm transition-[width,opacity,margin] duration-200 hover:text-danger-deep md:group-hover:ml-1 md:group-hover:w-7 md:group-hover:opacity-100"
           >
             <IconTrash size={14} />
           </button>
@@ -285,7 +285,7 @@ export function ListView() {
   const set = useStore((s) => s.setSetting)
   const folders = useStore((s) => s.folders)
 
-  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc, folders, sortSecondaryKey), [visible, sortKey, sortDesc, folders])
+  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc, folders, sortSecondaryKey), [visible, sortKey, sortDesc, folders, sortSecondaryKey])
   // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
   // one, they glide to where the sort puts them (the list animates the move, so you can see where each went).
   const [fresh, setFresh] = useState<string[]>([])
