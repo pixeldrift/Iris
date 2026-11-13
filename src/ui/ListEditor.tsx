@@ -1,5 +1,5 @@
 import * as sound from '../audio/engine'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
 import { percentOfCount } from '../core/progress'
@@ -18,9 +18,12 @@ const STYLES: { id: ListStyle; label: string }[] = [
 const EXAMPLES = ['Milk', 'Bread', 'Eggs']
 
 /** The entries of a list task: tick them, rename them, add more. Numbers are automatic. */
-export function ListEditor({ task }: { task: Task }) {
+export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoFocusFirst?: boolean }) {
   const update = useStore((s) => s.updateTask)
   const add = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (autoFocusFirst && items.length === 0) requestAnimationFrame(() => add.current?.focus())
+  }, [autoFocusFirst, items.length])
   // an empty list shows three example entries (a preview of what a list looks like) until it is tapped to edit, which clears them
   const [touched, setTouched] = useState(false)
   const preview = task.items.length === 0 && !touched
