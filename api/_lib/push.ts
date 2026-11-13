@@ -74,27 +74,42 @@ export function dueForPush(tasks: Task[], now: number, tz: string): Due[] {
   return out
 }
 
-/** One sweep (run about once a minute): push whatever has come due to every subscribed person. Returns how many were sent. */
-export async function sweep(db: Db, send: Sender, now = Date.now()): Promise<{ sent: number; removed: number }> {
+/** One sweep (run about once a minute): push whatever has come due to every subscribed person. */
+export async function sweep(db: Db, send: Sender, now = Date.now()): Promise<{ sent: number; removed: number; failed: number }> {
   const subs = (await db.query<{ endpoint: string; user_id: string; p256dh: string; auth: string; tz: string }>('select endpoint, user_id, p256dh, auth, tz from push_subscriptions')).rows
   const byUser = new Map<string, typeof subs>()
   for (const s of subs) byUser.set(s.user_id, [...(byUser.get(s.user_id) ?? []), s])
-  let sent = 0, removed = 0
+  let sent = 0, removed = 0, failed = 0
   for (const [userId, list] of byUser) {
     const rows = (await db.query<{ data: Task }>(
       `select e.data from entities e join workspace_members m on m.workspace_id = e.workspace_id
        where m.user_id = $1 and e.kind = 'task' and not e.deleted and e.data is not null`, [userId])).rows
     const due = dueForPush(rows.map((r) => r.data), now, list[0].tz)
     for (const d of due) {
-      // claim it first: if two sweeps overlap, only one gets the row
-      const claim = await db.query('insert into push_sent (user_id, key) values ($1,$2) on conflict do nothing returning key', [userId, d.key])
-      if (!claim.rows.length) continue
       for (const s of list) {
-        const r = await send({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, d.payload).catch(() => 'ok' as const)
-        if (r === 'gone') { await db.query('delete from push_subscriptions where endpoint = $1', [s.endpoint]); removed++ } else sent++
+        // Claim per device, not per person: a failed device can retry without duplicating
+        // a successful send to another device. The endpoint is already a unique subscription ID.
+        const key = `${d.key}:${s.endpoint}`
+        const claim = await db.query('insert into push_sent (user_id, key) values ($1,$2) on conflict do nothing returning key', [userId, key])
+        if (!claim.rows.length) continue
+        try {
+          const result = await send({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, d.payload)
+          if (result === 'gone') {
+            await db.query('delete from push_subscriptions where endpoint = $1', [s.endpoint])
+            removed++
+          } else {
+            sent++
+          }
+        } catch (e) {
+          // Release only this device's claim so the next sweep can retry it.
+          await db.query('delete from push_sent where user_id = $1 and key = $2', [userId, key])
+          failed++
+          const statusCode = (e as { statusCode?: number } | null)?.statusCode
+          console.error('push send failed', { statusCode })
+        }
       }
     }
   }
   await db.query(`delete from push_sent where sent_at < now() - interval '3 days'`)
-  return { sent, removed }
+  return { sent, removed, failed }
 }
