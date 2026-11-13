@@ -260,7 +260,7 @@ export function Sidebar() {
           icon={<IconInbox />}
           label="Unsorted"
           handleGap
-          count={live.filter((t) => !t.due && !t.day && t.folderIds.length === 0).length}
+          count={live.filter((t) => t.folderIds.length === 0).length}
         />
       </Section>
     ),
