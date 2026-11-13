@@ -10,6 +10,11 @@ describe('isDoneNow: one answer for every view', () => {
     expect(isDoneNow({ ...base(), status: 'todo' }, '2026-10-26')).toBe(false)
     expect(isDoneNow({ ...base(), status: 'done' }, '2026-10-26')).toBe(true)
   })
+  it('a past event is not implicitly checked off; the date policy persists completion in task status', () => {
+    const event = { ...base(), kind: 'event' as const, day: '2026-10-20', time: '09:00', endTime: '10:00' }
+    expect(isDoneNow(event, '2026-10-26')).toBe(false)
+    expect(isDoneNow({ ...event, status: 'done' }, '2026-10-26')).toBe(true)
+  })
   it('a repeating task is done when its current occurrence is logged, never for good', () => {
     const t: Task = { ...base(), repeat: { freq: 'daily', interval: 1, from: '2026-10-01' }, status: 'todo', log: [] }
     expect(isDoneNow(t, '2026-10-26')).toBe(false)
