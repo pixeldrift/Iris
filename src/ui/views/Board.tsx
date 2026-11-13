@@ -55,7 +55,7 @@ function Card({ task }: { task: Task }) {
           <ItemBadges task={task} max={2} />
           <PlaceChip task={task} />
           <FolderChips task={task} max={2} />
-          {(task.images?.[0] || task.image) && <img src={task.images?.[0] || task.image} alt="" draggable={false} className="ml-auto h-8 w-8 shrink-0 rounded-lg border border-white/70 object-cover shadow-sm" />
+          {(task.images?.[0] || task.image) && <img src={task.images?.[0] || task.image} alt="" draggable={false} className="ml-auto h-8 w-8 shrink-0 rounded-lg border border-white/70 object-cover shadow-sm" />}
         </div>
       </div>
     </Dim>
