@@ -46,8 +46,8 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
       el.style.transform = `translateX(${dx}px)`
       if (revealDelete.current) revealDelete.current.style.opacity = String(dx < 0 ? Math.min(1, -dx / 80) : 0)
       if (revealCheck.current) revealCheck.current.style.opacity = String(dx > 0 ? Math.min(1, dx / 80) : 0)
-      if (strike.current && dx >= 0) {
-        const progress = Math.min(1, dx / need)
+      if (strike.current) {
+        const progress = Math.min(1, Math.max(0, dx) / need)
         const scale = wasDone ? 1 - progress : progress
         strike.current.style.transformOrigin = origin
         strike.current.style.transform = `scaleX(${scale})`
@@ -93,6 +93,7 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
         }, 160)
       } else {
         // Incomplete gestures retreat to their original state with a spring.
+        if (strike.current) strike.current.style.transition = `transform ${spring}, opacity 180ms ease-out`
         apply(0)
       }
       window.setTimeout(() => {
