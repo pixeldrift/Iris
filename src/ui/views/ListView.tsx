@@ -410,7 +410,7 @@ export function ListView() {
           const previousGroupId = i > 0 ? (rows[i - 1].folderIds[0] ?? '__ungrouped') : groupId
           return (
           <div key={t.id} data-card-id={t.id} className="relative">
-            {i > 0 && groupId !== previousGroupId && <span aria-hidden className="pointer-events-none absolute -top-1 inset-x-3 h-px bg-ink-faint/25" />}
+            {sortKey === 'group' && i > 0 && groupId !== previousGroupId && <span aria-hidden className="pointer-events-none absolute -top-1 inset-x-3 h-px bg-ink-faint/25" />}
             {slot && slot.before === t.id && <SlotLine at="top" />}
             <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
             {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
