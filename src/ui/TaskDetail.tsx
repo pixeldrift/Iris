@@ -242,7 +242,7 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
           <div className="flex items-center gap-2">
             <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} />
             <span className="shrink-0 text-sm text-ink-soft">of</span>
-            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-auto !min-w-0 !rounded-none !border-0 !bg-transparent !px-0 !py-0 !text-sm !font-semibold !text-lilac-700 !shadow-none" />
+            <NumberField label="Total items" value={t.total} min={1} bare onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-auto !min-w-0 !rounded-none !border-0 !bg-transparent !px-0 !py-0 !text-sm !font-semibold !text-lilac-700 !shadow-none" />
             <span className="shrink-0 text-sm text-ink-soft">items done</span>
             <div className="ml-auto flex shrink-0 items-center gap-2">
               <button type="button" aria-label="One fewer item completed" disabled={t.done <= 0} onClick={() => setTally(task.id, { ...t, done: t.done - 1 })} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-100 text-xl font-medium text-lilac-700 shadow-sm transition hover:bg-lilac-200 active:scale-95 disabled:opacity-40 disabled:active:scale-100">−</button>
