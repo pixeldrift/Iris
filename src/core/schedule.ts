@@ -112,5 +112,5 @@ export function isPastEvent(t: Pick<Task, 'kind' | 'day' | 'time' | 'endTime' | 
   return end.getTime() <= now
 }
 
-/** Done, or an event that is over: both fade away the same way, and both go when completed items are hidden. */
-export const isFinished = (t: Pick<Task, 'status' | 'kind' | 'day' | 'time' | 'endTime' | 'repeat' | 'draft'>, now = Date.now()): boolean => t.status === 'done' || isPastEvent(t, now)
+/** An item is finished only when it has actually been checked off. Past events are completed by the store's date policy. */
+export const isFinished = (t: Pick<Task, 'status'>): boolean => t.status === 'done'
