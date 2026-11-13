@@ -5,6 +5,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
+import * as sound from '../audio/engine'
 import { useVisibleTasks } from '../ui/useVisible'
 import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
@@ -37,6 +38,7 @@ export default function SpatialView() {
   const prefs = useSpatial((s) => s.set)
   const select = useStore((s) => s.select)
   const toggleDone = useStore((s) => s.toggleDone)
+  const setTally = useStore((s) => s.setTally)
   const setView = useStore((s) => s.setView)
   const lastView = useStore((s) => s.lastView)
   const visible = useVisibleTasks(false)
@@ -240,6 +242,12 @@ export default function SpatialView() {
       sc = new SpatialScene(host.current, track.current, {
         onOpen: (id) => select(id),
         onToggle: (id) => toggleDone(id),
+        onIncrement: (id) => {
+          const task = useStore.getState().tasks.find((t) => t.id === id)
+          if (!task?.tally || task.status === 'done' || task.tally.done >= task.tally.total) return
+          setTally(id, { ...task.tally, done: task.tally.done + 1 })
+          sound.tickDone()
+        },
         onLayout: (l) => setLayout(l),
         onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
         // a group let go over another group's name goes inside it
