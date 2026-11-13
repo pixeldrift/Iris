@@ -31,7 +31,7 @@ const SORTS: { id: SortKey; label: string }[] = [
  * the line is taken back off). It only takes over when the finger clearly moves sideways, so scrolling stays vertical, and a
  * press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
  */
-function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, onDelete: () => void, onCheck: () => void) {
+function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
   return (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return
     const el = row.current
@@ -39,32 +39,69 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
     const sx = e.clientX
     const sy = e.clientY
     let swiping = false
+    const need = Math.min(el.offsetWidth * 0.35, 120)
+    const origin = wasDone ? 'right' : 'left'
+    const restingScale = wasDone ? 1 : 0
     const apply = (dx: number) => {
       el.style.transform = `translateX(${dx}px)`
       if (revealDelete.current) revealDelete.current.style.opacity = String(dx < 0 ? Math.min(1, -dx / 80) : 0)
       if (revealCheck.current) revealCheck.current.style.opacity = String(dx > 0 ? Math.min(1, dx / 80) : 0)
+      if (strike.current) {
+        const progress = Math.min(1, Math.max(0, dx) / need)
+        const scale = wasDone ? 1 - progress : progress
+        strike.current.style.transformOrigin = origin
+        strike.current.style.transform = `scaleX(${scale})`
+        strike.current.style.opacity = String(wasDone || progress > 0 ? 1 : 0)
+      }
     }
     const end = (commit: boolean, dx: number) => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', cancel)
       if (!swiping) return
-      el.style.transition = 'transform 0.22s ease-out'
-      const need = Math.min(el.offsetWidth * 0.35, 120)
+      const check = commit && dx > need
+      const spring = '420ms cubic-bezier(0.2, 0.9, 0.25, 1.15)'
+      el.style.transition = `transform ${spring}`
       if (commit && dx < -need) {
+        el.style.transition = 'transform 0.22s ease-out'
         el.style.transform = 'translateX(-110%)'
         onDelete()
         return
       }
-      const check = commit && dx > need
-      apply(0)
+      if (check) {
+        // The line has reached its end with the finger; let the row spring home while
+        // the completed/undone state catches up underneath it.
+        el.style.transform = 'translateX(0)'
+        if (revealCheck.current) revealCheck.current.style.opacity = '0'
+        if (strike.current) {
+          strike.current.style.transition = 'none'
+          strike.current.style.transformOrigin = origin
+          strike.current.style.transform = `scaleX(${wasDone ? 0 : 1})`
+          strike.current.style.opacity = '1'
+        }
+        onCheck()
+        window.setTimeout(() => {
+          if (strike.current) {
+            strike.current.style.transition = 'opacity 160ms ease-out'
+            strike.current.style.opacity = '0'
+            window.setTimeout(() => {
+              if (!strike.current) return
+              strike.current.style.transition = ''
+              strike.current.style.transform = `scaleX(${restingScale})`
+            }, 180)
+          }
+        }, 160)
+      } else {
+        // Incomplete gestures retreat to their original state with a spring.
+        if (strike.current) strike.current.style.transition = `transform ${spring}, opacity 180ms ease-out`
+        apply(0)
+      }
       window.setTimeout(() => {
         el.style.transition = ''
         el.style.transform = ''
         if (revealDelete.current) revealDelete.current.style.opacity = '0'
         if (revealCheck.current) revealCheck.current.style.opacity = '0'
-      }, 240)
-      if (check) onCheck() // (the row springs back, and the line goes across its name)
+      }, 440)
     }
     const move = (ev: PointerEvent) => {
       if (document.body.classList.contains('dragging')) return end(false, 0) // it was picked up to be dragged instead
@@ -75,6 +112,12 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
         if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.6) {
           swiping = true
           el.style.transition = 'none'
+          if (strike.current) {
+            strike.current.style.transition = 'none'
+            strike.current.style.transformOrigin = origin
+            strike.current.style.transform = `scaleX(${restingScale})`
+            strike.current.style.opacity = '1'
+          }
         } else return
       }
       apply(dx)
@@ -98,24 +141,9 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const del = useStore((s) => s.deleteTask)
   const toggleDone = useStore((s) => s.toggleDone)
   const done = isDoneNow(task)
-  // checking off by swipe: a line is drawn across the name (left to right), then the item is ticked; swiping a done one back draws it off again
-  const check = () => {
-    const line = strike.current
-    const finish = () => {
-      toggleDone(task.id)
-      if (line) window.setTimeout(() => (line.style.opacity = '0'), 160)
-    }
-    if (!line || (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches)) return finish()
-    line.style.opacity = '1'
-    const frames = done ? [{ transform: 'scaleX(1)', transformOrigin: 'right' }, { transform: 'scaleX(0)', transformOrigin: 'right' }] : [{ transform: 'scaleX(0)', transformOrigin: 'left' }, { transform: 'scaleX(1)', transformOrigin: 'left' }]
-    const a = line.animate(frames, { duration: 380, easing: 'cubic-bezier(0.3, 0.8, 0.3, 1)', fill: 'forwards' })
-    void a.finished.then(() => {
-      finish()
-      a.cancel()
-      line.style.transform = ''
-    }).catch(() => finish())
-  }
-  const swipe = useSwipe(el, reveal, revealCheck, () => del(task.id), check)
+  // The strikethrough is drawn by the live swipe gesture; completion only changes task state.
+  const check = () => toggleDone(task.id)
+  const swipe = useSwipe(el, reveal, revealCheck, strike, done, () => del(task.id), check)
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
