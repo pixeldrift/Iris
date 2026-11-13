@@ -5,7 +5,7 @@ import { hasProgress, patchForStage, percentForStage, percentOfCount, percentsFo
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { isPastEvent } from '../../core/schedule'
 import { remindFromRule } from '../../core/reminders'
-import { rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
+import { completedDateMatches, rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
 import type { Task, TaskKind, TaskStatus } from '../../core/types'
 import { firstOf } from '../../core/scope'
 import * as sound from '../../audio/engine'
@@ -162,7 +162,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
             return { lingering }
           })
         }
-        get().updateTask(id, { ...to, ...withProgress, completedAt: completionTime })
+        get().updateTask(id, { ...to, ...withProgress, completedAt: completionTime, archived: to.status === 'done' ? false : false })
       },
       setProgress: (id, pct) => {
         const t = get().tasks.find((x) => x.id === id)
@@ -279,19 +279,22 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           ),
         })),
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
+      // Retention archives old completions out of active views; it never destroys their history.
       pruneCompleted: () => set((s) => {
         const durations = { hour: 60 * 60_000, day: 24 * 60 * 60_000, week: 7 * 24 * 60 * 60_000 } as const
         const retention = s.settings.completedRetention
         if (retention === 'never') return s
         const cutoff = Date.now() - durations[retention]
-        const removed = new Set(s.tasks.filter((t) => t.status === 'done' && t.completedAt != null && t.completedAt <= cutoff).map((t) => t.id))
-        if (!removed.size) return s
-        const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
-        const removing = Object.fromEntries(Object.entries(s.removing).filter(([id]) => !removed.has(id)))
-        return { tasks: s.tasks.filter((t) => !removed.has(t.id)), lingering, removing, selectedId: s.selectedId && removed.has(s.selectedId) ? null : s.selectedId }
+        let changed = false
+        const tasks = s.tasks.map((t) => {
+          if (t.status !== 'done' || t.completedAt == null || t.completedAt > cutoff || t.archived) return t
+          changed = true
+          return { ...t, archived: true }
+        })
+        return changed ? { tasks } : s
       }),
-      clearCompleted: () => set((s) => {
-        const removed = new Set(s.tasks.filter((t) => t.status === 'done').map((t) => t.id))
+      clearCompleted: (filter) => set((s) => {
+        const removed = new Set(s.tasks.filter((t) => t.status === 'done' && completedDateMatches(t, filter)).map((t) => t.id))
         const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
         const removing = Object.fromEntries(Object.entries(s.removing).filter(([id]) => !removed.has(id)))
         return {
