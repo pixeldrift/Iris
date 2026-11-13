@@ -507,7 +507,7 @@ export function Sidebar() {
               id="completed"
               title="Completed"
               pinned
-              action={completedCount > 0 ? (
+              action={scope.type === 'completed' && completedCount > 0 ? (
                 <Tip label="Delete the completed tasks currently shown">
                   <button
                     type="button"
