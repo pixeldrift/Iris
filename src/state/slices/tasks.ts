@@ -271,6 +271,17 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           ),
         })),
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
+      clearCompleted: () => set((s) => {
+        const removed = new Set(s.tasks.filter((t) => t.status === 'done').map((t) => t.id))
+        const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
+        const removing = Object.fromEntries(Object.entries(s.removing).filter(([id]) => !removed.has(id)))
+        return {
+          tasks: s.tasks.filter((t) => t.status !== 'done'),
+          lingering,
+          removing,
+          selectedId: s.selectedId && removed.has(s.selectedId) ? null : s.selectedId,
+        }
+      }),
 
       checkContact: (taskId) => {
         const { tasks, people, contactPrompt } = get()
