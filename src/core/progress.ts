@@ -84,22 +84,22 @@ export function percentsFor(n: number, given?: number[] | null): number[] {
     else {
       const want = given && typeof given[i] === 'number' ? Math.round(given[i]) : defaultPercent(i, n)
       // strictly above the one before, and leaving room for those still to come
-      out.push(Math.max(out[i - 1] + 1, Math.min(want, 99 - (n - 1 - i))))
+      out.push(Math.max(out[i - 1] + 1, Math.min(want, 100 - (n - 1 - i))))
     }
   }
   return out
 }
 
 /** The column (by position) an item at this percent belongs in. */
-/** A stage selection places progress in the middle of that stage's range. Completed caps at 99; 100 remains the explicit finished endpoint. */
+/** A stage selection places progress in the middle of that stage's range. Completed is exactly 100%; in-progress occupies 1–99%. */
 export function percentForStage(i: number, percents: number[]): number {
   const idx = Math.max(0, Math.min(percents.length - 1, i))
-  if (idx === percents.length - 1) return 99
+  if (idx === percents.length - 1) return 100
   return Math.floor((percents[idx] + percents[idx + 1]) / 2)
 }
 
 export function stageForPercent(p: number, percents: number[]): number {
-  if (p >= 99) return percents.length - 1
+  if (p >= 100) return percents.length - 1
   let at = 0
   percents.forEach((x, i) => {
     if (p >= x) at = i
