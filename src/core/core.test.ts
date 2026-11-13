@@ -86,6 +86,7 @@ describe('tasks', () => {
       folders,
     )
     expect(sorted.map((t) => t.id)).toEqual(['a-life', 'a-school', 'z-school', 'ungrouped'])
+    expect(sortTasks(sorted, 'group', true, folders).at(-1)?.id).toBe('ungrouped')
   })
 })
 
