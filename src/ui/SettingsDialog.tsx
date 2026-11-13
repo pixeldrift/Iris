@@ -56,7 +56,7 @@ function CompletedRetention() {
   const labels = ['Hour', 'Day', 'Week', 'Never']
   return (
     <div className="px-2 py-1.5">
-      <div className="text-sm">Automatically remove completed tasks</div>
+      <div className="text-sm">Automatically archive completed tasks</div>
       <div className="mt-1">
         <input
           type="range"
@@ -72,7 +72,7 @@ function CompletedRetention() {
           {labels.map((label) => <span key={label}>{label}</span>)}
         </div>
       </div>
-      <span className="block text-[0.68rem] text-ink-faint">Completed tasks are permanently removed after this long. Never keeps them until you clear them.</span>
+      <span className="block text-[0.68rem] text-ink-faint">After this long, checked-off tasks leave active views but remain in the Completed archive until you delete them.</span>
     </div>
   )
 }
