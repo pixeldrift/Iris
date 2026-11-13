@@ -30,7 +30,7 @@ export function useVisibleTasks(includeDone = false, search: 'filter' | 'keep' =
     return tasks.filter(
       (t) =>
         !t.draft &&
-        (includeDone || showDone || !isFinished(t, minute * 60_000) || lingering[t.id] || selectedId === t.id) &&
+        (scope.type === 'completed' || includeDone || showDone || !isFinished(t, minute * 60_000) || lingering[t.id] || selectedId === t.id) &&
         inScope(t) &&
         // most views show only what matches; the pond keeps everything and fades the rest
         (!asked || matchesQuery(t, query, { folders, people })),
