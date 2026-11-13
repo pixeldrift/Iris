@@ -33,6 +33,7 @@ export interface ShareInvite {
   name: string
   from: string
   role: string
+  event?: boolean
 }
 export interface ShareNews {
   id: string
@@ -71,7 +72,9 @@ async function call<T = unknown>(body: Record<string, unknown>): Promise<T> {
 /** One line saying what happened, for the notifications list and for the pop-up that appears when it arrives. */
 export function describeNews(n: { kind: string; from: string; info: string; extra?: string }): string {
   switch (n.kind) {
-    case 'share-invite': return `${n.from} invited you to share “${n.info}”`
+    case 'share-invite': return n.extra === 'event' ? `${n.from} invited you to “${n.info}”` : `${n.from} invited you to share “${n.info}”`
+    case 'event-accepted': return `${n.from} accepted your invitation to “${n.info}”`
+    case 'event-declined': return `${n.from} declined your invitation to “${n.info}”`
     case 'share-removed': return `${n.from} removed you from “${n.info}”${n.extra === 'copy' ? '. You can keep a copy.' : '.'}`
     case 'share-joined': return `${n.from} joined “${n.info}”`
     case 'share-left': return `${n.from} left “${n.info}”`
@@ -93,7 +96,7 @@ export async function refreshShare() {
     notify()
     // and a pop-up saying what it is (an invitation, being added or removed, a group deleted, a task for you)
     const lines = [
-      ...s.invites.filter((i) => !seenNews!.has(i.id)).map((i) => describeNews({ kind: 'share-invite', from: i.from, info: i.name })),
+      ...s.invites.filter((i) => !seenNews!.has(i.id)).map((i) => describeNews({ kind: 'share-invite', from: i.from, info: i.name, extra: i.event ? 'event' : '' })),
       ...s.news.filter((n) => !n.read && !seenNews!.has(n.id)).map((n) => describeNews(n)),
     ]
     if (lines.length) useStore.getState().showToast(lines.length === 1 ? lines[0] : `${lines[0]} (and ${lines.length - 1} more in your notifications)`)
@@ -221,19 +224,19 @@ export function alignTaskWorkspaces() {
 export const countShared = (rootId: string) => subtreeOf(rootId).taskIds.size
 
 /** Give an individual task or event its own shared space, without sharing its containing group. */
-export async function shareTask(task: Task, toUserId: string, role: 'editor' | 'viewer' = 'editor') {
+export async function shareTask(task: Task, toUserId: string, role: 'editor' | 'viewer' = 'editor', purpose?: 'event') {
   if (task.workspaceId) {
     const existing = useShare.getState().shares.find((x) => x.workspaceId === task.workspaceId)
     if (existing?.rootTaskId !== task.id) throw new Error('This item is already shared through a group. Manage access from that group instead.')
     if (existing.role !== 'owner') throw new Error('Only the owner can invite someone to this shared item.')
-    await inviteConnection(existing.workspaceId, toUserId, role)
+    await inviteConnection(existing.workspaceId, toUserId, role, purpose)
     return
   }
   const { workspaceId } = await call<{ workspaceId: string }>({ action: 'create', name: task.title || 'Shared item', rootTaskId: task.id })
   useStore.getState().updateTask(task.id, { workspaceId })
   try {
     await refreshShare()
-    await inviteConnection(workspaceId, toUserId, role)
+    await inviteConnection(workspaceId, toUserId, role, purpose)
   } catch (error) {
     useStore.getState().updateTask(task.id, { workspaceId: undefined })
     await call({ action: 'retire', workspaceId }).catch(() => undefined)
@@ -251,8 +254,8 @@ export async function shareGroup(folder: Folder) {
   moveTo(folder.id, workspaceId)
 }
 
-export const inviteConnection = (workspaceId: string, toUserId: string, role: 'editor' | 'viewer') =>
-  call({ action: 'invite', workspaceId, toUserId, role }).then(() => {
+export const inviteConnection = (workspaceId: string, toUserId: string, role: 'editor' | 'viewer', purpose?: 'event') =>
+  call({ action: 'invite', workspaceId, toUserId, role, ...(purpose ? { purpose } : {}) }).then(() => {
     notify() // (the same sound they hear when it arrives)
     return refreshShare()
   })
