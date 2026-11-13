@@ -131,7 +131,15 @@ function AssignField({ task }: { task: Task }) {
       <div>
         <span className="block text-xs font-medium text-ink-soft">Tagged</span>
         <div className="mt-1.5">
+          {canEdit ? <TagInput taskId={task.id} /> : (
+            <div className="flex flex-wrap gap-1.5">
+              {task.personIds.map((id) => {
+                const person = people.find((p) => p.id === id)
+                return person ? <span key={id} className="rounded-full bg-white/70 px-2.5 py-1 text-xs text-ink-soft">@{person.name.split(' ')[0]}</span> : null
+              })}
             </div>
+          )}
+        </div>
         <p className="mt-1 text-[0.68rem] text-ink-faint">Tags organize and filter this item; they never invite or assign anyone.</p>
       </div>
 
@@ -205,7 +213,13 @@ function AssignField({ task }: { task: Task }) {
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="People with access">
               {others.filter((m) => task.kind !== 'event' || m.role !== 'viewer').map((m) => (
                 <span key={m.userId} className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-ink-soft shadow-sm">
-                  {m.name}<span className="text-[0.65rem] text-ink-faint">{m.role === 'editor' ? 'Can edit' : 'Can view'}</span>
+                  {m.name}
+                  {share?.role === 'owner' ? (
+                    <select aria-label={`${m.name}: access permission`} value={m.role} disabled={busy} onChange={(e) => void run(() => setMemberRole(share.workspaceId, m.userId, e.target.value as 'editor' | 'viewer').then(() => undefined), `Updated ${m.name}’s access.`)} className="well rounded-full px-2 py-0.5 text-[0.65rem]">
+                      <option value="editor">Can edit</option>
+                      <option value="viewer">Can view</option>
+                    </select>
+                  ) : <span className="text-[0.65rem] text-ink-faint">{m.role === 'editor' ? 'Can edit' : 'Can view'}</span>}
                   {share?.role === 'owner' && (
                     <button type="button" aria-label={`Remove ${m.name} from this item`} onClick={() => void run(() => removeMember(share.workspaceId, m.userId, false).then(() => undefined), `Removed ${m.name}.`)} className="ml-0.5 rounded-full p-0.5 text-ink-faint hover:bg-white">
                       <IconClose size={10} />
@@ -392,7 +406,6 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
     <>
       {/* a list is its entries first */}
       {task.kind === 'list' && <ListEditor task={task} autoFocusFirst={focusListEntry} />}
-      <TagInput taskId={task.id} />
       {links.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {links.map((l) => (
