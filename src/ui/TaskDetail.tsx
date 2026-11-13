@@ -11,7 +11,7 @@ import { useExit } from './anim'
 import { notionImageFrom } from './photo'
 import { ImageViewer } from './ImageViewer'
 import { describeRecurrence } from '../core/recurrence'
-import { assignTask, shareTask, stopSharing, leaveGroup, useShare } from '../sync/share'
+import { assignTask, shareTask, stopSharing, leaveGroup, setMemberRole, removeMember, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
 import * as sound from '../audio/engine'
@@ -74,66 +74,191 @@ function AssignField({ task }: { task: Task }) {
   const shareLoaded = useShare((s) => s.loaded)
   const people = useStore((s) => s.people)
   const showToast = useStore((s) => s.showToast)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<null | 'assign' | 'invite' | 'share'>(null)
   const [busy, setBusy] = useState(false)
-  const add = useRef<HTMLButtonElement>(null)
+  const [shareRole, setShareRole] = useState<'editor' | 'viewer'>('editor')
+  const assignAnchor = useRef<HTMLButtonElement>(null)
+  const inviteAnchor = useRef<HTMLButtonElement>(null)
+  const shareAnchor = useRef<HTMLButtonElement>(null)
   const members = share?.members.filter((m) => m.status === 'active') ?? []
   const others = members.filter((m) => m.userId !== me)
-  const given = share ? assigneesOf(task).filter((id) => members.some((m) => m.userId === id)) : []
+  const assigned = assigneesOf(task)
+  const given = assigned.filter((id) => !share || members.some((m) => m.userId === id))
   const left = members.filter((m) => !given.includes(m.userId))
-  const connected = !task.workspaceId && shareLoaded ? people.filter((p) => p.link?.userId && p.link.userId !== me && !assigneesOf(task).includes(p.link.userId)) : []
-  const canEdit = !share || share.role !== 'viewer'
-  const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? people.find((p) => p.link?.userId === id)?.name ?? 'Someone'))
-  const whoSummary = given.length > 2 ? `${nameOf(given[0])} and ${given.length - 1} others` : given.length === 2 ? `${nameOf(given[0])} and ${nameOf(given[1])}` : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
-  const invite = async (userId: string) => {
+  const connected = shareLoaded
+    ? people.filter((p) => p.link?.userId && p.link.userId !== me && !members.some((m) => m.userId === p.link!.userId))
+    : []
+  const isIndividualShare = !!share && share.rootTaskId === task.id
+  const isGroupShare = !!task.workspaceId && !!share && !isIndividualShare
+  const canEdit = !task.workspaceId || (!!share && share.role !== 'viewer')
+  const canManageIndividual = !task.workspaceId || (isIndividualShare && share?.role === 'owner')
+  const nameOf = (id: string) =>
+    id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? people.find((p) => p.link?.userId === id)?.name ?? 'Someone')
+  const whoSummary = given.length > 2
+    ? `${nameOf(given[0])} and ${given.length - 1} others`
+    : given.length === 2 ? `${nameOf(given[0])} and ${nameOf(given[1])}`
+      : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
+
+  const run = async (fn: () => Promise<void>, success: string) => {
     setBusy(true)
-    setOpen(false)
+    setOpen(null)
     try {
-      await shareTask(task, userId)
-      showToast(`Invitation sent to ${people.find((p) => p.link?.userId === userId)?.name ?? 'your connection'}`)
+      await fn()
+      showToast(success)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Could not share this item.')
+      showToast(e instanceof Error ? e.message : 'Could not update who is connected to this item.')
     } finally {
       setBusy(false)
     }
   }
+  const assignConnected = (userId: string) => run(async () => {
+    await shareTask(task, userId, 'editor')
+    const latest = useStore.getState().tasks.find((t) => t.id === task.id)
+    if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), userId])])
+  }, `Assigned to ${nameOf(userId)}.`)
+  const inviteGuest = (userId: string) => run(
+    () => shareTask(task, userId, 'viewer', 'event'),
+    `Invitation sent to ${nameOf(userId)}.`,
+  )
+  const shareWith = (userId: string) => run(
+    () => shareTask(task, userId, shareRole),
+    `Shared with ${nameOf(userId)} (${shareRole === 'editor' ? 'can edit' : 'can view'}).`,
+  )
+  const assignedNames = given.map(nameOf)
+
   return (
     <Box title="Who" icon={<IconPerson size={13} />} summary={whoSummary}>
-      <span className="block text-xs font-medium text-ink-soft">{task.kind === 'event' ? 'Invited' : 'Assigned to'}</span>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label={task.kind === 'event' ? 'Invited people' : 'Assigned to'}>
-        {given.length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody yet</span>}
-        {given.map((id) => (
-          <span key={id} className="inline-flex items-center gap-1 rounded-full bg-lilac-100 py-0.5 pl-2.5 pr-1 text-sm font-normal text-lilac-700">
-            {nameOf(id)}
-            {canEdit && (
-              <button type="button" aria-label={`Remove ${nameOf(id)}`} onClick={() => assignTask(task, given.filter((x) => x !== id))} className="grid h-5 w-5 place-items-center rounded-full text-lilac-600 transition hover:bg-white/80">
-                <IconClose size={10} />
+      <div>
+        <span className="block text-xs font-medium text-ink-soft">Tagged</span>
+        <div className="mt-1.5">
+          {canEdit ? <TagInput taskId={task.id} /> : (
+            <div className="flex flex-wrap gap-1.5">
+              {task.personIds.map((id) => {
+                const person = people.find((p) => p.id === id)
+                return person ? <span key={id} className="rounded-full bg-white/70 px-2.5 py-1 text-xs text-ink-soft">@{person.name.split(' ')[0]}</span> : null
+              })}
+            </div>
+          )}
+        </div>
+        <p className="mt-1 text-[0.68rem] text-ink-faint">Tags organize and filter this item; they never invite or assign anyone.</p>
+      </div>
+
+      <div className="mt-3">
+        <span className="block text-xs font-medium text-ink-soft">Assigned to</span>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Assigned to">
+          {assignedNames.length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody yet</span>}
+          {given.map((id) => (
+            <span key={id} className="inline-flex items-center gap-1 rounded-full bg-lilac-100 py-0.5 pl-2.5 pr-1 text-sm font-normal text-lilac-700">
+              {nameOf(id)}
+              {canEdit && (
+                <button type="button" aria-label={`Remove ${nameOf(id)}`} onClick={() => assignTask(task, given.filter((x) => x !== id))} className="grid h-5 w-5 place-items-center rounded-full text-lilac-600 transition hover:bg-white/80">
+                  <IconClose size={10} />
+                </button>
+              )}
+            </span>
+          ))}
+          {canEdit && (!task.workspaceId || left.length > 0) && (
+            <button ref={assignAnchor} type="button" disabled={busy || (!!task.workspaceId && !share)} onClick={() => setOpen((o) => o === 'assign' ? null : 'assign')} aria-expanded={open === 'assign'} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
+              <IconPlus size={12} /> Assign
+            </button>
+          )}
+        </div>
+        <Popover open={open === 'assign'} onClose={() => setOpen(null)} anchor={assignAnchor} className="w-56 p-1.5">
+          <div aria-label="Assign someone">
+            {share ? left.map((m) => (
+              <MenuItem key={m.userId} onClick={() => (assignTask(task, [...given, m.userId]), setOpen(null))}>{m.userId === me ? 'Me' : m.name}</MenuItem>
+            )) : connected.map((p) => (
+              <MenuItem key={p.id} onClick={() => void assignConnected(p.link!.userId)}>{p.name}</MenuItem>
+            ))}
+            {!share && !shareLoaded && <p className="px-2.5 py-2 text-xs text-ink-faint">Loading connected people…</p>}
+            {!share && shareLoaded && connected.length === 0 && <p className="px-2.5 py-2 text-xs leading-relaxed text-ink-faint">Connect with someone from People before assigning this item.</p>}
+          </div>
+        </Popover>
+      </div>
+
+      {task.kind === 'event' && (
+        <div className="mt-3">
+          <span className="block text-xs font-medium text-ink-soft">Invited</span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Invited guests">
+            {others.filter((m) => m.role === 'viewer').length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody yet</span>}
+            {others.filter((m) => m.role === 'viewer').map((m) => (
+              <span key={m.userId} className="inline-flex items-center gap-1 rounded-full bg-sky-100/70 px-2.5 py-1 text-sm font-normal text-ink-soft">
+                {m.name}<span className="text-[0.65rem] text-ink-faint">Guest</span>
+                {share?.role === 'owner' && (
+                  <button type="button" aria-label={`Remove ${m.name} from this event`} onClick={() => void run(() => removeMember(share.workspaceId, m.userId, false).then(() => undefined), `Removed ${m.name} from the event.`)} className="ml-0.5 rounded-full p-0.5 text-ink-faint hover:bg-white">
+                    <IconClose size={10} />
+                  </button>
+                )}
+              </span>
+            ))}
+            {canManageIndividual && !isGroupShare && (
+              <button ref={inviteAnchor} type="button" disabled={busy} onClick={() => setOpen((o) => o === 'invite' ? null : 'invite')} aria-expanded={open === 'invite'} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
+                <IconPlus size={12} /> Invite
               </button>
             )}
-          </span>
-        ))}
-        {canEdit && (share ? left.length > 0 : !task.workspaceId && connected.length > 0) && (
-          <button ref={add} type="button" disabled={busy} onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
-            <IconPlus size={12} /> {task.kind === 'event' ? 'Invite' : 'Assign'}
-          </button>
+          </div>
+          <Popover open={open === 'invite'} onClose={() => setOpen(null)} anchor={inviteAnchor} className="w-56 p-1.5">
+            <div aria-label="Invite someone to this event">
+              {connected.map((p) => <MenuItem key={p.id} onClick={() => void inviteGuest(p.link!.userId)}>{p.name}</MenuItem>)}
+              {!shareLoaded && <p className="px-2.5 py-2 text-xs text-ink-faint">Loading connected people…</p>}
+              {shareLoaded && connected.length === 0 && <p className="px-2.5 py-2 text-xs text-ink-faint">No connected people available to invite.</p>}
+            </div>
+          </Popover>
+          {isGroupShare && <p className="mt-1 text-[0.68rem] text-ink-faint">This event is inside a shared group. Invite guests individually after moving it out of that group.</p>}
+          {isIndividualShare && share?.pending ? <p className="mt-1 text-[0.68rem] text-ink-faint">{share.pending} invitation{share.pending === 1 ? '' : 's'} awaiting a response.</p> : null}
+        </div>
+      )}
+
+      <div className="mt-3">
+        <span className="block text-xs font-medium text-ink-soft">Shared with</span>
+        {isGroupShare ? (
+          <p className="mt-1 text-sm font-normal text-ink-faint">Shared through “{share?.name}”. Access is managed from that group.</p>
+        ) : (
+          <>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="People with access">
+              {others.filter((m) => task.kind !== 'event' || m.role !== 'viewer').map((m) => (
+                <span key={m.userId} className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-ink-soft shadow-sm">
+                  {m.name}
+                  {share?.role === 'owner' ? (
+                    <select aria-label={`${m.name}: access permission`} value={m.role} disabled={busy} onChange={(e) => void run(() => setMemberRole(share.workspaceId, m.userId, e.target.value as 'editor' | 'viewer').then(() => undefined), `Updated ${m.name}’s access.`)} className="well rounded-full px-2 py-0.5 text-[0.65rem]">
+                      <option value="editor">Can edit</option>
+                      <option value="viewer">Can view</option>
+                    </select>
+                  ) : <span className="text-[0.65rem] text-ink-faint">{m.role === 'editor' ? 'Can edit' : 'Can view'}</span>}
+                  {share?.role === 'owner' && (
+                    <button type="button" aria-label={`Remove ${m.name} from this item`} onClick={() => void run(() => removeMember(share.workspaceId, m.userId, false).then(() => undefined), `Removed ${m.name}.`)} className="ml-0.5 rounded-full p-0.5 text-ink-faint hover:bg-white">
+                      <IconClose size={10} />
+                    </button>
+                  )}
+                </span>
+              ))}
+              {canManageIndividual && (
+                <button ref={shareAnchor} type="button" disabled={busy} onClick={() => setOpen((o) => o === 'share' ? null : 'share')} aria-expanded={open === 'share'} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
+                  <IconPlus size={12} /> Share
+                </button>
+              )}
+            </div>
+            <Popover open={open === 'share'} onClose={() => setOpen(null)} anchor={shareAnchor} className="w-60 p-2">
+              <label className="mb-1 block px-1 text-xs text-ink-soft">Give access</label>
+              <select value={shareRole} onChange={(e) => setShareRole(e.target.value as 'editor' | 'viewer')} className="well mb-1.5 w-full rounded-xl px-2.5 py-1.5 text-sm" aria-label="Share permission">
+                <option value="editor">Can edit</option>
+                <option value="viewer">Can view</option>
+              </select>
+              {connected.map((p) => <MenuItem key={p.id} onClick={() => void shareWith(p.link!.userId)}>{p.name}</MenuItem>)}
+              {!shareLoaded && <p className="px-2.5 py-2 text-xs text-ink-faint">Loading connected people…</p>}
+              {shareLoaded && connected.length === 0 && <p className="px-2.5 py-2 text-xs text-ink-faint">No connected people available to share with.</p>}
+            </Popover>
+          </>
         )}
       </div>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={add} className="w-56 p-1.5">
-        <div aria-label={share ? 'Assign someone' : 'Share this item with someone'}>
-          {share ? left.map((m) => (
-            <MenuItem key={m.userId} onClick={() => (assignTask(task, [...given, m.userId]), setOpen(false))}>{m.userId === me ? 'Me' : m.name}</MenuItem>
-          )) : connected.map((p) => (
-            <MenuItem key={p.id} onClick={() => void invite(p.link!.userId)}>{p.name}</MenuItem>
-          ))}
-        </div>
-      </Popover>
-      {!share && shareLoaded && !task.workspaceId && connected.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Connect with someone first, then you can share just this {task.kind === 'event' ? 'event' : 'task'} with them.</p>}
-      {share && others.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Only you are in this shared space so far.</p>}
-      {share && share.rootTaskId && (share.role === 'owner' ? (
-        <button type="button" onClick={() => void stopSharing(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not stop sharing.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Stop sharing this item</button>
-      ) : (
-        <button type="button" onClick={() => void leaveGroup(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not leave this item.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Leave shared item</button>
-      ))}
+
+      {share && share.rootTaskId === task.id && (
+        share.role === 'owner' ? (
+          <button type="button" onClick={() => void run(() => stopSharing(share, false).then(() => undefined), 'Stopped sharing this item.')} className="mt-2 text-xs text-ink-faint transition hover:text-ink">Stop sharing this item</button>
+        ) : (
+          <button type="button" onClick={() => void run(() => leaveGroup(share, false).then(() => undefined), 'Left the shared item.')} className="mt-2 text-xs text-ink-faint transition hover:text-ink">Leave shared item</button>
+        )
+      )}
     </Box>
   )
 }
@@ -286,7 +411,6 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
     <>
       {/* a list is its entries first */}
       {task.kind === 'list' && <ListEditor task={task} autoFocusFirst={focusListEntry} />}
-      <TagInput taskId={task.id} />
       {links.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {links.map((l) => (
