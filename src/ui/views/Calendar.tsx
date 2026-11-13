@@ -42,7 +42,7 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
       className={`pop-in flex cursor-pointer select-none items-center gap-1.5 rounded-lg py-0.5 [-webkit-touch-callout:none] text-[0.72rem] leading-snug transition hover:brightness-95 ${rich ? 'px-1' : 'truncate px-1.5'} ${isDone ? 'opacity-60' : ''} ${missed ? 'opacity-55 outline-dashed outline-1 -outline-offset-1 outline-ink-faint/50' : ''} ${leave}`}
       title={deadline ? `${task.title} (due)` : task.title}
     >
-      {rich && <DoneButton task={task} size={16} />}
+      <DoneButton task={task} size={14} />
       <span className={`min-w-0 flex-1 truncate ${isDone ? 'line-through' : ''}`}>
         {task.time ? `${formatTime(task.time)} ` : ''}
         {task.title}
