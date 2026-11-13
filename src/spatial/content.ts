@@ -73,6 +73,7 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
       id: t.id,
       cluster: clusterOf(t),
       title: t.title,
+      imageUrl: t.image ?? null,
       hue: bubbleHue(t, folders),
       done: isDoneNow(t),
       due: due ? dueLine(due) : null,
