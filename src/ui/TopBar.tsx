@@ -167,7 +167,9 @@ export function TopBar({ onNew }: { onNew: () => void }) {
           ? weekdayName(scope.date)
           : scope.type === 'contacts'
             ? 'Address book'
-            : scope.type === 'person'
+            : scope.type === 'completed'
+              ? 'Completed'
+              : scope.type === 'person'
               ? (people.find((p) => p.id === scope.id)?.name ?? 'Person')
               : (pathOf(folders, scope.id).at(-1)?.name ?? 'Group')
   const sub = scope.type === 'contacts' ? `${people.length} ${people.length === 1 ? 'person' : 'people'} · ${people.filter((p) => p.favorite).length} in your sidebar` : scope.type === 'day' ? (dayLabel(scope.date) === weekdayName(scope.date) ? formatDate(scope.date) : dayLabel(scope.date)) : ''
