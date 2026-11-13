@@ -88,7 +88,7 @@ export default function App() {
     }
   }, [])
 
-  // Automatically remove completed tasks after the chosen retention period, including after returning to the app.
+  // Automatically archive completed tasks out of active views after the chosen retention period.
   useEffect(() => {
     if (completedRetention === 'never') return
     const run = () => pruneCompleted()
