@@ -69,17 +69,18 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: { images: str
     if (pointers.current.size > 0) return
     start.current = null
     if (pinched.current) { pinched.current = false; return }
-    if (zoom <= 1) {
-      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.15) move(dx < 0 ? 1 : -1)
-      else if (Math.abs(dy) > 75 && Math.abs(dy) > Math.abs(dx)) onClose()
-      else {
-        const now = Date.now()
-        if (now - lastTap.current < 280) {
-          if (zoom > 1) resetZoom()
-          else setZoom(2.5)
-          lastTap.current = 0
-        } else lastTap.current = now
-      }
+    const now = Date.now()
+    const isTap = Math.abs(dx) < 12 && Math.abs(dy) < 12
+    if (zoom > 1) {
+      if (isTap && now - lastTap.current < 280) { resetZoom(); lastTap.current = 0 }
+      else lastTap.current = isTap ? now : 0
+      return
+    }
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.15) move(dx < 0 ? 1 : -1)
+    else if (Math.abs(dy) > 75 && Math.abs(dy) > Math.abs(dx)) onClose()
+    else if (isTap) {
+      if (now - lastTap.current < 280) { setZoom(2.5); lastTap.current = 0 }
+      else lastTap.current = now
     }
   }
 
