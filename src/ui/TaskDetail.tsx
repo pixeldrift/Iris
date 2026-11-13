@@ -81,13 +81,14 @@ function AssignField({ task }: { task: Task }) {
   const canEdit = share.role !== 'viewer'
   const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? 'Someone'))
   // someone tagged on the task who is also a member of this group (their entry is linked to their account)
+  const whoSummary = given.length > 2 ? `${nameOf(given[0])} and `${given.length - 1} others` : given.length === 2 ? `${nameOf(given[0])} and `${nameOf(given[1])}` : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
   const tagged = task.personIds.flatMap((id) => {
     const link = people.find((p) => p.id === id)?.link
     const m = link && others.find((x) => x.userId === link.userId && !given.includes(x.userId))
     return m ? [m] : []
   })
   return (
-    <Box title="Who" icon={<IconPerson size={13} />} summary={given.length ? `${given.length} assigned` : 'Unassigned'}>
+    <Box title="Who" icon={<IconPerson size={13} />} summary={whoSummary}>
       <span className="block text-xs font-medium text-ink-soft">Assigned to</span>
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Assigned to">
         {given.length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody</span>}
@@ -360,25 +361,114 @@ function PictureField({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const showToast = useStore((s) => s.showToast)
   const input = useRef<HTMLInputElement>(null)
+  const grid = useRef<HTMLDivElement>(null)
+  const dragTimer = useRef<number | null>(null)
+  const touchDragFrom = useRef<number | null>(null)
+  const touchDragTo = useRef<number | null>(null)
+  const suppressClick = useRef(false)
   const [viewer, setViewer] = useState<number | null>(null)
+  const [viewerOrigin, setViewerOrigin] = useState<{ left: number; top: number; width: number; height: number } | undefined>()
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
+  const [dragTo, setDragTo] = useState<number | null>(null)
   const images = task.images?.length ? task.images : task.image ? [task.image] : []
   const tinted = task.imageTint !== false
-  const remove = (at: number) => {
+
+  const reorder = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= images.length || to >= images.length) return
+    const next = [...images]
+    const [picked] = next.splice(from, 1)
+    next.splice(to, 0, picked)
+    update(task.id, { images: next, image: next[0] })
+  }
+  const openViewer = (index: number, button: HTMLButtonElement) => {
+    if (suppressClick.current) { suppressClick.current = false; return }
+    const rect = button.querySelector('img')?.getBoundingClientRect()
+    setViewerOrigin(rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : undefined)
+    setViewer(index)
+  }
+  const remove = async (at: number) => {
+    const ok = await askConfirm({ title: 'Remove this picture?', message: 'This picture will be removed from this item.', confirmLabel: 'Remove', cancelLabel: 'Keep', danger: true })
+    if (!ok) return
     const next = images.filter((_, i) => i !== at)
     update(task.id, { images: next, image: next[0], ...(!next.length ? { imageTint: undefined } : {}) })
     if (viewer !== null) setViewer(null)
   }
+  const finishTouchDrag = () => {
+    if (dragTimer.current !== null) window.clearTimeout(dragTimer.current)
+    dragTimer.current = null
+    const from = touchDragFrom.current
+    const to = touchDragTo.current
+    if (from !== null && to !== null) {
+      reorder(from, to)
+      suppressClick.current = true
+      window.setTimeout(() => { suppressClick.current = false }, 0)
+    }
+    touchDragFrom.current = null
+    touchDragTo.current = null
+    setDragFrom(null)
+    setDragTo(null)
+  }
+
   return (
     <div className="space-y-2">
       {images.length > 0 && (
         <>
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            ref={grid}
+            className="grid grid-cols-2 gap-2"
+            onPointerMove={(e) => {
+              if (touchDragFrom.current === null) return
+              const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-image-index]')
+              if (target) {
+                const index = Number(target.dataset.imageIndex)
+                touchDragTo.current = index
+                setDragTo(index)
+              }
+            }}
+            onPointerUp={finishTouchDrag}
+            onPointerCancel={finishTouchDrag}
+          >
             {images.map((src, i) => (
-              <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
-                <button type="button" onClick={() => setViewer(i)} aria-label={`View image ${i + 1}`} className="block w-full">
+              <div
+                key={src + i}
+                data-image-index={i}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = 'move'
+                  e.dataTransfer.setData('text/plain', String(i))
+                  setDragFrom(i)
+                }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragTo(i) }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const from = Number(e.dataTransfer.getData('text/plain'))
+                  reorder(from, i)
+                  setDragFrom(null)
+                  setDragTo(null)
+                }}
+                onDragEnd={() => { setDragFrom(null); setDragTo(null) }}
+                onPointerDown={(e) => {
+                  if (e.pointerType !== 'touch') return
+                  const from = i
+                  dragTimer.current = window.setTimeout(() => {
+                    touchDragFrom.current = from
+                    touchDragTo.current = from
+                    setDragFrom(from)
+                    setDragTo(from)
+                    grid.current?.setPointerCapture(e.pointerId)
+                  }, 280)
+                }}
+                onPointerUp={() => {
+                  if (dragTimer.current !== null) window.clearTimeout(dragTimer.current)
+                  dragTimer.current = null
+                }}
+                className={`group relative overflow-hidden rounded-2xl border bg-white/40 transition-all ${dragFrom === i ? 'scale-[.96] opacity-60' : ''} ${dragTo === i && dragFrom !== null && dragFrom !== i ? 'border-lilac-500 ring-2 ring-lilac-300' : 'border-white/70'}`}
+              >
+                <button type="button" onClick={(e) => openViewer(i, e.currentTarget)} aria-label={`View image ${i + 1}`} className="block w-full cursor-grab">
                   <img src={src} alt="" draggable={false} className="h-32 w-full object-cover transition group-hover:scale-[1.02]" />
                 </button>
-                <button type="button" onClick={() => remove(i)} aria-label={`Remove image ${i + 1}`} className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-white/90 text-ink-soft shadow transition hover:text-danger-deep">
+                <span className="pointer-events-none absolute bottom-1.5 left-2 rounded-full bg-black/45 px-1.5 py-0.5 text-[10px] text-white opacity-0 transition group-hover:opacity-100">Drag to reorder</span>
+                <button type="button" onClick={() => void remove(i)} aria-label={`Remove image ${i + 1}`} className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-white/90 text-ink-soft shadow transition hover:text-danger-deep">
                   <IconClose size={13} />
                 </button>
               </div>
@@ -391,7 +481,7 @@ function PictureField({ task }: { task: Task }) {
             <input type="checkbox" checked={tinted} onChange={(e) => update(task.id, { imageTint: e.target.checked ? undefined : false })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
             Tint the picture with the group’s color
           </label>
-          {viewer !== null && <ImageViewer images={images} initialIndex={viewer} onClose={() => setViewer(null)} />}
+          {viewer !== null && <ImageViewer images={images} initialIndex={viewer} origin={viewerOrigin} onClose={() => setViewer(null)} />}
         </>
       )}
       {images.length === 0 && (
