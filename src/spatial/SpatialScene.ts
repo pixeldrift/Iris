@@ -29,7 +29,7 @@ import {
   WebGLRenderer,
 } from 'three'
 import { edgeDots } from '../core/edges'
-import { CARD_PLANE, HUB_PX, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
+import { CARD_PLANE, HUB_PX, cardImage, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
 import { apply, inv3, mul3, mulVec, type Mat3 } from './vision/math'
@@ -621,11 +621,10 @@ export class SpatialScene {
     const lay = withRadius(c.layout, this.radius)
     this.layout = this.carry?.kind === 'cluster' ? { ...lay, clusters: { ...lay.clusters, [this.carry.id]: this.layout.clusters[this.carry.id] ?? lay.clusters[this.carry.id] } } : lay
     const seen = new Set<string>()
-    // (with a great many tasks the pictures are drawn smaller, to save memory)
-    const scale = c.tasks.length > 240 ? 0.55 : c.tasks.length > 120 ? 0.75 : 1
+    // Keep full-resolution card textures: images are also opened full-screen, so shrinking the source texture makes them visibly chunky.
     for (const t of c.tasks) {
       seen.add(t.id)
-      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${scale}`
+      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${t.imageUrl ?? ''}`
       let n = this.tasks.get(t.id)
       if (!n) {
         const cv = document.createElement('canvas')
@@ -643,7 +642,8 @@ export class SpatialScene {
         this.tasks.set(t.id, n)
       }
       if (n.key !== key) {
-        drawCard(n.tex.image as HTMLCanvasElement, t, scale)
+        const image = cardImage(t.imageUrl, () => { n!.key = ''; this.setContent(this.content) })
+        drawCard(n.tex.image as HTMLCanvasElement, { ...t, image }, 1)
         n.tex.needsUpdate = true
         n.key = key
       }
