@@ -5,6 +5,7 @@ export const partsOf = (s: Scope): Scope[] => (s.type === 'multi' ? s.parts : s.
 
 export function sameScope(a: Scope, b: Scope): boolean {
   if (a.type !== b.type) return false
+  if (a.type === 'completed' && b.type === 'completed') return (a.period ?? 'all') === (b.period ?? 'all') && a.from === b.from && a.to === b.to
   if ('id' in a && 'id' in b) return a.id === b.id
   if ('date' in a && 'date' in b) return a.date === b.date
   return true
