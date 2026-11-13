@@ -499,10 +499,11 @@ describe('quick add', () => {
   it('keeps Tag, Assign, Invite and Share as distinct local-language intents', () => {
     const linkedPeople = people.map((person) => person.id === 'p-grandma' ? { ...person, link: { userId: 'user-grandma', got: [] } } : person)
     const parse = (line: string) => parseQuickAdd(line, now, { folders, people: linkedPeople })
-    expect(parse('Have Rose do the dishes tonight')).toMatchObject({ title: 'the dishes', kind: undefined, action: { type: 'assign', personId: 'p-grandma' }, day: '2026-10-27' })
-    expect(parse('Invite Rose to the picnic')).toMatchObject({ title: 'the picnic', kind: 'event', action: { type: 'invite', personId: 'p-grandma' } })
-    expect(parse('Share the dishes with Rose')).toMatchObject({ title: 'the dishes', action: { type: 'share', personId: 'p-grandma' }, personIds: [] })
+    expect(parse('Have Rose do the dishes tonight')).toMatchObject({ title: 'dishes', kind: 'event', action: { type: 'assign', personId: 'p-grandma' }, day: '2026-10-27', time: '20:00' })
+    expect(parse('Invite Rose to the picnic')).toMatchObject({ title: 'picnic', kind: 'event', action: { type: 'invite', personId: 'p-grandma' } })
+    expect(parse('Share the dishes with Rose')).toMatchObject({ title: 'dishes', action: { type: 'share', personId: 'p-grandma' }, personIds: [] })
     expect(parse('Do the dishes with Rose')).toMatchObject({ title: 'Do the dishes with Rose', personIds: ['p-grandma'], action: undefined })
+    expect(parse('Tag Rose on the dishes')).toMatchObject({ title: 'dishes', personIds: ['p-grandma'] })
     expect(parse('Ask Rose about the dishes')).toMatchObject({ title: 'Ask Rose about the dishes', action: undefined })
   })
   it('leaves plain text alone', () => {
