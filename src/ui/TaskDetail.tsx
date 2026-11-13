@@ -158,7 +158,7 @@ function AssignField({ task }: { task: Task }) {
             </span>
           ))}
           {canEdit && (!task.workspaceId || left.length > 0) && (
-            <button ref={assignAnchor} type="button" disabled={busy || (task.workspaceId && !share)} onClick={() => setOpen((o) => o === 'assign' ? null : 'assign')} aria-expanded={open === 'assign'} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
+            <button ref={assignAnchor} type="button" disabled={busy || (!!task.workspaceId && !share)} onClick={() => setOpen((o) => o === 'assign' ? null : 'assign')} aria-expanded={open === 'assign'} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
               <IconPlus size={12} /> Assign
             </button>
           )}
