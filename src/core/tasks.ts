@@ -68,6 +68,8 @@ export function scopeMatcher(scope: Scope, folders: Folder[]): (task: Task) => b
     case 'all':
     case 'contacts':
       return () => true
+    case 'completed':
+      return (t) => t.status === 'done'
     case 'inbox':
       return (t) => t.folderIds.length === 0 && !t.due && !t.day
     case 'day':
@@ -85,7 +87,7 @@ export const matchesScope = (task: Task, scope: Scope, folders: Folder[]): boole
 
 export function filterTasks(tasks: Task[], scope: Scope, folders: Folder[], showDone: boolean): Task[] {
   const inScope = scopeMatcher(scope, folders)
-  return tasks.filter((t) => (showDone || t.status !== 'done') && inScope(t))
+  return tasks.filter((t) => (scope.type === 'completed' || showDone || t.status !== 'done') && inScope(t))
 }
 
 const byDue = (a: Task, b: Task) => (a.due ?? a.day ?? '9999').localeCompare(b.due ?? b.day ?? '9999')

@@ -14,7 +14,8 @@ import { useFlip } from './flip'
 import { SPRING } from './lift'
 import { AccountRow } from './Account'
 import { Tip } from './Tip'
-import { IconAll, IconInbox, IconBook, IconPlus } from './icons'
+import { IconAll, IconInbox, IconBook, IconPlus, IconCheck, IconTrash } from './icons'
+import { askConfirm } from './dialogs'
 
 import { orderedViews, VIEWS } from './viewList'
 import { Disclosure, Gap, rowBase } from './sidebar/parts'
@@ -113,6 +114,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
+  const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done').length, [tasks])
   const t0 = today()
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
   const dueCount = (d: string) => live.filter((t) => taskOnDate(t, d)).length
@@ -499,6 +501,40 @@ export function Sidebar() {
             {order.map((id) => (
               <Fragment key={id}>{sections[id]}</Fragment>
             ))}
+            <Section
+              id="completed"
+              title="Completed"
+              pinned
+              action={completedCount > 0 ? (
+                <Tip label="Permanently clear completed tasks">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const confirmed = await askConfirm({
+                        title: 'Clear completed tasks?',
+                        message: `This will permanently remove ${completedCount} completed ${completedCount === 1 ? 'task' : 'tasks'}. This cannot be undone.`,
+                        confirmLabel: 'Clear completed',
+                        cancelLabel: 'Keep completed',
+                        danger: true,
+                      })
+                      if (confirmed) useStore.getState().clearCompleted()
+                    }}
+                    aria-label="Clear completed tasks"
+                    className="rounded-lg p-1 text-ink-faint transition hover:bg-rose-soft/60 hover:text-danger"
+                  >
+                    <IconTrash size={15} />
+                  </button>
+                </Tip>
+              ) : null}
+            >
+              <ScopeRow
+                active={scope.type === 'completed'}
+                onClick={() => setScope({ type: 'completed' })}
+                icon={<IconCheck />}
+                label="All completed"
+                count={completedCount}
+              />
+            </Section>
           </nav>
         </ScrollFade>
         </div>
