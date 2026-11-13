@@ -100,6 +100,18 @@ describe('tasks', () => {
     const sorted = sortTasks(tasks, 'flow', false)
     expect(weightOf(sorted[0])).toBeGreaterThanOrEqual(weightOf(sorted[1]))
   })
+  it('uses a secondary sort key before the alphabetical tiebreaker', () => {
+    const base = tasks[0]
+    const make = (id: string, title: string, due: string) => ({ ...base, id, title, due, importance: 0.7 })
+    const items = [make('later', 'Zebra', '2026-11-20'), make('sooner', 'Alpha', '2026-11-15')]
+    expect(sortTasks(items, 'importance', false, [], 'due').map((t) => t.id)).toEqual(['sooner', 'later'])
+  })
+  it('uses alphabetical order when both sort keys tie, regardless of direction', () => {
+    const base = tasks[0]
+    const make = (id: string, title: string) => ({ ...base, id, title, importance: 0.7, due: '2026-11-15' })
+    const items = [make('z', 'Zebra'), make('a', 'Alpha')]
+    expect(sortTasks(items, 'importance', true, [], 'due').map((t) => t.id)).toEqual(['a', 'z'])
+  })
   it('sorts by group name, then title, with ungrouped tasks last', () => {
     const base = tasks[0]
     const make = (id: string, title: string, folderIds: string[]) => ({ ...base, id, title, folderIds })

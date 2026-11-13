@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showDone: false,
   completedRetention: 'never',
   sortKey: 'flow',
+  sortSecondaryKey: null,
   sortDesc: false,
   pondGroup: 'free',
   sidebarSpace: 0.5,

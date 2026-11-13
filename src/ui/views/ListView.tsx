@@ -7,7 +7,7 @@ import { ScrollFade } from '../ScrollFade'
 import { sortTasks, effectiveUrgency } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
-import { MenuItem, Popover } from '../Popover'
+import { Popover } from '../Popover'
 import { IconCheck, IconTrash } from '../icons'
 import { BatchEditor } from '../BatchEditor'
 import { colorVars, useTaskHue } from '../taskColor'
@@ -281,10 +281,11 @@ export function ListView() {
   const visible = useVisibleTasks()
   const sortKey = useStore((s) => s.settings.sortKey)
   const sortDesc = useStore((s) => s.settings.sortDesc)
+  const sortSecondaryKey = useStore((s) => s.settings.sortSecondaryKey)
   const set = useStore((s) => s.setSetting)
   const folders = useStore((s) => s.folders)
 
-  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc, folders), [visible, sortKey, sortDesc, folders])
+  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc, folders, sortSecondaryKey), [visible, sortKey, sortDesc, folders])
   // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
   // one, they glide to where the sort puts them (the list animates the move, so you can see where each went).
   const [fresh, setFresh] = useState<string[]>([])
@@ -349,18 +350,39 @@ export function ListView() {
           <span className="text-ink-faint">▾</span>
         </button>
         <Popover open={menu} onClose={() => setMenu(false)} anchor={anchor}>
-          {SORTS.map((x) => (
-            <MenuItem
-              key={x.id}
-              active={x.id === sortKey}
-              onClick={() => {
-                set('sortKey', x.id)
-                setMenu(false)
-              }}
-            >
-              {x.label}
-            </MenuItem>
-          ))}
+          {SORTS.map((x) => {
+            const primary = x.id === sortKey
+            const secondary = x.id === sortSecondaryKey
+            return (
+              <div key={x.id} className="flex w-full items-center rounded-xl transition hover:bg-lilac-100/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    set('sortKey', x.id)
+                    if (sortSecondaryKey === x.id) set('sortSecondaryKey', null)
+                    setMenu(false)
+                  }}
+                  className={`min-w-0 flex-1 rounded-l-xl px-3 py-2 text-left text-sm ${primary ? 'font-medium text-lilac-700' : ''}`}
+                  aria-pressed={primary}
+                >
+                  {x.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (primary) return
+                    set('sortSecondaryKey', secondary ? null : x.id)
+                  }}
+                  className={`mr-1 min-w-[3.25rem] rounded-lg px-2 py-1 text-[0.68rem] font-semibold transition ${primary ? 'bg-lilac-500 text-white' : secondary ? 'bg-lilac-100 text-lilac-700 ring-1 ring-lilac-300' : 'text-ink-faint hover:bg-white/70'}`}
+                  aria-label={primary ? `${x.label} is the first sort` : secondary ? `Remove ${x.label} as the second sort` : `Use ${x.label} as the second sort`}
+                  aria-pressed={primary || secondary}
+                  title={primary ? 'Primary sort' : secondary ? 'Tap to remove secondary sort' : 'Tap to use as secondary sort'}
+                >
+                  {primary ? '1st' : secondary ? '2nd' : ''}
+                </button>
+              </div>
+            )
+          })}
         </Popover>
         <button
           onClick={() => set('sortDesc', !sortDesc)}

@@ -18,6 +18,8 @@ export interface Settings {
   /** Automatically remove completed tasks after this retention period. */
   completedRetention: 'hour' | 'day' | 'week' | 'never'
   sortKey: SortKey
+  /** Optional second-level List view sort; alphabetical order is the final tiebreaker. */
+  sortSecondaryKey: SortKey | null
   sortDesc: boolean
   pondGroup: PondGroup
   /** Sidebar spacing, 0 (compact) to 1 (relaxed). */
