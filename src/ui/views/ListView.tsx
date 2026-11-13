@@ -369,6 +369,7 @@ export function ListView() {
       )}
       <BatchEditor ids={ids} open={batch && ids.length > 0} onClose={() => setBatch(false)} />
       <QuickAdd
+        listActions
         examples
         onAdd={quickAdd}
         onType={(t) => {
