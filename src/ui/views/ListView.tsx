@@ -46,6 +46,8 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
     const apply = (dx: number) => {
       el.style.transform = `translateX(${dx}px)`
       if (revealDelete.current) revealDelete.current.style.opacity = dx < -6 ? '1' : '0'
+      const deleteIcon = deleteLid.current?.closest<HTMLElement>('[data-delete-icon]')
+      if (deleteIcon) deleteIcon.style.opacity = dx < -6 ? '1' : '0'
       const chipShift = Math.min(1, Math.max(0, -dx) / 80) * 38
       if (deleteChips.current) deleteChips.current.style.transform = `translateX(${-chipShift}px)`
       if (deleteTitle.current) deleteTitle.current.style.paddingRight = `${chipShift}px`
@@ -76,6 +78,12 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
           revealDelete.current.style.transition = 'background-color 140ms ease, color 140ms ease, opacity 180ms ease-out'
           revealDelete.current.style.backgroundColor = 'rgb(210 110 140 / 0.9)'
           revealDelete.current.style.color = 'white'
+        }
+        const deleteIcon = deleteLid.current?.closest<HTMLElement>('[data-delete-icon]')
+        if (deleteIcon) {
+          deleteIcon.style.transition = 'color 140ms ease, opacity 100ms ease-out'
+          deleteIcon.style.color = 'white'
+          deleteIcon.style.opacity = '1'
         }
         if (deleteLid.current) {
           deleteLid.current.style.transition = 'transform 100ms cubic-bezier(0.2, 0.8, 0.2, 1)'
@@ -133,6 +141,12 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
           revealDelete.current.style.backgroundColor = 'white'
           revealDelete.current.style.color = ''
         }
+        const deleteIcon = deleteLid.current?.closest<HTMLElement>('[data-delete-icon]')
+        if (deleteIcon) {
+          deleteIcon.style.opacity = '0'
+          deleteIcon.style.color = '#dc2626'
+          deleteIcon.style.transition = ''
+        }
         if (deleteLid.current) deleteLid.current.style.transition = ''
         if (revealCheck.current) revealCheck.current.style.opacity = '0'
       }, 440)
@@ -184,14 +198,9 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
-      <div className="relative overflow-x-clip rounded-2xl">
-        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: 'white' }}>
-          <span className="mr-0.5 block h-6 w-6">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path ref={deleteLid} d="M4 7h16 M9 7V4h6v3" style={{ transformBox: 'fill-box', transformOrigin: 'right center' }} />
-              <path d="M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-            </svg>
-          </span>
+      <div className="relative overflow-x-clip overflow-y-visible rounded-2xl">
+        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end overflow-visible rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: '#fff', isolation: 'isolate' }}>
+
         </div>
         <div ref={revealCheck} aria-hidden className="absolute inset-0 flex items-center justify-start rounded-2xl pl-5 text-white opacity-0" style={{ background: 'rgb(var(--lr-500) / 0.9)' }}>
           <IconCheck size={18} />
@@ -253,6 +262,12 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
             <IconTrash size={14} />
           </button>
         </div>
+        <span data-delete-icon aria-hidden className="pointer-events-none absolute right-5 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center text-[#dc2626] opacity-0" style={{ transition: 'opacity 100ms ease-out' }}>
+          <svg viewBox="-4 -5 32 34" width="32" height="34" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ overflow: 'visible' }}>
+            <path ref={deleteLid} d="M4 7h16 M9 7V4h6v3" style={{ transformBox: 'fill-box', transformOrigin: 'right center' }} />
+            <path d="M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+          </svg>
+        </span>
       </div>
     </Dim>
   )
