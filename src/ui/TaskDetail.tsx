@@ -230,9 +230,9 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
       ) : t ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 text-base font-semibold tabular-nums text-lilac-700">{t.done}</span>
+            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} />
             <span className="shrink-0 text-sm text-ink-soft">of</span>
-            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-7 !min-w-[2rem] !rounded-lg !border-0 !bg-white/35 !px-1.5 !text-sm !text-lilac-700" />
+            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-auto !min-w-0 !rounded-none !border-0 !bg-transparent !px-0 !py-0 !text-sm !font-semibold !text-lilac-700 !shadow-none" />
             <span className="shrink-0 text-sm text-ink-soft">items done</span>
             <div className="ml-auto flex shrink-0 items-center gap-2">
               <button type="button" aria-label="One fewer item completed" disabled={t.done <= 0} onClick={() => setTally(task.id, { ...t, done: t.done - 1 })} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-100 text-xl font-medium text-lilac-700 shadow-sm transition hover:bg-lilac-200 active:scale-95 disabled:opacity-40 disabled:active:scale-100">−</button>
@@ -248,7 +248,7 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
       ) : settingCount ? (
         <div className="flex items-center gap-2 text-sm text-ink-soft">
           <span>Total items</span>
-          <NumberField label="Total items" value={0} min={1} onChange={saveCount} autoOpen className="!text-lilac-700" />
+          <NumberField label="Total items" value={0} min={1} onChange={saveCount} autoOpen />
         </div>
       ) : (
         <button type="button" onClick={beginCount} className="text-xs font-medium text-lilac-700 underline decoration-lilac-300 underline-offset-2 transition hover:text-lilac-800">Count items &gt;</button>
