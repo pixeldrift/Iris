@@ -267,6 +267,7 @@ export function QuickAdd({
   examples = false,
   onType,
   below,
+  listActions = false,
 }: {
   placeholder?: string
   /** What this box is for, for people using a screen reader and for the typing bar on a sideways phone (the placeholder is only a hint). */
@@ -278,6 +279,8 @@ export function QuickAdd({
   /** Told what is typed, as it is typed (to read it ahead of adding), and what to show under the box for it. */
   onType?: (text: string) => void
   below?: React.ReactNode
+  /** Show explicit clear and submit controls in the List view quick-add. */
+  listActions?: boolean
 }) {
   const [v, setV] = useState('')
   const hint = useExampleIndex(examples && !v)
@@ -308,9 +311,21 @@ export function QuickAdd({
           placeholder={examples ? '' : placeholder}
           aria-label={label}
           data-proxy-commit
-          className="well w-full rounded-2xl px-4 py-2.5 text-sm"
+          className={`well w-full rounded-2xl py-2.5 text-sm ${listActions ? (v ? "pl-4 pr-[5.5rem]" : "pl-4 pr-14") : "px-4"}`}
         />
         {examples && !v && <ExampleHint index={hint} className="left-4 right-3 text-sm" />}
+        {listActions && (
+          <div className="absolute inset-y-0 right-1.5 flex items-center gap-1">
+            {v.length > 0 && (
+              <button type="button" onClick={() => { setV(''); onType?.(''); ref.current?.focus() }} aria-label="Clear text" title="Clear" className="grid h-7 w-7 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink">
+                <span aria-hidden className="text-base leading-none">×</span>
+              </button>
+            )}
+            <button type="submit" disabled={!v.trim()} aria-label="Add item" title="Add item" className="grid h-8 w-8 place-items-center rounded-xl bg-lilac-500 text-lg leading-none text-white shadow-sm shadow-lilac-500/25 transition hover:bg-lilac-600 disabled:cursor-default disabled:opacity-30">
+              <span aria-hidden>↵</span>
+            </button>
+          </div>
+        )}
       </div>
       {below}
     </form>

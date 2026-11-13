@@ -32,7 +32,7 @@ const SORTS: { id: SortKey; label: string }[] = [
  * the line is taken back off). It only takes over when the finger clearly moves sideways, so scrolling stays vertical, and a
  * press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
  */
-function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteLid: React.RefObject<HTMLSpanElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
+function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteChips: React.RefObject<HTMLDivElement | null>, deleteLid: React.RefObject<HTMLSpanElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
   return (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return
     const el = row.current
@@ -45,7 +45,8 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
     const restingScale = wasDone ? 1 : 0
     const apply = (dx: number) => {
       el.style.transform = `translateX(${dx}px)`
-      if (revealDelete.current) revealDelete.current.style.opacity = String(dx < 0 ? Math.min(1, -dx / 80) : 0)
+      if (revealDelete.current) revealDelete.current.style.opacity = dx < -6 ? '1' : '0'
+      if (deleteChips.current) deleteChips.current.style.transform = `translateX(${-Math.min(1, Math.max(0, -dx) / 80) * 38}px)`
       if (deleteLid.current) {
         const progress = Math.min(1, Math.max(0, -dx) / need)
         deleteLid.current.style.transform = `rotate(${progress * 38}deg) translateY(${-progress * 3}px)`
@@ -113,11 +114,16 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
         if (strike.current) strike.current.style.transition = `transform ${spring}, opacity 180ms ease-out`
         if (deleteLid.current) deleteLid.current.style.transition = `transform ${spring}`
         if (revealDelete.current) revealDelete.current.style.transition = 'opacity 180ms ease-out'
+        if (deleteChips.current) deleteChips.current.style.transition = `transform ${spring}`
         apply(0)
       }
       window.setTimeout(() => {
         el.style.transition = ''
         el.style.transform = ''
+        if (deleteChips.current) {
+          deleteChips.current.style.transform = ''
+          deleteChips.current.style.transition = ''
+        }
         if (revealDelete.current) {
           revealDelete.current.style.opacity = '0'
           revealDelete.current.style.transition = ''
@@ -158,6 +164,7 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
 function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void; /** Just added from the quick-add box: it glows for a moment. */ fresh?: boolean }) {
   const el = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
+  const deleteChips = useRef<HTMLDivElement>(null)
   const deleteLid = useRef<HTMLSpanElement>(null)
   const revealCheck = useRef<HTMLDivElement>(null)
   const strike = useRef<HTMLSpanElement>(null)
@@ -169,12 +176,12 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const done = isDoneNow(task)
   // The strikethrough is drawn by the live swipe gesture; completion only changes task state.
   const check = () => toggleDone(task.id)
-  const swipe = useSwipe(el, reveal, deleteLid, revealCheck, strike, done, () => del(task.id), check)
+  const swipe = useSwipe(el, reveal, deleteChips, deleteLid, revealCheck, strike, done, () => del(task.id), check)
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
       <div className="relative overflow-x-clip rounded-2xl">
-        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-danger-deep opacity-0" style={{ background: 'white' }}>
+        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-red-600 opacity-0" style={{ background: 'white' }}>
           <span className="relative mr-0.5 block h-6 w-6">
             <span ref={deleteLid} className="absolute left-0.5 top-1 h-[3px] w-[21px] rounded-full bg-current" style={{ transformOrigin: 'right center' }}>
               <span className="absolute right-[7px] -top-[3px] h-[2px] w-[7px] rounded-full bg-current" />
@@ -214,7 +221,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
             </span>
           </span>
           {/* the chips, with how far along it is as a thin bar underneath them */}
-          <div className="flex shrink-0 flex-col items-stretch gap-0.5">
+          <div ref={deleteChips} className="flex shrink-0 flex-col items-stretch gap-0.5">
             <div className="flex items-center justify-end gap-1">
               <span data-lift-extra className="hidden items-center gap-1 sm:flex">
                 <ItemBadges task={task} progress={false} />
@@ -369,6 +376,7 @@ export function ListView() {
       )}
       <BatchEditor ids={ids} open={batch && ids.length > 0} onClose={() => setBatch(false)} />
       <QuickAdd
+        listActions
         examples
         onAdd={quickAdd}
         onType={(t) => {

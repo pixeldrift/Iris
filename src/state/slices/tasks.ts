@@ -1,7 +1,7 @@
 import { addDays, fromISO, today } from '../../core/dates'
 import { descendantIds, pathOf } from '../../core/folders'
 import { detectContactIntent, matchPerson } from '../../core/people'
-import { hasProgress, patchForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
+import { hasProgress, patchForStage, percentForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { remindFromRule } from '../../core/reminders'
 import { rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
@@ -133,7 +133,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         const to = patchForStage(stages, i)
         // moving between columns sets how far along it is, to that column's break point (a count follows, if there is one)
         const percents = percentsFor(stages.length, (get().folders.find((f) => f.stages === stages) ?? get().folders.find((f) => f.id === t.folderIds[0]))?.stagePercents)
-        const at = percents[Math.max(0, Math.min(stages.length - 1, i))] ?? 0
+        const at = percentForStage(i, percents)
         const withProgress: Partial<Task> = !keepProgress && hasProgress(t.kind) ? { progress: at, ...(t.tally ? { tally: { ...t.tally, done: Math.round((t.tally.total * at) / 100) } } : {}) } : {}
         if (stageIndex(t, stages) === Math.max(0, Math.min(stages.length - 1, i)) && t.status === to.status && t.stage === to.stage) {
           if (Object.keys(withProgress).length && (t.progress ?? null) !== at) get().updateTask(id, withProgress)
