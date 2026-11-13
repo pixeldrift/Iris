@@ -68,6 +68,12 @@ describe('tasks', () => {
   it('hides done by default', () => {
     expect(filterTasks(tasks, { type: 'all' }, folders, false).some((t) => t.status === 'done')).toBe(false)
   })
+  it('keeps archived completions in the archive but out of active views', () => {
+    const archived = { ...items[0], status: 'done' as const, archived: true }
+    expect(filterTasks([archived], { type: 'all' }, folders, true)).toEqual([])
+    expect(filterTasks([archived], { type: 'completed', period: 'all' }, folders, false)).toEqual([archived])
+  })
+
   it('filters completed tasks by an inclusive custom completion-date range', () => {
     const completedAt = new Date(2026, 10, 12, 12).getTime()
     expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'range', from: '2026-11-12', to: '2026-11-13' })).toBe(true)
