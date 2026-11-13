@@ -3,6 +3,7 @@ import { descendantIds, pathOf } from '../../core/folders'
 import { detectContactIntent, matchPerson } from '../../core/people'
 import { hasProgress, patchForStage, percentForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
+import { isPastEvent } from '../../core/schedule'
 import { remindFromRule } from '../../core/reminders'
 import { rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
 import type { Task, TaskKind, TaskStatus } from '../../core/types'
@@ -220,14 +221,23 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
       setDay: (taskId, day) => get().updateTask(taskId, { day }),
       rollover: () => {
         const now = today()
+        const snapshot = get()
+        if (snapshot.settings.autoCompletePastDue) {
+          for (const t of snapshot.tasks) {
+            if (t.status === 'done' || t.draft || repeatOf(t) || t.kind === 'idea') continue
+            const past = t.kind === 'event' ? isPastEvent(t) : !!(t.due ?? t.day) && (t.due ?? t.day)! < now
+            if (past) get().setStatus(t.id, 'done')
+          }
+        }
         const moves = new Map<string, string>()
         for (const t of get().tasks) {
           const to = rolloverDay(t, now)
           if (to && to !== t.day) moves.set(t.id, to)
         }
-        if (!moves.size) return
-        set((s) => ({ tasks: s.tasks.map((t) => (moves.has(t.id) ? { ...t, day: moves.get(t.id)! } : t)) }))
-        get().showToast(`Carried ${moves.size} unfinished ${moves.size === 1 ? 'task' : 'tasks'} forward`)
+        if (moves.size) {
+          set((s) => ({ tasks: s.tasks.map((t) => (moves.has(t.id) ? { ...t, day: moves.get(t.id)! } : t)) }))
+          get().showToast(`Carried ${moves.size} unfinished ${moves.size === 1 ? 'task' : 'tasks'} forward`)
+        }
       },
       assignToGroup: (taskId, mode, key) => {
         const s = get()
