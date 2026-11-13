@@ -141,13 +141,15 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           return
         }
         if (t.status === 'done' && to.status !== 'done') sound.undone()
+        const completionTime = to.status === 'done' ? (t.completedAt ?? Date.now()) : null
         if (to.status === 'done' && t.status !== 'done') {
           sound.bloom()
           // keep it on screen long enough to bloom, then it fades out
           set((s) => ({ lingering: { ...s.lingering, [id]: true } }))
           window.setTimeout(() => {
             // If it was undone during the grace period, or its details are still open, do not remove it.
-            if (get().selectedId === id || get().tasks.find((x) => x.id === id)?.status !== 'done') return
+            const current = get().tasks.find((x) => x.id === id)
+            if (get().selectedId === id || current?.status !== 'done' || current.completedAt !== completionTime) return
             set((s) => {
               const { [id]: _l, ...lingering } = s.lingering
               return { lingering }
@@ -160,7 +162,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
             return { lingering }
           })
         }
-        get().updateTask(id, { ...to, ...withProgress, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null })
+        get().updateTask(id, { ...to, ...withProgress, completedAt: completionTime })
       },
       setProgress: (id, pct) => {
         const t = get().tasks.find((x) => x.id === id)
