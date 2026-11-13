@@ -122,8 +122,10 @@ function Bar({ task, winStart, dayW, legend, onPreview, preview }: { task: Task;
           </svg>
         </span>
       ) : (
-        <span className="min-w-0 flex-1 truncate px-1 text-ink">{task.title}</span>
-        {width >= 104 && <span className="origin-center scale-[0.8]"><TallyIncrement task={task} compact /></span>}
+        <>
+          <span className="min-w-0 flex-1 truncate px-1 text-ink">{task.title}</span>
+          {width >= 104 && <span className="origin-center scale-[0.8]"><TallyIncrement task={task} compact /></span>}
+        </>
       )}
       <span onPointerDown={begin('right')} className="absolute inset-y-0 right-0 flex w-4 cursor-ew-resize items-center justify-end pr-1.5" aria-hidden>
         <Dot />
