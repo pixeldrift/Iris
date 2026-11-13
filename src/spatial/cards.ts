@@ -217,7 +217,7 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   }
   // the words (up to two lines, with an ellipsis, in the space between the check and the chip)
   const tx = cx + cr + 18
-  const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0)
+  const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0) - (c.tally && c.tally.done < c.tally.total && !c.done ? 58 : 0)
   g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : TOKENS['--color-ink']
   // a little white glow around the words, as on every other item
   g.shadowColor = LOOK.textGlow.color
