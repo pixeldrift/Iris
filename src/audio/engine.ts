@@ -229,6 +229,12 @@ export function notify() {
   play('notify', { variation: 0.01 })
 }
 
+/** A quiet mechanical-feeling tick as a stepped slider advances. */
+export function sliderTick() {
+  if (!can('pops')) return
+  play('tick', { rate: 1.45, variation: 0, level: 0.18 })
+}
+
 /** A checklist entry ticked: the finishing sound, smaller and higher. */
 export function tickDone() {
   if (!can('chimes')) return
