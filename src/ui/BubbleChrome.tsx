@@ -83,9 +83,11 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { t
         </span>
       )}
       <ProgressArc task={task} r={r} />
-      <span className="pointer-events-auto absolute bottom-[7%] left-1/2 -translate-x-1/2">
-        <DoneButton task={task} size={cb} />
-      </span>
+      {!(task.image && !task.title.trim()) && (
+        <span className="pointer-events-auto absolute bottom-[7%] left-1/2 -translate-x-1/2">
+          <DoneButton task={task} size={cb} />
+        </span>
+      )}
       {arc.map((it) => (
         <span key={it.key} className="pointer-events-auto absolute flex items-center" style={{ left: it.x, top: it.y, transform: 'translate(-50%, -50%)' }}>
           {it.node}
