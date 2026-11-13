@@ -74,6 +74,7 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
       const spring = '420ms cubic-bezier(0.2, 0.9, 0.25, 1.15)'
       el.style.transition = `transform ${spring}`
       if (commit && dx < -need) {
+        sound.swipeDelete()
         // Snap the lid shut first, then sweep the row away so the delete action reads clearly.
         if (revealDelete.current) {
           revealDelete.current.style.transition = 'background-color 140ms ease, color 140ms ease, opacity 180ms ease-out'
@@ -98,6 +99,7 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
         return
       }
       if (check) {
+        sound.swipeCheck(wasDone)
         // The line has reached its end with the finger; let the row spring home while
         // the completed/undone state catches up underneath it.
         el.style.transform = 'translateX(0)'

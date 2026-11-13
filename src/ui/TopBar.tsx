@@ -92,8 +92,8 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
       {!vertical && pill && (
         <span
           aria-hidden
-          className="absolute inset-y-0 rounded-full"
-          style={{ ...chip, left: pill.x, width: pill.w, transition: settled.current ? 'left 0.34s cubic-bezier(0.34, 1.35, 0.55, 1), width 0.34s cubic-bezier(0.34, 1.35, 0.55, 1)' : 'none' }}
+          className="chip-bubble absolute inset-y-0 rounded-full border border-white/70"
+          style={{ ...chip, ['--h' as string]: cur.hue ?? 285, ['--s' as string]: cur.hue === undefined ? 0 : 1, left: pill.x, width: pill.w, transition: settled.current ? 'left 0.34s cubic-bezier(0.34, 1.35, 0.55, 1), width 0.34s cubic-bezier(0.34, 1.35, 0.55, 1)' : 'none' }}
         />
       )}
       {items.map((it, i) => {
@@ -106,7 +106,7 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
               </span>
             )}
             {last ? (
-              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`relative inline-flex items-center rounded-full text-[0.72rem] font-medium leading-[1.2] ${vertical && i === 0 ? 'h-[1.4rem] w-[1.4rem] justify-center p-0' : padCur}`} style={vertical ? chip : { color: chip.color }}>
+              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`chip-bubble relative inline-flex items-center rounded-full border border-white/70 text-[0.72rem] font-medium leading-[1.2] ${vertical && i === 0 ? 'h-[1.4rem] w-[1.4rem] justify-center p-0' : padCur}`} style={{ ...(vertical ? chip : { color: chip.color, background: 'transparent', borderColor: 'transparent', boxShadow: 'none' }), ['--h' as string]: it.hue ?? 285, ['--s' as string]: it.hue === undefined ? 0 : 1 }}>
                 {label(it, i)}
               </span>
             ) : (
