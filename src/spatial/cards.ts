@@ -21,6 +21,7 @@ export interface CardInfo {
   progress?: number
   /** A picture, if it has one (drawn faintly behind the words). */
   image?: HTMLImageElement | null
+  imageUrl?: string | null
 }
 
 /** The card itself, and the room around it in the texture for its soft shadow. */
@@ -80,10 +81,26 @@ export function wrapTitle(g: Pick<CanvasRenderingContext2D, 'measureText'>, text
 }
 
 /** `scale` below 1 draws a smaller texture (many tasks on screen at once: kinder to memory), with the same layout. */
+const taskImages = new Map<string, HTMLImageElement>()
+export function cardImage(src: string | null | undefined, onLoad: () => void): HTMLImageElement | undefined {
+  if (!src) return undefined
+  const cached = taskImages.get(src)
+  if (cached?.complete && cached.naturalWidth > 0) return cached
+  if (cached) return undefined
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = onLoad
+  img.src = src
+  taskImages.set(src, img)
+  return undefined
+}
+
 export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   canvas.width = Math.round(CARD_PX.w * scale)
   canvas.height = Math.round(CARD_PX.h * scale)
   const g = canvas.getContext('2d')!
+  g.imageSmoothingEnabled = true
+  g.imageSmoothingQuality = 'high'
   g.setTransform(scale, 0, 0, scale, 0, 0)
   g.clearRect(0, 0, CARD_PX.w, CARD_PX.h)
   const x = PAD_X
@@ -136,7 +153,7 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.save()
     roundRect(g, x, y, w, h, R)
     g.clip()
-    g.globalAlpha = 0.22
+    g.globalAlpha = 0.42
     g.drawImage(c.image, x, y, w, h)
     g.restore()
   }
