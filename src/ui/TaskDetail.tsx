@@ -315,7 +315,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         <PictureField task={task} />
       </Box>
       <AssignField task={task} />
-      <Box title="Notes" icon={<IconThought size={13} />} startOpen={!task.notes} summary={task.notes ? task.notes.replace(/\\s+/g, ' ').slice(0, 48) : 'Add notes'}>
+      <Box title="Notes" icon={<IconThought size={13} />} startOpen={!task.notes} summary={task.notes ? task.notes.replace(/\s+/g, ' ').slice(0, 48) : 'Add notes'}>
         {editingNotes ? (
           <textarea
             autoFocus
