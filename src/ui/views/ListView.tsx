@@ -184,10 +184,10 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
-      <div className="relative overflow-x-clip rounded-2xl">
-        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: 'white' }}>
-          <span className="mr-0.5 block h-6 w-6">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="relative overflow-x-clip overflow-y-visible rounded-2xl">
+        <div ref={reveal} aria-hidden className="absolute inset-0 z-10 flex items-center justify-end overflow-visible rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: '#fff', isolation: 'isolate' }}>
+          <span className="relative z-10 mr-0.5 block h-8 w-8 overflow-visible text-[#dc2626] opacity-100">
+            <svg viewBox="-4 -5 32 34" width="32" height="34" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ overflow: 'visible' }}>
               <path ref={deleteLid} d="M4 7h16 M9 7V4h6v3" style={{ transformBox: 'fill-box', transformOrigin: 'right center' }} />
               <path d="M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
             </svg>
