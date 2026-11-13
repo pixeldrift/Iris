@@ -120,6 +120,22 @@ function AssignField({ task }: { task: Task }) {
           </button>
         )}
       </div>
+      {task.personIds.length > 0 && (
+        <div className="mt-3">
+          <span className="block text-xs font-medium text-ink-soft">Tagged</span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="People tagged on this item">
+            {task.personIds.map((id) => {
+              const person = people.find((p) => p.id === id)
+              if (!person) return null
+              return (
+                <span key={id} className="inline-flex items-center rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-ink-soft shadow-sm">
+                  @{person.name.split(' ')[0]}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
       <Popover open={open} onClose={() => setOpen(false)} anchor={add} className="w-56 p-1.5">
         <div aria-label={share ? 'Assign someone' : 'Assign a connected person'}>
           {share ? left.map((m) => (
