@@ -42,7 +42,7 @@ export function createFromLine(text: string, apply: boolean): string {
   const made = useStore.getState().tasks.find((x) => x.id === id)
   if (made?.due && made.kind !== 'idea') useStore.getState().setDue(id, made.due, made.dueTime ?? null)
   if (q?.remindAt) void askNotify()
-  if (q?.action) {
+  if (q?.action && q.action.type !== 'tag') {
     const person = useStore.getState().people.find((p) => p.id === q.action!.personId)
     const userId = person?.link?.userId
     const task = useStore.getState().tasks.find((x) => x.id === id)
