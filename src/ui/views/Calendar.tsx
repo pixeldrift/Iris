@@ -11,7 +11,7 @@ import { ScrollFade } from '../ScrollFade'
 import { xHeightShift } from '../xheight'
 import { SPRING } from '../lift'
 import { colorVars, useTaskHue } from '../taskColor'
-import { DoneButton, useTaskDrag } from '../shared'
+import { DoneButton, TallyIncrement, useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate, effectiveUrgency } from '../../core/tasks'
 import { spanOnDay, isFinished } from '../../core/schedule'
@@ -51,6 +51,7 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
         <span className="shrink-0 opacity-60" aria-hidden>
           <KindIcon kind={task.kind} size={12} />
         </span>
+        {rich && <TallyIncrement task={task} compact />}
       )}
     </div>
   )
@@ -94,6 +95,7 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
       <span className="shrink-0 text-lilac-600/70" aria-hidden title={task.kind}>
         <KindIcon kind={task.kind} size={16} />
       </span>
+      <TallyIncrement task={task} compact />
     </div>
   )
 }
