@@ -67,19 +67,19 @@ export function scopeMatcher(scope: Scope, folders: Folder[]): (task: Task) => b
     }
     case 'all':
     case 'contacts':
-      return () => true
+      return (t) => !t.archived
     case 'completed':
       return (t) => t.status === 'done' && completedDateMatches(t, scope)
     case 'inbox':
       // Unsorted is the home for every task without a group, whether or not it has a date.
-      return (t) => t.folderIds.length === 0
+      return (t) => !t.archived && t.folderIds.length === 0
     case 'day':
-      return (t) => taskOnDate(t, scope.date)
+      return (t) => !t.archived && taskOnDate(t, scope.date)
     case 'person':
-      return (t) => t.personIds.includes(scope.id)
+      return (t) => !t.archived && t.personIds.includes(scope.id)
     case 'folder': {
       const ids = descendantIds(folders, scope.id)
-      return (t) => t.folderIds.some((f) => ids.has(f))
+      return (t) => !t.archived && t.folderIds.some((f) => ids.has(f))
     }
   }
 }
