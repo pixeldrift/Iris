@@ -457,7 +457,7 @@ export function TaskDetail() {
   const { mounted, closing } = useExit(!!id && !!live, 240)
 
   // "Saved" blinks whenever something about the task changes
-  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.repeat, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.dueRemindAt, task.place, task.days, task.folderIds, task.personIds]) : ''
+  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.images, task.image, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.repeat, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.dueRemindAt, task.place, task.days, task.folderIds, task.personIds]) : ''
   const [savedTick, setSavedTick] = useState(0)
   const firstSig = useRef(sig)
   useEffect(() => {
