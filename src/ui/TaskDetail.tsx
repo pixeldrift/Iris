@@ -15,7 +15,7 @@ import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
 import { progressOf } from '../core/progress'
-import { IconCalendar, IconChart, IconImage, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconTrash } from './icons'
+import { IconCalendar, IconChart, IconImage, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconThought, IconTrash } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { DoneButton, KindHint, KINDS, OpenPlace, STATUSES } from './shared'
 import { TagInput } from './TagInput'
@@ -200,7 +200,7 @@ function ProgressBox({ task }: { task: Task }) {
   const t = task.tally
   const setStatus = useStore((s) => s.setStatus)
   return (
-    <Box title="Progress" icon={<IconChart size={13} />}>
+    <Box title="Progress" icon={<IconChart size={13} />} summary={`${pct}% complete`}>
       <div className="flex items-center gap-3">
         <input
           type="range"
