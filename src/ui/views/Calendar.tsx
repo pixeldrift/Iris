@@ -48,10 +48,12 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
         {task.title}
       </span>
       {rich && (
-        <span className="shrink-0 opacity-60" aria-hidden>
-          <KindIcon kind={task.kind} size={12} />
-        </span>
-        {rich && <TallyIncrement task={task} compact />}
+        <>
+          <span className="shrink-0 opacity-60" aria-hidden>
+            <KindIcon kind={task.kind} size={12} />
+          </span>
+          <TallyIncrement task={task} compact />
+        </>
       )}
     </div>
   )
