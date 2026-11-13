@@ -117,7 +117,7 @@ function AssignField({ task }: { task: Task }) {
     if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), userId])])
   }, `Assigned to ${nameOf(userId)}.`)
   const inviteGuest = (userId: string) => run(
-    () => shareTask(task, userId, 'viewer'),
+    () => shareTask(task, userId, 'viewer', 'event'),
     `Invitation sent to ${nameOf(userId)}.`,
   )
   const shareWith = (userId: string) => run(
