@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { PGlite } from '@electric-sql/pglite'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { dueForPush, removeSubscription, rezone, saveSubscription, sweep, type Payload } from './push'
 import type { Task } from '../../src/core/types'
 
@@ -14,6 +14,11 @@ const sub = (endpoint: string) => ({ subscription: { endpoint, keys: { p256dh: '
 beforeAll(async () => {
   db = new PGlite()
   await db.exec(SCHEMA)
+})
+
+// Each test gets an empty database so subscriptions from one case cannot leak into another.
+beforeEach(async () => {
+  await db.exec('TRUNCATE push_sent, push_subscriptions, entities, workspace_members, workspaces CASCADE')
 })
 
 describe('push', () => {
