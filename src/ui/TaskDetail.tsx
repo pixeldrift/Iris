@@ -87,7 +87,7 @@ function AssignField({ task }: { task: Task }) {
     return m ? [m] : []
   })
   return (
-    <Box title="Who" icon={<IconPerson size={13} />}>
+    <Box title="Who" icon={<IconPerson size={13} />} summary={given.length ? `${given.length} assigned` : 'Unassigned'}>
       <span className="block text-xs font-medium text-ink-soft">Assigned to</span>
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Assigned to">
         {given.length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody</span>}
@@ -165,7 +165,7 @@ const rememberBox = (title: string, open: boolean) => {
  * away: the whole title row is the button, with an arrow. `startOpen` is false for the things a kind of item rarely needs (a list does
  * not need dates) unless they already hold something.
  */
-function Box({ title, icon, children, startOpen = true }: { title: string; icon: React.ReactNode; children: React.ReactNode; startOpen?: boolean }) {
+function Box({ title, icon, children, startOpen = true, summary }: { title: string; icon: React.ReactNode; children: React.ReactNode; startOpen?: boolean; summary?: string }) {
   // a box left folded (or opened) stays that way, for every item and the next time: only a choice made by hand is remembered
   const [open, setOpen] = useState(() => boxChoice(title) ?? startOpen)
   const toggle = () => {
@@ -177,7 +177,8 @@ function Box({ title, icon, children, startOpen = true }: { title: string; icon:
       <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
         {icon}
         {title}
-        <span className={`ml-auto text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
+        {summary && !open && <span className="ml-auto min-w-0 max-w-[62%] truncate rounded-full bg-white/60 px-2 py-0.5 text-[0.65rem] font-medium normal-case tracking-normal text-ink-soft">{summary}</span>}
+        <span className={`${summary && !open ? '' : 'ml-auto'} text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}>
           <IconChevron size={13} />
         </span>
       </button>
@@ -271,6 +272,10 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
   const habit = task.kind === 'habit'
   const list = task.kind === 'list'
   const [repeatOpen, setRepeatOpen] = useState(() => !!task.repeat || habit)
+  const [editingNotes, setEditingNotes] = useState(() => !task.notes)
+  useEffect(() => setEditingNotes(!task.notes), [task.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const imageCount = task.images?.length || (task.image ? 1 : 0)
+  const whenSummary = [task.day || task.due, task.time || task.dueTime].filter(Boolean).join(' · ')
   return (
     <>
       {/* a list is its entries first */}
@@ -286,7 +291,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         </div>
       )}
       {!habit && (
-        <Box title="When" icon={<IconCalendar size={13} />} startOpen={!list || !!(task.day || task.due || task.time || task.dueTime || task.repeat)}>
+        <Box title="When" icon={<IconCalendar size={13} />} startOpen={!list || !!(task.day || task.due || task.time || task.dueTime || task.repeat)} summary={whenSummary || (task.repeat ? describeRecurrence(task.repeat) : 'Not scheduled')}>
           <ScheduleFields task={task} />
           {task.kind !== 'list' && (
             <Twirl title="Repeat" icon={<IconRepeat size={13} />} summary={task.repeat ? describeRecurrence(task.repeat) : undefined} open={repeatOpen} onToggle={() => setRepeatOpen((o) => !o)}>
@@ -297,30 +302,47 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         </Box>
       )}
       {habit && (
-        <Box title="Repeat" icon={<IconRepeat size={13} />}>
+        <Box title="Repeat" icon={<IconRepeat size={13} />} summary={task.repeat ? describeRecurrence(task.repeat) : 'Not repeating'}>
           <RepeatField task={task} />
           <RecentStrip task={task} />
           <ReminderField task={task} />
         </Box>
       )}
-      <Box title="Where" icon={<IconPin size={13} />} startOpen={!list || !!task.place}>
+      <Box title="Where" icon={<IconPin size={13} />} startOpen={!list || !!task.place} summary={task.place || 'No location'}>
         <PlaceField task={task} />
       </Box>
-      <Box title="Picture" icon={<IconImage size={13} />} startOpen={!!task.image || !list}>
+      <Box title="Picture" icon={<IconImage size={13} />} startOpen={!!task.image || !list} summary={imageCount ? `${imageCount} image${imageCount === 1 ? '' : 's'}` : 'No pictures'}>
         <PictureField task={task} />
       </Box>
       <AssignField task={task} />
-      <textarea
-        value={task.notes}
-        onChange={(e) => update(task.id, { notes: e.target.value })}
-        placeholder="Notes…"
-        aria-label="Notes"
-        rows={3}
-        className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
-      />
+      <Box title="Notes" icon={<IconThought size={13} />} startOpen={!task.notes} summary={task.notes ? task.notes.replace(/\\s+/g, ' ').slice(0, 48) : 'Add notes'}>
+        {editingNotes ? (
+          <textarea
+            autoFocus
+            value={task.notes}
+            onChange={(e) => update(task.id, { notes: e.target.value })}
+            onBlur={() => setEditingNotes(false)}
+            placeholder="Write a note…"
+            aria-label="Notes"
+            rows={3}
+            className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
+          />
+        ) : task.notes ? (
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1 whitespace-pre-wrap break-words px-1 py-1 text-sm leading-relaxed text-ink">{task.notes}</p>
+            <button type="button" onClick={() => setEditingNotes(true)} aria-label="Edit notes" title="Edit notes" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-lilac-700">
+              <IconPencil size={14} />
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setEditingNotes(true)} className="rounded-full bg-white/60 px-3 py-1.5 text-sm text-ink-faint transition hover:bg-white hover:text-lilac-700">
+            Add a note…
+          </button>
+        )}
+      </Box>
       {(task.kind === 'task' || task.kind === 'list') && <ProgressBox task={task} />}
       {/* both sliders on one line: most people never touch them (the priority grid does the fine tuning) */}
-      <Box title="Priority" icon={<IconPriority size={13} />} startOpen={!list || task.importance !== 0.5 || task.urgency !== 0.3}>
+      <Box title="Priority" icon={<IconPriority size={13} />} startOpen={!list || task.importance !== 0.5 || task.urgency !== 0.3} summary={`Importance ${Math.round(task.importance * 100)}% · Urgency ${Math.round(task.urgency * 100)}%`}>
         <div className="grid grid-cols-2 gap-4">
           <SoftSlider label="How much it matters" shown="Importance" compact left="a passing thought" right="super important" value={task.importance} onChange={(v) => update(task.id, { importance: v })} />
           <SoftSlider label="How urgent it is" shown="Urgency" compact left="whenever" right="right away!" value={task.urgency} onChange={(v) => update(task.id, { urgency: v })} actual={effectiveUrgency(task)} actualNote="raised by the deadline" />
@@ -544,7 +566,7 @@ export function TaskDetail() {
           </Tip>
         </header>
 
-        <div className="scroll-soft min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-2" style={{ paddingBottom: 'calc(var(--kb, 0px) * 0.5)' }}>
+        <div className="scroll-soft min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-2" style={{ paddingBottom: 'calc(1.5rem + var(--kb, 0px) * 0.5)' }}>
           <TaskFields task={task} />
         </div>
 
