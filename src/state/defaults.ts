@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   drift: true,
   sizeByPriority: true,
   showDone: false,
+  completedRetention: 'never',
   sortKey: 'flow',
   sortDesc: false,
   pondGroup: 'free',
