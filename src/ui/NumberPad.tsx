@@ -7,7 +7,7 @@ import { Popover } from './Popover'
  * kept until Done (or tapping away), so a half-typed number is never taken for the real one.
  */
 export function NumberField({ label, value, onChange, min = 0, max = 99999, className = '', autoOpen = false, onCommit }: { label: string; value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string; autoOpen?: boolean; onCommit?: () => void }) {
-  const [open, setOpen] = useState(autoOpen)
+  const [open, setOpen] = useState(false)
   useEffect(() => { if (autoOpen) setOpen(true) }, [autoOpen])
   const [typed, setTyped] = useState('')
   const btn = useRef<HTMLButtonElement>(null)
