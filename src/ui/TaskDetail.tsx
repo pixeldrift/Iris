@@ -11,7 +11,7 @@ import { useExit } from './anim'
 import { notionImageFrom } from './photo'
 import { ImageViewer } from './ImageViewer'
 import { describeRecurrence } from '../core/recurrence'
-import { assignTask, shareTask, stopSharing, useShare } from '../sync/share'
+import { assignTask, shareTask, stopSharing, leaveGroup, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
 import * as sound from '../audio/engine'
@@ -129,9 +129,11 @@ function AssignField({ task }: { task: Task }) {
       </Popover>
       {!share && shareLoaded && !task.workspaceId && connected.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Connect with someone first, then you can share just this {task.kind === 'event' ? 'event' : 'task'} with them.</p>}
       {share && others.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Only you are in this shared space so far.</p>}
-      {share && canEdit && (
+      {share && share.rootTaskId && (share.role === 'owner' ? (
         <button type="button" onClick={() => void stopSharing(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not stop sharing.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Stop sharing this item</button>
-      )}
+      ) : (
+        <button type="button" onClick={() => void leaveGroup(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not leave this item.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Leave shared item</button>
+      ))}
     </Box>
   )
 }
