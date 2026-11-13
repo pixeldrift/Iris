@@ -15,7 +15,7 @@ import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
 import { progressOf } from '../core/progress'
-import { IconCalendar, IconChart, IconImage, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconThought, IconTrash } from './icons'
+import { IconCalendar, IconChart, IconImage, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconNote, IconTrash } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { DoneButton, KindHint, KINDS, OpenPlace, STATUSES } from './shared'
 import { TagInput } from './TagInput'
@@ -315,7 +315,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
         <PictureField task={task} />
       </Box>
       <AssignField task={task} />
-      <Box title="Notes" icon={<IconThought size={13} />} startOpen={!task.notes} summary={task.notes ? task.notes.replace(/\s+/g, ' ').slice(0, 48) : 'Add notes'}>
+      <Box title="Notes" icon={<IconNote size={13} />} startOpen={!task.notes} summary={task.notes ? task.notes.replace(/\s+/g, ' ').slice(0, 48) : 'Add notes'}>
         {editingNotes ? (
           <textarea
             autoFocus
