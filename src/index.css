@@ -240,7 +240,9 @@ input[type='range'].soft {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 22px;
+  /* Give the thumb's shadow room inside the native control's paint bounds. */
+  height: 38px;
+  padding: 8px 16px;
   background: transparent;
   cursor: pointer;
 }
