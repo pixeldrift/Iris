@@ -105,6 +105,8 @@ export function Sidebar() {
   const people = useStore((s) => s.people)
   const open = useStore((s) => s.sidebarOpen)
   const setSidebar = useStore((s) => s.setSidebar)
+  const showDone = useStore((s) => s.settings.showDone)
+  const setSetting = useStore((s) => s.setSetting)
   const addFolder = useStore((s) => s.addFolder)
 
   const [editing, setEditing] = useState<string | null>(null)
@@ -260,7 +262,7 @@ export function Sidebar() {
           icon={<IconInbox />}
           label="Unsorted"
           handleGap
-          count={live.filter((t) => !t.due && !t.day && t.folderIds.length === 0).length}
+          count={live.filter((t) => t.folderIds.length === 0).length}
         />
       </Section>
     ),
@@ -487,9 +489,10 @@ export function Sidebar() {
           <nav ref={navRef} className="px-[calc(0.35rem+var(--sb)*0.6rem)] pb-[calc(0.6rem+var(--sb)*1.2rem)]">
             <ViewSwitcher />
             {/* views are how you look; everything below is what you look at (the filter) */}
-            <p className="mt-[calc(0.7rem+var(--sb)*0.5rem)] px-2.5 font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink-faint">
-              Filter
-            </p>
+            <div className="mt-[calc(0.7rem+var(--sb)*0.5rem)] flex items-center justify-between px-2.5">
+              <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink-faint">Filter</p>
+              <button type="button" aria-pressed={showDone} onClick={() => setSetting('showDone', !showDone)} className={`rounded-full px-2.5 py-1 text-[0.68rem] font-medium transition ${showDone ? 'bg-lilac-100 text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/55 text-ink-soft hover:bg-white/85'}`}>{showDone ? 'Hide completed' : 'Show completed'}</button>
+            </div>
             <div className="mt-1">
               <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
             </div>

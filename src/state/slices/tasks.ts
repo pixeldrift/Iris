@@ -146,6 +146,8 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           // keep it on screen long enough to bloom, then it fades out
           set((s) => ({ lingering: { ...s.lingering, [id]: true } }))
           window.setTimeout(() => {
+            // If its details are still open, hold the bubble in place; useLeaveClass starts the exit bloom on close.
+            if (get().selectedId === id) return
             set((s) => {
               const { [id]: _l, ...lingering } = s.lingering
               return { lingering }

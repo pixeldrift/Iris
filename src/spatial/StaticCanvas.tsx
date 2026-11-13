@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ui/ZoomControl'
 import { useStore } from '../state/store'
 import { colorVars } from '../ui/taskColor'
-import { DoneButton, DueChip } from '../ui/shared'
+import { DoneButton, DueChip, ItemProgress, TallyIncrement } from '../ui/shared'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
@@ -33,12 +33,16 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
   const select = useStore((s) => s.select)
   if (!task) return null
   return (
-    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint flex cursor-grab items-center gap-2.5 rounded-2xl px-2.5 py-2">
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint relative flex cursor-grab items-center gap-2.5 rounded-2xl px-2.5 py-2 pb-3.5">
       <DoneButton task={task} size={22} />
       <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
         {t.title || 'Untitled'}
       </button>
-      <DueChip task={task} compact />
+      <div className="flex shrink-0 items-center gap-2">
+        {task.tally && <TallyIncrement task={task} compact />}
+        <DueChip task={task} compact />
+      </div>
+      <ItemProgress task={task} className="absolute bottom-1 left-3 right-3 min-w-0" />
     </div>
   )
 }
@@ -268,7 +272,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
   return (
     <div
       ref={box}
-      className="absolute inset-0 touch-none select-none overflow-hidden rounded-[inherit] bg-gradient-to-b from-lilac-100/60 to-white/30"
+      className="absolute inset-0 touch-none select-none overflow-hidden rounded-[inherit] bg-gradient-to-b from-lilac-100/60 to-white/30" style={{ backgroundImage: 'linear-gradient(rgba(150,125,185,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(150,125,185,.055) 1px, transparent 1px), linear-gradient(to bottom, rgba(238,226,250,.6), rgba(255,255,255,.3))', backgroundSize: '32px 32px, 32px 32px, 100% 100%' }}
       onClickCapture={(e) => {
         if (suppress.current) {
           suppress.current = false

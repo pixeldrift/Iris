@@ -44,12 +44,26 @@ export default function SpatialView() {
   const folders = useStore((s) => s.folders)
 
   const content = useMemo(() => buildContent(visible, allTasks, folders, stored), [visible, allTasks, folders, stored])
+  const contentKey = useMemo(() => `${content.clusters.map((c) => c.id).join('|')}::${content.tasks.map((t) => t.id).join('|')}`, [content.clusters, content.tasks])
   // a place worked out for something new is kept, so it is the same next time
   useEffect(() => {
     if (!sameLayout(content.layout, stored)) setLayout(content.layout)
   }, [content.layout, stored, setLayout])
+  // Filters change the actual set of things in Space. Reframe after the scene has received the new content.
+  const previousContentKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (previousContentKey.current === null) { previousContentKey.current = contentKey; return }
+    if (previousContentKey.current === contentKey) return
+    previousContentKey.current = contentKey
+    requestAnimationFrame(() => {
+      if (simpleRef.current) setFitTick((n) => n + 1)
+      else scene.current?.frameAll()
+    })
+  }, [contentKey])
 
   const simple = render === 'simple' || !caps.webgl
+  const simpleRef = useRef(simple)
+  simpleRef.current = simple
   // wall mode: the camera finds a flat surface (a sheet, a frame, a wall) and the groups hang flat just in front of it
   const wall = render === 'wall' && caps.webgl && !!navigator.mediaDevices?.getUserMedia
   const [phase, setPhase] = useState<'intro' | 'running'>('intro')
