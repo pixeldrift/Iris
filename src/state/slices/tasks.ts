@@ -298,7 +298,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
         const removing = Object.fromEntries(Object.entries(s.removing).filter(([id]) => !removed.has(id)))
         return {
-          tasks: s.tasks.filter((t) => t.status !== 'done'),
+          tasks: s.tasks.filter((t) => !removed.has(t.id)),
           lingering,
           removing,
           selectedId: s.selectedId && removed.has(s.selectedId) ? null : s.selectedId,
