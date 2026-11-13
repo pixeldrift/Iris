@@ -88,12 +88,18 @@ function AssignField({ task }: { task: Task }) {
   const connected = shareLoaded
     ? people.filter((p) => p.link?.userId && p.link.userId !== me && !members.some((m) => m.userId === p.link!.userId))
     : []
+  // Assignments on a private item can name any address-book contact. A linked contact
+  // is promoted into a shared workspace; an unlinked contact remains a local assignment.
+  const assignedIds = new Set(assigned)
+  const assignablePeople = !task.workspaceId && shareLoaded
+    ? people.filter((p) => !p.isMe && !assignedIds.has(p.id) && (!p.link?.userId || (p.link.userId !== me && !assignedIds.has(p.link.userId))))
+    : []
   const isIndividualShare = !!share && share.rootTaskId === task.id
   const isGroupShare = !!task.workspaceId && !!share && !isIndividualShare
   const canEdit = !task.workspaceId || (!!share && share.role !== 'viewer')
   const canManageIndividual = !task.workspaceId || (isIndividualShare && share?.role === 'owner')
   const nameOf = (id: string) =>
-    id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? people.find((p) => p.link?.userId === id)?.name ?? 'Someone')
+    id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? people.find((p) => p.id === id || p.link?.userId === id)?.name ?? 'Former contact')
   const whoSummary = given.length > 2
     ? `${nameOf(given[0])} and ${given.length - 1} others`
     : given.length === 2 ? `${nameOf(given[0])} and ${nameOf(given[1])}`
@@ -116,6 +122,13 @@ function AssignField({ task }: { task: Task }) {
     const latest = useStore.getState().tasks.find((t) => t.id === task.id)
     if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), userId])])
   }, `Assigned to ${nameOf(userId)}.`)
+  const assignPerson = (person: (typeof people)[number]) => {
+    if (person.link?.userId) return void assignConnected(person.link.userId)
+    void run(async () => {
+      const latest = useStore.getState().tasks.find((t) => t.id === task.id)
+      if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), person.id])])
+    }, `Assigned to ${person.name}.`)
+  }
   const inviteGuest = (userId: string) => run(
     () => shareTask(task, userId, 'viewer', 'event'),
     `Invitation sent to ${nameOf(userId)}.`,
@@ -167,11 +180,11 @@ function AssignField({ task }: { task: Task }) {
           <div aria-label="Assign someone">
             {share ? left.map((m) => (
               <MenuItem key={m.userId} onClick={() => (assignTask(task, [...given, m.userId]), setOpen(null))}>{m.userId === me ? 'Me' : m.name}</MenuItem>
-            )) : connected.map((p) => (
-              <MenuItem key={p.id} onClick={() => void assignConnected(p.link!.userId)}>{p.name}</MenuItem>
+            )) : assignablePeople.map((p) => (
+              <MenuItem key={p.id} onClick={() => assignPerson(p)}>{p.name}</MenuItem>
             ))}
-            {!share && !shareLoaded && <p className="px-2.5 py-2 text-xs text-ink-faint">Loading connected people…</p>}
-            {!share && shareLoaded && connected.length === 0 && <p className="px-2.5 py-2 text-xs leading-relaxed text-ink-faint">Connect with someone from People before assigning this item.</p>}
+            {!share && !shareLoaded && <p className="px-2.5 py-2 text-xs text-ink-faint">Loading people…</p>}
+            {!share && shareLoaded && assignablePeople.length === 0 && <p className="px-2.5 py-2 text-xs leading-relaxed text-ink-faint">No one left to assign. Add a person in Tagged or People first.</p>}
           </div>
         </Popover>
       </div>
@@ -347,7 +360,7 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
   return (
     <Box title="Progress" icon={<IconChart size={13} />} summary={pct + '% complete'}>
       <div className="flex items-center gap-3">
-        <input type="range" min={0} max={100} step={1} value={pct} disabled={fromList} aria-label="Progress" onChange={(e) => setProgress(task.id, Number(e.target.value))} className="soft mx-0 min-w-0 flex-1 px-3" style={{ ['--fill' as string]: pct + '%' }} />
+        <input type="range" min={0} max={100} step={1} value={pct} disabled={fromList} aria-label="Progress" onChange={(e) => { setProgress(task.id, Number(e.target.value)); sound.sliderTick() }} className="soft mx-0 min-w-0 flex-1 px-3" style={{ ['--fill' as string]: pct + '%' }} />
         <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-lilac-700" aria-live="polite">{pct}%</span>
       </div>
       <div>
