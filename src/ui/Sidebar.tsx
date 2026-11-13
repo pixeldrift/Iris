@@ -117,6 +117,7 @@ export function Sidebar() {
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
   const t0 = today()
   const completedFilter = scope.type === 'completed' ? scope : { type: 'completed' as const, period: 'all' as const }
+  const allCompletedCount = useMemo(() => tasks.filter((t) => t.status === 'done').length, [tasks])
   const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done' && completedDateMatches(t, completedFilter)).length, [tasks, completedFilter])
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
   const dueCount = (d: string) => live.filter((t) => taskOnDate(t, d)).length
@@ -507,14 +508,14 @@ export function Sidebar() {
               id="completed"
               title="Completed"
               pinned
-              action={completedCount > 0 ? (
+              action={allCompletedCount > 0 ? (
                 <Tip label="Permanently clear completed tasks">
                   <button
                     type="button"
                     onClick={async () => {
                       const confirmed = await askConfirm({
                         title: 'Clear completed tasks?',
-                        message: `This will permanently remove ${completedCount} completed ${completedCount === 1 ? 'task' : 'tasks'}. This cannot be undone.`,
+                        message: `This will permanently remove all ${allCompletedCount} completed ${allCompletedCount === 1 ? 'task' : 'tasks'}, not just the ones in the current date filter. This cannot be undone.`,
                         confirmLabel: 'Clear completed',
                         cancelLabel: 'Keep completed',
                         danger: true,
