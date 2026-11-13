@@ -222,7 +222,7 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
   return (
     <Box title="Progress" icon={<IconChart size={13} />} summary={pct + '% complete'}>
       <div className="flex items-center gap-3">
-        <input type="range" min={0} max={100} step={1} value={pct} disabled={fromList} aria-label="Progress" onChange={(e) => setProgress(task.id, Number(e.target.value))} className="soft -mx-2 min-w-0 flex-1 px-2" style={{ ['--fill' as string]: pct + '%' }} />
+        <input type="range" min={0} max={100} step={1} value={pct} disabled={fromList} aria-label="Progress" onChange={(e) => setProgress(task.id, Number(e.target.value))} className="soft mx-0 min-w-0 flex-1 px-3" style={{ ['--fill' as string]: pct + '%' }} />
         <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-lilac-700" aria-live="polite">{pct}%</span>
       </div>
       <div>

@@ -1,4 +1,4 @@
-import { addDays, diffDays, fromISO, today } from './dates'
+import { addDays, diffDays, fromISO, startOfWeek, today } from './dates'
 import { formatClock } from './locale'
 import { currentOccurrence, repeatOf, repeatStreak, taskOnDate } from './recurrence'
 import { descendantIds } from './folders'
@@ -67,20 +67,35 @@ export function scopeMatcher(scope: Scope, folders: Folder[]): (task: Task) => b
     }
     case 'all':
     case 'contacts':
-      return () => true
+      return (t) => !t.archived
     case 'completed':
-      return (t) => t.status === 'done'
+      return (t) => t.status === 'done' && completedDateMatches(t, scope)
     case 'inbox':
-      return (t) => t.folderIds.length === 0 && !t.due && !t.day
+      // Unsorted is the home for every task without a group, whether or not it has a date.
+      return (t) => !t.archived && t.folderIds.length === 0
     case 'day':
-      return (t) => taskOnDate(t, scope.date)
+      return (t) => !t.archived && taskOnDate(t, scope.date)
     case 'person':
-      return (t) => t.personIds.includes(scope.id)
+      return (t) => !t.archived && t.personIds.includes(scope.id)
     case 'folder': {
       const ids = descendantIds(folders, scope.id)
-      return (t) => t.folderIds.some((f) => ids.has(f))
+      return (t) => !t.archived && t.folderIds.some((f) => ids.has(f))
     }
   }
+}
+
+/** Whether a completed task falls within the selected completion-date window. */
+export function completedDateMatches(task: Pick<Task, 'completedAt'>, scope: Extract<Scope, { type: 'completed' }>): boolean {
+  if (scope.period === 'all' || !scope.period) return true
+  if (task.completedAt == null) return false
+  const date = today(new Date(task.completedAt))
+  const now = today()
+  if (scope.period === 'today') return date === now
+  if (scope.period === 'week') return date >= startOfWeek(now) && date <= now
+  if (scope.period === 'month') return date >= `${now.slice(0, 7)}-01` && date <= now
+  const from = scope.from ?? '0000-01-01'
+  const to = scope.to ?? '9999-12-31'
+  return date >= from && date <= to
 }
 
 export const matchesScope = (task: Task, scope: Scope, folders: Folder[]): boolean => scopeMatcher(scope, folders)(task)

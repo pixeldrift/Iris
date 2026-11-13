@@ -80,6 +80,7 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
       dueTone: due?.tone,
       urgency: effectiveUrgency(t),
       progress: hasProgress(t.kind) ? progressOf(t) : undefined,
+      tally: t.tally ?? null,
     }
   })
   return { clusters, tasks, layout }

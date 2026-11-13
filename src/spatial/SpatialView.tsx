@@ -5,6 +5,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
+import * as sound from '../audio/engine'
 import { useVisibleTasks } from '../ui/useVisible'
 import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
@@ -37,6 +38,7 @@ export default function SpatialView() {
   const prefs = useSpatial((s) => s.set)
   const select = useStore((s) => s.select)
   const toggleDone = useStore((s) => s.toggleDone)
+  const setTally = useStore((s) => s.setTally)
   const setView = useStore((s) => s.setView)
   const lastView = useStore((s) => s.lastView)
   const visible = useVisibleTasks(false)
@@ -240,6 +242,12 @@ export default function SpatialView() {
       sc = new SpatialScene(host.current, track.current, {
         onOpen: (id) => select(id),
         onToggle: (id) => toggleDone(id),
+        onIncrement: (id) => {
+          const task = useStore.getState().tasks.find((t) => t.id === id)
+          if (!task?.tally || task.status === 'done' || task.tally.done >= task.tally.total) return
+          setTally(id, { ...task.tally, done: task.tally.done + 1 })
+          sound.tickDone()
+        },
         onLayout: (l) => setLayout(l),
         onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
         // a group let go over another group's name goes inside it
@@ -341,7 +349,7 @@ export default function SpatialView() {
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
-      <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" />
+      <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" style={{ backgroundImage: 'linear-gradient(rgba(150,125,185,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(150,125,185,.045) 1px, transparent 1px), linear-gradient(to bottom, #f2eafa, #fff) ', backgroundSize: '32px 32px, 32px 32px, 100% 100%' }} />
       {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} />}
 
       {phase === 'intro' && (

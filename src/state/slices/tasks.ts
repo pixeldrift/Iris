@@ -5,7 +5,7 @@ import { hasProgress, patchForStage, percentForStage, percentOfCount, percentsFo
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { isPastEvent } from '../../core/schedule'
 import { remindFromRule } from '../../core/reminders'
-import { rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
+import { completedDateMatches, rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
 import type { Task, TaskKind, TaskStatus } from '../../core/types'
 import { firstOf } from '../../core/scope'
 import * as sound from '../../audio/engine'
@@ -141,20 +141,28 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           return
         }
         if (t.status === 'done' && to.status !== 'done') sound.undone()
+        const completionTime = to.status === 'done' ? (t.completedAt ?? Date.now()) : null
         if (to.status === 'done' && t.status !== 'done') {
           sound.bloom()
           // keep it on screen long enough to bloom, then it fades out
           set((s) => ({ lingering: { ...s.lingering, [id]: true } }))
           window.setTimeout(() => {
-            // If its details are still open, hold the bubble in place; useLeaveClass starts the exit bloom on close.
-            if (get().selectedId === id) return
+            // If it was undone during the grace period, or its details are still open, do not remove it.
+            const current = get().tasks.find((x) => x.id === id)
+            if (get().selectedId === id || current?.status !== 'done' || current.completedAt !== completionTime) return
             set((s) => {
               const { [id]: _l, ...lingering } = s.lingering
               return { lingering }
             })
-          }, 1500)
+          }, 5000)
         }
-        get().updateTask(id, { ...to, ...withProgress, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null })
+        if (t.status === 'done' && to.status !== 'done') {
+          set((s) => {
+            const { [id]: _l, ...lingering } = s.lingering
+            return { lingering }
+          })
+        }
+        get().updateTask(id, { ...to, ...withProgress, completedAt: completionTime, archived: to.status === 'done' ? false : false })
       },
       setProgress: (id, pct) => {
         const t = get().tasks.find((x) => x.id === id)
@@ -271,12 +279,26 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           ),
         })),
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
-      clearCompleted: () => set((s) => {
-        const removed = new Set(s.tasks.filter((t) => t.status === 'done').map((t) => t.id))
+      // Retention archives old completions out of active views; it never destroys their history.
+      pruneCompleted: () => set((s) => {
+        const durations = { hour: 60 * 60_000, day: 24 * 60 * 60_000, week: 7 * 24 * 60 * 60_000 } as const
+        const retention = s.settings.completedRetention
+        if (retention === 'never') return s
+        const cutoff = Date.now() - durations[retention]
+        let changed = false
+        const tasks = s.tasks.map((t) => {
+          if (t.status !== 'done' || t.completedAt == null || t.completedAt > cutoff || t.archived) return t
+          changed = true
+          return { ...t, archived: true }
+        })
+        return changed ? { tasks } : s
+      }),
+      clearCompleted: (filter) => set((s) => {
+        const removed = new Set(s.tasks.filter((t) => t.status === 'done' && completedDateMatches(t, filter)).map((t) => t.id))
         const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
         const removing = Object.fromEntries(Object.entries(s.removing).filter(([id]) => !removed.has(id)))
         return {
-          tasks: s.tasks.filter((t) => t.status !== 'done'),
+          tasks: s.tasks.filter((t) => !removed.has(t.id)),
           lingering,
           removing,
           selectedId: s.selectedId && removed.has(s.selectedId) ? null : s.selectedId,

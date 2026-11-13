@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
-import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
+import { completedDateMatches, filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
@@ -67,6 +67,30 @@ describe('tasks', () => {
   })
   it('hides done by default', () => {
     expect(filterTasks(tasks, { type: 'all' }, folders, false).some((t) => t.status === 'done')).toBe(false)
+  })
+  it('keeps archived completions in the archive but out of active views', () => {
+    const archived = { ...tasks[0], status: 'done' as const, completedAt: Date.now(), archived: true }
+    expect(filterTasks([archived], { type: 'all' }, folders, true)).toEqual([])
+    expect(filterTasks([archived], { type: 'completed', period: 'all' }, folders, false)).toEqual([archived])
+  })
+
+  it('filters completed tasks by an inclusive custom completion-date range', () => {
+    const completedAt = new Date(2026, 10, 12, 12).getTime()
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'range', from: '2026-11-12', to: '2026-11-13' })).toBe(true)
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'range', from: '2026-11-13', to: '2026-11-14' })).toBe(false)
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'all' })).toBe(true)
+  })
+  it('keeps all ungrouped tasks in Unsorted, including dated and scheduled tasks', () => {
+    const base = tasks[0]
+    const items = [
+      { ...base, id: 'unsorted', folderIds: [], due: null, day: null },
+      { ...base, id: 'dated-unsorted', folderIds: [], due: '2026-11-15', day: null },
+      { ...base, id: 'scheduled-unsorted', folderIds: [], due: null, day: '2026-11-15' },
+      { ...base, id: 'grouped', folderIds: ['school'] },
+    ]
+    expect(filterTasks(items, { type: 'inbox' }, folders, true).map((t) => t.id)).toEqual([
+      'unsorted', 'dated-unsorted', 'scheduled-unsorted',
+    ])
   })
   it('only ever raises urgency from due dates', () => {
     expect(urgencyForDue(0.1, '2026-10-27', '2026-10-26')).toBeGreaterThan(0.7)

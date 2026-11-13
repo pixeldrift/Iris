@@ -14,7 +14,7 @@ import { colorVars, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
 import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, ItemProgress, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, ItemProgress, TallyIncrement, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
 
 const SORTS: { id: SortKey; label: string }[] = [
@@ -244,6 +244,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
               </span>
               <span data-lift-extra className="flex items-center">
                 <DueChip task={task} compact />
+                <TallyIncrement task={task} compact />
               </span>
               {(task.images?.[0] || task.image) && <img data-lift-extra src={task.images?.[0] || task.image} alt="" draggable={false} className="h-8 w-8 shrink-0 rounded-lg border border-white/70 object-cover shadow-sm" />}
             </div>

@@ -115,6 +115,8 @@ export interface Task {
   contactDeclined?: boolean
   createdAt: number
   completedAt: number | null
+  /** Automatically hidden from active views after the retention period; remains in the Completed archive. */
+  archived?: boolean
 }
 
 /** The flower drawn for a folder (artwork: src/assets/flowers/<shape>.svg). */
@@ -201,7 +203,7 @@ export interface PersonExtra {
 export type Scope =
   | { type: 'all' }
   | { type: 'inbox' }
-  | { type: 'completed' }
+  | { type: 'completed'; period?: 'all' | 'today' | 'week' | 'month' | 'range'; from?: string; to?: string }
   | { type: 'folder'; id: string }
   | { type: 'person'; id: string }
   /** The address book: everyone, hearted or not. Not a filter, a page of its own. */

@@ -58,6 +58,7 @@ const WALL_LIFT = 0.12 * K
 export interface SceneEvents {
   onOpen(taskId: string): void
   onToggle(taskId: string): void
+  onIncrement?(taskId: string): void
   onFocus?(clusterId: string): void
   /** A task was dropped into a group: the caller moves it there (its place in the new group is already in the layout). */
   onRetag?(taskId: string, clusterId: string): void
@@ -85,7 +86,7 @@ interface Node {
   tex: CanvasTexture
   key: string
 }
-type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number }
+type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number; uvy: number }
 
 /** The horizontal field of view of the lens, in degrees. */
 const HUB_W = 1.5 * WORLD.cardW
@@ -624,7 +625,7 @@ export class SpatialScene {
     // Keep full-resolution card textures: images are also opened full-screen, so shrinking the source texture makes them visibly chunky.
     for (const t of c.tasks) {
       seen.add(t.id)
-      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${t.imageUrl ?? ''}`
+      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${t.imageUrl ?? ''}|${t.tally?.done ?? ''}/${t.tally?.total ?? ''}`
       let n = this.tasks.get(t.id)
       if (!n) {
         const cv = document.createElement('canvas')
@@ -1254,7 +1255,7 @@ export class SpatialScene {
       const k = h.object.userData.kind as keyof typeof rank
       if (!best || rank[k] < rank[best.object.userData.kind as keyof typeof rank]) best = h
     }
-    return best ? { kind: best.object.userData.kind, id: best.object.userData.id, uvx: best.uv?.x ?? 0.5 } : null
+    return best ? { kind: best.object.userData.kind, id: best.object.userData.id, uvx: best.uv?.x ?? 0.5, uvy: best.uv?.y ?? 0.5 } : null
   }
   private radPerPx() {
     return (this.camera.fov * Math.PI) / 180 / Math.max(1, this.renderer.domElement.clientHeight)
@@ -1541,6 +1542,7 @@ export class SpatialScene {
       }
       else if (p.hit.kind === 'task') {
         if (p.hit.uvx < 0.2) this.events.onToggle(p.hit.id)
+        else if (p.hit.uvx > 0.78 && p.hit.uvy < 0.43) this.events.onIncrement?.(p.hit.id)
         else this.events.onOpen(p.hit.id)
       } else if (p.hit.kind === 'plate') this.events.onAddIn?.(p.hit.id) // (the box itself, not a card on it)
     }

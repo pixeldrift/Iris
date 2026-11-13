@@ -15,6 +15,8 @@ export interface Settings {
   drift: boolean
   sizeByPriority: boolean
   showDone: boolean
+  /** Automatically remove completed tasks after this retention period. */
+  completedRetention: 'hour' | 'day' | 'week' | 'never'
   sortKey: SortKey
   sortDesc: boolean
   pondGroup: PondGroup
@@ -126,7 +128,8 @@ export interface TasksSlice {
   setProgress: (id: string, percent: number) => void
   /** A count kept by hand (done out of total) in place of a list; null clears it. It sets the progress. */
   setTally: (id: string, tally: { done: number; total: number } | null) => void
-  clearCompleted: () => void
+  clearCompleted: (filter: Extract<Scope, { type: 'completed' }>) => void
+  pruneCompleted: () => void
   addToFolder: (taskId: string, folderId: string) => void
   removeFromFolder: (taskId: string, folderId: string) => void
   addPerson: (taskId: string, personId: string) => void

@@ -4,6 +4,7 @@ import { childrenOf, descendantIds } from '../core/folders'
 import { MAX_FAVORITES } from '../core/people'
 import { hasPart, pickOnly } from '../core/scope'
 import { taskOnDate } from '../core/recurrence'
+import { completedDateMatches } from '../core/tasks'
 import { useStore } from '../state/store'
 import { useDnd, useDropTarget } from './dnd'
 import { Logo } from './Decor'
@@ -114,8 +115,9 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
-  const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done').length, [tasks])
   const t0 = today()
+  const completedFilter = scope.type === 'completed' ? scope : { type: 'completed' as const, period: 'all' as const }
+  const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done' && completedDateMatches(t, completedFilter)).length, [tasks, completedFilter])
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
   const dueCount = (d: string) => live.filter((t) => taskOnDate(t, d)).length
   const folderCount = (id: string) => {
@@ -505,21 +507,21 @@ export function Sidebar() {
               id="completed"
               title="Completed"
               pinned
-              action={completedCount > 0 ? (
-                <Tip label="Permanently clear completed tasks">
+              action={scope.type === 'completed' && completedCount > 0 ? (
+                <Tip label="Delete the completed tasks currently shown">
                   <button
                     type="button"
                     onClick={async () => {
                       const confirmed = await askConfirm({
-                        title: 'Clear completed tasks?',
-                        message: `This will permanently remove ${completedCount} completed ${completedCount === 1 ? 'task' : 'tasks'}. This cannot be undone.`,
-                        confirmLabel: 'Clear completed',
-                        cancelLabel: 'Keep completed',
+                        title: 'Delete completed tasks?',
+                        message: `This will permanently delete the ${completedCount} completed ${completedCount === 1 ? 'task' : 'tasks'} currently shown by this filter. This cannot be undone.`,
+                        confirmLabel: 'Delete',
+                        cancelLabel: 'Keep them',
                         danger: true,
                       })
-                      if (confirmed) useStore.getState().clearCompleted()
+                      if (confirmed) useStore.getState().clearCompleted(completedFilter)
                     }}
-                    aria-label="Clear completed tasks"
+                    aria-label="Delete visible completed tasks"
                     className="rounded-lg p-1 text-ink-faint transition hover:bg-rose-soft/60 hover:text-danger"
                   >
                     <IconTrash size={15} />
@@ -527,9 +529,41 @@ export function Sidebar() {
                 </Tip>
               ) : null}
             >
+              <div className="px-2 pb-2 pt-1">
+                <div className="mb-1 flex items-center justify-between text-[0.7rem] text-ink-soft">
+                  <span>Completed in</span>
+                  <span className="text-ink-faint">{(['Everything', 'Today', 'This week', 'This month', 'Date range'] as const)[(['all', 'today', 'week', 'month', 'range'] as const).indexOf(completedFilter.period ?? 'all')]}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={4}
+                  step={1}
+                  value={(['all', 'today', 'week', 'month', 'range'] as const).indexOf(completedFilter.period ?? 'all')}
+                  onChange={(e) => {
+                    const period = (['all', 'today', 'week', 'month', 'range'] as const)[Number(e.target.value)]
+                    setScope({ type: 'completed', period, ...(period === 'range' ? { from: completedFilter.from ?? `${t0.slice(0, 7)}-01`, to: completedFilter.to ?? t0 } : {}) })
+                  }}
+                  className="soft"
+                  aria-label="Filter completed tasks by date"
+                />
+                <div className="-mt-0.5 flex justify-between text-[0.58rem] text-ink-faint">
+                  <span>Everything</span><span>Today</span><span>Week</span><span>Month</span><span>Dates</span>
+                </div>
+                {completedFilter.period === 'range' && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="min-w-0 text-[0.65rem] text-ink-faint">From
+                      <input type="date" aria-label="Completed from date" max={completedFilter.to ?? t0} value={completedFilter.from ?? `${t0.slice(0, 7)}-01`} onChange={(e) => setScope({ type: 'completed', period: 'range', from: e.target.value, to: completedFilter.to && completedFilter.to < e.target.value ? e.target.value : (completedFilter.to ?? t0) })} className="mt-0.5 w-full min-w-0 rounded-lg border border-white/80 bg-white/60 px-1.5 py-1 text-xs text-ink" />
+                    </label>
+                    <label className="min-w-0 text-[0.65rem] text-ink-faint">Through
+                      <input type="date" aria-label="Completed through date" value={completedFilter.to ?? t0} min={completedFilter.from} onChange={(e) => setScope({ type: 'completed', period: 'range', from: completedFilter.from ?? `${t0.slice(0, 7)}-01`, to: e.target.value })} className="mt-0.5 w-full min-w-0 rounded-lg border border-white/80 bg-white/60 px-1.5 py-1 text-xs text-ink" />
+                    </label>
+                  </div>
+                )}
+              </div>
               <ScopeRow
                 active={scope.type === 'completed'}
-                onClick={() => setScope({ type: 'completed' })}
+                onClick={() => setScope(completedFilter)}
                 icon={<IconCheck />}
                 label="All completed"
                 count={completedCount}
