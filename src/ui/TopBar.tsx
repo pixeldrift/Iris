@@ -106,7 +106,7 @@ function FilterPath({ items, vertical = false }: { items: { key: string; label: 
               </span>
             )}
             {last ? (
-              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`chip-bubble relative inline-flex items-center rounded-full border border-white/70 text-[0.72rem] font-medium leading-[1.2] ${vertical && i === 0 ? 'h-[1.4rem] w-[1.4rem] justify-center p-0' : padCur}`} style={{ ...chip, ['--h' as string]: it.hue ?? 285, ['--s' as string]: it.hue === undefined ? 0 : 1 }}>
+              <span ref={(el) => void (el ? refs.current.set(it.key, el) : refs.current.delete(it.key))} aria-current="true" aria-label={it.label} className={`chip-bubble relative inline-flex items-center rounded-full border border-white/70 text-[0.72rem] font-medium leading-[1.2] ${vertical && i === 0 ? 'h-[1.4rem] w-[1.4rem] justify-center p-0' : padCur}`} style={{ ...(vertical ? chip : { color: chip.color, background: 'transparent', borderColor: 'transparent', boxShadow: 'none' }), ['--h' as string]: it.hue ?? 285, ['--s' as string]: it.hue === undefined ? 0 : 1 }}>
                 {label(it, i)}
               </span>
             ) : (
