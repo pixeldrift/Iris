@@ -9,7 +9,7 @@ import type { PersistOptions } from 'zustand/middleware'
 /** How the store is saved to the device, and how an older save is brought up to date when the app loads. */
 export const persistOptions: PersistOptions<State, Partial<State>> = {
   name: 'lilac-v1',
-  version: 12,
+  version: 13,
   partialize: (s) => ({
     tasks: s.tasks,
     folders: s.folders,
