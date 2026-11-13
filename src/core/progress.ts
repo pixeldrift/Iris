@@ -84,7 +84,7 @@ export function percentsFor(n: number, given?: number[] | null): number[] {
     else {
       const want = given && typeof given[i] === 'number' ? Math.round(given[i]) : defaultPercent(i, n)
       // strictly above the one before, and leaving room for those still to come
-      out.push(Math.max(out[i - 1] + 1, Math.min(want, 100 - (n - 1 - i))))
+      out.push(Math.max(out[i - 1] + 1, Math.min(want, 99 - (n - 1 - i))))
     }
   }
   return out
@@ -99,6 +99,7 @@ export function percentForStage(i: number, percents: number[]): number {
 }
 
 export function stageForPercent(p: number, percents: number[]): number {
+  if (p >= 99) return percents.length - 1
   let at = 0
   percents.forEach((x, i) => {
     if (p >= x) at = i
