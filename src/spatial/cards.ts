@@ -22,6 +22,7 @@ export interface CardInfo {
   /** A picture, if it has one (drawn faintly behind the words). */
   image?: HTMLImageElement | null
   imageUrl?: string | null
+  tally?: { done: number; total: number } | null
 }
 
 /** The card itself, and the room around it in the texture for its soft shadow. */
@@ -233,13 +234,28 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   g.shadowColor = 'transparent'
   g.shadowBlur = 0
   if (c.progress != null && c.progress < 100 && !c.done) {
-    const bw = x + w - 22 - tx
+    const bw = x + w - 22 - tx - (c.tally && c.tally.done < c.tally.total ? 58 : 0)
     roundRect(g, tx, y + h - 14, bw, 6, 3)
     g.fillStyle = 'rgba(255,255,255,0.8)'
     g.fill()
     roundRect(g, tx, y + h - 14, (bw * c.progress) / 100, 6, 3)
     g.fillStyle = hsl(c.hue, 60, 62, 1)
     g.fill()
+  }
+  if (c.tally && c.tally.done < c.tally.total && !c.done) {
+    const bw = 48
+    const bh = 28
+    const bx = x + w - bw - 16
+    const by = y + h - bh - 8
+    roundRect(g, bx, by, bw, bh, 14)
+    g.fillStyle = 'rgba(139,105,190,0.94)'
+    g.fill()
+    g.font = "700 16px ui-rounded,'SF Pro Rounded',system-ui,sans-serif"
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.fillStyle = '#fff'
+    g.fillText('+1', bx + bw / 2, by + bh / 2 + 0.5)
+    g.textAlign = 'start'
   }
   g.restore()
 }
