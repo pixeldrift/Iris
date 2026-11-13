@@ -32,7 +32,7 @@ const SORTS: { id: SortKey; label: string }[] = [
  * the line is taken back off). It only takes over when the finger clearly moves sideways, so scrolling stays vertical, and a
  * press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
  */
-function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteChips: React.RefObject<HTMLDivElement | null>, deleteTitle: React.RefObject<HTMLSpanElement | null>, deleteLid: React.RefObject<HTMLSpanElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
+function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteChips: React.RefObject<HTMLDivElement | null>, deleteTitle: React.RefObject<HTMLSpanElement | null>, deleteLid: React.RefObject<SVGPathElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
   return (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return
     const el = row.current
@@ -169,7 +169,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const reveal = useRef<HTMLDivElement>(null)
   const deleteChips = useRef<HTMLDivElement>(null)
   const deleteTitle = useRef<HTMLSpanElement>(null)
-  const deleteLid = useRef<HTMLSpanElement>(null)
+  const deleteLid = useRef<SVGPathElement>(null)
   const revealCheck = useRef<HTMLDivElement>(null)
   const strike = useRef<HTMLSpanElement>(null)
   const hue = useTaskHue(task)
@@ -188,7 +188,8 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
         <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: 'white' }}>
           <span className="mr-0.5 block h-6 w-6">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6.5 7h11 M8 7l.8 13h6.4L16 7 M9.5 4.5h5l1 2.5 M10 10.5v6 M14 10.5v6" />
+              <path ref={deleteLid} d="M6.5 7h11 M9.5 4.5h5l1 2.5" style={{ transformBox: 'fill-box', transformOrigin: 'right center' }} />
+              <path d="M8 7l.8 13h6.4L16 7 M10 10.5v6 M14 10.5v6" />
             </svg>
           </span>
         </div>
