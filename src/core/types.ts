@@ -115,6 +115,8 @@ export interface Task {
   contactDeclined?: boolean
   createdAt: number
   completedAt: number | null
+  /** Automatically hidden from active views after the retention period; remains in the Completed archive. */
+  archived?: boolean
 }
 
 /** The flower drawn for a folder (artwork: src/assets/flowers/<shape>.svg). */
