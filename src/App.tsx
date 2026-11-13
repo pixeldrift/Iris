@@ -43,6 +43,8 @@ const VIEW = { pond: Pond, list: ListView, board: Board, priority: Priority, cal
 export default function App() {
   const view = useStore((s) => s.view)
   const hasDetail = useStore((s) => s.selectedId !== null)
+  const completedRetention = useStore((s) => s.settings.completedRetention)
+  const pruneCompleted = useStore((s) => s.pruneCompleted)
   const land = useLandscapePhone()
   useEffect(() => startSafeArea(), [])
   const contacts = useStore((s) => s.scope.type === 'contacts')
@@ -85,6 +87,20 @@ export default function App() {
       document.removeEventListener('visibilitychange', vis)
     }
   }, [])
+
+  // Automatically remove completed tasks after the chosen retention period, including after returning to the app.
+  useEffect(() => {
+    if (completedRetention === 'never') return
+    const run = () => pruneCompleted()
+    run()
+    const iv = window.setInterval(run, 60_000)
+    const vis = () => document.visibilityState === 'visible' && run()
+    document.addEventListener('visibilitychange', vis)
+    return () => {
+      window.clearInterval(iv)
+      document.removeEventListener('visibilitychange', vis)
+    }
+  }, [completedRetention, pruneCompleted])
 
   const fmtKey = useStore((s) => s.settings.dateFormat + s.settings.clockFormat)
   useEffect(() => {
