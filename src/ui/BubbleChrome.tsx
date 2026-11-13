@@ -5,7 +5,7 @@ import { useStore } from '../state/store'
 import { IconBell, IconChat, IconMail, IconPhone, IconPin, KindIcon } from './icons'
 import { hasProgress, progressOf } from '../core/progress'
 import { isDoneNow } from '../core/recurrence'
-import { DoneButton } from './shared'
+import { DoneButton, TallyIncrement } from './shared'
 
 /**
  * What every bubble carries, in the pond and on the priority grid alike: the item's type at the top, the checkbox fixed at
@@ -83,6 +83,7 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44, hideI
         </span>
       )}
       <ProgressArc task={task} r={r} />
+      {task.tally && <span className="pointer-events-auto absolute bottom-[22%] right-[8%]"><TallyIncrement task={task} compact /></span>}
       {!(hideImageOnlyCheckbox && task.image && !task.title.trim()) && (
         <span className="pointer-events-auto absolute bottom-[7%] left-1/2 -translate-x-1/2">
           <DoneButton task={task} size={cb} />
