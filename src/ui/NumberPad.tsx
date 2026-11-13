@@ -6,8 +6,8 @@ import { Popover } from './Popover'
  * A number you can type on a keypad: a button showing the number that opens a pad (digits, clear, backspace) under it. Nothing is
  * kept until Done (or tapping away), so a half-typed number is never taken for the real one.
  */
-export function NumberField({ label, value, onChange, min = 0, max = 99999, className = '' }: { label: string; value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string }) {
-  const [open, setOpen] = useState(false)
+export function NumberField({ label, value, onChange, min = 0, max = 99999, className = '', autoOpen = false, onCommit }: { label: string; value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string; autoOpen?: boolean; onCommit?: () => void }) {
+  const [open, setOpen] = useState(autoOpen)
   const [typed, setTyped] = useState('')
   const btn = useRef<HTMLButtonElement>(null)
   const show = open && typed !== '' ? typed : String(value)
@@ -15,6 +15,7 @@ export function NumberField({ label, value, onChange, min = 0, max = 99999, clas
     if (typed !== '') onChange(Math.max(min, Math.min(max, Number(typed))))
     setOpen(false)
     setTyped('')
+    onCommit?.()
   }
   const press = (d: string) => setTyped((t) => (t.length >= String(max).length ? t : t === '0' ? d : t + d))
   return (
