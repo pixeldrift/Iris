@@ -554,7 +554,7 @@ export function Sidebar() {
                 {completedFilter.period === 'range' && (
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <label className="min-w-0 text-[0.65rem] text-ink-faint">From
-                      <input type="date" aria-label="Completed from date" value={completedFilter.from ?? `${t0.slice(0, 7)}-01`} onChange={(e) => setScope({ type: 'completed', period: 'range', from: e.target.value, to: completedFilter.to ?? t0 })} className="mt-0.5 w-full min-w-0 rounded-lg border border-white/80 bg-white/60 px-1.5 py-1 text-xs text-ink" />
+                      <input type="date" aria-label="Completed from date" max={completedFilter.to ?? t0} value={completedFilter.from ?? `${t0.slice(0, 7)}-01`} onChange={(e) => setScope({ type: 'completed', period: 'range', from: e.target.value, to: completedFilter.to && completedFilter.to < e.target.value ? e.target.value : (completedFilter.to ?? t0) })} className="mt-0.5 w-full min-w-0 rounded-lg border border-white/80 bg-white/60 px-1.5 py-1 text-xs text-ink" />
                     </label>
                     <label className="min-w-0 text-[0.65rem] text-ink-faint">Through
                       <input type="date" aria-label="Completed through date" value={completedFilter.to ?? t0} min={completedFilter.from} onChange={(e) => setScope({ type: 'completed', period: 'range', from: completedFilter.from ?? `${t0.slice(0, 7)}-01`, to: e.target.value })} className="mt-0.5 w-full min-w-0 rounded-lg border border-white/80 bg-white/60 px-1.5 py-1 text-xs text-ink" />
