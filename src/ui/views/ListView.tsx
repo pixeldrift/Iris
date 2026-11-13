@@ -306,6 +306,7 @@ export function ListView() {
   const applying = qaMode === 'auto' ? !plain : qaMode === 'suggest' ? accepted : false
   const quickAdd = (title: string) => {
     const id = createFromLine(title, applying)
+    import('../audio/engine').then((sound) => sound.drop())
     setAccepted(false)
     setPlain(false)
     setLine('')
