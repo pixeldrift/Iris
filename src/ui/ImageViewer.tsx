@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { IconClose } from './icons'
 
+type OriginRect = { x: number; y: number; width: number; height: number }
+
 /** Full-screen, touch-first image viewer: swipe between pictures, swipe vertically to dismiss, pinch/double-tap to zoom. */
-export function ImageViewer({ images, initialIndex = 0, onClose }: { images: string[]; initialIndex?: number; onClose: () => void }) {
+export function ImageViewer({ images, initialIndex = 0, originRect, onClose }: { images: string[]; initialIndex?: number; originRect?: OriginRect; onClose: () => void }) {
   const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, images.length - 1)))
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [expanded, setExpanded] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<number | null>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const start = useRef<{ x: number; y: number } | null>(null)
   const pinch = useRef<{ distance: number; zoom: number } | null>(null)
@@ -14,20 +20,34 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: { images: str
   const lastPoint = useRef({ x: 0, y: 0 })
 
   const resetZoom = () => { setZoom(1); setOffset({ x: 0, y: 0 }) }
+  const closeViewer = useCallback(() => {
+    if (closing) return
+    setClosing(true)
+    setExpanded(false)
+    closeTimer.current = window.setTimeout(onClose, 280)
+  }, [closing, onClose])
   const move = (by: number) => {
     setIndex((i) => (i + by + images.length) % images.length)
     resetZoom()
   }
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => setExpanded(true))
+    return () => {
+      cancelAnimationFrame(frame)
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    }
+  }, [])
+
+  useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') closeViewer()
       else if (e.key === 'ArrowRight') move(1)
       else if (e.key === 'ArrowLeft') move(-1)
     }
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
-  }, [onClose, images.length])
+  }, [closeViewer, images.length])
 
   const distance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y)
   const down = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -77,7 +97,7 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: { images: str
       return
     }
     if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.15) move(dx < 0 ? 1 : -1)
-    else if (Math.abs(dy) > 75 && Math.abs(dy) > Math.abs(dx)) onClose()
+    else if (Math.abs(dy) > 75 && Math.abs(dy) > Math.abs(dx)) closeViewer()
     else if (isTap) {
       if (now - lastTap.current < 280) { setZoom(2.5); lastTap.current = 0 }
       else lastTap.current = now
@@ -85,37 +105,48 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: { images: str
   }
 
   if (!images.length) return null
-  return (
+  const startRect = originRect ?? { x: window.innerWidth / 2, y: window.innerHeight / 2, width: 1, height: 1 }
+  const frameStyle: React.CSSProperties = expanded
+    ? { left: 0, top: 0, width: '100vw', height: '100dvh', borderRadius: 0 }
+    : { left: startRect.x, top: startRect.y, width: startRect.width, height: startRect.height, borderRadius: 16 }
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Image ${index + 1} of ${images.length}`}
+      aria-label={'Image ' + (index + 1) + ' of ' + images.length}
       tabIndex={-1}
-      className="fixed inset-0 z-[9999] flex select-none items-center justify-center bg-[rgba(12,12,20,.97)]"
-      style={{ touchAction: 'none', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="fixed inset-0 z-[10000] select-none"
+      style={{ touchAction: 'none' }}
       onPointerDown={down}
       onPointerMove={movePointer}
       onPointerUp={up}
       onPointerCancel={up}
     >
-      <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={onClose} aria-label="Close image" className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white/90 backdrop-blur transition hover:bg-white/25">
-        <IconClose size={18} />
+      <div className="absolute inset-0 overflow-hidden bg-black/20 transition-[opacity,backdrop-filter] duration-300 ease-out" style={{ opacity: expanded ? 1 : 0, backdropFilter: expanded ? 'blur(18px) brightness(.48)' : 'blur(0px) brightness(1)' }}>
+        <img src={images[index]} alt="" aria-hidden className="h-full w-full scale-110 object-cover opacity-65 blur-2xl" />
+      </div>
+      <div className="absolute overflow-hidden bg-black/10 shadow-2xl" style={{ ...frameStyle, position: 'fixed', transition: 'left 280ms cubic-bezier(.2,.8,.2,1), top 280ms cubic-bezier(.2,.8,.2,1), width 280ms cubic-bezier(.2,.8,.2,1), height 280ms cubic-bezier(.2,.8,.2,1), border-radius 280ms ease', willChange: 'left,top,width,height,border-radius' }}>
+        <img
+          key={index}
+          src={images[index]}
+          alt={'Image ' + (index + 1) + ' of ' + images.length}
+          draggable={false}
+          className="h-full w-full object-contain"
+          style={{ transform: 'translate(' + offset.x + 'px,' + offset.y + 'px) scale(' + zoom + ')', transition: pointers.current.size ? 'none' : 'transform 120ms ease-out', willChange: 'transform' }}
+        />
+      </div>
+      <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={closeViewer} aria-label="Close image" className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 grid h-10 w-10 place-items-center rounded-full bg-black/35 text-white shadow-lg backdrop-blur-md transition hover:bg-black/55">
+        <IconClose size={19} />
       </button>
-      <img
-        key={index}
-        src={images[index]}
-        alt={`Image ${index + 1} of ${images.length}`}
-        draggable={false}
-        className="max-h-full max-w-full object-contain"
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transition: pointers.current.size ? 'none' : 'transform 120ms ease-out', willChange: 'transform' }}
-      />
       {images.length > 1 && (
-        <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/25 px-3 py-2">
+        <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/35 px-3 py-2 backdrop-blur-md">
           {images.map((_, i) => (
-            <span key={i} aria-label={`Image ${i + 1}`} className={`h-1.5 rounded-full transition-all ${i === index ? 'w-4 bg-white' : 'w-1.5 bg-white/45'}`} />
+            <span key={i} aria-label={'Image ' + (i + 1)} className={'h-1.5 rounded-full transition-all ' + (i === index ? 'w-4 bg-white' : 'w-1.5 bg-white/50')} />
           ))}
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
