@@ -11,7 +11,7 @@ import { useExit } from './anim'
 import { notionImageFrom } from './photo'
 import { ImageViewer } from './ImageViewer'
 import { describeRecurrence } from '../core/recurrence'
-import { assignTask, useShare } from '../sync/share'
+import { assignTask, shareTask, stopSharing, leaveGroup, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
 import * as sound from '../audio/engine'
@@ -71,59 +71,69 @@ function PlaceField({ task }: { task: Task }) {
 function AssignField({ task }: { task: Task }) {
   const share = useShare((s) => s.shares.find((x) => x.workspaceId === task.workspaceId))
   const me = useShare((s) => s.me)
+  const shareLoaded = useShare((s) => s.loaded)
   const people = useStore((s) => s.people)
+  const showToast = useStore((s) => s.showToast)
   const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
   const add = useRef<HTMLButtonElement>(null)
-  if (!task.workspaceId || !share) return null
-  const members = share.members.filter((m) => m.status === 'active')
+  const members = share?.members.filter((m) => m.status === 'active') ?? []
   const others = members.filter((m) => m.userId !== me)
-  const given = assigneesOf(task).filter((id) => members.some((m) => m.userId === id))
+  const given = share ? assigneesOf(task).filter((id) => members.some((m) => m.userId === id)) : []
   const left = members.filter((m) => !given.includes(m.userId))
-  const canEdit = share.role !== 'viewer'
-  const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? 'Someone'))
-  // someone tagged on the task who is also a member of this group (their entry is linked to their account)
+  const connected = !task.workspaceId && shareLoaded ? people.filter((p) => p.link?.userId && p.link.userId !== me && !assigneesOf(task).includes(p.link.userId)) : []
+  const canEdit = !share || share.role !== 'viewer'
+  const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? people.find((p) => p.link?.userId === id)?.name ?? 'Someone'))
   const whoSummary = given.length > 2 ? `${nameOf(given[0])} and ${given.length - 1} others` : given.length === 2 ? `${nameOf(given[0])} and ${nameOf(given[1])}` : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
-  const tagged = task.personIds.flatMap((id) => {
-    const link = people.find((p) => p.id === id)?.link
-    const m = link && others.find((x) => x.userId === link.userId && !given.includes(x.userId))
-    return m ? [m] : []
-  })
+  const invite = async (userId: string) => {
+    setBusy(true)
+    setOpen(false)
+    try {
+      await shareTask(task, userId)
+      showToast(`Invitation sent to ${people.find((p) => p.link?.userId === userId)?.name ?? 'your connection'}`)
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not share this item.')
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
     <Box title="Who" icon={<IconPerson size={13} />} summary={whoSummary}>
-      <span className="block text-xs font-medium text-ink-soft">Assigned to</span>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Assigned to">
-        {given.length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody</span>}
+      <span className="block text-xs font-medium text-ink-soft">{task.kind === 'event' ? 'Invited' : 'Assigned to'}</span>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label={task.kind === 'event' ? 'Invited people' : 'Assigned to'}>
+        {given.length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody yet</span>}
         {given.map((id) => (
           <span key={id} className="inline-flex items-center gap-1 rounded-full bg-lilac-100 py-0.5 pl-2.5 pr-1 text-sm font-normal text-lilac-700">
             {nameOf(id)}
             {canEdit && (
-              <button type="button" aria-label={`Take ${nameOf(id)} off this`} onClick={() => assignTask(task, given.filter((x) => x !== id))} className="grid h-5 w-5 place-items-center rounded-full text-lilac-600 transition hover:bg-white/80">
+              <button type="button" aria-label={`Remove ${nameOf(id)}`} onClick={() => assignTask(task, given.filter((x) => x !== id))} className="grid h-5 w-5 place-items-center rounded-full text-lilac-600 transition hover:bg-white/80">
                 <IconClose size={10} />
               </button>
             )}
           </span>
         ))}
-        {canEdit && left.length > 0 && (
-          <button ref={add} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white">
-            <IconPlus size={12} /> Add
+        {canEdit && (share ? left.length > 0 : !task.workspaceId && connected.length > 0) && (
+          <button ref={add} type="button" disabled={busy} onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
+            <IconPlus size={12} /> {task.kind === 'event' ? 'Invite' : 'Assign'}
           </button>
         )}
       </div>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={add} className="w-52 p-1.5">
-        <div aria-label="Add someone">
-          {left.map((m) => (
-            <MenuItem key={m.userId} onClick={() => (assignTask(task, [...given, m.userId]), setOpen(false))}>
-              {m.userId === me ? 'Me' : m.name}
-            </MenuItem>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={add} className="w-56 p-1.5">
+        <div aria-label={share ? 'Assign someone' : 'Share this item with someone'}>
+          {share ? left.map((m) => (
+            <MenuItem key={m.userId} onClick={() => (assignTask(task, [...given, m.userId]), setOpen(false))}>{m.userId === me ? 'Me' : m.name}</MenuItem>
+          )) : connected.map((p) => (
+            <MenuItem key={p.id} onClick={() => void invite(p.link!.userId)}>{p.name}</MenuItem>
           ))}
         </div>
       </Popover>
-      {others.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Only you are in this group so far. Once someone joins (Group menu › Sharing › Invite) you can give them tasks.</p>}
-      {tagged.length > 0 && canEdit && (
-        <button type="button" onClick={() => assignTask(task, [...given, tagged[0].userId])} className="mt-1.5 rounded-full bg-lilac-100/80 px-3 py-1 font-normal text-lilac-700 transition hover:bg-lilac-200/80">
-          {tagged[0].name} is tagged on this: assign it to them
-        </button>
-      )}
+      {!share && shareLoaded && !task.workspaceId && connected.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Connect with someone first, then you can share just this {task.kind === 'event' ? 'event' : 'task'} with them.</p>}
+      {share && others.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Only you are in this shared space so far.</p>}
+      {share && share.rootTaskId && (share.role === 'owner' ? (
+        <button type="button" onClick={() => void stopSharing(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not stop sharing.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Stop sharing this item</button>
+      ) : (
+        <button type="button" onClick={() => void leaveGroup(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not leave this item.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Leave shared item</button>
+      ))}
     </Box>
   )
 }
@@ -230,9 +240,9 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
       ) : t ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 text-base font-semibold tabular-nums text-lilac-700">{t.done}</span>
+            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} />
             <span className="shrink-0 text-sm text-ink-soft">of</span>
-            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-7 !min-w-[2rem] !rounded-lg !border-0 !bg-white/35 !px-1.5 !text-sm !text-lilac-700" />
+            <NumberField label="Total items" value={t.total} min={1} bare onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-auto !min-w-0 !rounded-none !border-0 !bg-transparent !px-0 !py-0 !text-sm !font-semibold !text-lilac-700 !shadow-none" />
             <span className="shrink-0 text-sm text-ink-soft">items done</span>
             <div className="ml-auto flex shrink-0 items-center gap-2">
               <button type="button" aria-label="One fewer item completed" disabled={t.done <= 0} onClick={() => setTally(task.id, { ...t, done: t.done - 1 })} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-100 text-xl font-medium text-lilac-700 shadow-sm transition hover:bg-lilac-200 active:scale-95 disabled:opacity-40 disabled:active:scale-100">−</button>
@@ -248,7 +258,7 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
       ) : settingCount ? (
         <div className="flex items-center gap-2 text-sm text-ink-soft">
           <span>Total items</span>
-          <NumberField label="Total items" value={0} min={1} onChange={saveCount} autoOpen className="!text-lilac-700" />
+          <NumberField label="Total items" value={0} min={1} onChange={saveCount} autoOpen />
         </div>
       ) : (
         <button type="button" onClick={beginCount} className="text-xs font-medium text-lilac-700 underline decoration-lilac-300 underline-offset-2 transition hover:text-lilac-800">Count items &gt;</button>

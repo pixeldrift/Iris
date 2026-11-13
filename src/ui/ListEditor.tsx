@@ -104,6 +104,7 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
         <IconPlus size={14} />
         <input
           ref={add}
+          autoFocus={autoFocusFirst}
           aria-label="Add item"
           placeholder="Add an item…"
           onFocus={() => setTouched(true)}

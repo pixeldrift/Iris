@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconClose } from './icons'
 import { Popover } from './Popover'
 
@@ -6,8 +6,9 @@ import { Popover } from './Popover'
  * A number you can type on a keypad: a button showing the number that opens a pad (digits, clear, backspace) under it. Nothing is
  * kept until Done (or tapping away), so a half-typed number is never taken for the real one.
  */
-export function NumberField({ label, value, onChange, min = 0, max = 99999, className = '', autoOpen = false, onCommit }: { label: string; value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string; autoOpen?: boolean; onCommit?: () => void }) {
-  const [open, setOpen] = useState(autoOpen)
+export function NumberField({ label, value, onChange, min = 0, max = 99999, className = '', autoOpen = false, bare = false, onCommit }: { label: string; value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string; autoOpen?: boolean; bare?: boolean; onCommit?: () => void }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => { if (autoOpen) setOpen(true) }, [autoOpen])
   const [typed, setTyped] = useState('')
   const btn = useRef<HTMLButtonElement>(null)
   const show = open && typed !== '' ? typed : String(value)
@@ -27,7 +28,7 @@ export function NumberField({ label, value, onChange, min = 0, max = 99999, clas
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => (open ? commit() : (setTyped(''), setOpen(true)))}
-        className={`well grid h-9 min-w-[3.25rem] place-items-center rounded-xl px-2.5 text-base font-medium tabular-nums text-ink ${className}`}
+        className={`${bare ? 'grid min-w-0 place-items-center rounded-none px-0 py-0 text-sm font-semibold tabular-nums text-lilac-700' : 'well grid h-9 min-w-[3.25rem] place-items-center rounded-xl px-2.5 text-base font-medium tabular-nums text-ink'} ${className}`}
       >
         {show}
       </button>
