@@ -89,7 +89,7 @@ export function parseQuickAdd(
   const linked = (name: string) => {
     const q = name.trim().toLowerCase()
     return ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase() === q)
-      ?? ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase().split(' ')[0] === q)
+      ?? ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase().split(/\\s+/).includes(q))
   }
   const actionPatterns: { type: 'tag' | 'assign' | 'invite' | 'share'; re: RegExp; person: number; title: number }[] = [
     { type: 'tag', re: /^\s*tag\s+([\p{L}][\p{L}'’-]*)\s+(?:on|in)\s+(.+?)\s*$/iu, person: 1, title: 2 },
@@ -99,6 +99,7 @@ export function parseQuickAdd(
     { type: 'invite', re: /^\s*invite\s+([\p{L}][\p{L}'’-]*)\s+to\s+(.+?)\s*$/iu, person: 1, title: 2 },
     { type: 'share', re: /^\s*share\s+(?:the\s+)?(.+?)\s+with\s+([\p{L}][\p{L}'’-]*)\s*$/iu, person: 2, title: 1 },
   ]
+  let actionTonight = false
   for (const pattern of actionPatterns) {
     const match = t.match(pattern.re)
     if (!match) continue
@@ -107,6 +108,8 @@ export function parseQuickAdd(
       : linked(match[pattern.person])
     if (!person) continue
     out.action = { type: pattern.type, personId: person.id }
+    actionTonight = pattern.type === 'assign' && /\\btonight\\b/i.test(input)
+    if (actionTonight) out.kind = 'event'
     if (pattern.type === 'tag') {
       out.personIds.push(person.id)
       typed.push({ id: person.id, chip: `@${person.name.split(' ')[0]}`, at: 0 })
@@ -259,7 +262,7 @@ export function parseQuickAdd(
   if (rec) t = r.rest
 
   // time ranges and times: 3-4:30pm, 3pm to 5pm, 15:30, at 3, noon
-  let start: string | undefined
+  let start: string | undefined = actionTonight ? '20:00' : undefined
   let end: string | undefined
   r = takeK('time', t, /\s(?:at\s+|from\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to|until|till)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?(?=\s|$)/i)
   if (r.m && (r.m[3] || r.m[6] || r.m[2] || r.m[5])) {
