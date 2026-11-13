@@ -80,6 +80,8 @@ export async function inviteConnection(db: Db, who: Caller, body: { workspaceId?
   if (await membership(db, ws, to)) throw new BadRequest('They are already in this group.')
   const open = await db.query('select 1 from workspace_invites where workspace_id = $1 and to_user = $2 and not used and expires_at > now()', [ws, to])
   if (!open.rows.length) {
+    // A declined invitation may be sent again with a different purpose (event guest vs. ordinary share).
+    await db.query("delete from notifications where user_id = $1 and workspace_id = $2 and kind = 'share-invite'", [to, ws])
     await db.query("insert into workspace_invites (id, workspace_id, role, created_by, to_user, expires_at) values ($1,$2,$3,$4,$5, now() + ($6 || ' days')::interval)", [randomUUID(), ws, roleOfInput(body.role), who.userId, to, String(INVITE_DAYS)])
     await notify(db, to, 'share-invite', ws, who.userId, w.name, body.purpose === 'event' ? 'event' : '')
   }
