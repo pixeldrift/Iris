@@ -141,6 +141,11 @@ function AssignField({ task }: { task: Task }) {
 
   return (
     <Box title="Who" icon={<IconPerson size={13} />} summary={whoSummary}>
+      {task.workspaceId && (!shareLoaded || !share || share.role === 'viewer') && (
+        <p className="text-[0.68rem] text-ink-faint">
+          {!shareLoaded ? 'Loading sharing permissions…' : share?.role === 'viewer' ? 'View-only access: only the owner and editors can add people or change these settings.' : 'Sharing details are unavailable, so people settings are read-only.'}
+        </p>
+      )}
       <div>
         <span className="block text-xs font-medium text-ink-soft">Tagged</span>
         <div className="mt-1.5">
