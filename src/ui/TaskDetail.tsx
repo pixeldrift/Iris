@@ -615,7 +615,7 @@ export function TaskDetail() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         aria-label="Task details"
       >
-        <header className="flex items-start gap-3 px-5 pb-2 pt-5">
+        <header className="relative z-10 flex shrink-0 items-start gap-3 border-b border-white/65 px-5 pb-3 pt-5 shadow-[0_4px_12px_-12px_rgba(60,40,90,.35)]">
           {/* stays level with the first line of the title when it wraps */}
           <span className="mt-[5px] shrink-0">
             <DoneButton task={task} size={26} />
