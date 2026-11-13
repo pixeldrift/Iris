@@ -24,10 +24,12 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
   const have = new Set(folders.map((f) => f.id))
   const clusterOf = (t: Task) => t.folderIds.find((id) => have.has(id)) ?? NONE
   // the clusters to show: every group with a task in it, and the groups above them (so the hierarchy reads)
+  // Loose tasks are still members of Unsorted; their saved free positions only affect where they float, not where they belong.
+  const hasUnsorted = visible.some((t) => clusterOf(t) === NONE)
   const shown = new Set<string>()
+  if (hasUnsorted) shown.add(NONE)
   for (const t of visible) {
     const c = clusterOf(t)
-    // (a task in no group is not in a box: it sits loose on the wall, so there is no Unsorted group to show)
     if (c === NONE) continue
     shown.add(c)
     for (const a of pathOf(folders, c)) shown.add(a.id)
@@ -50,7 +52,10 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
   }
   const counts = new Map<string, number>()
   for (const t of visible) counts.set(clusterOf(t), (counts.get(clusterOf(t)) ?? 0) + 1)
-  const layoutClusters: LayoutCluster[] = order.filter((id) => shown.has(id)).map((id, i) => ({ id, parent: parentOf(id), depth: id === NONE ? 0 : pathOf(folders, id).length - 1, order: i }))
+  const layoutClusters: LayoutCluster[] = [
+    ...order.filter((id) => shown.has(id)).map((id, i) => ({ id, parent: parentOf(id), depth: pathOf(folders, id).length - 1, order: i + (hasUnsorted ? 1 : 0) })),
+    ...(hasUnsorted ? [{ id: NONE, parent: null, depth: 0, order: 0 }] : []),
+  ]
   const layoutTasks: LayoutTask[] = visible.map((t) => ({ id: t.id, cluster: clusterOf(t) }))
   const layout = ensureLayout(stored, {
     clusters: layoutClusters,
