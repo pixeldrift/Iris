@@ -104,7 +104,7 @@ export function parseQuickAdd(
     const match = t.match(pattern.re)
     if (!match) continue
     const person = pattern.type === 'tag'
-      ? (ctx.people.find((p) => p.name.toLowerCase() === match[pattern.person].toLowerCase()) ?? ctx.people.find((p) => p.name.toLowerCase().split(/\\s+/).includes(match[pattern.person].toLowerCase())))
+      ? (ctx.people.find((p) => p.name.toLowerCase() === match[pattern.person].toLowerCase()) ?? ctx.people.find((p) => p.name.toLowerCase().split(/\s+/).includes(match[pattern.person].toLowerCase())))
       : linked(match[pattern.person])
     if (!person) continue
     out.action = { type: pattern.type, personId: person.id }
