@@ -118,7 +118,7 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
           className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-ink-faint"
         />
         <button type="button" onClick={() => { if (add.current) { add.current.value = ""; add.current.focus() } }} aria-label="Clear item" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70"><IconClose size={12} /></button>
-        <button type="button" onClick={commit} aria-label="Add item" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-500 text-lg text-white shadow-sm transition hover:bg-lilac-600">↵</button>
+        <button type="button" onClick={commit} aria-label="Add item" className="grid h-8 w-8 shrink-0 -translate-y-0.5 place-items-center rounded-full bg-lilac-500 text-lg text-white shadow-sm transition hover:bg-lilac-600">↵</button>
       </div>
     </div>
   )
