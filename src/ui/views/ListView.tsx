@@ -187,7 +187,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
       <div className="relative rounded-2xl [clip-path:inset(-6px_0_round_1rem)]">
         <div ref={reveal} aria-hidden className="absolute inset-0 z-0 flex items-center justify-end rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: 'white' }}>
           <span className="mr-0.5 block h-8 w-8 overflow-visible">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" width="24" height="24" overflow="visible" fill="none" stroke="#dc2626" strokeOpacity="1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 1, filter: "none" }}>
               <path ref={deleteLid} d="M4 7h16 M9 7V4h6v3" style={{ transformBox: 'fill-box', transformOrigin: 'right center' }} />
               <path d="M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
             </svg>
