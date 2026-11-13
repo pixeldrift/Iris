@@ -21,9 +21,11 @@ create table if not exists workspaces (
   -- write, so it is gapless and in commit order. A device that has read up to `head_seq` has seen everything, and
   -- "has anything changed?" is one tiny primary-key read: compare head_seq with the cursor you hold.
   head_seq    bigint not null default 0,
+  root_task_id text,
   created_at  timestamptz not null default now()
 );
 alter table workspaces add column if not exists head_seq bigint not null default 0;
+alter table workspaces add column if not exists root_task_id text;
 
 create table if not exists workspace_members (
   workspace_id  text not null references workspaces (id) on delete cascade,
