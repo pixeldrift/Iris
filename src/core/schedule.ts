@@ -113,4 +113,4 @@ export function isPastEvent(t: Pick<Task, 'kind' | 'day' | 'time' | 'endTime' | 
 }
 
 /** An item is finished only when it has actually been checked off. Past events are completed by the store's date policy. */
-export const isFinished = (t: Pick<Task, 'status'>): boolean => t.status === 'done'
+export const isFinished = (t: Pick<Task, 'status'>, _now = Date.now()): boolean => t.status === 'done'
