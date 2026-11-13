@@ -23,6 +23,7 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'due', label: 'Due date' },
   { id: 'created', label: 'Newest' },
   { id: 'title', label: 'A → Z' },
+  { id: 'group', label: 'Group' },
   { id: 'manual', label: 'My order' },
 ]
 
@@ -68,6 +69,11 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
       el.style.transition = `transform ${spring}`
       if (commit && dx < -need) {
         // Snap the lid shut first, then sweep the row away so the delete action reads clearly.
+        if (revealDelete.current) {
+          revealDelete.current.style.transition = 'background-color 140ms ease, color 140ms ease, opacity 180ms ease-out'
+          revealDelete.current.style.backgroundColor = 'rgb(210 110 140 / 0.9)'
+          revealDelete.current.style.color = 'white'
+        }
         if (deleteLid.current) {
           deleteLid.current.style.transition = 'transform 100ms cubic-bezier(0.2, 0.8, 0.2, 1)'
           deleteLid.current.style.transform = 'rotate(0deg) translateY(0)'
@@ -115,6 +121,8 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
         if (revealDelete.current) {
           revealDelete.current.style.opacity = '0'
           revealDelete.current.style.transition = ''
+          revealDelete.current.style.backgroundColor = 'white'
+          revealDelete.current.style.color = ''
         }
         if (deleteLid.current) deleteLid.current.style.transition = ''
         if (revealCheck.current) revealCheck.current.style.opacity = '0'
@@ -166,10 +174,11 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   return (
     <Dim id={task.id}>
       <div className="relative overflow-x-clip rounded-2xl">
-        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-white opacity-0" style={{ background: 'rgb(210 110 140 / 0.9)' }}>
+        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-danger-deep opacity-0" style={{ background: 'white' }}>
           <span className="relative mr-0.5 block h-6 w-6">
-            <span ref={deleteLid} className="absolute left-0.5 top-1 h-[3px] w-[21px] rounded-full bg-current" style={{ transformOrigin: 'right center' }} />
-            <span className="absolute right-[7px] top-0 h-[2px] w-[7px] rounded-full bg-current" />
+            <span ref={deleteLid} className="absolute left-0.5 top-1 h-[3px] w-[21px] rounded-full bg-current" style={{ transformOrigin: 'right center' }}>
+              <span className="absolute right-[7px] -top-[3px] h-[2px] w-[7px] rounded-full bg-current" />
+            </span>
             <span className="absolute left-[5px] top-[8px] h-[14px] w-[16px] rounded-b-[4px] border-2 border-t-0 border-current" />
             <span className="absolute left-[10px] top-[10px] h-[9px] w-[2px] rounded-full bg-current opacity-80" />
             <span className="absolute left-[15px] top-[10px] h-[9px] w-[2px] rounded-full bg-current opacity-80" />
@@ -195,7 +204,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
               {selected ? '✓' : ''}
             </span>
           )}
-          <DoneButton task={task} />
+          {task.kind === 'idea' || task.kind === 'event' ? <span aria-hidden className="h-[22px] w-[22px] shrink-0" /> : <DoneButton task={task} />}
           <TaskFlower task={task} />
           <span className="min-w-0 flex-1">
             <span className="relative inline-block max-w-full align-top">
@@ -244,8 +253,9 @@ export function ListView() {
   const sortKey = useStore((s) => s.settings.sortKey)
   const sortDesc = useStore((s) => s.settings.sortDesc)
   const set = useStore((s) => s.setSetting)
+  const folders = useStore((s) => s.folders)
 
-  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc), [visible, sortKey, sortDesc])
+  const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc, folders), [visible, sortKey, sortDesc, folders])
   // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
   // one, they glide to where the sort puts them (the list animates the move, so you can see where each went).
   const [fresh, setFresh] = useState<string[]>([])
@@ -261,7 +271,6 @@ export function ListView() {
   const justAdded = useMemo(() => new Set(fresh), [fresh])
   // the quick-add box reads what is typed the way the New dialog does: dates, times, repeats, #groups, @people, places, reminders
   const qaMode = useStore((s) => s.settings.quickAdd)
-  const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const [line, setLine] = useState('')
   const [accepted, setAccepted] = useState(false) // "suggest" mode: the suggestion was taken
@@ -396,13 +405,18 @@ export function ListView() {
       <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">
       <ScrollFade className="pr-2">
       <div ref={listRef} {...dropProps} className="space-y-2 py-1">
-        {rows.map((t, i) => (
+        {rows.map((t, i) => {
+          const groupId = t.folderIds[0] ?? '__ungrouped'
+          const previousGroupId = i > 0 ? (rows[i - 1].folderIds[0] ?? '__ungrouped') : groupId
+          return (
           <div key={t.id} data-card-id={t.id} className="relative">
+            {i > 0 && groupId !== previousGroupId && <span aria-hidden className="pointer-events-none absolute -top-1 inset-x-3 h-px bg-ink-faint/25" />}
             {slot && slot.before === t.id && <SlotLine at="top" />}
             <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
             {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
           </div>
-        ))}
+          )
+        })}
         {rows.length === 0 && <EmptyState>Nothing here yet. Still water.</EmptyState>}
       </div>
       </ScrollFade>
