@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
-import { filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
+import { completedDateMatches, filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
@@ -67,6 +67,12 @@ describe('tasks', () => {
   })
   it('hides done by default', () => {
     expect(filterTasks(tasks, { type: 'all' }, folders, false).some((t) => t.status === 'done')).toBe(false)
+  })
+  it('filters completed tasks by an inclusive custom completion-date range', () => {
+    const completedAt = new Date(2026, 10, 12, 12).getTime()
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'range', from: '2026-11-12', to: '2026-11-13' })).toBe(true)
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'range', from: '2026-11-13', to: '2026-11-14' })).toBe(false)
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'all' })).toBe(true)
   })
   it('keeps all ungrouped tasks in Unsorted, including dated and scheduled tasks', () => {
     const base = tasks[0]
