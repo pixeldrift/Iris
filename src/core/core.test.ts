@@ -69,7 +69,7 @@ describe('tasks', () => {
     expect(filterTasks(tasks, { type: 'all' }, folders, false).some((t) => t.status === 'done')).toBe(false)
   })
   it('keeps archived completions in the archive but out of active views', () => {
-    const archived = { ...items[0], status: 'done' as const, archived: true }
+    const archived = { ...tasks[0], status: 'done' as const, completedAt: Date.now(), archived: true }
     expect(filterTasks([archived], { type: 'all' }, folders, true)).toEqual([])
     expect(filterTasks([archived], { type: 'completed', period: 'all' }, folders, false)).toEqual([archived])
   })
