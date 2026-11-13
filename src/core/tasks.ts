@@ -107,36 +107,45 @@ export function filterTasks(tasks: Task[], scope: Scope, folders: Folder[], show
 
 const byDue = (a: Task, b: Task) => (a.due ?? a.day ?? '9999').localeCompare(b.due ?? b.day ?? '9999')
 
-export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: Folder[] = []): Task[] {
-  if (key === 'manual') {
-    // the order you gave them (by rank), then anything not placed yet by priority
-    const by = sortTasks(tasks, 'flow', false)
-    const placed = by.filter((t) => t.rank != null).sort((a, b) => a.rank! - b.rank!)
-    const out = [...placed, ...by.filter((t) => t.rank == null)]
-    return desc ? out.reverse() : out
-  }
+export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: Folder[] = [], secondaryKey: SortKey | null = null): Task[] {
   const dir = desc ? -1 : 1
-  if (key === 'group') {
-    return [...tasks].sort((a, b) => {
+  const compareKey = (a: Task, b: Task, sortKey: SortKey): number => {
+    if (sortKey === 'group') {
       const groupA = folders.find((f) => f.id === a.folderIds[0])?.name ?? null
       const groupB = folders.find((f) => f.id === b.folderIds[0])?.name ?? null
-      // Ungrouped items stay at the end in either direction; groups and their titles reverse together.
+      // Ungrouped items stay at the end in either direction.
       if (groupA === null && groupB !== null) return 1
       if (groupA !== null && groupB === null) return -1
-      return (groupA ?? '').localeCompare(groupB ?? '') * dir || a.title.localeCompare(b.title) * dir || a.createdAt - b.createdAt
-    })
+      return (groupA ?? '').localeCompare(groupB ?? '') * dir
+    }
+    if (sortKey === 'manual') {
+      // Placed items follow their rank; unplaced items fall back to priority.
+      if (a.rank != null && b.rank != null) return (a.rank - b.rank) * dir
+      if (a.rank != null) return -1 * dir
+      if (b.rank != null) return 1 * dir
+      return (weightOf(b) - weightOf(a)) * dir
+    }
+    const cmp: Record<Exclude<SortKey, 'group' | 'manual'>, (a: Task, b: Task) => number> = {
+      flow: (a, b) => weightOf(b) - weightOf(a),
+      due: byDue,
+      created: (a, b) => a.createdAt - b.createdAt,
+      title: (a, b) => a.title.localeCompare(b.title),
+      importance: (a, b) => b.importance - a.importance,
+      urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
+    }
+    return cmp[sortKey] (a, b) * dir
   }
-  const cmp: Record<SortKey, (a: Task, b: Task) => number> = {
-    flow: (a, b) => weightOf(b) - weightOf(a), // heaviest first by default
-    due: byDue,
-    created: (a, b) => a.createdAt - b.createdAt,
-    title: (a, b) => a.title.localeCompare(b.title),
-    importance: (a, b) => b.importance - a.importance,
-    urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
-    group: () => 0,
-    manual: () => 0,
-  }
-  return [...tasks].sort((a, b) => cmp[key](a, b) * dir || a.createdAt - b.createdAt)
+
+  return [...tasks].sort((a, b) => {
+    const primary = compareKey(a, b, key)
+    if (primary) return primary
+    if (secondaryKey && secondaryKey !== key) {
+      const secondary = compareKey(a, b, secondaryKey)
+      if (secondary) return secondary
+    }
+    // Alphabetical order is always the final tiebreaker, independent of sort direction.
+    return a.title.localeCompare(b.title) || a.createdAt - b.createdAt
+  })
 }
 
 /** Radius in px for a pond bubble. `scale` false = every bubble the same size. */
