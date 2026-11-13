@@ -76,6 +76,17 @@ describe('tasks', () => {
     const sorted = sortTasks(tasks, 'flow', false)
     expect(weightOf(sorted[0])).toBeGreaterThanOrEqual(weightOf(sorted[1]))
   })
+  it('sorts by group name, then title, with ungrouped tasks last', () => {
+    const base = tasks[0]
+    const make = (id: string, title: string, folderIds: string[]) => ({ ...base, id, title, folderIds })
+    const sorted = sortTasks(
+      [make('z-school', 'Zebra', ['school']), make('a-life', 'Alpha', ['life']), make('a-school', 'Apple', ['school']), make('ungrouped', 'Aardvark', [])],
+      'group',
+      false,
+      folders,
+    )
+    expect(sorted.map((t) => t.id)).toEqual(['a-life', 'a-school', 'z-school', 'ungrouped'])
+  })
 })
 
 import { detectContactIntent, matchPerson, contactLink, parseVCards } from './people'
