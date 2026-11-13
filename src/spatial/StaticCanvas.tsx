@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ui/ZoomControl'
 import { useStore } from '../state/store'
 import { colorVars } from '../ui/taskColor'
-import { DoneButton, DueChip, ItemProgress } from '../ui/shared'
+import { DoneButton, DueChip, ItemProgress, TallyIncrement } from '../ui/shared'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
@@ -39,6 +39,7 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
         {t.title || 'Untitled'}
       </button>
       <div className="flex shrink-0 items-center gap-2">
+        {task.tally && <TallyIncrement task={task} compact />}
         <DueChip task={task} compact />
       </div>
       <ItemProgress task={task} className="absolute bottom-1 left-3 right-3 min-w-0" />
