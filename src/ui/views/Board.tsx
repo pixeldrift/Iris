@@ -289,7 +289,7 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom, given }
                   <span className="px-1 text-ink-faint">{p === 0 ? 0 : 100}%</span>
                 ) : (
                   <>
-                    <NumberField label={`Stage ${p + 1} starts at percent`} value={percents[p]} min={percents[p - 1] + 1} max={p === stages.length - 2 ? 98 : percents[p + 1] - 1} className="!h-7 !min-w-[2.6rem] !text-sm" onChange={(v) => setPercent(p, v)} />%
+                    <NumberField label={`Stage ${p + 1} starts at percent`} value={percents[p]} min={percents[p - 1] + 1} max={p === stages.length - 2 ? 99 : percents[p + 1] - 1} className="!h-7 !min-w-[2.6rem] !text-sm" onChange={(v) => setPercent(p, v)} />%
                   </>
                 )}
               </span>
