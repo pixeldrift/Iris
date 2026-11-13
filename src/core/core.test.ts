@@ -68,6 +68,18 @@ describe('tasks', () => {
   it('hides done by default', () => {
     expect(filterTasks(tasks, { type: 'all' }, folders, false).some((t) => t.status === 'done')).toBe(false)
   })
+  it('keeps all ungrouped tasks in Unsorted, including dated and scheduled tasks', () => {
+    const base = tasks[0]
+    const items = [
+      { ...base, id: 'unsorted', folderIds: [], due: null, day: null },
+      { ...base, id: 'dated-unsorted', folderIds: [], due: '2026-11-15', day: null },
+      { ...base, id: 'scheduled-unsorted', folderIds: [], due: null, day: '2026-11-15' },
+      { ...base, id: 'grouped', folderIds: ['school'] },
+    ]
+    expect(filterTasks(items, { type: 'inbox' }, folders, true).map((t) => t.id)).toEqual([
+      'unsorted', 'dated-unsorted', 'scheduled-unsorted',
+    ])
+  })
   it('only ever raises urgency from due dates', () => {
     expect(urgencyForDue(0.1, '2026-10-27', '2026-10-26')).toBeGreaterThan(0.7)
     expect(urgencyForDue(0.95, '2026-12-27', '2026-10-26')).toBe(0.95)
