@@ -193,43 +193,40 @@ function Box({ title, icon, children, startOpen = true, summary }: { title: stri
  * A list with entries works it out from the ones ticked. Whatever sets it, the item moves to the Progress column that percent reaches,
  * and moving it to a column sets the percent.
  */
-function ProgressBox({ task }: { task: Task }) {
+function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void }) {
   const setProgress = useStore((s) => s.setProgress)
   const setTally = useStore((s) => s.setTally)
   const pct = progressOf(task)
   const fromList = task.kind === 'list' && task.listStyle === 'check' && task.items.length > 0
   const t = task.tally
   const setStatus = useStore((s) => s.setStatus)
+  const [settingCount, setSettingCount] = useState(false)
+  const [totalDraft, setTotalDraft] = useState('0')
+  const totalInput = useRef<HTMLInputElement>(null)
+  const beginCount = () => {
+    setTotalDraft('0')
+    setSettingCount(true)
+    requestAnimationFrame(() => {
+      totalInput.current?.focus()
+      totalInput.current?.select()
+    })
+  }
+  const saveCount = () => {
+    const total = Math.max(0, Math.round(Number(totalDraft) || 0))
+    setSettingCount(false)
+    if (total > 0) setTally(task.id, { done: 0, total })
+  }
   return (
-    <Box title="Progress" icon={<IconChart size={13} />} summary={`${pct}% complete`}>
+    <Box title="Progress" icon={<IconChart size={13} />} summary={pct + '% complete'}>
       <div className="flex items-center gap-3">
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={pct}
-          disabled={fromList}
-          aria-label="Progress"
-          onChange={(e) => setProgress(task.id, Number(e.target.value))}
-          className="soft -mx-2 min-w-0 flex-1 px-2"
-          style={{ ['--fill' as string]: `${pct}%` }}
-        />
-        <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-lilac-700" aria-live="polite">
-          {pct}%
-        </span>
+        <input type="range" min={0} max={100} step={1} value={pct} disabled={fromList} aria-label="Progress" onChange={(e) => setProgress(task.id, Number(e.target.value))} className="soft -mx-2 min-w-0 flex-1 px-2" style={{ ['--fill' as string]: pct + '%' }} />
+        <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-lilac-700" aria-live="polite">{pct}%</span>
       </div>
-      {/* the stage is the same fact as the percent, so it sits right under it */}
       <div>
         <span className="mb-1.5 block text-xs font-medium text-ink-soft">Stage</span>
         <div className="flex gap-1.5">
           {STATUSES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setStatus(task.id, s.id)}
-              title={s.hint}
-              className={`flex-1 whitespace-nowrap rounded-xl py-1.5 text-sm transition ${task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70'}`}
-            >
+            <button key={s.id} onClick={() => setStatus(task.id, s.id)} title={s.hint} className={'flex-1 whitespace-nowrap rounded-xl py-1.5 text-sm transition ' + (task.status === s.id ? 'bg-lilac-100 font-medium text-lilac-700 ring-1 ring-lilac-300' : 'bg-white/40 text-ink-soft hover:bg-white/70')}>
               {s.one}
             </button>
           ))}
@@ -238,26 +235,28 @@ function ProgressBox({ task }: { task: Task }) {
       {fromList ? (
         <p className="text-xs text-ink-faint">Worked out from the entries ticked off ({task.items.filter((i) => i.done).length} of {task.items.length}).</p>
       ) : t ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <button type="button" aria-label="One fewer" onClick={() => setTally(task.id, { ...t, done: t.done - 1 })} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/70 text-lg text-ink-soft shadow-sm transition active:scale-95 hover:bg-white">
-              −
-            </button>
-            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} />
-            <span className="text-sm text-ink-soft">of</span>
-            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} />
-            <button type="button" aria-label="One more" onClick={() => setTally(task.id, { ...t, done: t.done + 1 })} className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-lilac-500 text-lg text-white shadow-md shadow-lilac-500/30 transition active:scale-95 hover:bg-lilac-600">
-              +
-            </button>
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-ink-soft">
+            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} className="!h-7 !min-w-[2.25rem] !rounded-lg !border-0 !bg-white/45 !px-1.5 !text-sm" />
+            <span>items completed out of</span>
+            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-auto !min-w-0 !rounded-md !border-0 !bg-transparent !px-0.5 !py-0 !text-sm !text-lilac-700 !underline !decoration-lilac-300 !underline-offset-2" />
           </div>
-          <button type="button" onClick={() => setTally(task.id, null)} className="text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
-            Stop counting
-          </button>
+          <div className="flex items-center gap-2 text-xs text-ink-faint">
+            <button type="button" onClick={() => setTally(task.id, null)} className="transition hover:text-ink">× Remove Count</button>
+            <span aria-hidden> | </span>
+            <button type="button" onClick={onUseList} className="transition hover:text-lilac-700">Use list</button>
+          </div>
         </div>
+      ) : settingCount ? (
+        <label className="flex items-center gap-2 text-sm text-ink-soft">
+          <span className="shrink-0">Total items</span>
+          <input ref={totalInput} type="number" inputMode="numeric" min={1} value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} onBlur={saveCount} onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveCount() }
+            else if (e.key === 'Escape') setSettingCount(false)
+          }} aria-label="Total items" className="well w-20 rounded-lg px-2 py-1 text-center text-sm tabular-nums" />
+        </label>
       ) : (
-        <button type="button" onClick={() => setTally(task.id, { done: Math.round((pct * 10) / 100), total: 10 })} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/60 px-3 py-1 text-xs text-lilac-700 transition hover:bg-white">
-          <IconPlus size={11} /> Count items instead
-        </button>
+        <button type="button" onClick={beginCount} className="text-xs font-medium text-lilac-700 underline decoration-lilac-300 underline-offset-2 transition hover:text-lilac-800">Count items &gt;</button>
       )}
     </Box>
   )
@@ -273,6 +272,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
   const habit = task.kind === 'habit'
   const list = task.kind === 'list'
   const [repeatOpen, setRepeatOpen] = useState(() => !!task.repeat || habit)
+  const [focusListEntry, setFocusListEntry] = useState(false)
   const [editingNotes, setEditingNotes] = useState(() => !task.notes)
   useEffect(() => setEditingNotes(!task.notes), [task.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const imageCount = task.images?.length || (task.image ? 1 : 0)
@@ -280,7 +280,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
   return (
     <>
       {/* a list is its entries first */}
-      {task.kind === 'list' && <ListEditor task={task} />}
+      {task.kind === 'list' && <ListEditor task={task} autoFocusFirst={focusListEntry} />}
       <TagInput taskId={task.id} />
       {links.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -341,7 +341,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
           </button>
         )}
       </Box>
-      {(task.kind === 'task' || task.kind === 'list') && <ProgressBox task={task} />}
+      {(task.kind === 'task' || task.kind === 'list') && <ProgressBox task={task} onUseList={() => { update(task.id, { kind: 'list', tally: null }); setFocusListEntry(true) }} />}
       {/* both sliders on one line: most people never touch them (the priority grid does the fine tuning) */}
       <Box title="Priority" icon={<IconPriority size={13} />} startOpen={!list || task.importance !== 0.5 || task.urgency !== 0.3} summary={`Importance ${Math.round(task.importance * 100)}% · Urgency ${Math.round(task.urgency * 100)}%`}>
         <div className="grid grid-cols-2 gap-4">
