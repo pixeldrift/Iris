@@ -201,6 +201,7 @@ export interface PersonExtra {
 export type Scope =
   | { type: 'all' }
   | { type: 'inbox' }
+  | { type: 'completed' }
   | { type: 'folder'; id: string }
   | { type: 'person'; id: string }
   /** The address book: everyone, hearted or not. Not a filter, a page of its own. */
