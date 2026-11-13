@@ -89,7 +89,7 @@ export function parseQuickAdd(
   const linked = (name: string) => {
     const q = name.trim().toLowerCase()
     return ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase() === q)
-      ?? ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase().split(/\\s+/).includes(q))
+      ?? ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase().split(/\s+/).includes(q))
   }
   const actionPatterns: { type: 'tag' | 'assign' | 'invite' | 'share'; re: RegExp; person: number; title: number }[] = [
     { type: 'tag', re: /^\s*tag\s+([\p{L}][\p{L}'’-]*)\s+(?:on|in)\s+(.+?)\s*$/iu, person: 1, title: 2 },
@@ -108,7 +108,7 @@ export function parseQuickAdd(
       : linked(match[pattern.person])
     if (!person) continue
     out.action = { type: pattern.type, personId: person.id }
-    actionTonight = pattern.type === 'assign' && /\\btonight\\b/i.test(input)
+    actionTonight = pattern.type === 'assign' && /\btonight\b/i.test(input)
     if (actionTonight) out.kind = 'event'
     if (pattern.type === 'tag') {
       out.personIds.push(person.id)
