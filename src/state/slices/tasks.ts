@@ -146,13 +146,19 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           // keep it on screen long enough to bloom, then it fades out
           set((s) => ({ lingering: { ...s.lingering, [id]: true } }))
           window.setTimeout(() => {
-            // If its details are still open, hold the bubble in place; useLeaveClass starts the exit bloom on close.
-            if (get().selectedId === id) return
+            // If it was undone during the grace period, or its details are still open, do not remove it.
+            if (get().selectedId === id || get().tasks.find((x) => x.id === id)?.status !== 'done') return
             set((s) => {
               const { [id]: _l, ...lingering } = s.lingering
               return { lingering }
             })
-          }, 1500)
+          }, 5000)
+        }
+        if (t.status === 'done' && to.status !== 'done') {
+          set((s) => {
+            const { [id]: _l, ...lingering } = s.lingering
+            return { lingering }
+          })
         }
         get().updateTask(id, { ...to, ...withProgress, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null })
       },
@@ -271,6 +277,17 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           ),
         })),
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
+      pruneCompleted: () => set((s) => {
+        const durations = { hour: 60 * 60_000, day: 24 * 60 * 60_000, week: 7 * 24 * 60 * 60_000 } as const
+        const retention = s.settings.completedRetention
+        if (retention === 'never') return s
+        const cutoff = Date.now() - durations[retention]
+        const removed = new Set(s.tasks.filter((t) => t.status === 'done' && t.completedAt != null && t.completedAt <= cutoff).map((t) => t.id))
+        if (!removed.size) return s
+        const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
+        const removing = Object.fromEntries(Object.entries(s.removing).filter(([id]) => !removed.has(id)))
+        return { tasks: s.tasks.filter((t) => !removed.has(t.id)), lingering, removing, selectedId: s.selectedId && removed.has(s.selectedId) ? null : s.selectedId }
+      }),
       clearCompleted: () => set((s) => {
         const removed = new Set(s.tasks.filter((t) => t.status === 'done').map((t) => t.id))
         const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
