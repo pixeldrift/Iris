@@ -39,6 +39,25 @@ describe('sharing a group', () => {
     expect((await shareState(db, as('ann'))).news.some((n) => n.kind === 'share-joined' && n.from === 'Bob')).toBe(true)
   })
 
+  it('event invitations are viewer-only and report guest acceptances and declines separately', async () => {
+    const acceptedWs = (await createShare(db, as('ann'), { name: 'Dinner', rootTaskId: 'event-dinner' })).workspaceId
+    await inviteConnection(db, as('ann'), { workspaceId: acceptedWs, toUserId: 'bob', role: 'viewer', purpose: 'event' })
+    const pending = await shareState(db, as('bob'))
+    expect(pending.invites[0]).toMatchObject({ name: 'Dinner', event: true, role: 'viewer' })
+    expect(pending.news[0]).toMatchObject({ kind: 'share-invite', extra: 'event' })
+    await accept(db, as('bob'), { inviteId: pending.invites[0].id })
+    expect((await shareState(db, as('ann'))).news.some((n) => n.kind === 'event-accepted' && n.info === 'Dinner')).toBe(true)
+    const denied = await applySync(db, 'bob', { cursors: {}, changes: [{ ...task('guest-write', 'cannot edit'), workspaceId: acceptedWs }] })
+    expect(denied.rejected).toHaveLength(1)
+
+    const declinedWs = (await createShare(db, as('ann'), { name: 'Picnic', rootTaskId: 'event-picnic' })).workspaceId
+    await inviteConnection(db, as('ann'), { workspaceId: declinedWs, toUserId: 'bob', role: 'viewer', purpose: 'event' })
+    const next = await shareState(db, as('bob'))
+    const picnic = next.invites.find((i) => i.name === 'Picnic')!
+    await handleShare(db, as('bob'), { action: 'decline', inviteId: picnic.id })
+    expect((await shareState(db, as('ann'))).news.some((n) => n.kind === 'event-declined' && n.info === 'Picnic')).toBe(true)
+  })
+
   it('a viewer can read but not write; the owner changes roles', async () => {
     const ws = await share()
     await inviteConnection(db, as('ann'), { workspaceId: ws, toUserId: 'bob', role: 'viewer' })
