@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconClose } from './icons'
 import { Popover } from './Popover'
 
@@ -8,6 +8,7 @@ import { Popover } from './Popover'
  */
 export function NumberField({ label, value, onChange, min = 0, max = 99999, className = '', autoOpen = false, onCommit }: { label: string; value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string; autoOpen?: boolean; onCommit?: () => void }) {
   const [open, setOpen] = useState(autoOpen)
+  useEffect(() => { if (autoOpen) setOpen(true) }, [autoOpen])
   const [typed, setTyped] = useState('')
   const btn = useRef<HTMLButtonElement>(null)
   const show = open && typed !== '' ? typed : String(value)
@@ -27,7 +28,7 @@ export function NumberField({ label, value, onChange, min = 0, max = 99999, clas
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => (open ? commit() : (setTyped(''), setOpen(true)))}
-        className={`well grid h-9 min-w-[3.25rem] place-items-center rounded-xl px-2.5 text-base font-medium tabular-nums text-ink ${className}`}
+        className={`${className || 'well grid h-9 min-w-[3.25rem] place-items-center rounded-xl px-2.5 text-base font-medium tabular-nums text-ink'}`}
       >
         {show}
       </button>
