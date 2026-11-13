@@ -77,6 +77,12 @@ function AssignField({ task }: { task: Task }) {
   const members = share.members.filter((m) => m.status === 'active')
   const others = members.filter((m) => m.userId !== me)
   const given = assigneesOf(task).filter((id) => members.some((m) => m.userId === id))
+  const givenNames = given.map(nameOf)
+  const whoSummary = givenNames.length === 0
+    ? 'Unassigned'
+    : givenNames.length <= 2
+      ? givenNames.join(', ')
+      : givenNames[0] + ' and ' + (givenNames.length - 1) + ' others'
   const left = members.filter((m) => !given.includes(m.userId))
   const canEdit = share.role !== 'viewer'
   const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? 'Someone'))
@@ -87,7 +93,7 @@ function AssignField({ task }: { task: Task }) {
     return m ? [m] : []
   })
   return (
-    <Box title="Who" icon={<IconPerson size={13} />} summary={given.length ? `${given.length} assigned` : 'Unassigned'}>
+    <Box title="Who" icon={<IconPerson size={13} />} summary={whoSummary}>
       <span className="block text-xs font-medium text-ink-soft">Assigned to</span>
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Assigned to">
         {given.length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody</span>}
@@ -360,10 +366,12 @@ function PictureField({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const showToast = useStore((s) => s.showToast)
   const input = useRef<HTMLInputElement>(null)
-  const [viewer, setViewer] = useState<number | null>(null)
+  const [viewer, setViewer] = useState<{ index: number; originRect: { x: number; y: number; width: number; height: number } } | null>(null)
   const images = task.images?.length ? task.images : task.image ? [task.image] : []
   const tinted = task.imageTint !== false
-  const remove = (at: number) => {
+  const remove = async (at: number) => {
+    const confirmed = await askConfirm({ title: 'Remove this picture?', message: 'This picture will be removed from the item.', confirmLabel: 'Remove', cancelLabel: 'Keep', danger: true })
+    if (!confirmed) return
     const next = images.filter((_, i) => i !== at)
     update(task.id, { images: next, image: next[0], ...(!next.length ? { imageTint: undefined } : {}) })
     if (viewer !== null) setViewer(null)
@@ -375,7 +383,10 @@ function PictureField({ task }: { task: Task }) {
           <div className="grid grid-cols-2 gap-2">
             {images.map((src, i) => (
               <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
-                <button type="button" onClick={() => setViewer(i)} aria-label={`View image ${i + 1}`} className="block w-full">
+                <button type="button" onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setViewer({ index: i, originRect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } })
+                }} aria-label={`View image ${i + 1}`} className="block w-full">
                   <img src={src} alt="" draggable={false} className="h-32 w-full object-cover transition group-hover:scale-[1.02]" />
                 </button>
                 <button type="button" onClick={() => remove(i)} aria-label={`Remove image ${i + 1}`} className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-white/90 text-ink-soft shadow transition hover:text-danger-deep">
@@ -391,7 +402,7 @@ function PictureField({ task }: { task: Task }) {
             <input type="checkbox" checked={tinted} onChange={(e) => update(task.id, { imageTint: e.target.checked ? undefined : false })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
             Tint the picture with the group’s color
           </label>
-          {viewer !== null && <ImageViewer images={images} initialIndex={viewer} onClose={() => setViewer(null)} />}
+          {viewer !== null && <ImageViewer images={images} initialIndex={viewer.index} originRect={viewer.originRect} onClose={() => setViewer(null)} />}
         </>
       )}
       {images.length === 0 && (
