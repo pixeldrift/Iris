@@ -48,6 +48,35 @@ function Row({ k, label, hint, indent = false, faded = false, inline = false }: 
   )
 }
 
+/** Retention for finished tasks: a discrete slider with the four supported periods. */
+function CompletedRetention() {
+  const value = useStore((s) => s.settings.completedRetention)
+  const set = useStore((s) => s.setSetting)
+  const options = ['hour', 'day', 'week', 'never'] as const
+  const labels = ['Hour', 'Day', 'Week', 'Never']
+  return (
+    <div className="px-2 py-1.5">
+      <div className="text-sm">Automatically remove completed tasks</div>
+      <div className="mt-1">
+        <input
+          type="range"
+          min={0}
+          max={3}
+          step={1}
+          value={options.indexOf(value)}
+          onChange={(e) => set('completedRetention', options[Number(e.target.value)])}
+          className="soft"
+          aria-label="Completed task retention"
+        />
+        <div className="-mt-0.5 flex justify-between text-[0.68rem] text-ink-faint">
+          {labels.map((label) => <span key={label}>{label}</span>)}
+        </div>
+      </div>
+      <span className="block text-[0.68rem] text-ink-faint">Completed tasks are permanently removed after this long. Never keeps them until you clear them.</span>
+    </div>
+  )
+}
+
 /**
  * System notifications for reminders, as a switch that can be turned off again. The browser's permission can only be granted from
  * here (not taken back), so "off" is Lilac's own choice not to send them; turning it on asks the browser first if it has not been asked.
@@ -405,6 +434,7 @@ export function SettingsDialog() {
           <Row k="sizeByPriority" label="Bubbles scale by importance" hint="bubble size in Pond and Priority views" />
           <Row k="drift" label="Gentle drifting" hint="floating on the water" />
           <Row k="showDone" label="Show completed tasks" hint="finished tasks stay visible" />
+          <CompletedRetention />
         </Group>
         <Group title="App options">
           <div className="space-y-1.5 px-2 py-1.5">
