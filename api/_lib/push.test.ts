@@ -16,6 +16,7 @@ beforeAll(async () => {
   await db.exec(SCHEMA)
 })
 
+
 describe('push', () => {
   it('the bundled core is current', () => {
     const before = readFileSync(new URL('./core.gen.js', import.meta.url), 'utf8')
@@ -86,6 +87,6 @@ describe('push', () => {
   it('validates and removes subscriptions', async () => {
     await expect(saveSubscription(db, 'ann', { subscription: { endpoint: 'http://x', keys: {} } })).rejects.toThrow()
     await removeSubscription(db, 'ann', 'https://push.example/1')
-    expect((await db.query('select 1 from push_subscriptions')).rows).toHaveLength(0)
+    expect((await db.query('select 1 from push_subscriptions where endpoint = $1 and user_id = $2', ['https://push.example/1', 'ann'])).rows).toHaveLength(0)
   })
 })

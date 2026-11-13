@@ -321,7 +321,7 @@ export function QuickAdd({
                 <span aria-hidden className="text-base leading-none">×</span>
               </button>
             )}
-            <button type="submit" disabled={!v.trim()} aria-label="Add item" title="Add item" className="grid h-8 w-8 place-items-center rounded-xl bg-lilac-500 text-lg leading-none text-white shadow-sm shadow-lilac-500/25 transition hover:bg-lilac-600 disabled:cursor-default disabled:opacity-30">
+            <button type="submit" disabled={!v.trim()} aria-label="Add item" className="grid h-8 w-8 place-items-center rounded-xl bg-lilac-500 text-lg leading-none text-white shadow-sm shadow-lilac-500/25 transition hover:bg-lilac-600 disabled:cursor-default disabled:opacity-30">
               <span aria-hidden>↵</span>
             </button>
           </div>
