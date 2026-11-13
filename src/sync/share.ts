@@ -220,18 +220,22 @@ export function alignTaskWorkspaces() {
 /** How many tasks are in a group (and the ones under it): what a person is told will be shared. */
 export const countShared = (rootId: string) => subtreeOf(rootId).taskIds.size
 
-/** Share one task (including a calendar event) without sharing its containing group. */
-export async function shareTask(task: Task, toUserId: string) {
-  if (task.workspaceId) throw new Error('This item is already in a shared group.')
+/** Give an individual task or event its own shared space, without sharing its containing group. */
+export async function shareTask(task: Task, toUserId: string, role: 'editor' | 'viewer' = 'editor') {
+  if (task.workspaceId) {
+    const existing = useShare.getState().shares.find((x) => x.workspaceId === task.workspaceId)
+    if (existing?.rootTaskId !== task.id) throw new Error('This item is already shared through a group. Manage access from that group instead.')
+    if (existing.role !== 'owner') throw new Error('Only the owner can invite someone to this shared item.')
+    await inviteConnection(existing.workspaceId, toUserId, role)
+    return
+  }
   const { workspaceId } = await call<{ workspaceId: string }>({ action: 'create', name: task.title || 'Shared item', rootTaskId: task.id })
   useStore.getState().updateTask(task.id, { workspaceId })
   try {
     await refreshShare()
-    await inviteConnection(workspaceId, toUserId, 'editor')
-    const latest = useStore.getState().tasks.find((t) => t.id === task.id)
-    if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), toUserId])])
+    await inviteConnection(workspaceId, toUserId, role)
   } catch (error) {
-    useStore.getState().updateTask(task.id, { workspaceId: undefined, assigneeId: undefined, assigneeIds: undefined })
+    useStore.getState().updateTask(task.id, { workspaceId: undefined })
     await call({ action: 'retire', workspaceId }).catch(() => undefined)
     await refreshShare().catch(() => undefined)
     throw error
