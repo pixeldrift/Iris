@@ -92,12 +92,12 @@ export function parseQuickAdd(
       ?? ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase().split(' ')[0] === q)
   }
   const actionPatterns: { type: 'tag' | 'assign' | 'invite' | 'share'; re: RegExp; person: number; title: number }[] = [
-    { type: 'tag', re: /^\\s*tag\\s+([\\p{L}][\\p{L}'’-]*)\\s+(?:on|in)\\s+(.+?)\\s*$/iu, person: 1, title: 2 },
-    { type: 'assign', re: /^\\s*assign\\s+(.+?)\\s+to\\s+([\\p{L}][\\p{L}'’-]*)\\s*$/iu, person: 2, title: 1 },
-    { type: 'assign', re: /^\\s*have\\s+([\\p{L}][\\p{L}'’-]*)\\s+(?:do|handle|take care of|complete)\\s+(.+?)\\s*$/iu, person: 1, title: 2 },
-    { type: 'assign', re: /^\\s*assign\\s+([\\p{L}][\\p{L}'’-]*)\\s+to\\s+(.+?)\\s*$/iu, person: 1, title: 2 },
-    { type: 'invite', re: /^\\s*invite\\s+([\\p{L}][\\p{L}'’-]*)\\s+to\\s+(.+?)\\s*$/iu, person: 1, title: 2 },
-    { type: 'share', re: /^\\s*share\\s+(?:the\\s+)?(.+?)\\s+with\\s+([\\p{L}][\\p{L}'’-]*)\\s*$/iu, person: 2, title: 1 },
+    { type: 'tag', re: /^\s*tag\s+([\p{L}][\p{L}'’-]*)\s+(?:on|in)\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'assign', re: /^\s*assign\s+(.+?)\s+to\s+([\p{L}][\p{L}'’-]*)\s*$/iu, person: 2, title: 1 },
+    { type: 'assign', re: /^\s*have\s+([\p{L}][\p{L}'’-]*)\s+(?:do|handle|take care of|complete)\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'assign', re: /^\s*assign\s+([\p{L}][\p{L}'’-]*)\s+to\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'invite', re: /^\s*invite\s+([\p{L}][\p{L}'’-]*)\s+to\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'share', re: /^\s*share\s+(?:the\s+)?(.+?)\s+with\s+([\p{L}][\p{L}'’-]*)\s*$/iu, person: 2, title: 1 },
   ]
   for (const pattern of actionPatterns) {
     const match = t.match(pattern.re)
