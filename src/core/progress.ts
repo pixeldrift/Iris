@@ -91,6 +91,13 @@ export function percentsFor(n: number, given?: number[] | null): number[] {
 }
 
 /** The column (by position) an item at this percent belongs in. */
+/** A stage selection places progress in the middle of that stage's range. Completed caps at 99; 100 remains the explicit finished endpoint. */
+export function percentForStage(i: number, percents: number[]): number {
+  const idx = Math.max(0, Math.min(percents.length - 1, i))
+  if (idx === percents.length - 1) return 99
+  return Math.floor((percents[idx] + percents[idx + 1]) / 2)
+}
+
 export function stageForPercent(p: number, percents: number[]): number {
   let at = 0
   percents.forEach((x, i) => {
