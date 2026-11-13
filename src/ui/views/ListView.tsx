@@ -105,12 +105,18 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
       } else {
         // Incomplete gestures retreat to their original state with a spring.
         if (strike.current) strike.current.style.transition = `transform ${spring}, opacity 180ms ease-out`
+        if (deleteLid.current) deleteLid.current.style.transition = `transform ${spring}`
+        if (revealDelete.current) revealDelete.current.style.transition = 'opacity 180ms ease-out'
         apply(0)
       }
       window.setTimeout(() => {
         el.style.transition = ''
         el.style.transform = ''
-        if (revealDelete.current) revealDelete.current.style.opacity = '0'
+        if (revealDelete.current) {
+          revealDelete.current.style.opacity = '0'
+          revealDelete.current.style.transition = ''
+        }
+        if (deleteLid.current) deleteLid.current.style.transition = ''
         if (revealCheck.current) revealCheck.current.style.opacity = '0'
       }, 440)
     }
