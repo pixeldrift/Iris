@@ -169,14 +169,13 @@ export function parseQuickAdd(
   for (const p of [...pool].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || b.name.length - a.name.length)) {
     if (named.length >= 3 || out.personIds.includes(p.id)) continue
     const full = p.name.trim()
-    if (full.includes(' ') && found(full)) {
-      named.push(p)
-      out.personIds.push(p.id)
-      continue
-    }
-    const first = firstOf(p)
-    if (first.length < 3 || !found(first)) continue
-    const same = pool.filter((x) => firstOf(x).toLowerCase() === first.toLowerCase())
+    const fullMatch = full.includes(' ') && found(full)
+    const matchedToken = fullMatch ? null : full.split(/\\s+/).find((word) => word.length >= 3 && found(word))
+    if (!fullMatch && !matchedToken) continue
+    const matched = (fullMatch ? full : matchedToken!).toLowerCase()
+    const same = pool.filter((x) => fullMatch
+      ? x.name.trim().toLowerCase() === matched
+      : x.name.trim().toLowerCase().split(/\\s+/).includes(matched))
     const favs = same.filter((x) => x.favorite)
     if (same.length > 1 && !(favs.length === 1 && favs[0].id === p.id)) continue
     named.push(p)
