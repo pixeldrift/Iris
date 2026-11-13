@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFromLine, understandLine } from '../quickCreate'
+import * as sound from '../../audio/engine'
 import { isDoneNow } from '../../core/recurrence'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
@@ -306,6 +307,7 @@ export function ListView() {
   const applying = qaMode === 'auto' ? !plain : qaMode === 'suggest' ? accepted : false
   const quickAdd = (title: string) => {
     const id = createFromLine(title, applying)
+    sound.drop()
     setAccepted(false)
     setPlain(false)
     setLine('')

@@ -14,6 +14,7 @@ import { describeRecurrence } from '../core/recurrence'
 import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
+import * as sound from '../audio/engine'
 import { progressOf } from '../core/progress'
 import { IconCalendar, IconChart, IconImage, IconCheck, IconChevron, IconClose, IconPencil, IconPerson, IconPin, IconPlus, IconPriority, IconRepeat, IconNote, IconTrash } from './icons'
 import { MenuItem, Popover } from './Popover'
@@ -169,12 +170,14 @@ const rememberBox = (title: string, open: boolean) => {
 function Box({ title, icon, children, startOpen = true, summary }: { title: string; icon: React.ReactNode; children: React.ReactNode; startOpen?: boolean; summary?: string }) {
   // a box left folded (or opened) stays that way, for every item and the next time: only a choice made by hand is remembered
   const [open, setOpen] = useState(() => boxChoice(title) ?? startOpen)
+  const section = useRef<HTMLElement>(null)
   const toggle = () => {
     setOpen(!open)
     rememberBox(title, !open)
+    if (!open) requestAnimationFrame(() => requestAnimationFrame(() => section.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })))
   }
   return (
-    <section aria-label={title} className={`group-box rounded-2xl p-3 ${open ? 'space-y-2.5' : ''}`}>
+    <section ref={section} aria-label={title} className={`group-box rounded-2xl p-3 ${open ? 'space-y-2.5' : ''}`}>
       <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-1.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-lilac-700/80">
         {icon}
         {title}
@@ -201,18 +204,8 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
   const t = task.tally
   const setStatus = useStore((s) => s.setStatus)
   const [settingCount, setSettingCount] = useState(false)
-  const [totalDraft, setTotalDraft] = useState('0')
-  const totalInput = useRef<HTMLInputElement>(null)
-  const beginCount = () => {
-    setTotalDraft('0')
-    setSettingCount(true)
-    requestAnimationFrame(() => {
-      totalInput.current?.focus()
-      totalInput.current?.select()
-    })
-  }
-  const saveCount = () => {
-    const total = Math.max(0, Math.round(Number(totalDraft) || 0))
+  const beginCount = () => setSettingCount(true)
+  const saveCount = (total: number) => {
     setSettingCount(false)
     if (total > 0) setTally(task.id, { done: 0, total })
   }
@@ -237,13 +230,13 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
       ) : t ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} className="!h-9 !min-w-[2.5rem] !rounded-xl !border-0 !bg-white/55 !px-2 !text-base !font-semibold" />
+            <span className="shrink-0 text-base font-semibold tabular-nums text-lilac-700">{t.done}</span>
             <span className="shrink-0 text-sm text-ink-soft">of</span>
-            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-7 !min-w-[2rem] !rounded-lg !border-0 !bg-white/35 !px-1.5 !text-sm" />
-            <span className="shrink-0 text-sm text-ink-soft">items</span>
+            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-7 !min-w-[2rem] !rounded-lg !border-0 !bg-white/35 !px-1.5 !text-sm !text-lilac-700" />
+            <span className="shrink-0 text-sm text-ink-soft">items done</span>
             <div className="ml-auto flex shrink-0 items-center gap-2">
               <button type="button" aria-label="One fewer item completed" disabled={t.done <= 0} onClick={() => setTally(task.id, { ...t, done: t.done - 1 })} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-100 text-xl font-medium text-lilac-700 shadow-sm transition hover:bg-lilac-200 active:scale-95 disabled:opacity-40 disabled:active:scale-100">−</button>
-              <button type="button" aria-label="One more item completed" disabled={t.done >= t.total} onClick={() => setTally(task.id, { ...t, done: t.done + 1 })} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-600 text-xl font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-700 active:scale-95 disabled:opacity-40 disabled:active:scale-100">+</button>
+              <button type="button" aria-label="One more item completed" disabled={t.done >= t.total} onClick={() => { setTally(task.id, { ...t, done: t.done + 1 }); sound.tickDone() }} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-600 text-xl font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-700 active:scale-95 disabled:opacity-40 disabled:active:scale-100">+</button>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-ink-faint">
@@ -253,13 +246,10 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
           </div>
         </div>
       ) : settingCount ? (
-        <label className="flex items-center gap-2 text-sm text-ink-soft">
-          <span className="shrink-0">Total items</span>
-          <input ref={totalInput} type="number" inputMode="numeric" min={1} value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} onBlur={saveCount} onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); saveCount() }
-            else if (e.key === 'Escape') setSettingCount(false)
-          }} aria-label="Total items" className="well w-20 rounded-lg px-2 py-1 text-center text-sm tabular-nums" />
-        </label>
+        <div className="flex items-center gap-2 text-sm text-ink-soft">
+          <span>Total items</span>
+          <NumberField label="Total items" value={0} min={1} onChange={saveCount} autoOpen className="!text-lilac-700" />
+        </div>
       ) : (
         <button type="button" onClick={beginCount} className="text-xs font-medium text-lilac-700 underline decoration-lilac-300 underline-offset-2 transition hover:text-lilac-800">Count items &gt;</button>
       )}
