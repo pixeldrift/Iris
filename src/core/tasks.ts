@@ -99,6 +99,16 @@ export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: F
     return desc ? out.reverse() : out
   }
   const dir = desc ? -1 : 1
+  if (key === 'group') {
+    return [...tasks].sort((a, b) => {
+      const groupA = folders.find((f) => f.id === a.folderIds[0])?.name ?? null
+      const groupB = folders.find((f) => f.id === b.folderIds[0])?.name ?? null
+      // Ungrouped items stay at the end in either direction; groups and their titles reverse together.
+      if (groupA === null && groupB !== null) return 1
+      if (groupA !== null && groupB === null) return -1
+      return (groupA ?? '').localeCompare(groupB ?? '') * dir || a.title.localeCompare(b.title) * dir || a.createdAt - b.createdAt
+    })
+  }
   const cmp: Record<SortKey, (a: Task, b: Task) => number> = {
     flow: (a, b) => weightOf(b) - weightOf(a), // heaviest first by default
     due: byDue,
@@ -106,14 +116,7 @@ export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: F
     title: (a, b) => a.title.localeCompare(b.title),
     importance: (a, b) => b.importance - a.importance,
     urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
-    group: (a, b) => {
-      // Use the first group, matching the flower shown beside each task. Ungrouped items follow grouped ones.
-      const groupA = folders.find((f) => f.id === a.folderIds[0])
-      const groupB = folders.find((f) => f.id === b.folderIds[0])
-      if (!groupA && groupB) return 1
-      if (groupA && !groupB) return -1
-      return (groupA?.name ?? '').localeCompare(groupB?.name ?? '') || a.title.localeCompare(b.title)
-    },
+    group: () => 0,
     manual: () => 0,
   }
   return [...tasks].sort((a, b) => cmp[key](a, b) * dir || a.createdAt - b.createdAt)
