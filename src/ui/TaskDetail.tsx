@@ -82,7 +82,9 @@ function AssignField({ task }: { task: Task }) {
   const given = share ? assigneesOf(task).filter((id) => members.some((m) => m.userId === id)) : []
   const left = members.filter((m) => !given.includes(m.userId))
   const connected = !task.workspaceId && shareLoaded ? people.filter((p) => p.link?.userId && p.link.userId !== me && !assigneesOf(task).includes(p.link.userId)) : []
-  const canEdit = !share || share.role !== 'viewer'
+  // A standalone item can be shared with a connected person; an item already in a workspace
+  // can only be assigned by an owner/editor of that workspace.
+  const canEdit = task.workspaceId ? !!share && share.role !== 'viewer' : true
   const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? people.find((p) => p.link?.userId === id)?.name ?? 'Someone'))
   const whoSummary = given.length > 2 ? `${nameOf(given[0])} and ${given.length - 1} others` : given.length === 2 ? `${nameOf(given[0])} and ${nameOf(given[1])}` : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
   const invite = async (userId: string) => {
@@ -112,22 +114,25 @@ function AssignField({ task }: { task: Task }) {
             )}
           </span>
         ))}
-        {canEdit && (share ? left.length > 0 : !task.workspaceId && connected.length > 0) && (
+        {canEdit && (!task.workspaceId || left.length > 0) && (
           <button ref={add} type="button" disabled={busy} onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
             <IconPlus size={12} /> {task.kind === 'event' ? 'Invite' : 'Assign'}
           </button>
         )}
       </div>
       <Popover open={open} onClose={() => setOpen(false)} anchor={add} className="w-56 p-1.5">
-        <div aria-label={share ? 'Assign someone' : 'Share this item with someone'}>
+        <div aria-label={share ? 'Assign someone' : 'Assign a connected person'}>
           {share ? left.map((m) => (
             <MenuItem key={m.userId} onClick={() => (assignTask(task, [...given, m.userId]), setOpen(false))}>{m.userId === me ? 'Me' : m.name}</MenuItem>
           )) : connected.map((p) => (
             <MenuItem key={p.id} onClick={() => void invite(p.link!.userId)}>{p.name}</MenuItem>
           ))}
+          {!share && !shareLoaded && <p className="px-2.5 py-2 text-xs text-ink-faint">Loading connected people…</p>}
+          {!share && shareLoaded && connected.length === 0 && (
+            <p className="px-2.5 py-2 text-xs leading-relaxed text-ink-faint">No connected people yet. Connect with someone from People to assign this task. Person tags are only labels; they do not give someone access or make them responsible.</p>
+          )}
         </div>
       </Popover>
-      {!share && shareLoaded && !task.workspaceId && connected.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Connect with someone first, then you can share just this {task.kind === 'event' ? 'event' : 'task'} with them.</p>}
       {share && others.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Only you are in this shared space so far.</p>}
       {share && share.rootTaskId && (share.role === 'owner' ? (
         <button type="button" onClick={() => void stopSharing(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not stop sharing.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Stop sharing this item</button>
