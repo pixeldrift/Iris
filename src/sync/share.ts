@@ -100,6 +100,7 @@ export async function refreshShare() {
   }
   seenNews = new Set(fresh)
   useShare.setState({ ...s, loaded: true })
+  alignTaskWorkspaces()
   settleUnsharing(s.shares)
 }
 
