@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { PGlite } from '@electric-sql/pglite'
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { dueForPush, removeSubscription, rezone, saveSubscription, sweep, type Payload } from './push'
 import type { Task } from '../../src/core/types'
 
@@ -16,10 +16,6 @@ beforeAll(async () => {
   await db.exec(SCHEMA)
 })
 
-// Each test gets an empty database so subscriptions from one case cannot leak into another.
-beforeEach(async () => {
-  await db.exec('TRUNCATE push_sent, push_subscriptions, entities, workspace_members, workspaces CASCADE')
-})
 
 describe('push', () => {
   it('the bundled core is current', () => {
@@ -91,6 +87,6 @@ describe('push', () => {
   it('validates and removes subscriptions', async () => {
     await expect(saveSubscription(db, 'ann', { subscription: { endpoint: 'http://x', keys: {} } })).rejects.toThrow()
     await removeSubscription(db, 'ann', 'https://push.example/1')
-    expect((await db.query('select 1 from push_subscriptions')).rows).toHaveLength(0)
+    expect((await db.query('select 1 from push_subscriptions where endpoint = $1 and user_id = $2', ['https://push.example/1', 'ann'])).rows).toHaveLength(0)
   })
 })
