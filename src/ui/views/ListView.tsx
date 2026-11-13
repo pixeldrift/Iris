@@ -204,7 +204,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
               {selected ? '✓' : ''}
             </span>
           )}
-          {task.kind === 'idea' || task.kind === 'event' ? <span aria-hidden className="h-[22px] w-[22px] shrink-0" /> : <DoneButton task={task} />}
+          <DoneButton task={task} />
           <TaskFlower task={task} />
           <span className="min-w-0 flex-1">
             <span className="relative inline-block max-w-full align-top">
@@ -224,6 +224,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
               <span data-lift-extra className="flex items-center">
                 <DueChip task={task} compact />
               </span>
+              {(task.images?.[0] || task.image) && <img data-lift-extra src={task.images?.[0] || task.image} alt="" draggable={false} className="h-8 w-8 shrink-0 rounded-lg border border-white/70 object-cover shadow-sm" />}
             </div>
             <span data-lift-extra className="block empty:hidden">
               <ItemProgress task={task} />
