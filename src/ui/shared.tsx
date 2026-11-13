@@ -16,6 +16,7 @@ import { hasProgress, progressOf } from '../core/progress'
 import { habitStreak } from '../core/tasks'
 import { isLink, mapsUrl } from '../core/place'
 import { checkVars, useTaskHue } from './taskColor'
+import * as sound from '../audio/engine'
 import { ExampleHint, useExampleIndex } from './ExampleHint'
 
 /** `label` names a whole column; `one` names a single item's stage. */
@@ -46,6 +47,23 @@ export const KINDS = [
 export function KindHint({ kind, className = '' }: { kind: string; className?: string }) {
   const hint = KINDS.find((k) => k.id === kind)?.hint
   return hint ? <p className={`min-h-8 text-xs font-light italic leading-4 text-ink-soft/80 ${className}`}>{hint}</p> : null
+}
+
+
+/** A compact, unambiguous tally increment. Shared by bubbles and rows so +1 never looks like task completion or add-item. */
+export function TallyIncrement({ task, compact = false }: { task: Task; compact?: boolean }) {
+  const setTally = useStore((s) => s.setTally)
+  if (!task.tally || task.status === 'done' || task.tally.done >= task.tally.total) return null
+  return (
+    <button
+      type="button"
+      aria-label={`Increment count: ${task.tally.done} of ${task.tally.total}`}
+      title={`Add one (${task.tally.done} of ${task.tally.total})`}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); setTally(task.id, { ...task.tally!, done: task.tally!.done + 1 }); sound.tickDone() }}
+      className={`pointer-events-auto inline-flex shrink-0 items-center justify-center rounded-full border border-white/80 bg-lilac-600 font-semibold leading-none text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-700 active:scale-95 ${compact ? 'h-6 min-w-8 px-1.5 text-[0.68rem]' : 'h-8 min-w-10 px-2 text-xs'}`}
+    >+1</button>
+  )
 }
 
 export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
