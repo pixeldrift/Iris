@@ -70,7 +70,7 @@ export async function createShare(db: Db, who: Caller, body: { name?: unknown; r
 }
 
 /** Invite someone you are connected with: they get a notification and decide. */
-export async function inviteConnection(db: Db, who: Caller, body: { workspaceId?: unknown; toUserId?: unknown; role?: unknown }) {
+export async function inviteConnection(db: Db, who: Caller, body: { workspaceId?: unknown; toUserId?: unknown; role?: unknown; purpose?: unknown }) {
   const ws = idOf(body.workspaceId)
   const to = idOf(body.toUserId)
   if (!ws || !to) throw new BadRequest('Who to invite is needed.')
@@ -81,7 +81,7 @@ export async function inviteConnection(db: Db, who: Caller, body: { workspaceId?
   const open = await db.query('select 1 from workspace_invites where workspace_id = $1 and to_user = $2 and not used and expires_at > now()', [ws, to])
   if (!open.rows.length) {
     await db.query("insert into workspace_invites (id, workspace_id, role, created_by, to_user, expires_at) values ($1,$2,$3,$4,$5, now() + ($6 || ' days')::interval)", [randomUUID(), ws, roleOfInput(body.role), who.userId, to, String(INVITE_DAYS)])
-    await notify(db, to, 'share-invite', ws, who.userId, w.name)
+    await notify(db, to, 'share-invite', ws, who.userId, w.name, body.purpose === 'event' ? 'event' : '')
   }
   return { ok: true }
 }
@@ -109,14 +109,23 @@ export async function accept(db: Db, who: Caller, body: { inviteId?: unknown; to
   await db.query("insert into workspace_members (workspace_id, user_id, role) values ($1,$2,$3) on conflict (workspace_id, user_id) do update set role = excluded.role, status = 'active', can_copy = false", [inv.workspace_id, who.userId, inv.role])
   await db.query('update workspace_invites set used = true where id = $1', [inv.id])
   const w = await db.query<{ name: string }>('select name from workspaces where id = $1', [inv.workspace_id])
-  await notify(db, inv.created_by, 'share-joined', inv.workspace_id, who.userId, w.rows[0]?.name ?? '')
+  const eventInvite = await db.query('select 1 from notifications where user_id = $1 and workspace_id = $2 and kind = \'share-invite\' and extra = \'event\' limit 1', [who.userId, inv.workspace_id])
+  await notify(db, inv.created_by, eventInvite.rows.length ? 'event-accepted' : 'share-joined', inv.workspace_id, who.userId, w.rows[0]?.name ?? '')
   return { workspaceId: inv.workspace_id, name: w.rows[0]?.name ?? '' }
 }
 
 export async function decline(db: Db, who: Caller, body: { inviteId?: unknown }) {
   const id = idOf(body.inviteId)
   if (!id) throw new BadRequest('Which invitation?')
+  const { rows } = await db.query<{ workspace_id: string; created_by: string }>('select workspace_id, created_by from workspace_invites where id = $1 and to_user = $2', [id, who.userId])
   await db.query('delete from workspace_invites where id = $1 and to_user = $2', [id, who.userId])
+  if (rows[0]) {
+    const eventInvite = await db.query('select 1 from notifications where user_id = $1 and workspace_id = $2 and kind = \'share-invite\' and extra = \'event\' limit 1', [who.userId, rows[0].workspace_id])
+    if (eventInvite.rows.length) {
+      const w = await db.query<{ name: string }>('select name from workspaces where id = $1', [rows[0].workspace_id])
+      await notify(db, rows[0].created_by, 'event-declined', rows[0].workspace_id, who.userId, w.rows[0]?.name ?? '')
+    }
+  }
   return { ok: true }
 }
 
@@ -239,13 +248,16 @@ export async function shareState(db: Db, who: Caller) {
   const mem = ids.length
     ? await db.query<{ workspace_id: string; user_id: string; role: Role; status: 'active' | 'leaving' }>('select workspace_id, user_id, role, status from workspace_members where workspace_id = any($1::text[])', [ids])
     : { rows: [] as { workspace_id: string; user_id: string; role: Role; status: 'active' | 'leaving' }[] }
-  const inv = await db.query<{ id: string; workspace_id: string; role: string; created_by: string; name: string }>(
-    'select i.id, i.workspace_id, i.role, i.created_by, w.name from workspace_invites i join workspaces w on w.id = i.workspace_id where i.to_user = $1 and not i.used and i.expires_at > now() order by i.created_at desc',
+  const inv = await db.query<{ id: string; workspace_id: string; role: string; created_by: string; name: string; event: boolean }>(
+    \`select i.id, i.workspace_id, i.role, i.created_by, w.name,
+       exists(select 1 from notifications n where n.user_id = i.to_user and n.workspace_id = i.workspace_id and n.kind = 'share-invite' and n.extra = 'event') as event
+       from workspace_invites i join workspaces w on w.id = i.workspace_id
+       where i.to_user = $1 and not i.used and i.expires_at > now() order by i.created_at desc\`,
     [who.userId],
   )
   const pending = ids.length ? await db.query<{ workspace_id: string; n: string }>('select workspace_id, count(*) as n from workspace_invites where workspace_id = any($1::text[]) and not used and expires_at > now() group by workspace_id', [ids]) : { rows: [] as { workspace_id: string; n: string }[] }
   const news = await db.query<{ id: string; kind: string; workspace_id: string | null; from_user: string | null; info: string | null; extra: string | null; read: boolean; created_at: string }>(
-    "select id, kind, workspace_id, from_user, info, extra, read, created_at from notifications where user_id = $1 and kind like any(array['share-%', 'assigned', 'task-added']) order by created_at desc limit 40",
+    "select id, kind, workspace_id, from_user, info, extra, read, created_at from notifications where user_id = $1 and kind like any(array['share-%', 'event-%', 'assigned', 'task-added']) order by created_at desc limit 40",
     [who.userId],
   )
   // who has the app open right now: a device of theirs checked in with the app visible in the last minute
@@ -268,7 +280,7 @@ export async function shareState(db: Db, who: Caller) {
   return {
     me: who.userId,
     shares,
-    invites: inv.rows.map((i) => ({ id: i.id, workspaceId: i.workspace_id, name: i.name, from: nameOf(i.created_by), role: i.role })),
+    invites: inv.rows.map((i) => ({ id: i.id, workspaceId: i.workspace_id, name: i.name, from: nameOf(i.created_by), role: i.role, event: i.event })),
     news: news.rows.map((n) => ({ id: n.id, kind: n.kind, workspaceId: n.workspace_id, from: n.from_user ? nameOf(n.from_user) : '', info: n.info ?? '', extra: n.extra ?? '', read: n.read, at: n.created_at })),
   }
 }
@@ -276,8 +288,8 @@ export async function shareState(db: Db, who: Caller) {
 /** Clear one piece of news (or all of it): sharing news and assignments, never an invitation that still waits for an answer. */
 export async function clearShareNews(db: Db, who: Caller, body: { id?: unknown }) {
   const id = idOf(body.id)
-  if (id) await db.query("delete from notifications where id = $1 and user_id = $2 and (kind like 'share-%' or kind in ('assigned', 'task-added')) and kind <> 'share-invite'", [id, who.userId])
-  else await db.query("delete from notifications where user_id = $1 and (kind like 'share-%' or kind in ('assigned', 'task-added')) and kind <> 'share-invite'", [who.userId])
+  if (id) await db.query("delete from notifications where id = $1 and user_id = $2 and (kind like 'share-%' or kind like 'event-%' or kind in ('assigned', 'task-added')) and kind <> 'share-invite'", [id, who.userId])
+  else await db.query("delete from notifications where user_id = $1 and (kind like 'share-%' or kind like 'event-%' or kind in ('assigned', 'task-added')) and kind <> 'share-invite'", [who.userId])
   return { ok: true }
 }
 
@@ -310,7 +322,7 @@ export async function presence(db: Db, who: Caller) {
 }
 
 export async function markShareNewsRead(db: Db, who: Caller) {
-  await db.query("update notifications set read = true where user_id = $1 and (kind like 'share-%' or kind in ('assigned', 'task-added'))", [who.userId])
+  await db.query("update notifications set read = true where user_id = $1 and (kind like 'share-%' or kind like 'event-%' or kind in ('assigned', 'task-added'))", [who.userId])
   return { ok: true }
 }
 
