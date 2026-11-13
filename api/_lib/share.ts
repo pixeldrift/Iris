@@ -54,14 +54,17 @@ const notify = (db: Db, to: string, kind: string, workspaceId: string, from: str
   db.query('insert into notifications (id, user_id, kind, workspace_id, from_user, info, extra) values ($1,$2,$3,$4,$5,$6,$7)', [randomUUID(), to, kind, workspaceId, from, info, extra])
 
 /** Make a group shareable: a new workspace owned by the caller. (The app then moves the group and its tasks into it.) */
-export async function createShare(db: Db, who: Caller, body: { name?: unknown; rootFolderId?: unknown }) {
+export async function createShare(db: Db, who: Caller, body: { name?: unknown; rootFolderId?: unknown; rootTaskId?: unknown }) {
   const name = text(body.name, MAX_NAME)
   const root = idOf(body.rootFolderId)
-  if (!name || !root) throw new BadRequest('A group to share is needed.')
-  const exists = await db.query('select 1 from workspaces w join workspace_members m on m.workspace_id = w.id where m.user_id = $1 and m.role = $2 and w.root_folder_id = $3', [who.userId, 'owner', root])
-  if (exists.rows.length) throw new BadRequest('That group is already shared.')
+  const task = idOf(body.rootTaskId)
+  if (!name || (!!root === !!task)) throw new BadRequest('A group or individual task to share is needed.')
+  const exists = root
+    ? await db.query('select 1 from workspaces w join workspace_members m on m.workspace_id = w.id where m.user_id = $1 and m.role = $2 and w.root_folder_id = $3', [who.userId, 'owner', root])
+    : await db.query('select 1 from workspaces w join workspace_members m on m.workspace_id = w.id where m.user_id = $1 and m.role = $2 and w.root_task_id = $3', [who.userId, 'owner', task])
+  if (exists.rows.length) throw new BadRequest('That item is already shared.')
   const id = randomUUID()
-  await db.query('insert into workspaces (id, name, personal, root_folder_id) values ($1, $2, false, $3)', [id, name, root])
+  await db.query('insert into workspaces (id, name, personal, root_folder_id, root_task_id) values ($1, $2, false, $3, $4)', [id, name, root, task])
   await db.query("insert into workspace_members (workspace_id, user_id, role) values ($1, $2, 'owner')", [id, who.userId])
   return { workspaceId: id }
 }
@@ -217,6 +220,7 @@ export interface ShareView {
   workspaceId: string
   name: string
   rootFolderId: string | null
+  rootTaskId: string | null
   role: Role
   status: 'active' | 'leaving'
   canCopy: boolean
@@ -227,8 +231,8 @@ export interface ShareView {
 
 /** Everything about the caller's sharing: the groups they share or are in, invitations waiting for them, and news. */
 export async function shareState(db: Db, who: Caller) {
-  const mine = await db.query<{ id: string; name: string; root_folder_id: string | null; role: Role; status: 'active' | 'leaving'; can_copy: boolean }>(
-    'select w.id, w.name, w.root_folder_id, m.role, m.status, m.can_copy from workspace_members m join workspaces w on w.id = m.workspace_id where m.user_id = $1 and not w.personal order by w.created_at',
+  const mine = await db.query<{ id: string; name: string; root_folder_id: string | null; root_task_id: string | null; role: Role; status: 'active' | 'leaving'; can_copy: boolean }>(
+    'select w.id, w.name, w.root_folder_id, w.root_task_id, m.role, m.status, m.can_copy from workspace_members m join workspaces w on w.id = m.workspace_id where m.user_id = $1 and not w.personal order by w.created_at',
     [who.userId],
   )
   const ids = mine.rows.map((r) => r.id)
@@ -254,6 +258,7 @@ export async function shareState(db: Db, who: Caller) {
     workspaceId: r.id,
     name: r.name,
     rootFolderId: r.root_folder_id,
+    rootTaskId: r.root_task_id,
     role: r.role,
     status: r.status,
     canCopy: r.can_copy,
