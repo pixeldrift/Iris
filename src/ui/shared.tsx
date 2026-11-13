@@ -5,6 +5,8 @@ import { bubbleHue } from './pond/hue'
 import { today } from '../core/dates'
 import { currentOccurrence, isDoneNow, repeatOf } from '../core/recurrence'
 import { dueInfo, DUE_TONE_CLASS } from '../core/rowModel'
+import { isOverdue } from '../core/tasks'
+import { isPastEvent } from '../core/schedule'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useBoardSlot } from './boardSlot'
@@ -185,12 +187,15 @@ export function PlaceChip({ task }: { task: Task }) {
 
 export function DueChip({ task, compact = false }: { task: Task; compact?: boolean }) {
   const d = dueInfo(task)
+  const autoCompletePastDue = useStore((s) => s.settings.autoCompletePastDue)
+  const past = !autoCompletePastDue && !isDoneNow(task) && (isOverdue(task) || isPastEvent(task))
   if (!d) return null
   return (
     <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${DUE_TONE_CLASS[d.tone]}`}>
       {d.text}
       {d.time && <i className="ml-1 font-normal not-italic">· {d.time}</i>}
       {!compact && d.deadline && <i className="ml-1 font-normal opacity-70">· due {d.deadline}</i>}
+      {past && <b className="ml-1 font-bold" title="Past date">!</b>}
     </span>
   )
 }
@@ -321,8 +326,8 @@ export function QuickAdd({
                 <span aria-hidden className="text-base leading-none">×</span>
               </button>
             )}
-            <button type="submit" disabled={!v.trim()} aria-label="Add item" className="grid h-8 w-8 place-items-center rounded-xl bg-lilac-500 text-lg leading-none text-white shadow-sm shadow-lilac-500/25 transition hover:bg-lilac-600 disabled:cursor-default disabled:opacity-30">
-              <span aria-hidden>↵</span>
+            <button type="submit" disabled={!v.trim()} aria-label="Add item" className="grid h-8 w-8 place-items-center rounded-full bg-lilac-500 text-lg leading-none text-white shadow-sm shadow-lilac-500/25 transition hover:bg-lilac-600 disabled:cursor-default disabled:opacity-30">
+              <span aria-hidden className="-translate-y-px">↵</span>
             </button>
           </div>
         )}

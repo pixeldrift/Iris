@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   systemNotifications: true,
   notifyShared: false,
   autoRemind: true,
+  autoCompletePastDue: true,
   playGate: { usedMs: 0, lockUntil: 0, level: 0, lastLockAt: 0 },
   dateFormat: 'us',
   clockFormat: '12',

@@ -33,6 +33,13 @@ test.describe('settings', () => {
     await expect.poll(async () => (await saved(page))!.settings.sidebarSpace).toBe(0.5)
   })
 
+  test('automatic completion of past-dated items is on by default and can be disabled', async ({ page }) => {
+    const automatic = page.getByRole('switch', { name: /Automatically complete past-due items/ })
+    await expect(automatic).toHaveAttribute('aria-checked', 'true')
+    await automatic.click()
+    await expect(automatic).toHaveAttribute('aria-checked', 'false')
+  })
+
   test('the tooltips switch turns the labels off', async ({ page }) => {
     await page.getByRole('switch', { name: /Tooltips/ }).click()
     await page.getByRole('button', { name: 'Close settings' }).click()
