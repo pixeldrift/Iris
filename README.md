@@ -80,9 +80,11 @@ list); it needs you to be signed in, and the browser's permission.
   reminders and event alerts have come due, and sends one push per device with the `web-push` library. It only reads tasks, never
   changes them. The app's own `reminded` / `alertsDone` flags (synced like any other field) stop a reminder being pushed after
   the open app already showed it, and a 30-second grace gives it a moment to do so.
-- **Never twice.** Each reminder has a key (`do|due:<task>:<time>` or `a:<task>:<start>:<minutes>`); the sweep claims it with
-  an insert into `push_sent` before sending, so overlapping sweeps cannot both send it. Anything more than 2 hours overdue is
-  skipped (not worth a buzz), and `push_sent` rows are pruned after 3 days.
+- **Deduplicated, retryable delivery.** Each reminder/device pair has a key in `push_sent`; the sweep claims it before
+  sending, so overlapping sweeps cannot both send to the same device. A successful send stays claimed, a dead address (404/410)
+  is removed, and a temporary failure releases only that device's claim so the next sweep can retry without resending to devices
+  that already succeeded. `GET /api/remind` reports `sent`, `removed`, and `failed` counts. Anything more than 2 hours overdue
+  is skipped (not worth a buzz), and `push_sent` rows are pruned after 3 days.
 - **Time zones.** Event times are wall-clock times ("9:00"), so the server converts them in each device's own zone (`rezone`).
 - **Shared logic.** The reminder rules live in `src/core/reminders.ts` and are used by both the app and the server. The server
   runs a bundled copy, `api/_lib/core.gen.js` (made by `npm run bundle:core`, committed), because Vercel's Node runtime does not
