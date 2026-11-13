@@ -32,7 +32,7 @@ const SORTS: { id: SortKey; label: string }[] = [
  * the line is taken back off). It only takes over when the finger clearly moves sideways, so scrolling stays vertical, and a
  * press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
  */
-function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteChips: React.RefObject<HTMLDivElement | null>, deleteLid: React.RefObject<HTMLSpanElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
+function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteChips: React.RefObject<HTMLDivElement | null>, deleteTitle: React.RefObject<HTMLSpanElement | null>, deleteLid: React.RefObject<HTMLSpanElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
   return (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return
     const el = row.current
@@ -46,7 +46,9 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
     const apply = (dx: number) => {
       el.style.transform = `translateX(${dx}px)`
       if (revealDelete.current) revealDelete.current.style.opacity = dx < -6 ? '1' : '0'
-      if (deleteChips.current) deleteChips.current.style.transform = `translateX(${-Math.min(1, Math.max(0, -dx) / 80) * 38}px)`
+      const chipShift = Math.min(1, Math.max(0, -dx) / 80) * 38
+      if (deleteChips.current) deleteChips.current.style.transform = `translateX(${-chipShift}px)`
+      if (deleteTitle.current) deleteTitle.current.style.paddingRight = `${chipShift}px`
       if (deleteLid.current) {
         const progress = Math.min(1, Math.max(0, -dx) / need)
         deleteLid.current.style.transform = `rotate(${progress * 38}deg) translateY(${-progress * 3}px)`
@@ -124,6 +126,7 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
           deleteChips.current.style.transform = ''
           deleteChips.current.style.transition = ''
         }
+        if (deleteTitle.current) deleteTitle.current.style.paddingRight = ''
         if (revealDelete.current) {
           revealDelete.current.style.opacity = '0'
           revealDelete.current.style.transition = ''
@@ -165,6 +168,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const el = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
   const deleteChips = useRef<HTMLDivElement>(null)
+  const deleteTitle = useRef<HTMLSpanElement>(null)
   const deleteLid = useRef<HTMLSpanElement>(null)
   const revealCheck = useRef<HTMLDivElement>(null)
   const strike = useRef<HTMLSpanElement>(null)
@@ -176,19 +180,16 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const done = isDoneNow(task)
   // The strikethrough is drawn by the live swipe gesture; completion only changes task state.
   const check = () => toggleDone(task.id)
-  const swipe = useSwipe(el, reveal, deleteChips, deleteLid, revealCheck, strike, done, () => del(task.id), check)
+  const swipe = useSwipe(el, reveal, deleteChips, deleteTitle, deleteLid, revealCheck, strike, done, () => del(task.id), check)
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
       <div className="relative overflow-x-clip rounded-2xl">
-        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-red-600 opacity-0" style={{ background: 'white' }}>
-          <span className="relative mr-0.5 block h-6 w-6">
-            <span ref={deleteLid} className="absolute left-0.5 top-1 h-[3px] w-[21px] rounded-full bg-current" style={{ transformOrigin: 'right center' }}>
-              <span className="absolute right-[7px] -top-[3px] h-[2px] w-[7px] rounded-full bg-current" />
-            </span>
-            <span className="absolute left-[5px] top-[8px] h-[14px] w-[16px] rounded-b-[4px] border-2 border-t-0 border-current" />
-            <span className="absolute left-[10px] top-[10px] h-[9px] w-[2px] rounded-full bg-current opacity-80" />
-            <span className="absolute left-[15px] top-[10px] h-[9px] w-[2px] rounded-full bg-current opacity-80" />
+        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: 'white' }}>
+          <span className="mr-0.5 block h-6 w-6">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6.5 7h11 M8 7l.8 13h6.4L16 7 M9.5 4.5h5l1 2.5 M10 10.5v6 M14 10.5v6" />
+            </svg>
           </span>
         </div>
         <div ref={revealCheck} aria-hidden className="absolute inset-0 flex items-center justify-start rounded-2xl pl-5 text-white opacity-0" style={{ background: 'rgb(var(--lr-500) / 0.9)' }}>
@@ -213,7 +214,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
           )}
           <DoneButton task={task} />
           <TaskFlower task={task} />
-          <span className="min-w-0 flex-1">
+          <span ref={deleteTitle} className="min-w-0 flex-1">
             <span className="relative inline-block max-w-full align-top">
               <span className={`block truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
               {/* the line that is drawn across the name when it is swiped off (hidden otherwise) */}
