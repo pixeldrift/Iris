@@ -31,7 +31,7 @@ const SORTS: { id: SortKey; label: string }[] = [
  * the line is taken back off). It only takes over when the finger clearly moves sideways, so scrolling stays vertical, and a
  * press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
  */
-function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
+function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteLid: React.RefObject<HTMLSpanElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
   return (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return
     const el = row.current
@@ -45,6 +45,10 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
     const apply = (dx: number) => {
       el.style.transform = `translateX(${dx}px)`
       if (revealDelete.current) revealDelete.current.style.opacity = String(dx < 0 ? Math.min(1, -dx / 80) : 0)
+      if (deleteLid.current) {
+        const progress = Math.min(1, Math.max(0, -dx) / need)
+        deleteLid.current.style.transform = `rotate(${progress * 38}deg) translateY(${-progress * 3}px)`
+      }
       if (revealCheck.current) revealCheck.current.style.opacity = String(dx > 0 ? Math.min(1, dx / 80) : 0)
       if (strike.current) {
         const progress = Math.min(1, Math.max(0, dx) / need)
@@ -63,9 +67,16 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
       const spring = '420ms cubic-bezier(0.2, 0.9, 0.25, 1.15)'
       el.style.transition = `transform ${spring}`
       if (commit && dx < -need) {
-        el.style.transition = 'transform 0.22s ease-out'
-        el.style.transform = 'translateX(-110%)'
-        onDelete()
+        // Snap the lid shut first, then sweep the row away so the delete action reads clearly.
+        if (deleteLid.current) {
+          deleteLid.current.style.transition = 'transform 100ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+          deleteLid.current.style.transform = 'rotate(0deg) translateY(0)'
+        }
+        window.setTimeout(() => {
+          el.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+          el.style.transform = 'translateX(-110%) scale(0.96)'
+          window.setTimeout(onDelete, 220)
+        }, 90)
         return
       }
       if (check) {
@@ -133,6 +144,7 @@ function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: Rea
 function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void; /** Just added from the quick-add box: it glows for a moment. */ fresh?: boolean }) {
   const el = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
+  const deleteLid = useRef<HTMLSpanElement>(null)
   const revealCheck = useRef<HTMLDivElement>(null)
   const strike = useRef<HTMLSpanElement>(null)
   const hue = useTaskHue(task)
@@ -143,13 +155,19 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const done = isDoneNow(task)
   // The strikethrough is drawn by the live swipe gesture; completion only changes task state.
   const check = () => toggleDone(task.id)
-  const swipe = useSwipe(el, reveal, revealCheck, strike, done, () => del(task.id), check)
+  const swipe = useSwipe(el, reveal, deleteLid, revealCheck, strike, done, () => del(task.id), check)
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
       <div className="relative overflow-x-clip rounded-2xl">
         <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end rounded-2xl pr-5 text-white opacity-0" style={{ background: 'rgb(210 110 140 / 0.9)' }}>
-          <IconTrash size={18} />
+          <span className="relative mr-0.5 block h-6 w-6">
+            <span ref={deleteLid} className="absolute left-0.5 top-1 h-[3px] w-[21px] rounded-full bg-current" style={{ transformOrigin: 'right center' }} />
+            <span className="absolute right-[7px] top-0 h-[2px] w-[7px] rounded-full bg-current" />
+            <span className="absolute left-[5px] top-[8px] h-[14px] w-[16px] rounded-b-[4px] border-2 border-t-0 border-current" />
+            <span className="absolute left-[10px] top-[10px] h-[9px] w-[2px] rounded-full bg-current opacity-80" />
+            <span className="absolute left-[15px] top-[10px] h-[9px] w-[2px] rounded-full bg-current opacity-80" />
+          </span>
         </div>
         <div ref={revealCheck} aria-hidden className="absolute inset-0 flex items-center justify-start rounded-2xl pl-5 text-white opacity-0" style={{ background: 'rgb(var(--lr-500) / 0.9)' }}>
           <IconCheck size={18} />
