@@ -26,7 +26,7 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
   const preview = task.items.length === 0 && !touched
   const items = task.items
   useEffect(() => {
-    if (autoFocusFirst && items.length === 0) requestAnimationFrame(() => add.current?.focus())
+    if (autoFocusFirst) requestAnimationFrame(() => add.current?.focus())
   }, [autoFocusFirst, items.length])
   const setProgress = useStore((s) => s.setProgress)
   const hue = useTaskHue(task)
