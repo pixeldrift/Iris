@@ -20,6 +20,7 @@ export interface ShareInfo {
   workspaceId: string
   name: string
   rootFolderId: string | null
+  rootTaskId: string | null
   role: 'owner' | 'editor' | 'viewer'
   status: 'active' | 'leaving'
   canCopy: boolean
@@ -202,8 +203,9 @@ export function alignTaskWorkspaces() {
   const shared = new Map(s.folders.filter((f) => f.workspaceId).map((f) => [f.id, f.workspaceId as string]))
   if (!shared.size && !s.tasks.some((t) => t.workspaceId)) return
   let changed = false
+  const taskShares = new Map(useShare.getState().shares.filter((x) => x.rootTaskId).map((x) => [x.rootTaskId!, x.workspaceId]))
   const tasks = s.tasks.map((t) => {
-    const ws = t.folderIds.map((id) => shared.get(id)).find(Boolean)
+    const ws = taskShares.get(t.id) ?? t.folderIds.map((id) => shared.get(id)).find(Boolean)
     if (ws === t.workspaceId) return t
     changed = true
     if (ws) return { ...t, workspaceId: ws }
@@ -215,6 +217,17 @@ export function alignTaskWorkspaces() {
 
 /** How many tasks are in a group (and the ones under it): what a person is told will be shared. */
 export const countShared = (rootId: string) => subtreeOf(rootId).taskIds.size
+
+/** Share one task (including a calendar event) without sharing its containing group. */
+export async function shareTask(task: Task, toUserId: string) {
+  if (task.workspaceId) throw new Error('This item is already in a shared group.')
+  const { workspaceId } = await call<{ workspaceId: string }>({ action: 'create', name: task.title || 'Shared item', rootTaskId: task.id })
+  useStore.getState().updateTask(task.id, { workspaceId })
+  await refreshShare()
+  await inviteConnection(workspaceId, toUserId, 'editor')
+  const latest = useStore.getState().tasks.find((t) => t.id === task.id)
+  if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), toUserId])])
+}
 
 export async function shareGroup(folder: Folder) {
   // a group that was shared before and then taken back leaves an empty shell behind: close it, so this starts a fresh share
@@ -249,6 +262,10 @@ export async function stopSharing(share: ShareInfo, allowCopy: boolean) {
   if (share.rootFolderId && !allowCopy) {
     moveTo(share.rootFolderId, undefined)
     await call({ action: 'retire', workspaceId: share.workspaceId }).catch(() => undefined)
+  } else if (share.rootTaskId && !allowCopy) {
+    const task = useStore.getState().tasks.find((t) => t.id === share.rootTaskId)
+    if (task) useStore.getState().updateTask(task.id, { workspaceId: undefined, assigneeId: undefined, assigneeIds: undefined })
+    await call({ action: 'retire', workspaceId: share.workspaceId }).catch(() => undefined)
   } else rememberUnsharing(share.workspaceId)
   await refreshShare()
 }
@@ -279,6 +296,10 @@ function settleUnsharing(shares: ShareInfo[]) {
     if (s.members.some((m) => m.role !== 'owner')) keep.push(ws)
     else if (s.rootFolderId) {
       moveTo(s.rootFolderId, undefined)
+      void call({ action: 'retire', workspaceId: ws }).then(refreshShare, () => undefined)
+    } else if (s.rootTaskId) {
+      const task = useStore.getState().tasks.find((t) => t.id === s.rootTaskId)
+      if (task) useStore.getState().updateTask(task.id, { workspaceId: undefined, assigneeId: undefined, assigneeIds: undefined })
       void call({ action: 'retire', workspaceId: ws }).then(refreshShare, () => undefined)
     }
   }
