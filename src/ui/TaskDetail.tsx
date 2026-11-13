@@ -183,7 +183,12 @@ function AssignField({ task }: { task: Task }) {
             {others.filter((m) => m.role === 'viewer').length === 0 && <span className="text-sm font-normal text-ink-faint">Nobody yet</span>}
             {others.filter((m) => m.role === 'viewer').map((m) => (
               <span key={m.userId} className="inline-flex items-center gap-1 rounded-full bg-sky-100/70 px-2.5 py-1 text-sm font-normal text-ink-soft">
-                {m.name}<span className="text-[0.65rem] text-ink-faint">Invited</span>
+                {m.name}<span className="text-[0.65rem] text-ink-faint">Guest</span>
+                {share?.role === 'owner' && (
+                  <button type="button" aria-label={`Remove ${m.name} from this event`} onClick={() => void run(() => removeMember(share.workspaceId, m.userId, false).then(() => undefined), `Removed ${m.name} from the event.`)} className="ml-0.5 rounded-full p-0.5 text-ink-faint hover:bg-white">
+                    <IconClose size={10} />
+                  </button>
+                )}
               </span>
             ))}
             {canManageIndividual && !isGroupShare && (
