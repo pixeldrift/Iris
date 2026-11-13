@@ -15,7 +15,7 @@ import { ScrollFade } from '../ScrollFade'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { CountBubble, Dim, DoneButton, DueChip, FolderChips, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, TallyIncrement, useTaskDrag } from '../shared'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -37,6 +37,7 @@ function Card({ task }: { task: Task }) {
         <div className="flex items-start gap-2 pr-5">
           <DoneButton task={task} size={20} />
           <p className={`min-w-0 flex-1 text-[0.92rem] leading-snug ${isDoneNow(task) ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</p>
+          <TallyIncrement task={task} compact />
         </div>
         {/* the handle sits at the right edge, level with the checkbox */}
         <span className="absolute right-1 top-2 grid h-5 place-items-center">
