@@ -13,7 +13,7 @@ import { DoneButton } from './shared'
  * the bottom arc either side of it. It is laid out for radius `r`, and scales with the bubble's `--r` variable if that
  * changes while it is being dragged (the priority grid resizes bubbles as you carry them).
  */
-export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { task: Task; r: number; minExtras?: number; floor?: number }) {
+export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44, hideImageOnlyCheckbox = false }: { task: Task; r: number; minExtras?: number; floor?: number; hideImageOnlyCheckbox?: boolean }) {
   // laid out as if the bubble were at least this big, then scaled down to fit: a small bubble gets a small, still-legible set
   const r = Math.max(radius, floor)
   const person = useStore((s) => s.people.find((p) => task.personIds.includes(p.id) && (p.phone || p.email)))
@@ -83,9 +83,11 @@ export function BubbleChrome({ task, r: radius, minExtras = 0, floor = 44 }: { t
         </span>
       )}
       <ProgressArc task={task} r={r} />
-      <span className="pointer-events-auto absolute bottom-[7%] left-1/2 -translate-x-1/2">
-        <DoneButton task={task} size={cb} />
-      </span>
+      {!(hideImageOnlyCheckbox && task.image && !task.title.trim()) && (
+        <span className="pointer-events-auto absolute bottom-[7%] left-1/2 -translate-x-1/2">
+          <DoneButton task={task} size={cb} />
+        </span>
+      )}
       {arc.map((it) => (
         <span key={it.key} className="pointer-events-auto absolute flex items-center" style={{ left: it.x, top: it.y, transform: 'translate(-50%, -50%)' }}>
           {it.node}

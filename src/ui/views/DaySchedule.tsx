@@ -86,7 +86,7 @@ function Block({ task, s, e, col, cols, date, preview, onPreview }: { task: Task
       className={`tint lift-on-press absolute z-10 flex cursor-pointer select-none gap-2 overflow-hidden rounded-xl bg-white px-2 py-1 text-left [-webkit-touch-callout:none] ${done ? 'opacity-60' : ''} ${preview?.id === task.id ? 'z-20 shadow-lg' : ''}`}
       title={`${task.title} · ${range}`}
     >
-      {height >= 32 && <DoneButton task={task} size={16} />}
+      <DoneButton task={task} size={Math.min(16, Math.max(12, height * 0.42))} />
       <span className="min-w-0 flex-1">
         <span className={`block truncate text-[0.8rem] leading-tight ${done ? 'line-through' : ''}`}>{task.title || 'Untitled'}</span>
         {roomy ? (

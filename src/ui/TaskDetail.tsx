@@ -9,6 +9,7 @@ import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
 import { notionImageFrom } from './photo'
+import { ImageViewer } from './ImageViewer'
 import { describeRecurrence } from '../core/recurrence'
 import { assignTask, useShare } from '../sync/share'
 import { askConfirm } from './dialogs'
@@ -337,23 +338,41 @@ function PictureField({ task }: { task: Task }) {
   const update = useStore((s) => s.updateTask)
   const showToast = useStore((s) => s.showToast)
   const input = useRef<HTMLInputElement>(null)
+  const [viewer, setViewer] = useState<number | null>(null)
+  const images = task.images?.length ? task.images : task.image ? [task.image] : []
   const tinted = task.imageTint !== false
+  const remove = (at: number) => {
+    const next = images.filter((_, i) => i !== at)
+    update(task.id, { images: next, image: next[0], ...(!next.length ? { imageTint: undefined } : {}) })
+    if (viewer !== null) setViewer(null)
+  }
   return (
     <div className="space-y-2">
-      {task.image ? (
+      {images.length > 0 && (
         <>
-          <div className="relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
-            <img src={task.image} alt="" draggable={false} className="max-h-72 w-full object-contain" />
-            <button type="button" onClick={() => update(task.id, { image: undefined, imageTint: undefined })} aria-label="Remove the picture" className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/85 text-ink-soft shadow transition hover:text-danger-deep">
-              <IconClose size={13} />
+          <div className="grid grid-cols-2 gap-2">
+            {images.map((src, i) => (
+              <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/70 bg-white/40">
+                <button type="button" onClick={() => setViewer(i)} aria-label={`View image ${i + 1}`} className="block w-full">
+                  <img src={src} alt="" draggable={false} className="h-32 w-full object-cover transition group-hover:scale-[1.02]" />
+                </button>
+                <button type="button" onClick={() => remove(i)} aria-label={`Remove image ${i + 1}`} className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-white/90 text-ink-soft shadow transition hover:text-danger-deep">
+                  <IconClose size={13} />
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={() => input.current?.click()} className="flex min-h-32 items-center justify-center gap-2 rounded-2xl border border-dashed border-lilac-300 bg-white/25 px-3 text-sm text-lilac-700 transition hover:bg-white/65">
+              <IconPlus size={14} /> Add images
             </button>
           </div>
           <label className="flex cursor-pointer items-center gap-2 px-1 text-sm text-ink-soft">
             <input type="checkbox" checked={tinted} onChange={(e) => update(task.id, { imageTint: e.target.checked ? undefined : false })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
             Tint the picture with the group’s color
           </label>
+          {viewer !== null && <ImageViewer images={images} initialIndex={viewer} onClose={() => setViewer(null)} />}
         </>
-      ) : (
+      )}
+      {images.length === 0 && (
         <button type="button" onClick={() => input.current?.click()} className="glass-soft flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm text-lilac-700 transition hover:bg-white/80">
           <IconPlus size={14} /> Add a picture
         </button>
@@ -362,14 +381,17 @@ function PictureField({ task }: { task: Task }) {
         ref={input}
         type="file"
         accept="image/*"
+        multiple
         hidden
-        aria-label="Choose a picture"
+        aria-label="Choose pictures"
         onChange={async (e) => {
-          const file = e.target.files?.[0]
+          const files = [...(e.target.files ?? [])]
           e.target.value = ''
-          if (!file) return
+          if (!files.length) return
           try {
-            update(task.id, { image: await notionImageFrom(file) })
+            const added = await Promise.all(files.map((file) => notionImageFrom(file)))
+            const next = [...images, ...added]
+            update(task.id, { images: next, image: next[0] })
           } catch (err) {
             showToast((err as Error).message)
           }
@@ -435,7 +457,7 @@ export function TaskDetail() {
   const { mounted, closing } = useExit(!!id && !!live, 240)
 
   // "Saved" blinks whenever something about the task changes
-  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.repeat, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.dueRemindAt, task.place, task.days, task.folderIds, task.personIds]) : ''
+  const sig = task ? JSON.stringify([task.title, task.notes, task.kind, task.images, task.image, task.items, task.listStyle, task.time, task.endTime, task.place, task.log, task.repeat, task.remindAt, task.status, task.importance, task.urgency, task.start, task.due, task.day, task.rollover, task.dueRemindAt, task.place, task.days, task.folderIds, task.personIds]) : ''
   const [savedTick, setSavedTick] = useState(0)
   const firstSig = useRef(sig)
   useEffect(() => {
@@ -478,11 +500,9 @@ export function TaskDetail() {
       >
         <header className="flex items-start gap-3 px-5 pb-2 pt-5">
           {/* stays level with the first line of the title when it wraps */}
-          {task.kind !== 'idea' && task.kind !== 'event' && (
-            <span className="mt-[5px] shrink-0">
-              <DoneButton task={task} size={26} />
-            </span>
-          )}
+          <span className="mt-[5px] shrink-0">
+            <DoneButton task={task} size={26} />
+          </span>
           {editingTitle ? (
             <input
               ref={titleRef}

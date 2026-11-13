@@ -95,7 +95,9 @@ export interface Task {
   due: string | null
   /** The time of day it is due (`HH:MM`), when the deadline is more than a day. */
   dueTime?: string | null
-  /** A notion's picture, a small JPEG as a data URL. */
+  /** A notion's pictures, small JPEG data URLs. `image` remains the first/cover image for older clients. */
+  images?: string[]
+  /** Legacy/cover picture, kept in sync with the first entry in images. */
   image?: string
   /** With a picture: false = leave it untinted (the bubble's outer ring still takes the group's color). Absent or true = tinted. */
   imageTint?: boolean
