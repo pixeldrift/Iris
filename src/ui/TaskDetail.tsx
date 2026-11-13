@@ -81,7 +81,7 @@ function AssignField({ task }: { task: Task }) {
   const canEdit = share.role !== 'viewer'
   const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? 'Someone'))
   // someone tagged on the task who is also a member of this group (their entry is linked to their account)
-  const whoSummary = given.length > 2 ? `${nameOf(given[0])} and `${given.length - 1} others` : given.length === 2 ? `${nameOf(given[0])} and `${nameOf(given[1])}` : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
+  const whoSummary = given.length > 2 ? `${nameOf(given[0])} and ${given.length - 1} others` : given.length === 2 ? `${nameOf(given[0])} and ${nameOf(given[1])}` : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
   const tagged = task.personIds.flatMap((id) => {
     const link = people.find((p) => p.id === id)?.link
     const m = link && others.find((x) => x.userId === link.userId && !given.includes(x.userId))
@@ -462,7 +462,7 @@ function PictureField({ task }: { task: Task }) {
                   if (dragTimer.current !== null) window.clearTimeout(dragTimer.current)
                   dragTimer.current = null
                 }}
-                className={`group relative overflow-hidden rounded-2xl border bg-white/40 transition-all ${dragFrom === i ? 'scale-[.96] opacity-60' : ''} ${dragTo === i && dragFrom !== null && dragFrom !== i ? 'border-lilac-500 ring-2 ring-lilac-300' : 'border-white/70'}`}
+                className={`group relative touch-none overflow-hidden rounded-2xl border bg-white/40 transition-all ${dragFrom === i ? 'scale-[.96] opacity-60' : ''} ${dragTo === i && dragFrom !== null && dragFrom !== i ? 'border-lilac-500 ring-2 ring-lilac-300' : 'border-white/70'}`}
               >
                 <button type="button" onClick={(e) => openViewer(i, e.currentTarget)} aria-label={`View image ${i + 1}`} className="block w-full cursor-grab">
                   <img src={src} alt="" draggable={false} className="h-32 w-full object-cover transition group-hover:scale-[1.02]" />
