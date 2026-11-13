@@ -312,7 +312,7 @@ input[type='date'] {
   0% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.82) translateY(-14px); }
 }
-.bloom-out { animation: bloom-out 0.8s ease-in 0.6s both; }
+.bloom-out { animation: bloom-out 5s ease-in both; }
 
 @keyframes slide-out-right {
   from { opacity: 1; transform: translateX(0); }
