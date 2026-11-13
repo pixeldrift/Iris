@@ -209,7 +209,7 @@ export type Scope =
 
 export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline' | 'overview' | 'spatial'
 
-export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency' | 'manual'
+export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency' | 'group' | 'manual'
 
 /** How the pond clusters its bubbles. `free` keeps your own placement. */
 export type PondGroup = 'free' | 'folder' | 'due' | 'kind' | 'person'
