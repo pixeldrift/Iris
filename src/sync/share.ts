@@ -223,10 +223,17 @@ export async function shareTask(task: Task, toUserId: string) {
   if (task.workspaceId) throw new Error('This item is already in a shared group.')
   const { workspaceId } = await call<{ workspaceId: string }>({ action: 'create', name: task.title || 'Shared item', rootTaskId: task.id })
   useStore.getState().updateTask(task.id, { workspaceId })
-  await refreshShare()
-  await inviteConnection(workspaceId, toUserId, 'editor')
-  const latest = useStore.getState().tasks.find((t) => t.id === task.id)
-  if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), toUserId])])
+  try {
+    await refreshShare()
+    await inviteConnection(workspaceId, toUserId, 'editor')
+    const latest = useStore.getState().tasks.find((t) => t.id === task.id)
+    if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), toUserId])])
+  } catch (error) {
+    useStore.getState().updateTask(task.id, { workspaceId: undefined, assigneeId: undefined, assigneeIds: undefined })
+    await call({ action: 'retire', workspaceId }).catch(() => undefined)
+    await refreshShare().catch(() => undefined)
+    throw error
+  }
 }
 
 export async function shareGroup(folder: Folder) {
