@@ -71,6 +71,7 @@ function PlaceField({ task }: { task: Task }) {
 function AssignField({ task }: { task: Task }) {
   const share = useShare((s) => s.shares.find((x) => x.workspaceId === task.workspaceId))
   const me = useShare((s) => s.me)
+  const shareLoaded = useShare((s) => s.loaded)
   const people = useStore((s) => s.people)
   const showToast = useStore((s) => s.showToast)
   const [open, setOpen] = useState(false)
@@ -80,7 +81,7 @@ function AssignField({ task }: { task: Task }) {
   const others = members.filter((m) => m.userId !== me)
   const given = share ? assigneesOf(task).filter((id) => members.some((m) => m.userId === id)) : []
   const left = members.filter((m) => !given.includes(m.userId))
-  const connected = people.filter((p) => p.link?.userId && p.link.userId !== me && !assigneesOf(task).includes(p.link.userId))
+  const connected = !task.workspaceId && shareLoaded ? people.filter((p) => p.link?.userId && p.link.userId !== me && !assigneesOf(task).includes(p.link.userId)) : []
   const canEdit = !share || share.role !== 'viewer'
   const nameOf = (id: string) => (id === me ? 'Me' : (members.find((m) => m.userId === id)?.name ?? people.find((p) => p.link?.userId === id)?.name ?? 'Someone'))
   const whoSummary = given.length > 2 ? `${nameOf(given[0])} and ${given.length - 1} others` : given.length === 2 ? `${nameOf(given[0])} and ${nameOf(given[1])}` : given.length === 1 ? nameOf(given[0]) : 'Unassigned'
@@ -111,7 +112,7 @@ function AssignField({ task }: { task: Task }) {
             )}
           </span>
         ))}
-        {canEdit && (share ? left.length > 0 : connected.length > 0) && (
+        {canEdit && (share ? left.length > 0 : !task.workspaceId && connected.length > 0) && (
           <button ref={add} type="button" disabled={busy} onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1 text-sm font-normal text-lilac-700 shadow-sm transition hover:bg-white disabled:opacity-50">
             <IconPlus size={12} /> {task.kind === 'event' ? 'Invite' : 'Assign'}
           </button>
@@ -126,7 +127,7 @@ function AssignField({ task }: { task: Task }) {
           ))}
         </div>
       </Popover>
-      {!share && connected.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Connect with someone first, then you can share just this {task.kind === 'event' ? 'event' : 'task'} with them.</p>}
+      {!share && shareLoaded && !task.workspaceId && connected.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Connect with someone first, then you can share just this {task.kind === 'event' ? 'event' : 'task'} with them.</p>}
       {share && others.length === 0 && <p className="mt-1.5 font-normal text-ink-faint">Only you are in this shared space so far.</p>}
       {share && canEdit && (
         <button type="button" onClick={() => void stopSharing(share, false).catch((e) => showToast(e instanceof Error ? e.message : 'Could not stop sharing.'))} className="mt-1.5 text-xs text-ink-faint transition hover:text-ink">Stop sharing this item</button>
