@@ -31,6 +31,8 @@ export interface QuickAdd {
   detected: { key: string; label: string }[]
   /** The #groups and @people found, in the order they were typed (their ids). */
   tagOrder: string[]
+  /** An explicit local-language action; mere name mentions remain tags. */
+  action?: { type: 'assign' | 'invite' | 'share'; personId: string }
 }
 
 /** The last word of a place named in lower case ("downtown clinic"). */
@@ -83,6 +85,28 @@ export function parseQuickAdd(
   let t = ` ${input.trim()} `.replace(/\s+/g, ' ')
   const out: QuickAdd = { title: '', folderIds: [], personIds: [], chips: [], detected: [], tagOrder: [] }
   const typed: { id: string; chip: string; at: number }[] = []
+  // Explicit action language is deliberately narrow: a name alone (or "with Jimmy") never assigns anyone.
+  const linked = (name: string) => {
+    const q = name.trim().toLowerCase()
+    return ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase() === q)
+      ?? ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase().split(' ')[0] === q)
+  }
+  const actionPatterns: { type: 'assign' | 'invite' | 'share'; re: RegExp; person: number; title: number }[] = [
+    { type: 'assign', re: /^\\s*have\\s+([\\p{L}][\\p{L}'’-]*)\\s+(?:do|handle|take care of|complete)\\s+(.+?)\\s*$/iu, person: 1, title: 2 },
+    { type: 'assign', re: /^\\s*assign\\s+([\\p{L}][\\p{L}'’-]*)\\s+to\\s+(.+?)\\s*$/iu, person: 1, title: 2 },
+    { type: 'invite', re: /^\\s*invite\\s+([\\p{L}][\\p{L}'’-]*)\\s+to\\s+(.+?)\\s*$/iu, person: 1, title: 2 },
+    { type: 'share', re: /^\\s*share\\s+(?:the\\s+)?(.+?)\\s+with\\s+([\\p{L}][\\p{L}'’-]*)\\s*$/iu, person: 2, title: 1 },
+  ]
+  for (const pattern of actionPatterns) {
+    const match = t.match(pattern.re)
+    if (!match) continue
+    const person = linked(match[pattern.person])
+    if (!person) continue
+    out.action = { type: pattern.type, personId: person.id }
+    t = ` ${match[pattern.title].trim()} `
+    if (pattern.type === 'invite') out.kind = 'event'
+    break
+  }
   const todayISO = toISO(now)
   let remindMode = false
   let dueMode = false
@@ -124,7 +148,7 @@ export function parseQuickAdd(
   // people from the address book named without an @: a capitalised whole name (or first name) in what is left of the line.
   // A first name shared by several people is only taken for a favourite (and only if just one of them is); the name stays in the title.
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const pool = ctx.people.filter((p) => !p.isMe && !out.personIds.includes(p.id) && !skip.has(`tag:${p.id}`) && p.name.trim())
+  const pool = ctx.people.filter((p) => !p.isMe && p.id !== out.action?.personId && !out.personIds.includes(p.id) && !skip.has(`tag:${p.id}`) && p.name.trim())
   const firstOf = (p: Person) => p.name.trim().split(/\s+/)[0]
   const found = (word: string) => {
     const m = new RegExp(`(^|[^\\w])(${esc(word)})(?![\\w])`, 'i').exec(` ${t} `)
