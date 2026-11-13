@@ -317,7 +317,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
       <Box title="Where" icon={<IconPin size={13} />} startOpen={!list || !!task.place} summary={task.place || 'No location'}>
         <PlaceField task={task} />
       </Box>
-      <Box title="Picture" icon={<IconImage size={13} />} startOpen={!!task.image || !list} summary={imageCount ? `${imageCount} image${imageCount === 1 ? '' : 's'}` : 'No pictures'}>
+      <Box title="Images" icon={<IconImage size={13} />} startOpen={!!task.image || !list} summary={imageCount ? `${imageCount} image${imageCount === 1 ? '' : 's'}` : 'No images'}>
         <PictureField task={task} />
       </Box>
       <AssignField task={task} />
@@ -392,7 +392,7 @@ function PictureField({ task }: { task: Task }) {
     setViewer(index)
   }
   const remove = async (at: number) => {
-    const ok = await askConfirm({ title: 'Remove this picture?', message: 'This picture will be removed from this item.', confirmLabel: 'Remove', cancelLabel: 'Keep', danger: true })
+    const ok = await askConfirm({ title: 'Remove this image?', message: 'This image will be removed from this item.', confirmLabel: 'Remove', cancelLabel: 'Keep', danger: true })
     if (!ok) return
     const next = images.filter((_, i) => i !== at)
     update(task.id, { images: next, image: next[0], ...(!next.length ? { imageTint: undefined } : {}) })
@@ -484,14 +484,14 @@ function PictureField({ task }: { task: Task }) {
           </div>
           <label className="flex cursor-pointer items-center gap-2 px-1 text-sm text-ink-soft">
             <input type="checkbox" checked={tinted} onChange={(e) => update(task.id, { imageTint: e.target.checked ? undefined : false })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
-            Tint the picture with the group’s color
+            Tint images with the group’s color
           </label>
           {viewer !== null && <ImageViewer images={images} initialIndex={viewer} origin={viewerOrigin} onClose={() => setViewer(null)} />}
         </>
       )}
       {images.length === 0 && (
         <button type="button" onClick={() => input.current?.click()} className="glass-soft flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm text-lilac-700 transition hover:bg-white/80">
-          <IconPlus size={14} /> Add a picture
+          <IconPlus size={14} /> Add images
         </button>
       )}
       <input
@@ -500,7 +500,7 @@ function PictureField({ task }: { task: Task }) {
         accept="image/*"
         multiple
         hidden
-        aria-label="Choose pictures"
+        aria-label="Choose images"
         onChange={async (e) => {
           const files = [...(e.target.files ?? [])]
           e.target.value = ''
