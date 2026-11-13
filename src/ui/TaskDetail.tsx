@@ -235,11 +235,14 @@ function ProgressBox({ task, onUseList }: { task: Task; onUseList: () => void })
       {fromList ? (
         <p className="text-xs text-ink-faint">Worked out from the entries ticked off ({task.items.filter((i) => i.done).length} of {task.items.length}).</p>
       ) : t ? (
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-ink-soft">
-            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} className="!h-7 !min-w-[2.25rem] !rounded-lg !border-0 !bg-white/45 !px-1.5 !text-sm" />
-            <span>items completed out of</span>
-            <NumberField label="Total items" value={t.total} min={1} onChange={(n) => setTally(task.id, { total: n, done: Math.min(t.done, n) })} className="!h-auto !min-w-0 !rounded-md !border-0 !bg-transparent !px-0.5 !py-0 !text-sm !text-lilac-700 !underline !decoration-lilac-300 !underline-offset-2" />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <NumberField label="Items completed" value={t.done} max={t.total} onChange={(n) => setTally(task.id, { ...t, done: n })} className="!h-9 !min-w-[2.5rem] !rounded-xl !border-0 !bg-white/55 !px-2 !text-base !font-semibold" />
+            <span className="shrink-0 text-sm text-ink-soft">of {t.total} items</span>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <button type="button" aria-label="One fewer item completed" disabled={t.done <= 0} onClick={() => setTally(task.id, { ...t, done: t.done - 1 })} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-100 text-xl font-medium text-lilac-700 shadow-sm transition hover:bg-lilac-200 active:scale-95 disabled:opacity-40 disabled:active:scale-100">−</button>
+              <button type="button" aria-label="One more item completed" disabled={t.done >= t.total} onClick={() => setTally(task.id, { ...t, done: t.done + 1 })} className="grid h-9 w-9 place-items-center rounded-full bg-lilac-600 text-xl font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-700 active:scale-95 disabled:opacity-40 disabled:active:scale-100">+</button>
+            </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-ink-faint">
             <button type="button" onClick={() => setTally(task.id, null)} className="transition hover:text-ink">× Remove Count</button>
