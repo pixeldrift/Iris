@@ -21,13 +21,13 @@ const EXAMPLES = ['Milk', 'Bread', 'Eggs']
 export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoFocusFirst?: boolean }) {
   const update = useStore((s) => s.updateTask)
   const add = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (autoFocusFirst && items.length === 0) requestAnimationFrame(() => add.current?.focus())
-  }, [autoFocusFirst, items.length])
   // an empty list shows three example entries (a preview of what a list looks like) until it is tapped to edit, which clears them
   const [touched, setTouched] = useState(false)
   const preview = task.items.length === 0 && !touched
   const items = task.items
+  useEffect(() => {
+    if (autoFocusFirst && items.length === 0) requestAnimationFrame(() => add.current?.focus())
+  }, [autoFocusFirst, items.length])
   const setProgress = useStore((s) => s.setProgress)
   const hue = useTaskHue(task)
   const set = (next: ListItem[]) => {
