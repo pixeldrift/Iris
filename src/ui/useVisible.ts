@@ -61,8 +61,8 @@ export function useLeaveClass(task: Task, keepDone = false): string {
       if (!s.lingering[task.id]) return s
       const { [task.id]: _gone, ...rest } = s.lingering
       return { lingering: rest }
-    }), 850)
+    }), 5000)
     return () => window.clearTimeout(timer)
   }, [fading, task.id])
-  return removing ? 'burst pointer-events-none' : fading ? 'bloom-out pointer-events-none' : ''
+  return removing ? 'burst pointer-events-none' : fading ? 'bloom-out' : ''
 }
