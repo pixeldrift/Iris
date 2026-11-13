@@ -199,6 +199,7 @@ function alignFolderWorkspaces() {
  */
 export function alignTaskWorkspaces() {
   alignFolderWorkspaces()
+  if (!useShare.getState().loaded) return // do not strip individual or group workspace ids before sharing state arrives
   const s = useStore.getState()
   const shared = new Map(s.folders.filter((f) => f.workspaceId).map((f) => [f.id, f.workspaceId as string]))
   if (!shared.size && !s.tasks.some((t) => t.workspaceId)) return
