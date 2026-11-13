@@ -71,7 +71,8 @@ export function scopeMatcher(scope: Scope, folders: Folder[]): (task: Task) => b
     case 'completed':
       return (t) => t.status === 'done'
     case 'inbox':
-      return (t) => t.folderIds.length === 0 && !t.due && !t.day
+      // Unsorted is the home for every task without a group, whether or not it has a date.
+      return (t) => t.folderIds.length === 0
     case 'day':
       return (t) => taskOnDate(t, scope.date)
     case 'person':
