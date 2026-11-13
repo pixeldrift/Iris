@@ -117,7 +117,6 @@ export function Sidebar() {
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
   const t0 = today()
   const completedFilter = scope.type === 'completed' ? scope : { type: 'completed' as const, period: 'all' as const }
-  const allCompletedCount = useMemo(() => tasks.filter((t) => t.status === 'done').length, [tasks])
   const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done' && completedDateMatches(t, completedFilter)).length, [tasks, completedFilter])
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
   const dueCount = (d: string) => live.filter((t) => taskOnDate(t, d)).length
@@ -508,21 +507,21 @@ export function Sidebar() {
               id="completed"
               title="Completed"
               pinned
-              action={allCompletedCount > 0 ? (
-                <Tip label="Permanently clear completed tasks">
+              action={completedCount > 0 ? (
+                <Tip label="Delete the completed tasks currently shown">
                   <button
                     type="button"
                     onClick={async () => {
                       const confirmed = await askConfirm({
-                        title: 'Clear completed tasks?',
-                        message: `This will permanently remove all ${allCompletedCount} completed ${allCompletedCount === 1 ? 'task' : 'tasks'}, not just the ones in the current date filter. This cannot be undone.`,
-                        confirmLabel: 'Clear completed',
-                        cancelLabel: 'Keep completed',
+                        title: 'Delete completed tasks?',
+                        message: `This will permanently delete the ${completedCount} completed ${completedCount === 1 ? 'task' : 'tasks'} currently shown by this filter. This cannot be undone.`,
+                        confirmLabel: 'Delete',
+                        cancelLabel: 'Keep them',
                         danger: true,
                       })
-                      if (confirmed) useStore.getState().clearCompleted()
+                      if (confirmed) useStore.getState().clearCompleted(completedFilter)
                     }}
-                    aria-label="Clear completed tasks"
+                    aria-label="Delete visible completed tasks"
                     className="rounded-lg p-1 text-ink-faint transition hover:bg-rose-soft/60 hover:text-danger"
                   >
                     <IconTrash size={15} />
@@ -533,7 +532,7 @@ export function Sidebar() {
               <div className="px-2 pb-2 pt-1">
                 <div className="mb-1 flex items-center justify-between text-[0.7rem] text-ink-soft">
                   <span>Completed in</span>
-                  <span className="text-ink-faint">{(['All', 'Today', 'This week', 'This month', 'Date range'] as const)[(['all', 'today', 'week', 'month', 'range'] as const).indexOf(completedFilter.period ?? 'all')]}</span>
+                  <span className="text-ink-faint">{(['Everything', 'Today', 'This week', 'This month', 'Date range'] as const)[(['all', 'today', 'week', 'month', 'range'] as const).indexOf(completedFilter.period ?? 'all')]}</span>
                 </div>
                 <input
                   type="range"
@@ -549,7 +548,7 @@ export function Sidebar() {
                   aria-label="Filter completed tasks by date"
                 />
                 <div className="-mt-0.5 flex justify-between text-[0.58rem] text-ink-faint">
-                  <span>All</span><span>Today</span><span>Week</span><span>Month</span><span>Dates</span>
+                  <span>Everything</span><span>Today</span><span>Week</span><span>Month</span><span>Dates</span>
                 </div>
                 {completedFilter.period === 'range' && (
                   <div className="mt-2 grid grid-cols-2 gap-2">
