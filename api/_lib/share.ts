@@ -249,10 +249,10 @@ export async function shareState(db: Db, who: Caller) {
     ? await db.query<{ workspace_id: string; user_id: string; role: Role; status: 'active' | 'leaving' }>('select workspace_id, user_id, role, status from workspace_members where workspace_id = any($1::text[])', [ids])
     : { rows: [] as { workspace_id: string; user_id: string; role: Role; status: 'active' | 'leaving' }[] }
   const inv = await db.query<{ id: string; workspace_id: string; role: string; created_by: string; name: string; event: boolean }>(
-    \`select i.id, i.workspace_id, i.role, i.created_by, w.name,
+    `select i.id, i.workspace_id, i.role, i.created_by, w.name,
        exists(select 1 from notifications n where n.user_id = i.to_user and n.workspace_id = i.workspace_id and n.kind = 'share-invite' and n.extra = 'event') as event
        from workspace_invites i join workspaces w on w.id = i.workspace_id
-       where i.to_user = $1 and not i.used and i.expires_at > now() order by i.created_at desc\`,
+       where i.to_user = $1 and not i.used and i.expires_at > now() order by i.created_at desc`,
     [who.userId],
   )
   const pending = ids.length ? await db.query<{ workspace_id: string; n: string }>('select workspace_id, count(*) as n from workspace_invites where workspace_id = any($1::text[]) and not used and expires_at > now() group by workspace_id', [ids]) : { rows: [] as { workspace_id: string; n: string }[] }
