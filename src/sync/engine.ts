@@ -1,4 +1,3 @@
-import { today } from '../core/dates'
 import { clearHistory, suppressHistory } from '../state/history'
 import { create } from 'zustand'
 import { arrive, bloom, pop, undone } from '../audio/engine'
@@ -404,7 +403,7 @@ export function forgetAccountData() {
     /* ignore */
   }
   const seed = seedData()
-  suppressHistory(() => useStore.setState((s) => ({ tasks: seed.tasks, folders: seed.folders, people: seed.people, scope: { type: 'all' }, selectedId: null, settings: { ...s.settings, demoDate: today() } })))
+  suppressHistory(() => useStore.setState(() => ({ tasks: seed.tasks, folders: seed.folders, people: seed.people, scope: { type: 'all' }, selectedId: null })))
   clearHistory()
   useSync.setState({ status: 'off', lastAt: null, error: null, peers: 0 })
 }

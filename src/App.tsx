@@ -78,7 +78,6 @@ export default function App() {
   // Unfinished tasks planned for earlier days move forward: now, on return to the app, and each minute.
   useEffect(() => {
     const run = () => {
-      useStore.getState().rebaseDemo() // (the demo content keeps up with the calendar)
       useStore.getState().rollover()
     }
     run()
