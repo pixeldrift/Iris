@@ -6,7 +6,7 @@ import { today } from '../../core/dates'
 import { formatTime, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
-import { DoneButton } from '../shared'
+import { DoneButton, TallyIncrement } from '../shared'
 import { colorVars, useTaskHue } from '../taskColor'
 
 const PPM = 1.3 // pixels per minute: an hour is 78px
@@ -86,9 +86,10 @@ function Block({ task, s, e, col, cols, date, preview, onPreview }: { task: Task
       className={`tint lift-on-press absolute z-10 flex cursor-pointer select-none gap-2 overflow-hidden rounded-xl bg-white px-2 py-1 text-left [-webkit-touch-callout:none] ${done ? 'opacity-60' : ''} ${preview?.id === task.id ? 'z-20 shadow-lg' : ''}`}
       title={`${task.title} · ${range}`}
     >
-      {height >= 32 && <DoneButton task={task} size={16} />}
+      <DoneButton task={task} size={Math.min(16, Math.max(12, height * 0.42))} />
       <span className="min-w-0 flex-1">
         <span className={`block truncate text-[0.8rem] leading-tight ${done ? 'line-through' : ''}`}>{task.title || 'Untitled'}</span>
+        {roomy && <TallyIncrement task={task} compact />}
         {roomy ? (
           <span className="block truncate text-[0.68rem] text-ink-faint">
             {range}

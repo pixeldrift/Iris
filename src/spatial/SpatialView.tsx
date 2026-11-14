@@ -5,6 +5,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
+import * as sound from '../audio/engine'
 import { useVisibleTasks } from '../ui/useVisible'
 import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
@@ -37,6 +38,7 @@ export default function SpatialView() {
   const prefs = useSpatial((s) => s.set)
   const select = useStore((s) => s.select)
   const toggleDone = useStore((s) => s.toggleDone)
+  const setTally = useStore((s) => s.setTally)
   const setView = useStore((s) => s.setView)
   const lastView = useStore((s) => s.lastView)
   const visible = useVisibleTasks(false)
@@ -44,12 +46,26 @@ export default function SpatialView() {
   const folders = useStore((s) => s.folders)
 
   const content = useMemo(() => buildContent(visible, allTasks, folders, stored), [visible, allTasks, folders, stored])
+  const contentKey = useMemo(() => `${content.clusters.map((c) => c.id).join('|')}::${content.tasks.map((t) => t.id).join('|')}`, [content.clusters, content.tasks])
   // a place worked out for something new is kept, so it is the same next time
   useEffect(() => {
     if (!sameLayout(content.layout, stored)) setLayout(content.layout)
   }, [content.layout, stored, setLayout])
+  // Filters change the actual set of things in Space. Reframe after the scene has received the new content.
+  const previousContentKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (previousContentKey.current === null) { previousContentKey.current = contentKey; return }
+    if (previousContentKey.current === contentKey) return
+    previousContentKey.current = contentKey
+    requestAnimationFrame(() => {
+      if (simpleRef.current) setFitTick((n) => n + 1)
+      else scene.current?.frameAll()
+    })
+  }, [contentKey])
 
   const simple = render === 'simple' || !caps.webgl
+  const simpleRef = useRef(simple)
+  simpleRef.current = simple
   // wall mode: the camera finds a flat surface (a sheet, a frame, a wall) and the groups hang flat just in front of it
   const wall = render === 'wall' && caps.webgl && !!navigator.mediaDevices?.getUserMedia
   const [phase, setPhase] = useState<'intro' | 'running'>('intro')
@@ -234,6 +250,12 @@ export default function SpatialView() {
       sc = new SpatialScene(host.current, track.current, {
         onOpen: (id) => select(id),
         onToggle: (id) => toggleDone(id),
+        onIncrement: (id) => {
+          const task = useStore.getState().tasks.find((t) => t.id === id)
+          if (!task?.tally || task.status === 'done' || task.tally.done >= task.tally.total) return
+          setTally(id, { ...task.tally, done: task.tally.done + 1 })
+          sound.tickDone()
+        },
         onLayout: (l) => setLayout(l),
         onCollapse: (id) => useSpatial.getState().toggleCollapsed(id),
         // a group let go over another group's name goes inside it
@@ -336,7 +358,7 @@ export default function SpatialView() {
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
-      <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" />
+      <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" style={{ backgroundImage: 'linear-gradient(rgba(150,125,185,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(150,125,185,.045) 1px, transparent 1px), linear-gradient(to bottom, #f2eafa, #fff) ', backgroundSize: '32px 32px, 32px 32px, 100% 100%' }} />
       {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} />}
 
       {phase === 'intro' && (

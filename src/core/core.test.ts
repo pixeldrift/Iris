@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
-import { filterTasks, formatTime, groupOrder, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
+import { completedDateMatches, filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
@@ -68,6 +68,30 @@ describe('tasks', () => {
   it('hides done by default', () => {
     expect(filterTasks(tasks, { type: 'all' }, folders, false).some((t) => t.status === 'done')).toBe(false)
   })
+  it('keeps archived completions in the archive but out of active views', () => {
+    const archived = { ...tasks[0], status: 'done' as const, completedAt: Date.now(), archived: true }
+    expect(filterTasks([archived], { type: 'all' }, folders, true)).toEqual([])
+    expect(filterTasks([archived], { type: 'completed', period: 'all' }, folders, false)).toEqual([archived])
+  })
+
+  it('filters completed tasks by an inclusive custom completion-date range', () => {
+    const completedAt = new Date(2026, 10, 12, 12).getTime()
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'range', from: '2026-11-12', to: '2026-11-13' })).toBe(true)
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'range', from: '2026-11-13', to: '2026-11-14' })).toBe(false)
+    expect(completedDateMatches({ completedAt }, { type: 'completed', period: 'all' })).toBe(true)
+  })
+  it('keeps all ungrouped tasks in Unsorted, including dated and scheduled tasks', () => {
+    const base = tasks[0]
+    const items = [
+      { ...base, id: 'unsorted', folderIds: [], due: null, day: null },
+      { ...base, id: 'dated-unsorted', folderIds: [], due: '2026-11-15', day: null },
+      { ...base, id: 'scheduled-unsorted', folderIds: [], due: null, day: '2026-11-15' },
+      { ...base, id: 'grouped', folderIds: ['school'] },
+    ]
+    expect(filterTasks(items, { type: 'inbox' }, folders, true).map((t) => t.id)).toEqual([
+      'unsorted', 'dated-unsorted', 'scheduled-unsorted',
+    ])
+  })
   it('only ever raises urgency from due dates', () => {
     expect(urgencyForDue(0.1, '2026-10-27', '2026-10-26')).toBeGreaterThan(0.7)
     expect(urgencyForDue(0.95, '2026-12-27', '2026-10-26')).toBe(0.95)
@@ -76,15 +100,29 @@ describe('tasks', () => {
     const sorted = sortTasks(tasks, 'flow', false)
     expect(weightOf(sorted[0])).toBeGreaterThanOrEqual(weightOf(sorted[1]))
   })
-  it('sorts by group in the sidebar\'s order (parents before their children, no group last), by priority within one', () => {
-    const order = groupOrder(folders)
-    const sorted = sortTasks(tasks, 'group', false, folders)
-    const at = (t: (typeof tasks)[number]) => t.folderIds.map((id) => order.get(id)).find((n) => n !== undefined) ?? Infinity
-    for (let i = 1; i < sorted.length; i++) expect(at(sorted[i - 1])).toBeLessThanOrEqual(at(sorted[i]))
-    // within one group, the heaviest first
-    for (let i = 1; i < sorted.length; i++) if (at(sorted[i - 1]) === at(sorted[i])) expect(weightOf(sorted[i - 1])).toBeGreaterThanOrEqual(weightOf(sorted[i]))
-    // reversed is the same list backwards
-    expect(sortTasks(tasks, 'group', true, folders).map((t) => t.id)).toEqual(sorted.map((t) => t.id).reverse())
+  it('uses a secondary sort key before the alphabetical tiebreaker', () => {
+    const base = tasks[0]
+    const make = (id: string, title: string, due: string) => ({ ...base, id, title, due, importance: 0.7 })
+    const items = [make('later', 'Zebra', '2026-11-20'), make('sooner', 'Alpha', '2026-11-15')]
+    expect(sortTasks(items, 'importance', false, [], 'due').map((t) => t.id)).toEqual(['sooner', 'later'])
+  })
+  it('uses alphabetical order when both sort keys tie, regardless of direction', () => {
+    const base = tasks[0]
+    const make = (id: string, title: string) => ({ ...base, id, title, importance: 0.7, due: '2026-11-15' })
+    const items = [make('z', 'Zebra'), make('a', 'Alpha')]
+    expect(sortTasks(items, 'importance', true, [], 'due').map((t) => t.id)).toEqual(['a', 'z'])
+  })
+  it('sorts by group name, then title, with ungrouped tasks last', () => {
+    const base = tasks[0]
+    const make = (id: string, title: string, folderIds: string[]) => ({ ...base, id, title, folderIds })
+    const sorted = sortTasks(
+      [make('z-school', 'Zebra', ['school']), make('a-life', 'Alpha', ['life']), make('a-school', 'Apple', ['school']), make('ungrouped', 'Aardvark', [])],
+      'group',
+      false,
+      folders,
+    )
+    expect(sorted.map((t) => t.id)).toEqual(['a-life', 'a-school', 'z-school', 'ungrouped'])
+    expect(sortTasks(sorted, 'group', true, folders).at(-1)?.id).toBe('ungrouped')
   })
 })
 
@@ -457,6 +495,18 @@ describe('quick add', () => {
     expect(tagged.personIds).toEqual(['p-grandma'])
     expect(tagged.due).toBe('2026-11-02')
     expect(tagged.title).toBe('Read chapters')
+  })
+  it('keeps Tag, Assign, Invite and Share as distinct local-language intents', () => {
+    const linkedPeople = people.map((person) => person.id === 'p-grandma' ? { ...person, link: { userId: 'user-grandma', got: [] } } : person)
+    const parse = (line: string) => parseQuickAdd(line, now, { folders, people: linkedPeople })
+    expect(parse('Have Rose do the dishes tonight')).toMatchObject({ title: 'dishes', kind: 'event', action: { type: 'assign', personId: 'p-grandma' }, day: '2026-10-27', time: '20:00' })
+    expect(parse('Invite Rose to the picnic')).toMatchObject({ title: 'picnic', kind: 'event', action: { type: 'invite', personId: 'p-grandma' } })
+    expect(parse('Share the dishes with Rose')).toMatchObject({ title: 'dishes', action: { type: 'share', personId: 'p-grandma' }, personIds: [] })
+    expect(parse('Do the dishes with Rose')).toMatchObject({ title: 'Do the dishes with Rose', personIds: ['p-grandma'] })
+    expect(parse('Do the dishes with Rose').action).toBeUndefined()
+    expect(parse('Tag Rose on the dishes')).toMatchObject({ title: 'dishes', personIds: ['p-grandma'] })
+    expect(parse('Ask Rose about the dishes')).toMatchObject({ title: 'Ask Rose about the dishes' })
+    expect(parse('Ask Rose about the dishes').action).toBeUndefined()
   })
   it('leaves plain text alone', () => {
     expect(p('Buy oat milk')).toMatchObject({ title: 'Buy oat milk', chips: [] })

@@ -15,7 +15,7 @@ import { ScrollFade } from '../ScrollFade'
 import { colorVars, useTaskHue } from '../taskColor'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { CountBubble, Dim, DoneButton, DueChip, FolderChips, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, TallyIncrement, useTaskDrag } from '../shared'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -37,6 +37,7 @@ function Card({ task }: { task: Task }) {
         <div className="flex items-start gap-2 pr-5">
           <DoneButton task={task} size={20} />
           <p className={`min-w-0 flex-1 text-[0.92rem] leading-snug ${isDoneNow(task) ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</p>
+          <TallyIncrement task={task} compact />
         </div>
         {/* the handle sits at the right edge, level with the checkbox */}
         <span className="absolute right-1 top-2 grid h-5 place-items-center">
@@ -55,6 +56,7 @@ function Card({ task }: { task: Task }) {
           <ItemBadges task={task} max={2} />
           <PlaceChip task={task} />
           <FolderChips task={task} max={2} />
+          {(task.images?.[0] || task.image) && <img src={task.images?.[0] || task.image} alt="" draggable={false} className="ml-auto h-8 w-8 shrink-0 rounded-lg border border-white/70 object-cover shadow-sm" />}
         </div>
       </div>
     </Dim>
@@ -288,7 +290,7 @@ function StagesEditor({ open, onClose, anchor, folderId, stages, custom, given }
                   <span className="px-1 text-ink-faint">{p === 0 ? 0 : 100}%</span>
                 ) : (
                   <>
-                    <NumberField label={`Stage ${p + 1} starts at percent`} value={percents[p]} min={percents[p - 1] + 1} max={percents[p + 1] - 1} className="!h-7 !min-w-[2.6rem] !text-sm" onChange={(v) => setPercent(p, v)} />%
+                    <NumberField label={`Stage ${p + 1} starts at percent`} value={percents[p]} min={percents[p - 1] + 1} max={p === stages.length - 2 ? 99 : percents[p + 1] - 1} className="!h-7 !min-w-[2.6rem] !text-sm" onChange={(v) => setPercent(p, v)} />%
                   </>
                 )}
               </span>

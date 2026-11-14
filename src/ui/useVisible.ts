@@ -17,6 +17,7 @@ export function useVisibleTasks(includeDone = false, search: 'filter' | 'keep' =
   const scope = useStore((s) => s.scope)
   const showDone = useStore((s) => s.settings.showDone)
   const lingering = useStore((s) => s.lingering)
+  const selectedId = useStore((s) => s.selectedId)
   // an event that ends goes with the finished ones: look again every minute
   const [minute, setMinute] = useState(() => Math.floor(Date.now() / 60_000))
   useEffect(() => {
@@ -29,12 +30,12 @@ export function useVisibleTasks(includeDone = false, search: 'filter' | 'keep' =
     return tasks.filter(
       (t) =>
         !t.draft &&
-        (includeDone || showDone || !isFinished(t, minute * 60_000) || lingering[t.id]) &&
+        (scope.type === 'completed' || includeDone || showDone || !isFinished(t, minute * 60_000) || lingering[t.id] || selectedId === t.id) &&
         inScope(t) &&
         // most views show only what matches; the pond keeps everything and fades the rest
         (!asked || matchesQuery(t, query, { folders, people })),
     )
-  }, [tasks, folders, people, scope, showDone, lingering, includeDone, search, query, minute])
+  }, [tasks, folders, people, scope, showDone, lingering, selectedId, includeDone, search, query, minute])
 }
 
 /** Null when nothing is typed; otherwise whether a task matches (for highlighting and fading). */
@@ -48,6 +49,20 @@ export function useSearchMatcher(): ((t: Task) => boolean) | null {
 /** CSS class for a task's exit animation (pop on delete, bloom-away on done). */
 export function useLeaveClass(task: Task, keepDone = false): string {
   const removing = useStore((s) => s.removing[task.id])
-  const fading = useStore((s) => !keepDone && !s.settings.showDone && task.status === 'done' && !!s.lingering[task.id])
-  return removing ? 'burst pointer-events-none' : fading ? 'bloom-out pointer-events-none' : ''
+  const showDone = useStore((s) => s.settings.showDone)
+  const lingering = useStore((s) => !!s.lingering[task.id])
+  const selected = useStore((s) => s.selectedId === task.id)
+  const fading = !keepDone && !showDone && task.status === 'done' && lingering && !selected
+  // If the details panel was open when the task was completed, keep the bubble in place until it closes,
+  // then give the normal bloom-out animation time to finish before removing it from the visible set.
+  useEffect(() => {
+    if (!fading) return
+    const timer = window.setTimeout(() => useStore.setState((s) => {
+      if (!s.lingering[task.id]) return s
+      const { [task.id]: _gone, ...rest } = s.lingering
+      return { lingering: rest }
+    }), 5000)
+    return () => window.clearTimeout(timer)
+  }, [fading, task.id])
+  return removing ? 'burst pointer-events-none' : fading ? 'bloom-out' : ''
 }

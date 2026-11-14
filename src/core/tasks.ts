@@ -1,7 +1,7 @@
-import { addDays, diffDays, fromISO, today } from './dates'
+import { addDays, diffDays, fromISO, startOfWeek, today } from './dates'
 import { formatClock } from './locale'
 import { currentOccurrence, repeatOf, repeatStreak, taskOnDate } from './recurrence'
-import { childrenOf, descendantIds } from './folders'
+import { descendantIds } from './folders'
 import type { Folder, Scope, SortKey, Task } from './types'
 
 export const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
@@ -67,70 +67,85 @@ export function scopeMatcher(scope: Scope, folders: Folder[]): (task: Task) => b
     }
     case 'all':
     case 'contacts':
-      return () => true
+      return (t) => !t.archived
+    case 'completed':
+      return (t) => t.status === 'done' && completedDateMatches(t, scope)
     case 'inbox':
-      return (t) => t.folderIds.length === 0 && !t.due && !t.day
+      // Unsorted is the home for every task without a group, whether or not it has a date.
+      return (t) => !t.archived && t.folderIds.length === 0
     case 'day':
-      return (t) => taskOnDate(t, scope.date)
+      return (t) => !t.archived && taskOnDate(t, scope.date)
     case 'person':
-      return (t) => t.personIds.includes(scope.id)
+      return (t) => !t.archived && t.personIds.includes(scope.id)
     case 'folder': {
       const ids = descendantIds(folders, scope.id)
-      return (t) => t.folderIds.some((f) => ids.has(f))
+      return (t) => !t.archived && t.folderIds.some((f) => ids.has(f))
     }
   }
+}
+
+/** Whether a completed task falls within the selected completion-date window. */
+export function completedDateMatches(task: Pick<Task, 'completedAt'>, scope: Extract<Scope, { type: 'completed' }>): boolean {
+  if (scope.period === 'all' || !scope.period) return true
+  if (task.completedAt == null) return false
+  const date = today(new Date(task.completedAt))
+  const now = today()
+  if (scope.period === 'today') return date === now
+  if (scope.period === 'week') return date >= startOfWeek(now) && date <= now
+  if (scope.period === 'month') return date >= `${now.slice(0, 7)}-01` && date <= now
+  const from = scope.from ?? '0000-01-01'
+  const to = scope.to ?? '9999-12-31'
+  return date >= from && date <= to
 }
 
 export const matchesScope = (task: Task, scope: Scope, folders: Folder[]): boolean => scopeMatcher(scope, folders)(task)
 
 export function filterTasks(tasks: Task[], scope: Scope, folders: Folder[], showDone: boolean): Task[] {
   const inScope = scopeMatcher(scope, folders)
-  return tasks.filter((t) => (showDone || t.status !== 'done') && inScope(t))
+  return tasks.filter((t) => (scope.type === 'completed' || showDone || t.status !== 'done') && inScope(t))
 }
 
 const byDue = (a: Task, b: Task) => (a.due ?? a.day ?? '9999').localeCompare(b.due ?? b.day ?? '9999')
 
-/** Where each group sits in the sidebar's tree (parents before their children, in the order shown): for sorting by group. */
-export function groupOrder(folders: Folder[]): Map<string, number> {
-  const order = new Map<string, number>()
-  const walk = (parent: string | null) => {
-    for (const f of childrenOf(folders, parent)) {
-      order.set(f.id, order.size)
-      walk(f.id)
-    }
-  }
-  walk(null)
-  return order
-}
-
-export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: Folder[] = []): Task[] {
-  if (key === 'group') {
-    // by the sidebar's order of the group each one is in (a task in no group comes last), then by priority within a group
-    const order = groupOrder(folders)
-    const at = (t: Task) => t.folderIds.map((id) => order.get(id)).find((n) => n !== undefined) ?? Infinity
-    const by = sortTasks(tasks, 'flow', false)
-    const out = by.map((t, i) => ({ t, i, g: at(t) })).sort((a, b) => (a.g === b.g ? a.i - b.i : a.g < b.g ? -1 : 1)).map((x) => x.t)
-    return desc ? out.reverse() : out
-  }
-  if (key === 'manual') {
-    // the order you gave them (by rank), then anything not placed yet by priority
-    const by = sortTasks(tasks, 'flow', false)
-    const placed = by.filter((t) => t.rank != null).sort((a, b) => a.rank! - b.rank!)
-    const out = [...placed, ...by.filter((t) => t.rank == null)]
-    return desc ? out.reverse() : out
-  }
+export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: Folder[] = [], secondaryKey: SortKey | null = null): Task[] {
   const dir = desc ? -1 : 1
-  const cmp: Record<SortKey, (a: Task, b: Task) => number> = {
-    flow: (a, b) => weightOf(b) - weightOf(a), // heaviest first by default
-    due: byDue,
-    created: (a, b) => a.createdAt - b.createdAt,
-    title: (a, b) => a.title.localeCompare(b.title),
-    importance: (a, b) => b.importance - a.importance,
-    urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
-    manual: () => 0,
-    group: () => 0,
+  const compareKey = (a: Task, b: Task, sortKey: SortKey): number => {
+    if (sortKey === 'group') {
+      const groupA = folders.find((f) => f.id === a.folderIds[0])?.name ?? null
+      const groupB = folders.find((f) => f.id === b.folderIds[0])?.name ?? null
+      // Ungrouped items stay at the end in either direction.
+      if (groupA === null && groupB !== null) return 1
+      if (groupA !== null && groupB === null) return -1
+      return (groupA ?? '').localeCompare(groupB ?? '') * dir
+    }
+    if (sortKey === 'manual') {
+      // Placed items follow their rank; unplaced items fall back to priority.
+      if (a.rank != null && b.rank != null) return (a.rank - b.rank) * dir
+      if (a.rank != null) return -1 * dir
+      if (b.rank != null) return 1 * dir
+      return (weightOf(b) - weightOf(a)) * dir
+    }
+    const cmp: Record<Exclude<SortKey, 'group' | 'manual'>, (a: Task, b: Task) => number> = {
+      flow: (a, b) => weightOf(b) - weightOf(a),
+      due: byDue,
+      created: (a, b) => a.createdAt - b.createdAt,
+      title: (a, b) => a.title.localeCompare(b.title),
+      importance: (a, b) => b.importance - a.importance,
+      urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
+    }
+    return cmp[sortKey] (a, b) * dir
   }
-  return [...tasks].sort((a, b) => cmp[key](a, b) * dir || a.createdAt - b.createdAt)
+
+  return [...tasks].sort((a, b) => {
+    const primary = compareKey(a, b, key)
+    if (primary) return primary
+    if (secondaryKey && secondaryKey !== key) {
+      const secondary = compareKey(a, b, secondaryKey)
+      if (secondary) return secondary
+    }
+    // Alphabetical order is always the final tiebreaker, independent of sort direction.
+    return a.title.localeCompare(b.title) || a.createdAt - b.createdAt
+  })
 }
 
 /** Radius in px for a pond bubble. `scale` false = every bubble the same size. */

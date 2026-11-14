@@ -282,7 +282,7 @@ export function NewTask() {
         }}
         className={`outline-none glass glass-strong relative flex max-h-full w-full flex-col ${land ? 'max-w-3xl rounded-[1.5rem] p-3' : 'max-w-md rounded-[2rem] p-4'} ${closing ? 'pop-out' : 'box-spring'}`}
       >
-        <input ref={photo} type="file" accept="image/*" hidden aria-label="Choose a photo" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void takePhoto(f) }} />
+        <input ref={photo} type="file" accept="image/*" hidden aria-label="Choose an image" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void takePhoto(f) }} />
         {land ? (
           // turned sideways, with the keyboard up, a second row would fall below the box: one row, the type a dropdown, Add at the far right
           <>
@@ -303,7 +303,7 @@ export function NewTask() {
                 {suggest}
               </div>
               <KindMenu value={shownKind} onChange={changeKind} />
-              <button type="button" onClick={() => photo.current?.click()} aria-label="Add a picture" title="Add a picture (it can be the whole reminder)" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60 hover:text-ink">
+              <button type="button" onClick={() => photo.current?.click()} aria-label="Add images" title="Add images (they can be the whole reminder)" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60 hover:text-ink">
                 <IconImage size={17} />
               </button>
                             <button
@@ -400,7 +400,7 @@ export function NewTask() {
         )}
         <div className="mt-2.5 flex items-center gap-2">
           <KindToggle value={shownKind} onChange={changeKind} />
-          <button type="button" onClick={() => photo.current?.click()} aria-label="Add a picture" title="Add a picture (it can be the whole reminder)" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60 hover:text-ink">
+          <button type="button" onClick={() => photo.current?.click()} aria-label="Add images" title="Add images (they can be the whole reminder)" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60 hover:text-ink">
             <IconImage size={17} />
           </button>
                     {/* expanded: Cancel and Add live in a bar pinned to the bottom instead */}

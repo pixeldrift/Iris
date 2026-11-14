@@ -80,9 +80,11 @@ list); it needs you to be signed in, and the browser's permission.
   reminders and event alerts have come due, and sends one push per device with the `web-push` library. It only reads tasks, never
   changes them. The app's own `reminded` / `alertsDone` flags (synced like any other field) stop a reminder being pushed after
   the open app already showed it, and a 30-second grace gives it a moment to do so.
-- **Never twice.** Each reminder has a key (`do|due:<task>:<time>` or `a:<task>:<start>:<minutes>`); the sweep claims it with
-  an insert into `push_sent` before sending, so overlapping sweeps cannot both send it. Anything more than 2 hours overdue is
-  skipped (not worth a buzz), and `push_sent` rows are pruned after 3 days.
+- **Deduplicated, retryable delivery.** Each reminder/device pair has a key in `push_sent`; the sweep claims it before
+  sending, so overlapping sweeps cannot both send to the same device. A successful send stays claimed, a dead address (404/410)
+  is removed, and a temporary failure releases only that device's claim so the next sweep can retry without resending to devices
+  that already succeeded. `GET /api/remind` reports `sent`, `removed`, and `failed` counts. Anything more than 2 hours overdue
+  is skipped (not worth a buzz), and `push_sent` rows are pruned after 3 days.
 - **Time zones.** Event times are wall-clock times ("9:00"), so the server converts them in each device's own zone (`rezone`).
 - **Shared logic.** The reminder rules live in `src/core/reminders.ts` and are used by both the app and the server. The server
   runs a bundled copy, `api/_lib/core.gen.js` (made by `npm run bundle:core`, committed), because Vercel's Node runtime does not
@@ -197,7 +199,7 @@ minutes at a time, with breaks that grow longer if you play too often.
 
 **Sharing a group.** Open a group's menu (tap its flower) and choose *Share*. Invite someone you're connected with by name, or copy a
 one-use invite link; each person *can edit* or *can view*. Everyone sees and changes the group's tasks (and the groups under it) and
-can give a task to another member with *Assigned to* (they're told in the bell). When sharing ends, the owner chooses whether the
+can give a task to another member with *Assigned to* (they're told in the bell). A task or calendar event can also be shared on its own from its *Who* section, without sharing its group; assigning a person to an event invites them to that event. When sharing ends, the owner chooses whether the
 others may keep a copy, and they choose whether to: the group is copied into their own space, or let go. Technically each shared
 group is a workspace (`api/_lib/share.ts`, `/api/share`; tasks sync through the usual `/api/sync`). **Run `db/schema.sql` again** to
 add the sharing tables and columns.

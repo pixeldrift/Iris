@@ -95,7 +95,9 @@ export interface Task {
   due: string | null
   /** The time of day it is due (`HH:MM`), when the deadline is more than a day. */
   dueTime?: string | null
-  /** A notion's picture, a small JPEG as a data URL. */
+  /** A notion's pictures, small JPEG data URLs. `image` remains the first/cover image for older clients. */
+  images?: string[]
+  /** Legacy/cover picture, kept in sync with the first entry in images. */
   image?: string
   /** With a picture: false = leave it untinted (the bubble's outer ring still takes the group's color). Absent or true = tinted. */
   imageTint?: boolean
@@ -113,6 +115,8 @@ export interface Task {
   contactDeclined?: boolean
   createdAt: number
   completedAt: number | null
+  /** Automatically hidden from active views after the retention period; remains in the Completed archive. */
+  archived?: boolean
 }
 
 /** The flower drawn for a folder (artwork: src/assets/flowers/<shape>.svg). */
@@ -199,6 +203,7 @@ export interface PersonExtra {
 export type Scope =
   | { type: 'all' }
   | { type: 'inbox' }
+  | { type: 'completed'; period?: 'all' | 'today' | 'week' | 'month' | 'range'; from?: string; to?: string }
   | { type: 'folder'; id: string }
   | { type: 'person'; id: string }
   /** The address book: everyone, hearted or not. Not a filter, a page of its own. */
@@ -209,7 +214,7 @@ export type Scope =
 
 export type ViewId = 'pond' | 'list' | 'board' | 'priority' | 'calendar' | 'timeline' | 'overview' | 'spatial'
 
-export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency' | 'manual' | 'group'
+export type SortKey = 'flow' | 'due' | 'created' | 'title' | 'importance' | 'urgency' | 'group' | 'manual'
 
 /** How the pond clusters its bubbles. `free` keeps your own placement. */
 export type PondGroup = 'free' | 'folder' | 'due' | 'kind' | 'person'

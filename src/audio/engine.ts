@@ -229,6 +229,12 @@ export function notify() {
   play('notify', { variation: 0.01 })
 }
 
+/** A quiet mechanical-feeling tick as a stepped slider advances. */
+export function sliderTick() {
+  if (!can('pops')) return
+  play('tick', { rate: 1.45, variation: 0, level: 0.18 })
+}
+
 /** A checklist entry ticked: the finishing sound, smaller and higher. */
 export function tickDone() {
   if (!can('chimes')) return
@@ -244,6 +250,57 @@ export function tickUndone() {
 export function undone() {
   if (!can('chimes')) return
   play('undone', { variation: 0.03 })
+}
+
+/** A task swiped away: a short, elastic rubber-band twang. */
+export function swipeDelete() {
+  if (!can('pops')) return
+  const c = ensure()
+  if (!c) return
+  const now = c.currentTime
+  const osc = c.createOscillator()
+  const body = c.createGain()
+  const filter = c.createBiquadFilter()
+  osc.type = 'triangle'
+  osc.frequency.setValueAtTime(210, now)
+  osc.frequency.exponentialRampToValueAtTime(72, now + 0.19)
+  body.gain.setValueAtTime(0.0001, now)
+  body.gain.exponentialRampToValueAtTime(0.22, now + 0.012)
+  body.gain.exponentialRampToValueAtTime(0.0001, now + 0.22)
+  filter.type = 'lowpass'
+  filter.frequency.value = 900
+  osc.connect(filter).connect(body).connect(master)
+  osc.start(now)
+  osc.stop(now + 0.24)
+}
+
+/** A task swiped complete: a soft, short pencil-like graphite drag. */
+export function swipeCheck(wasDone = false) {
+  if (!can('chimes')) return
+  const c = ensure()
+  if (!c) return
+  const now = c.currentTime
+  const length = Math.floor(c.sampleRate * 0.16)
+  const buffer = c.createBuffer(1, length, c.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < length; i++) {
+    const fade = Math.sin(Math.PI * i / length) ** 0.7
+    data[i] = (Math.random() * 2 - 1) * fade * (0.65 + 0.35 * Math.sin(i * 0.11))
+  }
+  const src = c.createBufferSource()
+  src.buffer = buffer
+  src.playbackRate.value = wasDone ? 0.82 : 1
+  const filter = c.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.setValueAtTime(wasDone ? 1250 : 1750, now)
+  filter.frequency.exponentialRampToValueAtTime(wasDone ? 800 : 1050, now + 0.15)
+  filter.Q.value = 0.75
+  const gain = c.createGain()
+  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.linearRampToValueAtTime(0.085, now + 0.018)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16)
+  src.connect(filter).connect(gain).connect(master)
+  src.start(now)
 }
 
 /** A bubble is deleted. */

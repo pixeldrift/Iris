@@ -21,6 +21,8 @@ export interface CardInfo {
   progress?: number
   /** A picture, if it has one (drawn faintly behind the words). */
   image?: HTMLImageElement | null
+  imageUrl?: string | null
+  tally?: { done: number; total: number } | null
 }
 
 /** The card itself, and the room around it in the texture for its soft shadow. */
@@ -80,10 +82,26 @@ export function wrapTitle(g: Pick<CanvasRenderingContext2D, 'measureText'>, text
 }
 
 /** `scale` below 1 draws a smaller texture (many tasks on screen at once: kinder to memory), with the same layout. */
+const taskImages = new Map<string, HTMLImageElement>()
+export function cardImage(src: string | null | undefined, onLoad: () => void): HTMLImageElement | undefined {
+  if (!src) return undefined
+  const cached = taskImages.get(src)
+  if (cached?.complete && cached.naturalWidth > 0) return cached
+  if (cached) return undefined
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = onLoad
+  img.src = src
+  taskImages.set(src, img)
+  return undefined
+}
+
 export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   canvas.width = Math.round(CARD_PX.w * scale)
   canvas.height = Math.round(CARD_PX.h * scale)
   const g = canvas.getContext('2d')!
+  g.imageSmoothingEnabled = true
+  g.imageSmoothingQuality = 'high'
   g.setTransform(scale, 0, 0, scale, 0, 0)
   g.clearRect(0, 0, CARD_PX.w, CARD_PX.h)
   const x = PAD_X
@@ -136,7 +154,7 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.save()
     roundRect(g, x, y, w, h, R)
     g.clip()
-    g.globalAlpha = 0.22
+    g.globalAlpha = 0.42
     g.drawImage(c.image, x, y, w, h)
     g.restore()
   }
@@ -199,7 +217,7 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   }
   // the words (up to two lines, with an ellipsis, in the space between the check and the chip)
   const tx = cx + cr + 18
-  const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0)
+  const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0) - (c.tally && c.tally.done < c.tally.total && !c.done ? 58 : 0)
   g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : TOKENS['--color-ink']
   // a little white glow around the words, as on every other item
   g.shadowColor = LOOK.textGlow.color
@@ -215,14 +233,29 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   })
   g.shadowColor = 'transparent'
   g.shadowBlur = 0
-  if (c.progress && c.progress > 0 && c.progress < 100 && !c.done) {
-    const bw = x + w - 22 - tx
+  if (c.progress != null && c.progress < 100 && !c.done) {
+    const bw = x + w - 22 - tx - (c.tally && c.tally.done < c.tally.total ? 58 : 0)
     roundRect(g, tx, y + h - 14, bw, 6, 3)
     g.fillStyle = 'rgba(255,255,255,0.8)'
     g.fill()
     roundRect(g, tx, y + h - 14, (bw * c.progress) / 100, 6, 3)
     g.fillStyle = hsl(c.hue, 60, 62, 1)
     g.fill()
+  }
+  if (c.tally && c.tally.done < c.tally.total && !c.done) {
+    const bw = 48
+    const bh = 28
+    const bx = x + w - bw - 16
+    const by = y + h - bh - 8
+    roundRect(g, bx, by, bw, bh, 14)
+    g.fillStyle = 'rgba(139,105,190,0.94)'
+    g.fill()
+    g.font = "700 16px ui-rounded,'SF Pro Rounded',system-ui,sans-serif"
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.fillStyle = '#fff'
+    g.fillText('+1', bx + bw / 2, by + bh / 2 + 0.5)
+    g.textAlign = 'start'
   }
   g.restore()
 }

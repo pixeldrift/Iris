@@ -15,7 +15,11 @@ export interface Settings {
   drift: boolean
   sizeByPriority: boolean
   showDone: boolean
+  /** Automatically remove completed tasks after this retention period. */
+  completedRetention: 'hour' | 'day' | 'week' | 'never'
   sortKey: SortKey
+  /** Optional second-level List view sort; alphabetical order is the final tiebreaker. */
+  sortSecondaryKey: SortKey | null
   sortDesc: boolean
   pondGroup: PondGroup
   /** Sidebar spacing, 0 (compact) to 1 (relaxed). */
@@ -48,6 +52,8 @@ export interface Settings {
   notifyShared: boolean
   /** A due date brings a reminder with it. */
   autoRemind: boolean
+  /** Automatically check off non-repeating items after their date (events after their end time). */
+  autoCompletePastDue: boolean
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */
@@ -124,6 +130,8 @@ export interface TasksSlice {
   setProgress: (id: string, percent: number) => void
   /** A count kept by hand (done out of total) in place of a list; null clears it. It sets the progress. */
   setTally: (id: string, tally: { done: number; total: number } | null) => void
+  clearCompleted: (filter: Extract<Scope, { type: 'completed' }>) => void
+  pruneCompleted: () => void
   addToFolder: (taskId: string, folderId: string) => void
   removeFromFolder: (taskId: string, folderId: string) => void
   addPerson: (taskId: string, personId: string) => void

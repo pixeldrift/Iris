@@ -5,6 +5,8 @@ import { bubbleHue } from './pond/hue'
 import { today } from '../core/dates'
 import { currentOccurrence, isDoneNow, repeatOf } from '../core/recurrence'
 import { dueInfo, DUE_TONE_CLASS } from '../core/rowModel'
+import { isOverdue } from '../core/tasks'
+import { isPastEvent } from '../core/schedule'
 import type { Task, TaskStatus } from '../core/types'
 import { useStore } from '../state/store'
 import { useBoardSlot } from './boardSlot'
@@ -14,6 +16,7 @@ import { hasProgress, progressOf } from '../core/progress'
 import { habitStreak } from '../core/tasks'
 import { isLink, mapsUrl } from '../core/place'
 import { checkVars, useTaskHue } from './taskColor'
+import * as sound from '../audio/engine'
 import { ExampleHint, useExampleIndex } from './ExampleHint'
 
 /** `label` names a whole column; `one` names a single item's stage. */
@@ -46,13 +49,44 @@ export function KindHint({ kind, className = '' }: { kind: string; className?: s
   return hint ? <p className={`min-h-8 text-xs font-light italic leading-4 text-ink-soft/80 ${className}`}>{hint}</p> : null
 }
 
+
+/** A compact, unambiguous tally increment. Shared by bubbles and rows so +1 never looks like task completion or add-item. */
+export function TallyIncrement({ task, compact = false }: { task: Task; compact?: boolean }) {
+  const setTally = useStore((s) => s.setTally)
+  const countRef = useRef<HTMLSpanElement>(null)
+  if (!task.tally || task.status === 'done' || task.tally.done >= task.tally.total) return null
+  return (
+    <span className="pointer-events-auto inline-flex shrink-0 items-center gap-1">
+      <span
+        ref={countRef}
+        aria-label={`${task.tally.done} completed`}
+        className={`tabular-nums font-medium leading-none text-ink-soft ${compact ? 'text-[0.68rem]' : 'text-xs'}`}
+      >{task.tally.done}</span>
+      <button
+        type="button"
+        aria-label={`Increment count: ${task.tally.done} of ${task.tally.total}`}
+        title={`Add one (${task.tally.done} of ${task.tally.total})`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          countRef.current?.animate(
+            [{ transform: 'translateY(0)' }, { transform: 'translateY(-5px)' }, { transform: 'translateY(0)' }],
+            { duration: 300, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+          )
+          setTally(task.id, { ...task.tally!, done: task.tally!.done + 1 })
+          sound.tickDone()
+        }}
+        className={`pointer-events-auto inline-flex shrink-0 items-center justify-center rounded-full border border-white/80 bg-lilac-600 font-semibold leading-none text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-700 active:scale-95 ${compact ? 'h-6 min-w-8 px-1.5 text-[0.68rem]' : 'h-8 min-w-10 px-2 text-xs'}`}
+      >+1</button>
+    </span>
+  )
+}
+
 export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
   const hue = useTaskHue(task)
   const toggle = useStore((s) => s.toggleDone)
   const occ = repeatOf(task) ? (currentOccurrence(task, today()) ?? today()) : null
   const done = isDoneNow(task)
-  // an idea is a passing thought and an event is something you go to, not something you do: nothing to tick off
-  if (task.kind === 'idea' || task.kind === 'event') return null
   return (
     <button
       onPointerDown={(e) => e.stopPropagation()}
@@ -187,12 +221,15 @@ export function PlaceChip({ task }: { task: Task }) {
 
 export function DueChip({ task, compact = false }: { task: Task; compact?: boolean }) {
   const d = dueInfo(task)
+  const autoCompletePastDue = useStore((s) => s.settings.autoCompletePastDue)
+  const past = !autoCompletePastDue && !isDoneNow(task) && (isOverdue(task) || isPastEvent(task))
   if (!d) return null
   return (
     <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${DUE_TONE_CLASS[d.tone]}`}>
       {d.text}
       {d.time && <i className="ml-1 font-normal not-italic">· {d.time}</i>}
       {!compact && d.deadline && <i className="ml-1 font-normal opacity-70">· due {d.deadline}</i>}
+      {past && <b className="ml-1 font-bold" title="Past date">!</b>}
     </span>
   )
 }
@@ -269,6 +306,7 @@ export function QuickAdd({
   examples = false,
   onType,
   below,
+  listActions = false,
 }: {
   placeholder?: string
   /** What this box is for, for people using a screen reader and for the typing bar on a sideways phone (the placeholder is only a hint). */
@@ -280,6 +318,8 @@ export function QuickAdd({
   /** Told what is typed, as it is typed (to read it ahead of adding), and what to show under the box for it. */
   onType?: (text: string) => void
   below?: React.ReactNode
+  /** Show explicit clear and submit controls in the List view quick-add. */
+  listActions?: boolean
 }) {
   const [v, setV] = useState('')
   const hint = useExampleIndex(examples && !v)
@@ -310,9 +350,21 @@ export function QuickAdd({
           placeholder={examples ? '' : placeholder}
           aria-label={label}
           data-proxy-commit
-          className="well w-full rounded-2xl px-4 py-2.5 text-sm"
+          className={`well w-full rounded-2xl py-2.5 text-sm ${listActions ? (v ? "pl-4 pr-[5.5rem]" : "pl-4 pr-14") : "px-4"}`}
         />
         {examples && !v && <ExampleHint index={hint} className="left-4 right-3 text-sm" />}
+        {listActions && (
+          <div className="absolute inset-y-0 right-1.5 flex items-center gap-1">
+            {v.length > 0 && (
+              <button type="button" onClick={() => { setV(''); onType?.(''); ref.current?.focus() }} aria-label="Clear text" title="Clear" className="grid h-7 w-7 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink">
+                <span aria-hidden className="text-base leading-none">×</span>
+              </button>
+            )}
+            <button type="submit" disabled={!v.trim()} aria-label="Add item" className="grid h-8 w-8 place-items-center rounded-full bg-lilac-500 text-lg leading-none text-white shadow-sm shadow-lilac-500/25 transition hover:bg-lilac-600 disabled:cursor-default disabled:opacity-30">
+              <span aria-hidden className="-translate-y-px">↵</span>
+            </button>
+          </div>
+        )}
       </div>
       {below}
     </form>

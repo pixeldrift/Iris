@@ -8,6 +8,7 @@ data model later. What exists now, and what each next step needs.
 - **Workspaces.** `workspaces` + `workspace_members(role)` in `db/schema.sql`. Every person gets a personal workspace
   (id = user id). An entity (`entities` row) belongs to a workspace; tasks and groups carry an optional
   `workspaceId` (absent = personal), so one pond can mix personal and shared things.
+- **Individual task and event sharing.** A task or calendar event can be the root of its own workspace (`workspaces.root_task_id`) and be invited to without sharing its containing group. Its `workspaceId` follows the same sync and permission rules as a shared group.
 - **Sync across workspaces.** `POST /api/sync` returns changes from every workspace the caller belongs to, with a
   server cursor per workspace; the client remembers them (`SyncMemory.cursors`) and knows which workspace each
   non-personal entity lives in (so a deletion is sent to the right place).

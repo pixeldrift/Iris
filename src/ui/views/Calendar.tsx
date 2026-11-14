@@ -11,7 +11,7 @@ import { ScrollFade } from '../ScrollFade'
 import { xHeightShift } from '../xheight'
 import { SPRING } from '../lift'
 import { colorVars, useTaskHue } from '../taskColor'
-import { DoneButton, useTaskDrag } from '../shared'
+import { DoneButton, TallyIncrement, useTaskDrag } from '../shared'
 import { repeatOf, taskOnDate } from '../../core/recurrence'
 import { formatTime, plannedDate, effectiveUrgency } from '../../core/tasks'
 import { spanOnDay, isFinished } from '../../core/schedule'
@@ -42,15 +42,18 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
       className={`pop-in flex cursor-pointer select-none items-center gap-1.5 rounded-lg py-0.5 [-webkit-touch-callout:none] text-[0.72rem] leading-snug transition hover:brightness-95 ${rich ? 'px-1' : 'truncate px-1.5'} ${isDone ? 'opacity-60' : ''} ${missed ? 'opacity-55 outline-dashed outline-1 -outline-offset-1 outline-ink-faint/50' : ''} ${leave}`}
       title={deadline ? `${task.title} (due)` : task.title}
     >
-      {rich && <DoneButton task={task} size={16} />}
+      <DoneButton task={task} size={14} />
       <span className={`min-w-0 flex-1 truncate ${isDone ? 'line-through' : ''}`}>
         {task.time ? `${formatTime(task.time)} ` : ''}
         {task.title}
       </span>
       {rich && (
-        <span className="shrink-0 opacity-60" aria-hidden>
-          <KindIcon kind={task.kind} size={12} />
-        </span>
+        <>
+          <span className="shrink-0 opacity-60" aria-hidden>
+            <KindIcon kind={task.kind} size={12} />
+          </span>
+          <TallyIncrement task={task} compact />
+        </>
       )}
     </div>
   )
@@ -94,6 +97,7 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
       <span className="shrink-0 text-lilac-600/70" aria-hidden title={task.kind}>
         <KindIcon kind={task.kind} size={16} />
       </span>
+      <TallyIncrement task={task} compact />
     </div>
   )
 }

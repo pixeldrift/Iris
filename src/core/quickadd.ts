@@ -31,6 +31,8 @@ export interface QuickAdd {
   detected: { key: string; label: string }[]
   /** The #groups and @people found, in the order they were typed (their ids). */
   tagOrder: string[]
+  /** An explicit local-language action; mere name mentions remain tags. */
+  action?: { type: 'tag' | 'assign' | 'invite' | 'share'; personId: string }
 }
 
 /** The last word of a place named in lower case ("downtown clinic"). */
@@ -83,6 +85,39 @@ export function parseQuickAdd(
   let t = ` ${input.trim()} `.replace(/\s+/g, ' ')
   const out: QuickAdd = { title: '', folderIds: [], personIds: [], chips: [], detected: [], tagOrder: [] }
   const typed: { id: string; chip: string; at: number }[] = []
+  // Explicit action language is deliberately narrow: a name alone (or "with Jimmy") never assigns anyone.
+  const linked = (name: string) => {
+    const q = name.trim().toLowerCase()
+    return ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase() === q)
+      ?? ctx.people.find((p) => !p.isMe && p.link?.userId && p.name.toLowerCase().split(/\s+/).includes(q))
+  }
+  const actionPatterns: { type: 'tag' | 'assign' | 'invite' | 'share'; re: RegExp; person: number; title: number }[] = [
+    { type: 'tag', re: /^\s*tag\s+([\p{L}][\p{L}'’-]*)\s+(?:on|in)\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'assign', re: /^\s*assign\s+(.+?)\s+to\s+([\p{L}][\p{L}'’-]*)\s*$/iu, person: 2, title: 1 },
+    { type: 'assign', re: /^\s*have\s+([\p{L}][\p{L}'’-]*)\s+(?:do|handle|take care of|complete)\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'assign', re: /^\s*assign\s+([\p{L}][\p{L}'’-]*)\s+to\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'invite', re: /^\s*invite\s+([\p{L}][\p{L}'’-]*)\s+to\s+(.+?)\s*$/iu, person: 1, title: 2 },
+    { type: 'share', re: /^\s*share\s+(?:the\s+)?(.+?)\s+with\s+([\p{L}][\p{L}'’-]*)\s*$/iu, person: 2, title: 1 },
+  ]
+  let actionTonight = false
+  for (const pattern of actionPatterns) {
+    const match = t.match(pattern.re)
+    if (!match) continue
+    const person = pattern.type === 'tag'
+      ? (ctx.people.find((p) => p.name.toLowerCase() === match[pattern.person].toLowerCase()) ?? ctx.people.find((p) => p.name.toLowerCase().split(/\s+/).includes(match[pattern.person].toLowerCase())))
+      : linked(match[pattern.person])
+    if (!person) continue
+    out.action = { type: pattern.type, personId: person.id }
+    actionTonight = pattern.type === 'assign' && /\btonight\b/i.test(input)
+    if (actionTonight) out.kind = 'event'
+    if (pattern.type === 'tag') {
+      out.personIds.push(person.id)
+      typed.push({ id: person.id, chip: `@${person.name.split(' ')[0]}`, at: 0 })
+    }
+    t = ` ${match[pattern.title].trim()} `
+    if (pattern.type === 'invite') out.kind = 'event'
+    break
+  }
   const todayISO = toISO(now)
   let remindMode = false
   let dueMode = false
@@ -124,7 +159,7 @@ export function parseQuickAdd(
   // people from the address book named without an @: a capitalised whole name (or first name) in what is left of the line.
   // A first name shared by several people is only taken for a favourite (and only if just one of them is); the name stays in the title.
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const pool = ctx.people.filter((p) => !p.isMe && !out.personIds.includes(p.id) && !skip.has(`tag:${p.id}`) && p.name.trim())
+  const pool = ctx.people.filter((p) => !p.isMe && p.id !== out.action?.personId && !out.personIds.includes(p.id) && !skip.has(`tag:${p.id}`) && p.name.trim())
   const firstOf = (p: Person) => p.name.trim().split(/\s+/)[0]
   const found = (word: string) => {
     const m = new RegExp(`(^|[^\\w])(${esc(word)})(?![\\w])`, 'i').exec(` ${t} `)
@@ -134,14 +169,13 @@ export function parseQuickAdd(
   for (const p of [...pool].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || b.name.length - a.name.length)) {
     if (named.length >= 3 || out.personIds.includes(p.id)) continue
     const full = p.name.trim()
-    if (full.includes(' ') && found(full)) {
-      named.push(p)
-      out.personIds.push(p.id)
-      continue
-    }
-    const first = firstOf(p)
-    if (first.length < 3 || !found(first)) continue
-    const same = pool.filter((x) => firstOf(x).toLowerCase() === first.toLowerCase())
+    const fullMatch = full.includes(' ') && found(full)
+    const matchedToken = fullMatch ? null : full.split(/\s+/).find((word) => word.length >= 3 && found(word))
+    if (!fullMatch && !matchedToken) continue
+    const matched = (fullMatch ? full : matchedToken!).toLowerCase()
+    const same = pool.filter((x) => fullMatch
+      ? x.name.trim().toLowerCase() === matched
+      : x.name.trim().toLowerCase().split(/\s+/).includes(matched))
     const favs = same.filter((x) => x.favorite)
     if (same.length > 1 && !(favs.length === 1 && favs[0].id === p.id)) continue
     named.push(p)
@@ -227,7 +261,7 @@ export function parseQuickAdd(
   if (rec) t = r.rest
 
   // time ranges and times: 3-4:30pm, 3pm to 5pm, 15:30, at 3, noon
-  let start: string | undefined
+  let start: string | undefined = actionTonight ? '20:00' : undefined
   let end: string | undefined
   r = takeK('time', t, /\s(?:at\s+|from\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to|until|till)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?(?=\s|$)/i)
   if (r.m && (r.m[3] || r.m[6] || r.m[2] || r.m[5])) {

@@ -1,10 +1,11 @@
 import { addDays, fromISO, today } from '../../core/dates'
 import { descendantIds, pathOf } from '../../core/folders'
 import { detectContactIntent, matchPerson } from '../../core/people'
-import { hasProgress, patchForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
+import { hasProgress, patchForStage, percentForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
+import { isPastEvent } from '../../core/schedule'
 import { remindFromRule } from '../../core/reminders'
-import { rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
+import { completedDateMatches, rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
 import type { Task, TaskKind, TaskStatus } from '../../core/types'
 import { firstOf } from '../../core/scope'
 import * as sound from '../../audio/engine'
@@ -133,25 +134,35 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         const to = patchForStage(stages, i)
         // moving between columns sets how far along it is, to that column's break point (a count follows, if there is one)
         const percents = percentsFor(stages.length, (get().folders.find((f) => f.stages === stages) ?? get().folders.find((f) => f.id === t.folderIds[0]))?.stagePercents)
-        const at = percents[Math.max(0, Math.min(stages.length - 1, i))] ?? 0
+        const at = percentForStage(i, percents)
         const withProgress: Partial<Task> = !keepProgress && hasProgress(t.kind) ? { progress: at, ...(t.tally ? { tally: { ...t.tally, done: Math.round((t.tally.total * at) / 100) } } : {}) } : {}
         if (stageIndex(t, stages) === Math.max(0, Math.min(stages.length - 1, i)) && t.status === to.status && t.stage === to.stage) {
           if (Object.keys(withProgress).length && (t.progress ?? null) !== at) get().updateTask(id, withProgress)
           return
         }
         if (t.status === 'done' && to.status !== 'done') sound.undone()
+        const completionTime = to.status === 'done' ? (t.completedAt ?? Date.now()) : null
         if (to.status === 'done' && t.status !== 'done') {
           sound.bloom()
           // keep it on screen long enough to bloom, then it fades out
           set((s) => ({ lingering: { ...s.lingering, [id]: true } }))
           window.setTimeout(() => {
+            // If it was undone during the grace period, or its details are still open, do not remove it.
+            const current = get().tasks.find((x) => x.id === id)
+            if (get().selectedId === id || current?.status !== 'done' || current.completedAt !== completionTime) return
             set((s) => {
               const { [id]: _l, ...lingering } = s.lingering
               return { lingering }
             })
-          }, 1500)
+          }, 5000)
         }
-        get().updateTask(id, { ...to, ...withProgress, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null })
+        if (t.status === 'done' && to.status !== 'done') {
+          set((s) => {
+            const { [id]: _l, ...lingering } = s.lingering
+            return { lingering }
+          })
+        }
+        get().updateTask(id, { ...to, ...withProgress, completedAt: completionTime, archived: to.status === 'done' ? false : false })
       },
       setProgress: (id, pct) => {
         const t = get().tasks.find((x) => x.id === id)
@@ -220,14 +231,23 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
       setDay: (taskId, day) => get().updateTask(taskId, { day }),
       rollover: () => {
         const now = today()
+        const snapshot = get()
+        if (snapshot.settings.autoCompletePastDue) {
+          for (const t of snapshot.tasks) {
+            if (t.status === 'done' || t.draft || repeatOf(t) || t.kind === 'idea') continue
+            const past = t.kind === 'event' ? isPastEvent(t) : !!(t.due ?? t.day) && (t.due ?? t.day)! < now
+            if (past) get().setStatus(t.id, 'done')
+          }
+        }
         const moves = new Map<string, string>()
         for (const t of get().tasks) {
           const to = rolloverDay(t, now)
           if (to && to !== t.day) moves.set(t.id, to)
         }
-        if (!moves.size) return
-        set((s) => ({ tasks: s.tasks.map((t) => (moves.has(t.id) ? { ...t, day: moves.get(t.id)! } : t)) }))
-        get().showToast(`Carried ${moves.size} unfinished ${moves.size === 1 ? 'task' : 'tasks'} forward`)
+        if (moves.size) {
+          set((s) => ({ tasks: s.tasks.map((t) => (moves.has(t.id) ? { ...t, day: moves.get(t.id)! } : t)) }))
+          get().showToast(`Carried ${moves.size} unfinished ${moves.size === 1 ? 'task' : 'tasks'} forward`)
+        }
       },
       assignToGroup: (taskId, mode, key) => {
         const s = get()
@@ -259,6 +279,31 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           ),
         })),
       discardDraft: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id || !t.draft) })),
+      // Retention archives old completions out of active views; it never destroys their history.
+      pruneCompleted: () => set((s) => {
+        const durations = { hour: 60 * 60_000, day: 24 * 60 * 60_000, week: 7 * 24 * 60 * 60_000 } as const
+        const retention = s.settings.completedRetention
+        if (retention === 'never') return s
+        const cutoff = Date.now() - durations[retention]
+        let changed = false
+        const tasks = s.tasks.map((t) => {
+          if (t.status !== 'done' || t.completedAt == null || t.completedAt > cutoff || t.archived) return t
+          changed = true
+          return { ...t, archived: true }
+        })
+        return changed ? { tasks } : s
+      }),
+      clearCompleted: (filter) => set((s) => {
+        const removed = new Set(s.tasks.filter((t) => t.status === 'done' && completedDateMatches(t, filter)).map((t) => t.id))
+        const lingering = Object.fromEntries(Object.entries(s.lingering).filter(([id]) => !removed.has(id)))
+        const removing = Object.fromEntries(Object.entries(s.removing).filter(([id]) => !removed.has(id)))
+        return {
+          tasks: s.tasks.filter((t) => !removed.has(t.id)),
+          lingering,
+          removing,
+          selectedId: s.selectedId && removed.has(s.selectedId) ? null : s.selectedId,
+        }
+      }),
 
       checkContact: (taskId) => {
         const { tasks, people, contactPrompt } = get()

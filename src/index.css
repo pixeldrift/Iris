@@ -244,6 +244,12 @@ input[type='range'].soft {
   background: transparent;
   cursor: pointer;
 }
+/* The progress thumb has a broad, soft shadow. Keep enough paint area around it
+   inside the native range control, which otherwise clips its own thumb shadow. */
+input[type='range'].soft.progress-slider {
+  height: 52px;
+  padding: 15px 16px;
+}
 input[type='range'].soft::-webkit-slider-runnable-track {
   height: 8px;
   border-radius: 9999px;
@@ -312,7 +318,7 @@ input[type='date'] {
   0% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.82) translateY(-14px); }
 }
-.bloom-out { animation: bloom-out 0.8s ease-in 0.6s both; }
+.bloom-out { animation: bloom-out 5s ease-in both; }
 
 @keyframes slide-out-right {
   from { opacity: 1; transform: translateX(0); }

@@ -115,7 +115,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
                   <DueChip task={task} compact />
                 </span>
               )}
-              <BubbleChrome task={task} r={r} />
+              <BubbleChrome task={task} r={r} hideImageOnlyCheckbox />
             </div>
           </div>
         </div>

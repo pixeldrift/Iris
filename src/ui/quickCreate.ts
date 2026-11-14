@@ -2,6 +2,7 @@ import { parseQuickAdd, type QuickAdd } from '../core/quickadd'
 import type { Task } from '../core/types'
 import { useStore } from '../state/store'
 import { askNotify } from './notify'
+import { assignTask, shareTask } from '../sync/share'
 
 /** What a quick line understood, as the fields of a new task. `startIn` / `personIds` are what the box was already set to (a group's +, say). */
 export function fieldsFromQuickAdd(q: QuickAdd | null | undefined, preset: { folderIds?: string[]; personIds?: string[] } = {}): Partial<Task> {
@@ -41,5 +42,28 @@ export function createFromLine(text: string, apply: boolean): string {
   const made = useStore.getState().tasks.find((x) => x.id === id)
   if (made?.due && made.kind !== 'idea') useStore.getState().setDue(id, made.due, made.dueTime ?? null)
   if (q?.remindAt) void askNotify()
+  if (q?.action && q.action.type !== 'tag') {
+    const person = useStore.getState().people.find((p) => p.id === q.action!.personId)
+    const userId = person?.link?.userId
+    const task = useStore.getState().tasks.find((x) => x.id === id)
+    if (userId && task) {
+      void (async () => {
+        try {
+          if (q.action!.type === 'assign') {
+            await shareTask(task, userId, 'editor')
+            const latest = useStore.getState().tasks.find((x) => x.id === id)
+            if (latest) assignTask(latest, [...new Set([...(latest.assigneeIds ?? (latest.assigneeId ? [latest.assigneeId] : [])), userId])])
+          } else if (q.action!.type === 'invite') {
+            await shareTask(task, userId, 'viewer', 'event')
+          } else {
+            await shareTask(task, userId, 'editor')
+          }
+          useStore.getState().showToast(q.action!.type === 'assign' ? `Assigned to ${person?.name}.` : q.action!.type === 'invite' ? `Invitation sent to ${person?.name}.` : `Shared with ${person?.name}.`)
+        } catch (error) {
+          useStore.getState().showToast(error instanceof Error ? error.message : 'Could not complete that action.')
+        }
+      })()
+    }
+  }
   return id
 }

@@ -1,5 +1,5 @@
 import * as sound from '../audio/engine'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
 import { percentOfCount } from '../core/progress'
@@ -18,13 +18,16 @@ const STYLES: { id: ListStyle; label: string }[] = [
 const EXAMPLES = ['Milk', 'Bread', 'Eggs']
 
 /** The entries of a list task: tick them, rename them, add more. Numbers are automatic. */
-export function ListEditor({ task }: { task: Task }) {
+export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoFocusFirst?: boolean }) {
   const update = useStore((s) => s.updateTask)
   const add = useRef<HTMLInputElement>(null)
   // an empty list shows three example entries (a preview of what a list looks like) until it is tapped to edit, which clears them
   const [touched, setTouched] = useState(false)
   const preview = task.items.length === 0 && !touched
   const items = task.items
+  useEffect(() => {
+    if (autoFocusFirst) requestAnimationFrame(() => add.current?.focus())
+  }, [autoFocusFirst, items.length])
   const setProgress = useStore((s) => s.setProgress)
   const hue = useTaskHue(task)
   const set = (next: ListItem[]) => {
@@ -38,6 +41,7 @@ export function ListEditor({ task }: { task: Task }) {
     const el = add.current
     if (!el || !el.value.trim()) return
     set([...items, { id: uid(), text: el.value.trim(), done: false }])
+    sound.drop()
     el.value = ''
   }
 
@@ -96,10 +100,11 @@ export function ListEditor({ task }: { task: Task }) {
           </li>
         ))}
       </ul>
-      <div className="well mt-2 flex items-center gap-2 rounded-xl px-2.5 py-1">
+      <div className="well mt-2 flex items-center gap-1 rounded-xl px-2 py-1">
         <IconPlus size={14} />
         <input
           ref={add}
+          autoFocus={autoFocusFirst}
           aria-label="Add item"
           placeholder="Add an item…"
           onFocus={() => setTouched(true)}
@@ -112,6 +117,8 @@ export function ListEditor({ task }: { task: Task }) {
           onBlur={commit}
           className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-ink-faint"
         />
+        <button type="button" onClick={() => { if (add.current) { add.current.value = ""; add.current.focus() } }} aria-label="Clear item" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70"><IconClose size={12} /></button>
+        <button type="button" onClick={commit} aria-label="Add item" className="grid h-8 w-8 shrink-0 -translate-y-0.5 place-items-center rounded-full bg-lilac-500 text-lg text-white shadow-sm transition hover:bg-lilac-600">↵</button>
       </div>
     </div>
   )
