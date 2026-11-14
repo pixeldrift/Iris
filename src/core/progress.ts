@@ -90,7 +90,6 @@ export function percentsFor(n: number, given?: number[] | null): number[] {
   return out
 }
 
-/** The column (by position) an item at this percent belongs in. */
 /** A stage selection places progress in the middle of that stage's range. Completed is exactly 100%; in-progress occupies 1–99%. */
 export function percentForStage(i: number, percents: number[]): number {
   const idx = Math.max(0, Math.min(percents.length - 1, i))
@@ -98,6 +97,7 @@ export function percentForStage(i: number, percents: number[]): number {
   return Math.floor((percents[idx] + percents[idx + 1]) / 2)
 }
 
+/** The column (by position) an item at this percent belongs in. */
 export function stageForPercent(p: number, percents: number[]): number {
   if (p >= 100) return percents.length - 1
   let at = 0

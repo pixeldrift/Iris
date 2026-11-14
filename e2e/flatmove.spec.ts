@@ -5,7 +5,7 @@ async function enterFlat(page: P) {
   await page.goto('/?spacetest')
   await page.locator('[data-node]').first().waitFor()
   await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
-  await page.locator('button', { hasText: /^Space/ }).first().click()
+  await page.locator('button', { hasText: /^Spatial/ }).first().click()
   await page.getByRole('button', { name: 'Use touch only' }).click()
   await page.getByRole('button', { name: 'Got it' }).click().catch(() => {})
   await page.getByRole('radio', { name: '2D' }).click()
@@ -57,6 +57,17 @@ test.describe('the flat canvas does everything the 3D space does', () => {
     await drag(page, f, await centre(page, '[data-box="demo-writing"]'))
     await expect.poll(() => folderOf(page, 'demo-grandma')).toBe('demo-writing')
     expect((await stored(page)).tasks['demo-grandma'].free).toBeUndefined()
+  })
+
+  test('a tap on empty canvas opens the new-item box, and what is made is left there in no group', async ({ page }) => {
+    await enterFlat(page)
+    const canvas = (await page.locator('[aria-label^="Your tasks by group"]').boundingBox())!
+    await page.mouse.click(canvas.x + 70, canvas.y + 60)
+    await page.getByLabel('New item').first().fill('Flat tap')
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Flat tap')?.folderIds))).toEqual([])
+    const id = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Flat tap').id)
+    expect((await stored(page)).tasks[id].free).toBeTruthy()
   })
 
   test('a task carried onto a folded name opens it after a short linger, and lands in it', async ({ page }) => {

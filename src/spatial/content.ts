@@ -8,7 +8,7 @@ import { dueInfo, dueLine } from '../core/rowModel'
 import { effectiveUrgency } from '../core/tasks'
 import type { Folder, Task } from '../core/types'
 import { bubbleHue } from '../ui/pond/hue'
-import { ensureLayout, LOOSE, type LayoutCluster, type LayoutTask } from './layout'
+import { arrangeFor, ensureLayout, LOOSE, type LayoutCluster, type LayoutTask } from './layout'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialLayoutData } from './types'
 
@@ -20,16 +20,15 @@ export interface SpatialContent {
   layout: SpatialLayoutData
 }
 
-export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[], stored: SpatialLayoutData): SpatialContent {
+/** `arrange`: lay the groups out again for a screen of this shape (width over height) instead of keeping where they are. */
+export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[], stored: SpatialLayoutData, arrange?: number): SpatialContent {
   const have = new Set(folders.map((f) => f.id))
   const clusterOf = (t: Task) => t.folderIds.find((id) => have.has(id)) ?? NONE
   // the clusters to show: every group with a task in it, and the groups above them (so the hierarchy reads)
-  // Loose tasks are still members of Unsorted; their saved free positions only affect where they float, not where they belong.
-  const hasUnsorted = visible.some((t) => clusterOf(t) === NONE)
   const shown = new Set<string>()
-  if (hasUnsorted) shown.add(NONE)
   for (const t of visible) {
     const c = clusterOf(t)
+    // (a task in no group is not in a box: it sits loose on the wall, so there is no Unsorted group to show; in every other view it is in Unsorted)
     if (c === NONE) continue
     shown.add(c)
     for (const a of pathOf(folders, c)) shown.add(a.id)
@@ -44,7 +43,6 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
   }
   walk(null)
   const parentOf = (id: string): string | null => {
-    if (id === NONE) return null
     const f = folders.find((x) => x.id === id)
     let p = f?.parentId ?? null
     while (p && !shown.has(p)) p = folders.find((x) => x.id === p)?.parentId ?? null
@@ -52,17 +50,15 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
   }
   const counts = new Map<string, number>()
   for (const t of visible) counts.set(clusterOf(t), (counts.get(clusterOf(t)) ?? 0) + 1)
-  const layoutClusters: LayoutCluster[] = [
-    ...order.filter((id) => shown.has(id)).map((id, i) => ({ id, parent: parentOf(id), depth: pathOf(folders, id).length - 1, order: i + (hasUnsorted ? 1 : 0) })),
-    ...(hasUnsorted ? [{ id: NONE, parent: null, depth: 0, order: 0 }] : []),
-  ]
+  const layoutClusters: LayoutCluster[] = order.filter((id) => shown.has(id)).map((id, i) => ({ id, parent: parentOf(id), depth: pathOf(folders, id).length - 1, order: i }))
   const layoutTasks: LayoutTask[] = visible.map((t) => ({ id: t.id, cluster: clusterOf(t) }))
-  const layout = ensureLayout(stored, {
+  const input = {
     clusters: layoutClusters,
     tasks: layoutTasks,
     allTaskIds: new Set(allTasks.map((t) => t.id)),
     allClusterIds: new Set([...have, NONE]),
-  })
+  }
+  const layout = arrange ? arrangeFor(stored, input, arrange) : ensureLayout(stored, input)
   const clusters: SceneCluster[] = layoutClusters.map((c) => {
     const f = folders.find((x) => x.id === c.id)
     return { id: c.id, parent: c.parent, name: f?.name ?? 'Unsorted', hue: f?.hue ?? 285, shape: f?.shape, count: counts.get(c.id) ?? 0, depth: c.depth }

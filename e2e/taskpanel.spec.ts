@@ -16,7 +16,7 @@ test.describe('the task and notion panels', () => {
     // the order, top down
     const due = await y(/^Day/)
     const repeats = await y(/^Repeat/)
-    const notes = (await dialog.getByLabel('Notes').boundingBox())!.y
+    const notes = (await dialog.getByRole('textbox', { name: 'Notes', exact: true }).boundingBox())!.y
     const sliders = (await dialog.getByRole('slider', { name: 'How much it matters' }).boundingBox())!.y
     expect(due).toBeLessThan(repeats)
     expect(repeats).toBeLessThan(notes)
@@ -69,7 +69,7 @@ test.describe('the task and notion panels', () => {
     await expect(where.getByRole('textbox', { name: 'Where' })).toBeVisible()
     // order: notes, then progress with its stage right under the slider, then priority
     const y = async (l: import('@playwright/test').Locator) => (await l.boundingBox())!.y
-    const notes = await y(dialog.getByLabel('Notes'))
+    const notes = await y(dialog.getByRole('textbox', { name: 'Notes', exact: true }))
     const slider = await y(dialog.getByRole('slider', { name: 'Progress' }))
     const stage = await y(dialog.getByRole('button', { name: 'Not started' }))
     const priority = await y(dialog.getByRole('slider', { name: 'How much it matters' }))
@@ -109,23 +109,21 @@ test.describe('the task and notion panels', () => {
     await page.keyboard.type('notion: a line for a poem')
     await page.keyboard.press('Enter')
     const dialog = page.getByLabel('Task details')
-    await expect(dialog.getByLabel('Notes')).toBeVisible()
-    await expect(dialog.getByRole('button', { name: /Add a picture/ })).toBeVisible()
-    // a notion is not something to complete: no check mark, in the panel or on the list
-    await expect(dialog.getByRole('button', { name: /Mark done/ })).toHaveCount(0)
+    await expect(dialog.getByRole('textbox', { name: 'Notes', exact: true })).toBeVisible()
+    await expect(dialog.getByRole('button', { name: /Add images/ })).toBeVisible()
+    // (every item has a check mark now, a notion's included)
     for (const gone of [/^Day/, /^Deadline/, /Remind me/, /Repeat/, /Importance/, /Urgency/, /Stage/, /Assigned to/]) await expect(dialog.getByText(gone)).toHaveCount(0)
-    const rows = await dialog.getByLabel('Notes').evaluate((e) => (e as HTMLTextAreaElement).rows)
+    const rows = await dialog.getByRole('textbox', { name: 'Notes', exact: true }).evaluate((e) => (e as HTMLTextAreaElement).rows)
     expect(rows).toBeGreaterThanOrEqual(8)
   })
 
-  test('an event has no check mark: it is something you go to, not something you do', async ({ page }) => {
+  test('an event has a check mark too, so it can be ticked off once it is over', async ({ page }) => {
     await page.keyboard.press('n')
     await page.keyboard.type('event: Dinner with Sam')
     await page.keyboard.press('Enter')
     const dialog = page.getByLabel('Task details')
-    await expect(dialog.getByRole('button', { name: /Mark (not )?done/ })).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: /Mark (not )?done/ })).toHaveCount(1)
     await dialog.getByRole('button', { name: 'Done', exact: true }).click()
-    await expect(page.getByRole('button', { name: /Mark (not )?done: Dinner/ })).toHaveCount(0)
   })
 
   test('the type is only a layout: giving a task a start time makes it an event, and a due time is just as optional', async ({ page }) => {

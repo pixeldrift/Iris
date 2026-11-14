@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFromLine, understandLine } from '../quickCreate'
 import * as sound from '../../audio/engine'
+import { useRowSwipe } from '../swipe'
 import { isDoneNow } from '../../core/recurrence'
 import { useFlip } from '../flip'
 import { ScrollFade } from '../ScrollFade'
@@ -28,184 +29,23 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'manual', label: 'My order' },
 ]
 
-/**
- * Swipe a row sideways (touch): left deletes it, right checks it off (a line is drawn across its name as it is ticked; swiped right again,
- * the line is taken back off). It only takes over when the finger clearly moves sideways, so scrolling stays vertical, and a
- * press-and-hold that has already picked the row up for the sidebar is never mistaken for it.
- */
-function useSwipe(row: React.RefObject<HTMLDivElement | null>, revealDelete: React.RefObject<HTMLDivElement | null>, deleteChips: React.RefObject<HTMLDivElement | null>, deleteTitle: React.RefObject<HTMLSpanElement | null>, deleteLid: React.RefObject<SVGPathElement | null>, revealCheck: React.RefObject<HTMLDivElement | null>, strike: React.RefObject<HTMLSpanElement | null>, wasDone: boolean, onDelete: () => void, onCheck: () => void) {
-  return (e: React.PointerEvent) => {
-    if (e.pointerType !== 'touch') return
-    const el = row.current
-    if (!el) return
-    const sx = e.clientX
-    const sy = e.clientY
-    let swiping = false
-    const need = Math.min(el.offsetWidth * 0.35, 120)
-    const origin = wasDone ? 'right' : 'left'
-    const restingScale = wasDone ? 1 : 0
-    const apply = (dx: number) => {
-      el.style.transform = `translateX(${dx}px)`
-      if (revealDelete.current) revealDelete.current.style.opacity = dx < -6 ? '1' : '0'
-      const deleteIcon = deleteLid.current?.closest<HTMLElement>('[data-delete-icon]')
-      if (deleteIcon) deleteIcon.style.opacity = dx < -6 ? '1' : '0'
-      const chipShift = Math.min(1, Math.max(0, -dx) / 80) * 38
-      if (deleteChips.current) deleteChips.current.style.transform = `translateX(${-chipShift}px)`
-      if (deleteTitle.current) deleteTitle.current.style.paddingRight = `${chipShift}px`
-      if (deleteLid.current) {
-        const progress = Math.min(1, Math.max(0, -dx) / need)
-        deleteLid.current.style.transform = `rotate(${progress * 38}deg) translateY(${-progress * 3}px)`
-      }
-      if (revealCheck.current) revealCheck.current.style.opacity = String(dx > 0 ? Math.min(1, dx / 80) : 0)
-      if (strike.current) {
-        const progress = Math.min(1, Math.max(0, dx) / need)
-        const scale = wasDone ? 1 - progress : progress
-        strike.current.style.transformOrigin = origin
-        strike.current.style.transform = `scaleX(${scale})`
-        strike.current.style.opacity = String(wasDone || progress > 0 ? 1 : 0)
-      }
-    }
-    const end = (commit: boolean, dx: number) => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-      window.removeEventListener('pointercancel', cancel)
-      if (!swiping) return
-      const check = commit && dx > need
-      const spring = '420ms cubic-bezier(0.2, 0.9, 0.25, 1.15)'
-      el.style.transition = `transform ${spring}`
-      if (commit && dx < -need) {
-        sound.swipeDelete()
-        // Snap the lid shut first, then sweep the row away so the delete action reads clearly.
-        if (revealDelete.current) {
-          revealDelete.current.style.transition = 'background-color 140ms ease, color 140ms ease, opacity 180ms ease-out'
-          revealDelete.current.style.backgroundColor = 'rgb(210 110 140 / 0.9)'
-          revealDelete.current.style.color = 'white'
-        }
-        const deleteIcon = deleteLid.current?.closest<HTMLElement>('[data-delete-icon]')
-        if (deleteIcon) {
-          deleteIcon.style.transition = 'color 140ms ease, opacity 100ms ease-out'
-          deleteIcon.style.color = 'white'
-          deleteIcon.style.opacity = '1'
-        }
-        if (deleteLid.current) {
-          deleteLid.current.style.transition = 'transform 100ms cubic-bezier(0.2, 0.8, 0.2, 1)'
-          deleteLid.current.style.transform = 'rotate(0deg) translateY(0)'
-        }
-        window.setTimeout(() => {
-          el.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)'
-          el.style.transform = 'translateX(-110%) scale(0.96)'
-          window.setTimeout(onDelete, 220)
-        }, 90)
-        return
-      }
-      if (check) {
-        sound.swipeCheck(wasDone)
-        // The line has reached its end with the finger; let the row spring home while
-        // the completed/undone state catches up underneath it.
-        el.style.transform = 'translateX(0)'
-        if (revealCheck.current) revealCheck.current.style.opacity = '0'
-        if (strike.current) {
-          strike.current.style.transition = 'none'
-          strike.current.style.transformOrigin = origin
-          strike.current.style.transform = `scaleX(${wasDone ? 0 : 1})`
-          strike.current.style.opacity = '1'
-        }
-        onCheck()
-        window.setTimeout(() => {
-          if (strike.current) {
-            strike.current.style.transition = 'opacity 160ms ease-out'
-            strike.current.style.opacity = '0'
-            window.setTimeout(() => {
-              if (!strike.current) return
-              strike.current.style.transition = ''
-              strike.current.style.transform = `scaleX(${restingScale})`
-            }, 180)
-          }
-        }, 160)
-      } else {
-        // Incomplete gestures retreat to their original state with a spring.
-        if (strike.current) strike.current.style.transition = `transform ${spring}, opacity 180ms ease-out`
-        if (deleteLid.current) deleteLid.current.style.transition = `transform ${spring}`
-        if (revealDelete.current) revealDelete.current.style.transition = 'opacity 180ms ease-out'
-        if (deleteChips.current) deleteChips.current.style.transition = `transform ${spring}`
-        apply(0)
-      }
-      window.setTimeout(() => {
-        el.style.transition = ''
-        el.style.transform = ''
-        if (deleteChips.current) {
-          deleteChips.current.style.transform = ''
-          deleteChips.current.style.transition = ''
-        }
-        if (deleteTitle.current) deleteTitle.current.style.paddingRight = ''
-        if (revealDelete.current) {
-          revealDelete.current.style.opacity = '0'
-          revealDelete.current.style.transition = ''
-          revealDelete.current.style.backgroundColor = 'white'
-          revealDelete.current.style.color = ''
-        }
-        const deleteIcon = deleteLid.current?.closest<HTMLElement>('[data-delete-icon]')
-        if (deleteIcon) {
-          deleteIcon.style.opacity = '0'
-          deleteIcon.style.color = '#dc2626'
-          deleteIcon.style.transition = ''
-        }
-        if (deleteLid.current) deleteLid.current.style.transition = ''
-        if (revealCheck.current) revealCheck.current.style.opacity = '0'
-      }, 440)
-    }
-    const move = (ev: PointerEvent) => {
-      if (document.body.classList.contains('dragging')) return end(false, 0) // it was picked up to be dragged instead
-      const dx = ev.clientX - sx
-      const dy = ev.clientY - sy
-      if (!swiping) {
-        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) return end(false, 0) // a scroll
-        if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.6) {
-          swiping = true
-          el.style.transition = 'none'
-          if (strike.current) {
-            strike.current.style.transition = 'none'
-            strike.current.style.transformOrigin = origin
-            strike.current.style.transform = `scaleX(${restingScale})`
-            strike.current.style.opacity = '1'
-          }
-        } else return
-      }
-      apply(dx)
-    }
-    const up = (ev: PointerEvent) => end(true, ev.clientX - sx)
-    const cancel = () => end(false, 0)
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-    window.addEventListener('pointercancel', cancel)
-  }
-}
-
 function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Task; selected: boolean; selecting: boolean; onToggle: () => void; /** Just added from the quick-add box: it glows for a moment. */ fresh?: boolean }) {
   const el = useRef<HTMLDivElement>(null)
-  const reveal = useRef<HTMLDivElement>(null)
-  const deleteChips = useRef<HTMLDivElement>(null)
-  const deleteTitle = useRef<HTMLSpanElement>(null)
-  const deleteLid = useRef<SVGPathElement>(null)
-  const revealCheck = useRef<HTMLDivElement>(null)
-  const strike = useRef<HTMLSpanElement>(null)
+  const wrap = useRef<HTMLDivElement>(null)
   const hue = useTaskHue(task)
   // Shift-click (or select mode) picks the item instead of opening it
   const onPointerDown = useTaskDrag(task, el, (e) => (e.shiftKey || selecting ? onToggle() : useStore.getState().select(task.id)))
   const del = useStore((s) => s.deleteTask)
   const toggleDone = useStore((s) => s.toggleDone)
   const done = isDoneNow(task)
-  // The strikethrough is drawn by the live swipe gesture; completion only changes task state.
-  const check = () => toggleDone(task.id)
-  const swipe = useSwipe(el, reveal, deleteChips, deleteTitle, deleteLid, revealCheck, strike, done, () => del(task.id), check)
+  const swipe = useRowSwipe(wrap, done, () => del(task.id), () => toggleDone(task.id))
   const leave = useLeaveClass(task)
   return (
     <Dim id={task.id}>
-      <div className="relative overflow-x-clip overflow-y-visible rounded-2xl">
-        <div ref={reveal} aria-hidden className="absolute inset-0 flex items-center justify-end overflow-visible rounded-2xl pr-5 text-[#dc2626] opacity-0" style={{ background: '#fff', isolation: 'isolate' }}>
-
-        </div>
-        <div ref={revealCheck} aria-hidden className="absolute inset-0 flex items-center justify-start rounded-2xl pl-5 text-white opacity-0" style={{ background: 'rgb(var(--lr-500) / 0.9)' }}>
+      {/* a swipe (touch) pulls the row sideways over what is underneath: left, a trash can (delete); right, a check (and a line across the name) */}
+      <div ref={wrap} data-done={done} className="swipe relative overflow-x-clip overflow-y-visible rounded-2xl">
+        <div aria-hidden className="swipe-del absolute inset-0 rounded-2xl" />
+        <div aria-hidden className="swipe-chk absolute inset-0 flex items-center justify-start rounded-2xl pl-5 text-white">
           <IconCheck size={18} />
         </div>
         <div
@@ -218,7 +58,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
             swipe(e)
           }}
           style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
-          className={`tint lift-on-press group rise-in relative flex cursor-pointer outline-none ${fresh ? 'just-added' : ''} focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
+          className={`swipe-row tint lift-on-press group rise-in relative flex cursor-pointer outline-none ${fresh ? 'just-added' : ''} focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
         >
           {(selecting || selected) && (
             <span aria-hidden className={`well-circle grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.65rem] leading-none text-white ${selected ? 'is-on' : ''}`}>
@@ -227,15 +67,14 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
           )}
           <DoneButton task={task} />
           <TaskFlower task={task} />
-          <span ref={deleteTitle} className="min-w-0 flex-1">
+          <span className="swipe-name min-w-0 flex-1">
             <span className="relative inline-block max-w-full align-top">
               <span className={`block truncate ${done ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</span>
-              {/* the line that is drawn across the name when it is swiped off (hidden otherwise) */}
-              <span ref={strike} aria-hidden className="pointer-events-none absolute inset-x-0 top-1/2 -mt-px h-[2px] rounded-full bg-lilac-500/80 opacity-0" />
+              <span aria-hidden className="swipe-strike pointer-events-none absolute inset-x-0 top-1/2 -mt-px h-[2px] rounded-full" />
             </span>
           </span>
           {/* the chips, with how far along it is as a thin bar underneath them */}
-          <div ref={deleteChips} className="flex shrink-0 flex-col items-stretch gap-0.5">
+          <div className="swipe-chips flex shrink-0 flex-col items-stretch gap-0.5">
             <div className="flex items-center justify-end gap-1">
               <span data-lift-extra className="hidden items-center gap-1 sm:flex">
                 <ItemBadges task={task} progress={false} />
@@ -261,14 +100,15 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
             }}
             aria-label="Delete"
             title="Delete"
-            className="relative z-10 grid h-7 w-0 shrink-0 -translate-y-0 place-items-center overflow-hidden rounded-full bg-white/85 text-ink-faint opacity-0 shadow-sm transition-[width,opacity,margin] duration-200 hover:text-danger-deep md:group-hover:ml-1 md:group-hover:w-7 md:group-hover:opacity-100"
+            className="relative z-10 grid h-7 w-0 shrink-0 place-items-center overflow-hidden rounded-full bg-white/85 text-ink-faint opacity-0 shadow-sm transition-[width,opacity,margin] duration-200 hover:text-danger-deep md:group-hover:ml-1 md:group-hover:w-7 md:group-hover:opacity-100"
           >
             <IconTrash size={14} />
           </button>
         </div>
-        <span data-delete-icon aria-hidden className="pointer-events-none absolute right-5 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center text-[#dc2626] opacity-0" style={{ transition: 'opacity 100ms ease-out' }}>
+        {/* the trash can the swipe uncovers, with a lid that lifts as the row is pulled and shuts when it goes */}
+        <span aria-hidden className="swipe-trash pointer-events-none absolute right-5 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center">
           <svg viewBox="-4 -5 32 34" width="32" height="34" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ overflow: 'visible' }}>
-            <path ref={deleteLid} d="M4 7h16 M9 7V4h6v3" style={{ transformBox: 'fill-box', transformOrigin: 'right center' }} />
+            <path className="swipe-lid" d="M4 7h16 M9 7V4h6v3" />
             <path d="M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
           </svg>
         </span>

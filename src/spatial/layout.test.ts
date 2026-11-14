@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { K, WORLD, type ClusterPlacement } from './types'
-import { ensureLayout, slotAt, FLAT_R, TASK_LIFT, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { arrangeFor, ensureLayout, slotAt, FLAT_R, TASK_LIFT, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -318,5 +318,21 @@ describe('a flat wall', () => {
     const after = ensureLayout(was, { ...inp, tasks: inp.tasks.map((t) => (t.id === 'a' ? { ...t, cluster: 'none' } : t)) })
     expect(after.tasks.a.c).toBe('none')
     expect(after.tasks.a.free).toEqual({ a: -0.2, y: 5 })
+  })
+  it('arranges the groups to suit the screen: tall for a portrait one, wide for a landscape one', () => {
+    const many = input(Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`g${i}`, ['a', 'b', 'c', 'd'].map((x) => `${x}${i}`)])))
+    const shape = (l: SpatialLayoutData) => {
+      const cs = Object.values(l.clusters)
+      const w = Math.max(...cs.map((c) => c.a * WORLD.ring)) - Math.min(...cs.map((c) => c.a * WORLD.ring))
+      const h = Math.max(...cs.map((c) => c.y)) - Math.min(...cs.map((c) => c.y))
+      return w / Math.max(1, h)
+    }
+    const base = ensureLayout(empty, many)
+    const portrait = arrangeFor(base, many, 0.5)
+    const landscape = arrangeFor(base, many, 2.2)
+    expect(shape(portrait)).toBeLessThan(shape(landscape))
+    // the same groups and the same cards inside them
+    expect(Object.keys(portrait.clusters).sort()).toEqual(Object.keys(base.clusters).sort())
+    for (const id of Object.keys(base.tasks)) expect(portrait.tasks[id].slot).toBe(base.tasks[id].slot)
   })
 })

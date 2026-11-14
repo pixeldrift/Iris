@@ -5,7 +5,7 @@ async function enter(page: import('@playwright/test').Page) {
   await page.goto('/?spacetest')
   await page.locator('[data-node]').first().waitFor()
   await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
-  await page.locator('button', { hasText: /^Space/ }).first().click()
+  await page.locator('button', { hasText: /^Spatial/ }).first().click()
   await page.getByRole('button', { name: 'Use touch only' }).click()
   await page.getByRole('button', { name: 'Got it' }).click().catch(() => {})
   await page.waitForTimeout(1200)
@@ -154,6 +154,26 @@ test.describe('blank space in a group', () => {
     await page.getByLabel('New item').first().fill('Blank tap')
     await page.keyboard.press('Enter')
     await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Blank tap')?.folderIds ?? []))).toContain('eng101')
+  })
+})
+
+test.describe('blank space on the wall', () => {
+  test('a tap on empty space opens the new-item box, and what is made is left there, in no group', async ({ page }) => {
+    await enter(page)
+    const at = (await empty(page))!
+    expect(at).toBeTruthy()
+    await page.mouse.click(at.x, at.y)
+    await page.getByLabel('New item').first().fill('Hang the picture')
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Hang the picture')?.folderIds))).toEqual([])
+    const made = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Hang the picture').id)
+    const l = await stored(page)
+    expect(l.tasks[made].c).toBe('none')
+    expect(l.tasks[made].free).toBeTruthy()
+    // and it is about where the tap was (it settles onto the free grid, which keeps tidy)
+    await page.waitForTimeout(600)
+    const now = (await pt(page, 'task', made))!
+    expect(Math.hypot(now.x - at.x, now.y - at.y)).toBeLessThan(170)
   })
 })
 

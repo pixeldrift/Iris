@@ -12,12 +12,12 @@ import { Popover } from '../ui/Popover'
 import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
 import { Tip } from '../ui/Tip'
 import { detectCapabilities } from './capabilities'
-import { addInGroup, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
+import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, NONE, sameLayout } from './content'
 import { FOV } from './SpatialScene'
 import { FLAT_R, RADIUS } from './layout'
 import { WallTracking, type WallPhase } from './wall'
-import { TrackingCamera } from './trackingCamera'
+import { TrackingCamera } from './wall'
 import { DefaultDot } from '../ui/DefaultDot'
 import { ZoomControl } from '../ui/ZoomControl'
 import { CameraEnvironment, PanoramaEnvironment, SharedCameraEnvironment, VirtualEnvironment, type EnvironmentProvider } from './environment'
@@ -115,6 +115,14 @@ export default function SpatialView() {
   }, [content, collapsed])
   const live = useRef(shownContent)
   live.current = shownContent
+
+  // Frame all (Wall): lay the groups out for the shape of the screen (wide in landscape, tall in portrait), then bring them all into view
+  const arrangeAndFrame = () => {
+    const el = host.current
+    const aspect = el && el.clientHeight > 0 ? el.clientWidth / el.clientHeight : 1
+    setLayout(buildContent(visible, allTasks, folders, stored, aspect).layout)
+    window.setTimeout(() => scene.current?.frameAll(), 160) // (after the scene has taken the new places)
+  }
 
   /* ---------- starting: the first call must be inside the tap (iOS asks for motion permission only from one) ---------- */
   const begin = useCallback(
@@ -257,6 +265,7 @@ export default function SpatialView() {
         onCarryEnd: endCarry,
         onDropOut: dropOutside,
         onAddIn: addInGroup,
+        onAddAt: addLoose,
         onFov: (f) => setFov(Math.round(f)),
         // wall mode: the camera shows until the surface has been found, then gives way to the virtual wall (unless the camera is the background)
         onWallReveal: (r) => {
@@ -349,7 +358,7 @@ export default function SpatialView() {
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
-      <div ref={host} className="absolute inset-0 bg-gradient-to-b from-lilac-100 to-white" style={{ backgroundImage: 'linear-gradient(rgba(150,125,185,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(150,125,185,.045) 1px, transparent 1px), linear-gradient(to bottom, #f2eafa, #fff) ', backgroundSize: '32px 32px, 32px 32px, 100% 100%' }} />
+      <div ref={host} className="space-grid absolute inset-0" />
       {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} />}
 
       {phase === 'intro' && (
@@ -569,7 +578,7 @@ export default function SpatialView() {
                     </button>
                   </Tip>
                   <Tip label="Frame all">
-                    <button type="button" aria-label="Frame all" onClick={() => scene.current?.frameAll()} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
+                    <button type="button" aria-label="Frame all" onClick={arrangeAndFrame} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
                       <IconFrameAll size={22} />
                     </button>
                   </Tip>

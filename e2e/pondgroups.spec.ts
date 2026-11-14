@@ -34,12 +34,13 @@ test.describe('groups in the pond', () => {
     await page.waitForTimeout(1200) // (let the groups settle into place)
     const life = page.locator('.pond-label').filter({ hasText: 'Life' }).first()
     const home = page.locator('.pond-label').filter({ hasText: 'Home' }).first()
-    const a = (await life.boundingBox())!
+    // (the name itself is what is grabbed: the label around it is wider, with room for the + beside it)
+    const a = (await life.locator('.pop-in').first().boundingBox())!
     const b = (await home.boundingBox())!
     // grab "Life" by its name and carry it onto the name "Home"
-    await page.mouse.move(a.x + a.width / 2 - 8, a.y + a.height / 2)
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
     await page.mouse.down()
-    await page.mouse.move(a.x + a.width / 2 - 8, a.y + a.height / 2 + 8, { steps: 3 })
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2 + 8, { steps: 3 })
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 16 })
     await page.mouse.up()
     await expect

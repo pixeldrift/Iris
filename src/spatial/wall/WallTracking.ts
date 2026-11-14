@@ -12,7 +12,7 @@ import { rgbaToGray, type Gray } from './vision/image'
 import { apply, inv3, mul3, mulVec, type Mat3, type Pt, type Vec3 } from './vision/math'
 import { findQuads, type Quad } from './vision/quad'
 import { SurfaceTracker } from './vision/surface'
-import type { CameraPose, TrackingProvider, TrackingQuality, TrackingStatus } from './types'
+import type { TrackingQuality, TrackingStatus } from '../types'
 
 export type WallPhase = 'searching' | 'holding' | 'lost'
 
@@ -33,8 +33,7 @@ const COMMON_ASPECTS = [1, 1.294, 1.414, 1.5, 1.333, 0.773, 0.707, 0.667, 0.75]
 
 type Listener = (s: TrackingStatus) => void
 
-export class WallTracking implements TrackingProvider {
-  readonly id = 'wall'
+export class WallTracking {
   private video: HTMLVideoElement | null = null
   private canvas = document.createElement('canvas')
   private ctx = this.canvas.getContext('2d', { willReadFrequently: true })
@@ -59,16 +58,10 @@ export class WallTracking implements TrackingProvider {
   private fSamples: number[] = []
   private vw = 1280
   private vh = 720
-  // the pose, blended
-  private offset = new Quaternion() // world <- device, corrected by what the camera sees
-  private haveOffset = false
-  private pos: [number, number, number] = [0, 0, 1.2]
+  /** The camera's turn as the picture alone reads it (in the surface's frame): for "level" where there is no gyro. */
   private visQ = new Quaternion()
-  private q = new Quaternion()
+  private haveVis = false
   private tmpQ = new Quaternion()
-  private scale = 100
-  private lift = 7
-  private origin: [number, number] = [0, 0]
   private overlay: WallOverlay = { phase: 'searching', quad: null, points: [], inliers: 0, kind: null }
   private fresh = false
   private lastVisionAt = 0
@@ -96,11 +89,8 @@ export class WallTracking implements TrackingProvider {
   /** Size the world: the surface's width, in world units, and how far in front of it the items float. */
   /** How much the view is smoothed, 0 (every twitch) to 1 (very steady). */
   smoothing = 0.15
-  configure(opts: { scale?: number; lift?: number; fovV?: number; origin?: [number, number]; smooth?: number }) {
+  configure(opts: { fovV?: number; smooth?: number }) {
     if (opts.smooth !== undefined) this.smoothing = opts.smooth
-    if (opts.scale) this.scale = opts.scale
-    if (opts.origin) this.origin = opts.origin
-    if (opts.lift !== undefined) this.lift = opts.lift
     if (opts.fovV) {
       this.f = (this.vh / 2) / Math.tan((opts.fovV * Math.PI) / 360)
       this.autoF = false // (set by hand: stop adjusting it)
@@ -163,20 +153,6 @@ export class WallTracking implements TrackingProvider {
     const f = this.fresh
     this.fresh = false
     return f
-  }
-
-  getPose(): CameraPose {
-    // the rotation: the device's own, corrected by the camera; or the camera alone where there is no sensor
-    const gyro = this.device && this.device(this.tmpQ)
-    if (gyro && this.haveOffset) this.q.copy(this.offset).multiply(this.tmpQ)
-    else this.q.copy(this.visQ)
-    const quality: TrackingQuality = this.phase === 'holding' ? 'good' : this.haveOffset || !gyro ? 'limited' : 'none'
-    return {
-      q: [this.q.x, this.q.y, this.q.z, this.q.w],
-      position: [this.pos[0] * this.scale + this.origin[0], this.pos[1] * this.scale + this.origin[1], this.pos[2] * this.scale - this.lift],
-      quality,
-      source: 'visual',
-    }
   }
 
   /* ---------- the camera, frame by frame ---------- */
@@ -307,7 +283,7 @@ export class WallTracking implements TrackingProvider {
       q = m.clone().multiply(this.tmpQ)
       const u = new Vector3(0, 1, 0).applyQuaternion(m)
       up = [u.x, u.y, u.z]
-    } else if (this.havePos) q = this.visQ.clone()
+    } else if (this.haveVis) q = this.visQ.clone()
     if (!q) return null
     const axis = (x: number, y: number, z: number): Vec3 => {
       const v = new Vector3(x, y, z).applyQuaternion(q as Quaternion)
@@ -403,7 +379,6 @@ export class WallTracking implements TrackingProvider {
     }
     this.kind = kind
     this.seen = null
-    this.haveOffset = false
     this.setPhase('holding')
   }
 
@@ -447,10 +422,7 @@ export class WallTracking implements TrackingProvider {
     const pose = cameraFromPlaneHomography(Himg, this.k())
     if (pose) {
       this.visQ.set(...quatFromMat(pose.R))
-      const p = pose.position
-      if (!this.havePos) this.pos = [p[0], p[1], p[2]]
-      else this.pos = [this.pos[0] + (p[0] - this.pos[0]) * 0.5, this.pos[1] + (p[1] - this.pos[1]) * 0.5, this.pos[2] + (p[2] - this.pos[2]) * 0.5]
-      this.havePos = true
+      this.haveVis = true
     }
     // gyro-led: the turn from the gyroscope, the position from the picture given that turn
     if (pose && this.Wp && this.haveQ) {
@@ -509,5 +481,4 @@ export class WallTracking implements TrackingProvider {
     const med = sorted[sorted.length >> 1]
     this.f += (med - this.f) * 0.02
   }
-  private havePos = false
 }

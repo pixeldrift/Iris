@@ -46,6 +46,26 @@ the code as it stands, in headless Chromium and unit tests; nothing here was tri
 17. **Timers.** *Re-checked, corrected:* the network polls (share, connect, update check) already skip their work while the page is hidden and run once when it comes back. The timers that do keep running (day schedule 30 s, "minute" tick for finished events, the example hints, the pop-game bank) only change local state. Reminders must keep running while hidden. No shared ticker needed.
 18. **Unneeded exports.** About 60 exports are used only inside their own file (types, constants, helpers). Harmless, but they widen the public surface. Recommend `noUnusedLocals`-style linting with an export check in CI.
 
+## Review of the outside changes (fifth pass)
+
+Thirty-five commits from another contributor were merged in (completed-task archive, image gallery and viewer, counts, two-level sorting, sharing a single item, list swipes, past-due auto-complete). The features were kept; what was fixed:
+
+| Area | Problem found | Change |
+| --- | --- | --- |
+| Spatial | The Unsorted box had been put back, while the layout still dropped it: a group with no place, and loose cards that were also in it. | Back to one rule: a task in no group is a loose card on the wall, with no Unsorted box (`content.ts`). Flat-canvas drag test fixed by it. |
+| Notes | Notes switched to plain text on blur and back to a box on tap. Taking the box away while a selection was being copied emptied the clipboard. It also grabbed focus (and the keyboard) on opening. | The notes are always a text box (`TaskDetail`). |
+| List editor | The new "Clear" button sat after the box's blur, which already added what was typed, so clearing added it. Two buttons were both named "Add item". | The buttons no longer take focus; clear clears; names are "Clear" and "Add". |
+| List swipe | Ten positional arguments, a dozen refs, style properties set by hand, timers inside timers, `#dc2626` and `#fff` typed in. | `ui/swipe.ts` sets a few custom properties and `data-dir` / `data-phase`; the motion is `.swipe-*` in `index.css`, using the danger tokens. Same look, sounds and timing. |
+| Completing | Past-due auto-complete played a bloom sound and held a 5 s fade for every item at start-up; the fade was 5 s; two timers (the store's and a hook's) cleared the same thing; `archived: x ? false : false`. | `setStatus(..., quiet)`, one `settleLingering` (waits while the details are open, runs when they close), the fade back to 1.5 s. |
+| Sidebar | The Completed filter was 70 lines inline with the same list of periods typed out four times. | `sidebar/CompletedSection.tsx`, one table of periods. |
+| Task details | `AssignField` was one 150-line component for tagging, assigning, inviting and sharing; the assign steps were also copied into quick-add. | `WhoBox.tsx` (one hook for what is known, one for running an action, a function per part), `Box.tsx`, `assignToUser` in `sync/share.ts` used by both; `TaskDetail` 832 to 489 lines. |
+| Pictures | Press-and-hold reordering was four refs and four state variables inside `PictureField`. | `ui/reorder.ts` (`useReorderGrid`). The image viewer's `z-[99999]` is now `--z-viewer`. |
+| Spatial backdrop | The same grid gradient was typed inline, with hex colours, in two components. | `.space-grid` in `index.css`. |
+| Events | Whether an invitation was for an event was found by joining the notifications table (clearing news could change it). | `workspace_invites.purpose`; run `db/schema.sql` again. |
+| Odds | `isFinished` kept a time argument nothing read, and every list re-rendered each minute for it. | Removed; the store's once-a-minute `rollover` does the work. |
+
+Not changed: the group sort is by group name (not sidebar order), as that contributor built it; the Completed archive's retention and the "Completed" scope are as designed.
+
 ## How to re-run the checks
 
 - Types and unit tests: `npx tsc --noEmit && npx vitest run`

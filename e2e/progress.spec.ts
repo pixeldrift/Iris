@@ -12,9 +12,8 @@ test.describe('progress: percent complete, a count, and the columns', () => {
 
   test('a count (12 of 20) sets the percent, and the item moves to the column that reaches', async ({ page }) => {
     const dialog = page.getByLabel('Task details')
-    await dialog.getByRole('button', { name: /Count items instead/ }).click()
-    // the number boxes open a keypad
-    await dialog.getByRole('button', { name: 'Total items' }).click()
+    await dialog.getByRole('button', { name: /Count items/ }).click()
+    // the total's keypad opens by itself; the number boxes open a keypad
     const pad = page.getByRole('group', { name: 'Total items keypad' })
     await pad.getByRole('button', { name: '2', exact: true }).click()
     await pad.getByRole('button', { name: '0', exact: true }).click()
@@ -28,7 +27,7 @@ test.describe('progress: percent complete, a count, and the columns', () => {
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(60)
     expect((await taskNamed(page, 'Grade essays'))?.status).toBe('doing') // (60 is past the In progress break point, 1)
     // the + counter
-    await dialog.getByRole('button', { name: 'One more' }).click()
+    await dialog.getByRole('button', { name: 'One more item completed' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.tally?.done).toBe(13)
     await expect(dialog.getByText('65%')).toBeVisible()
   })
@@ -41,7 +40,7 @@ test.describe('progress: percent complete, a count, and the columns', () => {
     await dialog.getByRole('button', { name: 'Not started' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(0)
     await dialog.getByRole('button', { name: 'In progress' }).click()
-    await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(1) // (the break point to get out of Not started)
+    await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(50) // (the middle of the In progress range)
     await slider.fill('0')
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.status).toBe('todo')
   })

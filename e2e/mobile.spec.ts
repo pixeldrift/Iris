@@ -44,10 +44,33 @@ test.describe('on a phone', () => {
     expect(await rows.count()).toBe(n)
   })
 
+  test('swiping a list row to the right checks it off, with a line drawn across its name; a short swipe does not', async ({ page }) => {
+    await toList(page)
+    const rows = page.locator('[data-lift-id^="task:"]')
+    const t = await touch(page)
+    const row = rows.filter({ hasText: 'Lab report' }).first() // (a plain task: a repeating one is ticked in its log, not its status)
+    const id = (await row.getAttribute('data-lift-id'))!.slice('task:'.length)
+    const status = () => page.evaluate((i) => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((x: { id: string }) => x.id === i).status, id)
+    expect(await status()).not.toBe('done')
+    // short: springs back
+    const b = (await row.boundingBox())!
+    await t('touchStart', b.x + 100, b.y + 20)
+    for (let i = 1; i <= 5; i++) await t('touchMove', b.x + 100 + i * 10, b.y + 20)
+    await t('touchEnd')
+    await page.waitForTimeout(600)
+    expect(await status()).not.toBe('done')
+    // long: the line goes across, and it is ticked
+    const b2 = (await row.boundingBox())!
+    await t('touchStart', b2.x + 100, b2.y + 20)
+    for (let i = 1; i <= 14; i++) await t('touchMove', b2.x + 100 + i * 20, b2.y + 20)
+    await t('touchEnd')
+    await expect.poll(status, { timeout: 4000 }).toBe('done')
+  })
+
   test('a field that the keyboard would cover is scrolled back into view', async ({ page }) => {
     await toList(page)
     await page.locator('[data-lift-id^="task:"]').first().tap()
-    const notes = page.locator('textarea[placeholder^="Notes"]')
+    const notes = page.getByRole('textbox', { name: 'Notes', exact: true })
     await notes.scrollIntoViewIfNeeded()
     await notes.click() // (a real tap: focusing it from a script makes the test runner insist on focus staying put)
     await page.setViewportSize({ width: 390, height: 430 }) // what is left above a keyboard
@@ -235,7 +258,7 @@ test.describe('a phone turned sideways', () => {
       await page.locator('aside').getByRole('button', { name: /Address book/ }).first().click()
     })
     await page.getByRole('button', { name: 'Add a person' }).last().click()
-    const notes = page.getByRole('dialog').getByPlaceholder('Notes') // (the typing bar's own box shares the placeholder, but is not in the dialog)
+    const notes = page.getByRole('dialog').getByRole('textbox', { name: 'Notes', exact: true }) // (the typing bar's own box shares the placeholder, but is not in the dialog)
     await notes.scrollIntoViewIfNeeded()
     await notes.click() // (a real tap: the bar only opens for a focus that follows a gesture)
     // the bar appears at the top, named for the box
@@ -283,7 +306,7 @@ test.describe('the typing bar, sideways: Enter commits', () => {
     await page.keyboard.press('Escape')
     // a plain field (a task's notes, say) keeps its text as it is typed: nothing to commit
     await page.locator('[data-lift-id^="task:"]').first().click()
-    await expect(page.getByLabel('Notes')).not.toHaveAttribute('data-proxy-commit', /.*/)
+    await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).not.toHaveAttribute('data-proxy-commit', /.*/)
   })
 
   test('pressing Enter in the bar flies the text to the list\'s add line and presses Enter there: a new item', async ({ page }) => {

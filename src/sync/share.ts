@@ -367,6 +367,16 @@ export function assignTask(task: Task, userIds: string[], title = task.title) {
   for (const userId of userIds) if (!before.has(userId)) void call({ action: 'assigned', workspaceId: task.workspaceId, userId, taskId: task.id, title }).catch(() => undefined)
 }
 
+/**
+ * Give a task to a person. A connected person (`'link'`, by their account id) is first given access to the item, then assigned; a contact with
+ * no account (`'local'`, by address-book id) is only noted on the item.
+ */
+export async function assignToUser(task: Task, id: string, kind: 'link' | 'local' = 'link') {
+  if (kind === 'link') await shareTask(task, id, 'editor')
+  const latest = useStore.getState().tasks.find((t) => t.id === task.id)
+  if (latest) assignTask(latest, [...new Set([...assigneesOf(latest), id])])
+}
+
 /** Tell the others in a shared group that a task was added (only when this person has switched that on). */
 export function announceAdded(workspaceId: string, taskId: string, title: string) {
   void call({ action: 'added', workspaceId, taskId, title }).catch(() => undefined)
