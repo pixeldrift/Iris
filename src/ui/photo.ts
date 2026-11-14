@@ -18,14 +18,18 @@ export async function portraitFrom(file: File): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.82)
 }
 
+/** The preview kept inside an item (small, so syncing is light): up to `limit` characters as a JPEG data URL. */
+export async function notionImageFrom(file: File, limit = 18_000): Promise<string> {
+  return (await pictureFrom(file, limit)).thumb
+}
+
 /**
- * A picture for a notion: shrunk to fit 480px and saved as a JPEG, made lighter until it is under about 45 KB, so it can travel with the
- * item when it syncs (an item may be at most 64 KB in all). `limit` is lower when the item already holds pictures, so all of them together fit.
+ * A picture for an item, in two sizes: a preview (about 360px, under `limit` characters) that travels inside the item, and a sharp
+ * version (up to 1600px on the long side, a good-quality JPEG) that is kept apart and opened full screen.
  */
-export async function notionImageFrom(file: File, limit = 45_000): Promise<string> {
+export async function pictureFrom(file: File, limit = 18_000): Promise<{ thumb: string; blob: Blob }> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  let max = 480
-  for (;;) {
+  const draw = (max: number) => {
     const k = Math.min(1, max / Math.max(bitmap.width, bitmap.height))
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(bitmap.width * k))
@@ -35,17 +39,30 @@ export async function notionImageFrom(file: File, limit = 45_000): Promise<strin
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-    for (const q of [0.78, 0.62, 0.48, 0.36]) {
-      const url = canvas.toDataURL('image/jpeg', q)
-      if (url.length <= limit) {
-        bitmap.close?.()
-        return url
+    return canvas
+  }
+  try {
+    let thumb = ''
+    for (let max = 360; !thumb; max = Math.round(max * 0.8)) {
+      const canvas = draw(max)
+      for (const q of [0.8, 0.68, 0.56, 0.44]) {
+        const url = canvas.toDataURL('image/jpeg', q)
+        if (url.length <= limit) {
+          thumb = url
+          break
+        }
       }
+      if (!thumb && max < 90) thumb = canvas.toDataURL('image/jpeg', 0.3)
     }
-    max = Math.round(max * 0.75)
-    if (max < 120) {
-      bitmap.close?.()
-      return canvas.toDataURL('image/jpeg', 0.3)
+    const big = draw(1600)
+    let blob: Blob | null = null
+    for (const q of [0.88, 0.8, 0.7, 0.6]) {
+      blob = await new Promise<Blob | null>((resolve) => big.toBlob(resolve, 'image/jpeg', q))
+      if (blob && blob.size <= 1_500_000) break
     }
+    if (!blob) throw new Error('This browser can’t prepare pictures.')
+    return { thumb, blob }
+  } finally {
+    bitmap.close?.()
   }
 }

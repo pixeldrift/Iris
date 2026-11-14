@@ -112,3 +112,13 @@ put the variables from `.env.example` in `.env.local` and run `vercel dev`.
   Passkeys / social sign-in are Neon Auth settings plus a button in `src/ui/Account.tsx`.
 - Deleting an account in Neon Auth does not delete its `entities` rows yet.
 - Reminders still fire only while the app is open; Web Push will use the account to store subscriptions.
+
+## Pictures
+
+An item carries a small preview of each picture inside itself (`images`, about 360px, under 18 KB each) so bubbles, lists and
+syncing stay light; an item may be at most 64 KB in all, and one over that is kept back from syncing (the account menu says so)
+rather than failing every sync. The sharp version (`full`, up to 1600px, a good JPEG) is stored apart: in this browser's
+IndexedDB (`src/sync/images.ts`) and, when signed in, in the `images` table (Postgres, in the item's workspace) through
+`/api/image` (`PUT` to add, `GET` to read; `ws=me` means your own). Other devices fetch it when a picture is opened full screen,
+showing the preview meanwhile. Run the latest `db/schema.sql` to create the table. Pictures are not yet removed from the
+database when the item holding them is deleted.

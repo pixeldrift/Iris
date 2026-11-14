@@ -97,6 +97,8 @@ export interface Task {
   dueTime?: string | null
   /** A notion's pictures, small JPEG data URLs. `image` remains the first/cover image for older clients. */
   images?: string[]
+  /** The sharp version of each picture in `images` (same order; '' where there is none): an id of a picture kept on this device and in the account. */
+  full?: string[]
   /** Legacy/cover picture, kept in sync with the first entry in images. */
   image?: string
   /** With a picture: false = leave it untinted (the bubble's outer ring still takes the group's color). Absent or true = tinted. */
