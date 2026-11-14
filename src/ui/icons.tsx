@@ -205,6 +205,13 @@ export const IconChat = (p: P) => (
     <path d="M4.5 6.5a2.5 2.5 0 0 1 2.5-2.5h10a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4H7a2.5 2.5 0 0 1-2.5-2.5v-7Z" />
   </Svg>
 )
+/** Two sheets, one behind the other: copy. */
+export const IconCopy = (p: P) => (
+  <Svg {...p}>
+    <rect x="8.5" y="8.5" width="11" height="11" rx="2.5" />
+    <path d="M15.5 8.5V6.5A2.5 2.5 0 0 0 13 4H6.5A2.5 2.5 0 0 0 4 6.5V13a2.5 2.5 0 0 0 2.5 2.5h2" />
+  </Svg>
+)
 /** A note page with a folded corner and three lines. */
 export const IconNote = (p: P) => (
   <Svg {...p}>

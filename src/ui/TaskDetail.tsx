@@ -13,6 +13,7 @@ import { ImageViewer } from './ImageViewer'
 import { useReorderGrid } from './reorder'
 import { describeRecurrence } from '../core/recurrence'
 import { WhoBox } from './WhoBox'
+import { NotesField } from './NotesField'
 import { Box } from './Box'
 import { askConfirm } from './dialogs'
 import { NumberField } from './NumberPad'
@@ -201,15 +202,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
       </Box>
       <WhoBox task={task} />
       <Box title="Notes" icon={<IconNote size={13} />} startOpen={!task.notes} summary={task.notes ? task.notes.replace(/\s+/g, ' ').slice(0, 48) : 'Add notes'}>
-        {/* always a text box (never swapped for plain text when it loses focus): taking a selection away would empty a copy in progress */}
-        <textarea
-          value={task.notes}
-          onChange={(e) => update(task.id, { notes: e.target.value })}
-          placeholder="Write a note…"
-          aria-label="Notes"
-          rows={Math.min(8, Math.max(3, Math.ceil(task.notes.length / 40) + (task.notes.match(/\n/g)?.length ?? 0)))}
-          className="well w-full resize-none rounded-2xl px-3.5 py-2.5 text-sm"
-        />
+        <NotesField task={task} />
       </Box>
       {(task.kind === 'task' || task.kind === 'list') && <ProgressBox task={task} onUseList={() => { update(task.id, { kind: 'list', tally: null }); setFocusListEntry(true) }} />}
       {/* both sliders on one line: most people never touch them (the priority grid does the fine tuning) */}
