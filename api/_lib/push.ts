@@ -75,16 +75,17 @@ export function dueForPush(tasks: Task[], now: number, tz: string): Due[] {
 }
 
 /** One sweep (run about once a minute): push whatever has come due to every subscribed person. */
-export async function sweep(db: Db, send: Sender, now = Date.now()): Promise<{ sent: number; removed: number; failed: number }> {
+export async function sweep(db: Db, send: Sender, now = Date.now()): Promise<{ sent: number; removed: number; failed: number; devices: number; due: number }> {
   const subs = (await db.query<{ endpoint: string; user_id: string; p256dh: string; auth: string; tz: string }>('select endpoint, user_id, p256dh, auth, tz from push_subscriptions')).rows
   const byUser = new Map<string, typeof subs>()
   for (const s of subs) byUser.set(s.user_id, [...(byUser.get(s.user_id) ?? []), s])
-  let sent = 0, removed = 0, failed = 0
+  let sent = 0, removed = 0, failed = 0, dueCount = 0
   for (const [userId, list] of byUser) {
     const rows = (await db.query<{ data: Task }>(
       `select e.data from entities e join workspace_members m on m.workspace_id = e.workspace_id
        where m.user_id = $1 and e.kind = 'task' and not e.deleted and e.data is not null`, [userId])).rows
     const due = dueForPush(rows.map((r) => r.data), now, list[0].tz)
+    dueCount += due.length
     for (const d of due) {
       for (const s of list) {
         // Claim per device, not per person: a failed device can retry without duplicating
@@ -111,5 +112,7 @@ export async function sweep(db: Db, send: Sender, now = Date.now()): Promise<{ s
     }
   }
   await db.query(`delete from push_sent where sent_at < now() - interval '3 days'`)
-  return { sent, removed, failed }
+  // (one line a minute that says what the sweep saw: no devices subscribed, nothing due, or sends that failed)
+  if (sent || removed || failed || dueCount) console.log('push sweep', { devices: subs.length, due: dueCount, sent, removed, failed })
+  return { sent, removed, failed, devices: subs.length, due: dueCount }
 }

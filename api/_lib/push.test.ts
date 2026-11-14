@@ -57,9 +57,9 @@ describe('push', () => {
     await db.query(`insert into entities (workspace_id, kind, id, data, updated_at, seq) values ('ann','task','x',$1,1,1)`, [JSON.stringify(t)])
     const got: Payload[] = []
     const send = async (s: { endpoint: string }, p: Payload) => (got.push(p), s.endpoint.endsWith('/2') ? ('gone' as const) : ('ok' as const))
-    expect(await sweep(db, send, NOW)).toEqual({ sent: 1, removed: 1, failed: 0 })
+    expect(await sweep(db, send, NOW)).toMatchObject({ sent: 1, removed: 1, failed: 0 })
     expect(got).toHaveLength(2)
-    expect(await sweep(db, send, NOW + 60_000)).toEqual({ sent: 0, removed: 0, failed: 0 })
+    expect(await sweep(db, send, NOW + 60_000)).toMatchObject({ sent: 0, removed: 0, failed: 0 })
     expect((await db.query('select 1 from push_subscriptions')).rows).toHaveLength(1)
   })
 
@@ -77,11 +77,11 @@ describe('push', () => {
       if (s.endpoint.endsWith('/retry-2') && count === 1) throw new Error('temporary push failure')
       return 'ok' as const
     }
-    expect(await sweep(db, send, NOW)).toEqual({ sent: 1, removed: 0, failed: 1 })
-    expect(await sweep(db, send, NOW + 60_000)).toEqual({ sent: 1, removed: 0, failed: 0 })
+    expect(await sweep(db, send, NOW)).toMatchObject({ sent: 1, removed: 0, failed: 1 })
+    expect(await sweep(db, send, NOW + 60_000)).toMatchObject({ sent: 1, removed: 0, failed: 0 })
     expect(attempts.get('https://push.example/retry-1')).toBe(1)
     expect(attempts.get('https://push.example/retry-2')).toBe(2)
-    expect(await sweep(db, send, NOW + 120_000)).toEqual({ sent: 0, removed: 0, failed: 0 })
+    expect(await sweep(db, send, NOW + 120_000)).toMatchObject({ sent: 0, removed: 0, failed: 0 })
   })
 
   it('validates and removes subscriptions', async () => {
