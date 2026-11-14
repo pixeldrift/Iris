@@ -20,9 +20,9 @@ export async function portraitFrom(file: File): Promise<string> {
 
 /**
  * A picture for a notion: shrunk to fit 480px and saved as a JPEG, made lighter until it is under about 45 KB, so it can travel with the
- * item when it syncs (an item may be at most 64 KB in all).
+ * item when it syncs (an item may be at most 64 KB in all). `limit` is lower when the item already holds pictures, so all of them together fit.
  */
-export async function notionImageFrom(file: File): Promise<string> {
+export async function notionImageFrom(file: File, limit = 45_000): Promise<string> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
   let max = 480
   for (;;) {
@@ -37,7 +37,7 @@ export async function notionImageFrom(file: File): Promise<string> {
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
     for (const q of [0.78, 0.62, 0.48, 0.36]) {
       const url = canvas.toDataURL('image/jpeg', q)
-      if (url.length <= 45_000) {
+      if (url.length <= limit) {
         bitmap.close?.()
         return url
       }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { emptyMemory, hashOf, keyOf, localChanges, remoteToApply, type Entity } from './diff'
+import { emptyMemory, hashOf, keyOf, localChanges, MAX_ITEM_BYTES, remoteToApply, tooLargeToSync, wireData, type Entity } from './diff'
+import { normalizeTask } from '../core/normalize'
 
 const task = (id: string, title: string): Entity => ({ kind: 'task', id, data: { id, title } })
 
@@ -73,5 +74,19 @@ describe('workspaces', () => {
       { kind: 'task', id: 'm', data: null, updatedAt: 8, workspaceId: 'team' },
       { kind: 'task', id: 'm', data: home.data, updatedAt: 8 },
     ])
+  })
+})
+
+describe('pictures and the size an item may be', () => {
+  it('a task sends its pictures once (the cover is put back on arrival), and an oversized item is recognised', () => {
+    const t = { id: 't', images: ['data:a', 'data:b'], image: 'data:a', title: 'x' }
+    const w = wireData('task', t)
+    expect(w).not.toHaveProperty('image')
+    expect(w.images).toEqual(['data:a', 'data:b'])
+    expect(normalizeTask(w).image).toBe('data:a')
+    expect(wireData('task', { id: 'u', title: 'no pictures' })).toEqual({ id: 'u', title: 'no pictures' })
+    expect(tooLargeToSync({ id: 'big', images: ['x'.repeat(MAX_ITEM_BYTES)] })).toBe(true)
+    expect(tooLargeToSync({ id: 'ok', images: ['x'.repeat(40_000)] })).toBe(false)
+    expect(tooLargeToSync(null)).toBe(false)
   })
 })

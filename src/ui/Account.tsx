@@ -201,7 +201,7 @@ function AccountMenu() {
     )
   }
   const status =
-    sync.status === 'syncing' ? 'Syncing…' : sync.status === 'offline' ? 'Offline: saved on this device' : sync.status === 'error' ? 'Couldn’t sync. Tap Sync now to retry' : sync.lastAt ? `Synced ${ago(sync.lastAt)}` : 'Signed in'
+    sync.status === 'syncing' ? 'Syncing…' : sync.status === 'offline' ? 'Offline: saved on this device' : sync.status === 'error' ? 'Couldn’t sync. Tap Sync now to retry' : sync.tooLarge ? `${sync.tooLarge} item${sync.tooLarge === 1 ? ' is' : 's are'} too big to sync (remove a picture)` : sync.lastAt ? `Synced ${ago(sync.lastAt)}` : 'Signed in'
   const dot = sync.status === 'error' ? 'bg-danger' : sync.status === 'offline' ? 'bg-ink-faint' : sync.status === 'syncing' ? 'animate-pulse bg-lilac-400' : 'bg-[#6fc29a]'
   const me = people.find((p) => p.id === `me-${data.user.id}`)
   const initial = (data.user.name || data.user.email)[0]?.toUpperCase()

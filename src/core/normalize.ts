@@ -35,6 +35,7 @@ export function normalizeTask(raw: Record<string, unknown>): Task {
     createdAt: 0,
     completedAt: null,
     ...raw,
+    ...(Array.isArray(raw.images) && raw.images.length && raw.image === undefined ? { image: raw.images[0] as string } : {}),
   } as Task
 }
 

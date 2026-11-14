@@ -7,7 +7,7 @@ import { alignTaskWorkspaces, announceAdded } from './share'
 import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
 import { useStore } from '../state/store'
 import { reminderPending } from '../core/tasks'
-import { emptyMemory, hashOf, keyOf, localChanges, remoteToApply, type Change, type Entity, type Kind, type SyncMemory } from './diff'
+import { emptyMemory, hashOf, keyOf, localChanges, remoteToApply, tooLargeToSync, wireData, type Change, type Entity, type Kind, type SyncMemory } from './diff'
 
 export type SyncStatus = 'off' | 'syncing' | 'idle' | 'error' | 'offline'
 
@@ -19,8 +19,10 @@ interface SyncState {
   peers: number
   /** The newest deployed build the server has told us about (the update notice compares it with this page's). */
   build: string | null
+  /** How many items are too big to sync (they stay on this device, and are tried again once they are smaller). */
+  tooLarge: number
 }
-export const useSync = create<SyncState>(() => ({ status: 'off', lastAt: null, error: null, peers: 0, build: null }))
+export const useSync = create<SyncState>(() => ({ status: 'off', lastAt: null, error: null, peers: 0, build: null, tooLarge: 0 }))
 
 const MEMORY_KEY = 'lilac-sync-v1'
 
@@ -48,7 +50,7 @@ const saveMemory = (m: SyncMemory) => {
 /** Everything that syncs: tasks, folders and people. (Settings and layout stay on the device.) */
 function entities(): Entity[] {
   const s = useStore.getState()
-  const mk = (kind: Entity['kind'], x: { id: string; workspaceId?: string }): Entity => ({ kind, id: x.id, data: x as unknown as Record<string, unknown>, ...(x.workspaceId ? { workspaceId: x.workspaceId } : {}) })
+  const mk = (kind: Entity['kind'], x: { id: string; workspaceId?: string }): Entity => ({ kind, id: x.id, data: wireData(kind, x as unknown as Record<string, unknown>), ...(x.workspaceId ? { workspaceId: x.workspaceId } : {}) })
   return [...s.tasks.filter((t) => !t.draft).map((t) => mk('task', t)), ...s.folders.map((f) => mk('folder', f)), ...s.people.map((p) => mk('person', p))]
 }
 
@@ -91,7 +93,7 @@ function applyRemote(changes: Change[]): Map<string, unknown> {
     const take = (c: Change) => {
       const n = normalize(c) as T | null
       if (n) {
-        stored.set(keyOf(c.kind, c.id), n)
+        stored.set(keyOf(c.kind, c.id), wireData(c.kind, n as unknown as Record<string, unknown>))
         out.push(n)
       }
     }
@@ -205,7 +207,13 @@ async function syncOnce(userId: string) {
       const open = useStore.getState().selectedId
       const editing = open ? useStore.getState().tasks.find((t) => t.id === open) : undefined
       const hold = new Set(editing && reminderPending(editing) ? [keyOf('task', editing.id)] : [])
-      const { changes, stamps } = localChanges(ents, mem, Date.now(), hold)
+      const local = localChanges(ents, mem, Date.now(), hold)
+      const stamps = local.stamps
+      // an item the server would refuse is kept back (it would make every sync fail, and nothing after it would ever arrive)
+      const big = local.changes.filter((c) => tooLargeToSync(c.data))
+      const changes = big.length ? local.changes.filter((c) => !tooLargeToSync(c.data)) : local.changes
+      for (const c of big) delete stamps[keyOf(c.kind, c.id)]
+      if (useSync.getState().tooLarge !== big.length) useSync.setState({ tooLarge: big.length })
       const wasKnown = new Set(Object.keys(mem.known))
       const pushed = hashes()
       const resp = await post({ cursors: mem.cursors, changes, device, active: isPresent() })
