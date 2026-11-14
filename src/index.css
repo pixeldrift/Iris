@@ -244,6 +244,12 @@ input[type='range'].soft {
   background: transparent;
   cursor: pointer;
 }
+/* The progress thumb has a broad, soft shadow. Keep enough paint area around it
+   inside the native range control, which otherwise clips its own thumb shadow. */
+input[type='range'].soft.progress-slider {
+  height: 52px;
+  padding: 15px 16px;
+}
 input[type='range'].soft::-webkit-slider-runnable-track {
   height: 8px;
   border-radius: 9999px;
