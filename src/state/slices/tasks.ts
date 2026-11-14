@@ -4,7 +4,7 @@ import { detectContactIntent, matchPerson } from '../../core/people'
 import { hasProgress, patchForStage, percentForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
 import { isPastEvent } from '../../core/schedule'
-import { remindFromRule } from '../../core/reminders'
+import { hasPendingReminder, remindFromRule } from '../../core/reminders'
 import { completedDateMatches, rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
 import type { Task, TaskKind, TaskStatus } from '../../core/types'
 import { firstOf } from '../../core/scope'
@@ -236,7 +236,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         const snapshot = get()
         if (snapshot.settings.autoCompletePastDue) {
           for (const t of snapshot.tasks) {
-            if (t.status === 'done' || t.draft || repeatOf(t) || t.kind === 'idea') continue
+            if (t.status === 'done' || t.draft || repeatOf(t) || t.kind === 'idea' || hasPendingReminder(t, Date.now())) continue // (a reminder still to come keeps it open)
             const past = t.kind === 'event' ? isPastEvent(t) : !!(t.due ?? t.day) && (t.due ?? t.day)! < now
             if (past) get().setStatus(t.id, 'done', true)
           }

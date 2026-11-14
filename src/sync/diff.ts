@@ -3,6 +3,22 @@
 
 export type Kind = 'task' | 'folder' | 'person'
 
+/** What the server accepts for one item (it refuses the whole request for a larger one). */
+export const MAX_ITEM_BYTES = 64 * 1024
+
+/**
+ * An item as it travels. A task keeps its first picture twice on the device (`image` is the cover, `images[0]` the same picture),
+ * which would double its weight on the wire, so only `images` goes; the cover is put back on arrival (see normalizeTask).
+ */
+export function wireData(kind: Kind, data: Record<string, unknown>): Record<string, unknown> {
+  if (kind !== 'task' || !Array.isArray(data.images) || !data.images.length || data.image === undefined) return data
+  const { image: _cover, ...rest } = data
+  return rest
+}
+
+/** Too big for the server to take, so it must not be sent (one such item would make every sync fail). */
+export const tooLargeToSync = (data: Record<string, unknown> | null) => !!data && JSON.stringify(data).length > MAX_ITEM_BYTES
+
 export interface Change {
   kind: Kind
   id: string

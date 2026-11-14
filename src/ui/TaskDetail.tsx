@@ -9,6 +9,7 @@ import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
 import { notionImageFrom } from './photo'
+import { MAX_ITEM_BYTES } from '../sync/diff'
 import { ImageViewer } from './ImageViewer'
 import { useReorderGrid } from './reorder'
 import { describeRecurrence } from '../core/recurrence'
@@ -298,7 +299,11 @@ function PictureField({ task }: { task: Task }) {
           e.target.value = ''
           if (!files.length) return
           try {
-            const added = await Promise.all(files.map((file) => notionImageFrom(file)))
+            // everything an item holds must stay under what the server takes (64 KB), so the pictures share what is left
+            const used = JSON.stringify({ ...task, image: undefined, images: [] }).length + images.reduce((n, src) => n + src.length, 0)
+            const each = Math.min(45_000, Math.floor((MAX_ITEM_BYTES - 6_000 - used) / files.length))
+            if (each < 5_000) throw new Error('This item is full of pictures. Remove one to add another.')
+            const added = await Promise.all(files.map((file) => notionImageFrom(file, each)))
             const next = [...images, ...added]
             update(task.id, { images: next, image: next[0] })
           } catch (err) {

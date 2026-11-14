@@ -4,7 +4,7 @@ import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { completedDateMatches, filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
-import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, reminderPresets } from './reminders'
+import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, hasPendingReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
 import { matchesQuery } from './search'
@@ -1194,5 +1194,15 @@ describe('edge dots for off-screen items', () => {
     const pt = [{ id: 'a', x: 1000, y: 200, r: 30, hue: 0 }]
     expect(edgeDots(pt, { scale: 1, tx: 0, ty: 0 }, 800, 400)).toHaveLength(1)
     expect(edgeDots(pt, { scale: 1, tx: -400, ty: 0 }, 800, 400)).toEqual([]) // panned: now in view
+  })
+})
+
+describe('reminders still to come', () => {
+  it('are noticed, so an item is not finished off behind their back', () => {
+    const t = { remindAt: 2_000, reminded: false, dueRemindAt: null, dueReminded: false }
+    expect(hasPendingReminder(t, 1_000)).toBe(true)
+    expect(hasPendingReminder({ ...t, reminded: true }, 1_000)).toBe(false)
+    expect(hasPendingReminder(t, 3_000)).toBe(false)
+    expect(hasPendingReminder({ ...t, remindAt: null, dueRemindAt: 5_000 }, 1_000)).toBe(true)
   })
 })

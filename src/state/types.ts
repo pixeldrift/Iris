@@ -184,6 +184,7 @@ export interface PeopleSlice {
 export interface DataSlice {
   /** Add the demo content (anything not already there), or take it away again. */
   importDemo: () => void
+  /** Move the demo content's dates forward, a week at a time, so it is always about this month. */
   removeDemo: () => void
   /** Start fresh: every task, group and person goes (your own profile stays). */
   clearEverything: () => void
