@@ -2,6 +2,7 @@ import { clearHistory, suppressHistory } from '../state/history'
 import { create } from 'zustand'
 import { arrive, bloom, pop, undone } from '../audio/engine'
 import { apiToken } from './auth'
+import { uploadPending } from './images'
 import { normalizeFolder, normalizePerson, normalizeTask } from '../core/normalize'
 import { alignTaskWorkspaces, announceAdded } from './share'
 import { dropSampleCopies, isDemoFolder, isDemoPerson, isDemoTask, seedData } from '../core/seed'
@@ -266,6 +267,11 @@ async function syncOnce(userId: string) {
       if (!resp.more) break
     }
     useSync.setState({ status: 'idle', lastAt: Date.now(), error: null })
+    // the sharp versions of pictures added here go up now (the items already carry their previews)
+    void uploadPending((id) => {
+      const owner = useStore.getState().tasks.find((t) => t.full?.includes(id))
+      return owner ? owner.workspaceId ?? 'me' : null
+    })
   } catch (e) {
     if (e instanceof SignedOut) {
       useSync.setState({ status: 'off', error: null })

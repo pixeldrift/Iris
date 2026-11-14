@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from 'react'
 import { allLinks } from '../core/people'
 import { useStore } from '../state/store'
 import { useExit } from './anim'
-import { notionImageFrom } from './photo'
+import { pictureFrom } from './photo'
+import { keepFull } from '../sync/images'
 import { MAX_ITEM_BYTES } from '../sync/diff'
 import { ImageViewer } from './ImageViewer'
 import { useReorderGrid } from './reorder'
@@ -229,13 +230,16 @@ function PictureField({ task }: { task: Task }) {
   const images = task.images?.length ? task.images : task.image ? [task.image] : []
   const tinted = task.imageTint !== false
   // (`image` stays the first one, for older clients and the bubbles)
-  const setImages = (next: string[]) => update(task.id, { images: next, image: next[0], ...(next.length ? {} : { imageTint: undefined }) })
+  const full = images.map((_, i) => task.full?.[i] ?? '')
+  const setImages = (next: string[], nextFull: string[]) => update(task.id, { images: next, image: next[0], full: nextFull.some(Boolean) ? nextFull : undefined, ...(next.length ? {} : { imageTint: undefined }) })
 
   const reorder = useReorderGrid((from, to) => {
     if (from === to || from < 0 || to < 0 || from >= images.length || to >= images.length) return
     const next = [...images]
     next.splice(to, 0, ...next.splice(from, 1))
-    setImages(next)
+    const nextFull = [...full]
+    nextFull.splice(to, 0, ...nextFull.splice(from, 1))
+    setImages(next, nextFull)
   })
   const open = (index: number, button: HTMLButtonElement) => {
     if (reorder.consumedClick()) return
@@ -245,7 +249,7 @@ function PictureField({ task }: { task: Task }) {
   const remove = async (at: number) => {
     const ok = await askConfirm({ title: 'Remove this image?', message: 'This image will be removed from this item.', confirmLabel: 'Remove', cancelLabel: 'Keep', danger: true })
     if (!ok) return
-    setImages(images.filter((_, i) => i !== at))
+    setImages(images.filter((_, i) => i !== at), full.filter((_, i) => i !== at))
     setViewer(null)
   }
 
@@ -280,7 +284,7 @@ function PictureField({ task }: { task: Task }) {
             <input type="checkbox" checked={tinted} onChange={(e) => update(task.id, { imageTint: e.target.checked ? undefined : false })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
             Tint images with the group’s color
           </label>
-          {viewer && <ImageViewer images={images} initialIndex={viewer.index} origin={viewer.origin} onClose={() => setViewer(null)} />}
+          {viewer && <ImageViewer images={images} full={full} workspaceId={task.workspaceId} initialIndex={viewer.index} origin={viewer.origin} onClose={() => setViewer(null)} />}
         </>
       ) : (
         <button type="button" onClick={() => input.current?.click()} className="glass-soft flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm text-lilac-700 transition hover:bg-white/80">
@@ -300,12 +304,14 @@ function PictureField({ task }: { task: Task }) {
           if (!files.length) return
           try {
             // everything an item holds must stay under what the server takes (64 KB), so the pictures share what is left
-            const used = JSON.stringify({ ...task, image: undefined, images: [] }).length + images.reduce((n, src) => n + src.length, 0)
-            const each = Math.min(45_000, Math.floor((MAX_ITEM_BYTES - 6_000 - used) / files.length))
+            const used = JSON.stringify({ ...task, image: undefined, images: [], full: undefined }).length + images.reduce((n, src) => n + src.length + 60, 0)
+            const each = Math.min(18_000, Math.floor((MAX_ITEM_BYTES - 6_000 - used) / files.length) - 60)
             if (each < 5_000) throw new Error('This item is full of pictures. Remove one to add another.')
-            const added = await Promise.all(files.map((file) => notionImageFrom(file, each)))
-            const next = [...images, ...added]
-            update(task.id, { images: next, image: next[0] })
+            const made = await Promise.all(files.map(async (file) => {
+              const p = await pictureFrom(file, each)
+              return { thumb: p.thumb, id: await keepFull(p.blob) }
+            }))
+            setImages([...images, ...made.map((m) => m.thumb)], [...full, ...made.map((m) => m.id)])
           } catch (err) {
             showToast((err as Error).message)
           }

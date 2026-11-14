@@ -12,6 +12,7 @@ export async function deleteAccount(db: Db, userId: string): Promise<{ authRemov
   await db.query('delete from connections where a_user = $1 or b_user = $1', [userId])
   await db.query('delete from notifications where user_id = $1 or from_user = $1', [userId])
   await db.query('delete from invite_attempts where user_id = $1', [userId])
+  await db.query('delete from images where workspace_id = $1', [userId])
   await db.query('delete from profiles where user_id = $1', [userId])
   await db.query('delete from workspace_members where user_id = $1', [userId])
   // entities go with their workspace (on delete cascade)

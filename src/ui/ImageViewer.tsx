@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { fullUrl } from '../sync/images'
 import { IconClose } from './icons'
 
 type ImageOrigin = { left: number; top: number; width: number; height: number }
 
 /** Full-screen, touch-first image viewer: shared-viewport expansion, swipe between pictures, pinch/double-tap to zoom. */
-export function ImageViewer({ images, initialIndex = 0, origin, onClose }: { images: string[]; initialIndex?: number; origin?: ImageOrigin; onClose: () => void }) {
+export function ImageViewer({ images, full, workspaceId, initialIndex = 0, origin, onClose }: { images: string[]; full?: string[]; workspaceId?: string; initialIndex?: number; origin?: ImageOrigin; onClose: () => void }) {
   const [index, setIndex] = useState(Math.max(0, Math.min(initialIndex, images.length - 1)))
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -18,6 +19,17 @@ export function ImageViewer({ images, initialIndex = 0, origin, onClose }: { ima
   const lastTap = useRef(0)
   const lastPoint = useRef({ x: 0, y: 0 })
   const closeTimer = useRef<number | null>(null)
+
+  // the sharp version replaces the preview as soon as it is here (the preview is shown meanwhile)
+  const [sharp, setSharp] = useState<Record<string, string>>({})
+  const wanted = full?.[index]
+  useEffect(() => {
+    if (!wanted || sharp[wanted]) return
+    let live = true
+    void fullUrl(wanted, workspaceId).then((url) => { if (live && url) setSharp((m) => ({ ...m, [wanted]: url })) })
+    return () => { live = false }
+  }, [wanted, workspaceId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = (wanted && sharp[wanted]) || images[index]
 
   const resetZoom = () => { setZoom(1); setOffset({ x: 0, y: 0 }) }
   const move = (by: number) => {
@@ -128,11 +140,11 @@ export function ImageViewer({ images, initialIndex = 0, origin, onClose }: { ima
       onPointerUp={up}
       onPointerCancel={up}
     >
-      <img aria-hidden src={images[index]} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" style={{ filter: 'blur(26px) brightness(.38)', transform: 'scale(1.12)', opacity: expanded && !closing ? 1 : 0, transition: 'opacity 340ms ease' }} />
+      <img aria-hidden src={shown} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" style={{ filter: 'blur(26px) brightness(.38)', transform: 'scale(1.12)', opacity: expanded && !closing ? 1 : 0, transition: 'opacity 340ms ease' }} />
       <div className="absolute inset-0" style={{ background: 'rgba(8,8,14,.56)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', opacity: expanded && !closing ? 1 : 0, transition: 'opacity 340ms ease' }} />
       <img
         key={index}
-        src={images[index]}
+        src={shown}
         alt={`Image ${index + 1} of ${images.length}`}
         draggable={false}
         className="pointer-events-none absolute"

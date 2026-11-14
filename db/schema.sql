@@ -204,3 +204,17 @@ create index if not exists workspace_invites_token_idx on workspace_invites (tok
 alter table notifications add column if not exists workspace_id text;
 alter table notifications add column if not exists info text;
 alter table notifications add column if not exists extra text;
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- Pictures. An item keeps a small preview inside itself (so bubbles and lists stay light and syncing stays fast); the sharp
+-- version lives here, in the workspace the item belongs to, and is fetched when a picture is opened full screen.
+-- Anyone who is a member of the workspace can read it; editors and owners can add to it.
+create table if not exists images (
+  workspace_id text not null,
+  id           text not null,
+  mime         text not null default 'image/jpeg',
+  bytes        bytea not null,
+  uploaded_by  text not null,
+  created_at   timestamptz not null default now(),
+  primary key (workspace_id, id)
+);

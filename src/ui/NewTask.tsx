@@ -15,7 +15,8 @@ import type { TaskKind } from '../core/types'
 import { parseQuickAdd, suggestTags } from '../core/quickadd'
 import { askNotify } from './notify'
 import { fieldsFromQuickAdd } from './quickCreate'
-import { notionImageFrom } from './photo'
+import { pictureFrom } from './photo'
+import { keepFull } from '../sync/images'
 import { useLandscapePhone } from './useMedia'
 
 /** Where a new item should land in the pond (fractions of the canvas); none = somewhere near the middle. */
@@ -177,8 +178,8 @@ export function NewTask() {
   const photo = useRef<HTMLInputElement>(null)
   const takePhoto = async (file: File) => {
     try {
-      const image = await notionImageFrom(file)
-      update(ensureDraft(), { image })
+      const p = await pictureFrom(file)
+      update(ensureDraft(), { image: p.thumb, images: [p.thumb], full: [await keepFull(p.blob)] })
       setMore(true)
     } catch (err) {
       showToast((err as Error).message)

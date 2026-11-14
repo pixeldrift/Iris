@@ -70,4 +70,20 @@ test.describe('pictures on bubbles', () => {
     // a plain task bubble still shows its type icon
     await expect(page.locator('[data-node]:not(:has(.pad-photo)) [title="task"]').first()).toBeVisible()
   })
+
+  test('the sharp picture is kept apart from the small preview, and opening it full screen shows the sharp one', async ({ page }) => {
+    await goto(page, 'List')
+    await page.keyboard.press('n')
+    await page.keyboard.type('Sharp print')
+    await page.keyboard.press('Enter')
+    const dialog = page.getByLabel('Task details')
+    await page.waitForTimeout(900)
+    await dialog.getByLabel('Choose images').setInputFiles(file)
+    await expect.poll(async () => (await taskNamed(page, 'Sharp print'))?.full?.length).toBe(1)
+    const task = (await taskNamed(page, 'Sharp print'))!
+    expect(task.images).toHaveLength(1)
+    expect(task.images![0].length).toBeLessThan(20_000) // the preview that travels with the item stays small
+    await dialog.getByRole('button', { name: /Open image 1|image 1/ }).first().click()
+    await expect(page.locator('img[src^="blob:"]').first()).toBeVisible() // the sharp copy replaced the preview
+  })
 })
