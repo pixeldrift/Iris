@@ -28,6 +28,10 @@ export function remindersDue(t: Task, now: number): ('do' | 'due')[] {
   return out
 }
 
+/** A reminder that is still to come (so the item is not finished off behind its back). */
+export const hasPendingReminder = (t: Pick<Task, 'remindAt' | 'reminded' | 'dueRemindAt' | 'dueReminded'>, now: number): boolean =>
+  (t.remindAt != null && !t.reminded && t.remindAt > now) || (t.dueRemindAt != null && !t.dueReminded && t.dueRemindAt > now)
+
 export interface ReminderPreset {
   id: string
   label: string

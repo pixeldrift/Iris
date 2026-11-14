@@ -1,3 +1,4 @@
+import { today } from '../core/dates'
 import { seedData } from '../core/seed'
 import * as sound from '../audio/engine'
 import type { Settings } from './types'
@@ -37,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyShared: false,
   autoRemind: true,
   autoCompletePastDue: true,
+  demoDate: today(),
   playGate: { usedMs: 0, lockUntil: 0, level: 0, lastLockAt: 0 },
   dateFormat: 'us',
   clockFormat: '12',

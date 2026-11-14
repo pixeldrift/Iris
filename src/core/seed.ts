@@ -47,6 +47,49 @@ const WRITING_STAGES: Stage[] = [
 /** The ids of the demo groups and people (tasks are recognised by their `demo-` / old `seed-` ids). */
 const DEMO_FOLDERS = new Set(['school', 'eng101', 'bio', 'home', 'garden', 'life', 'demo-writing'])
 const DEMO_PEOPLE = new Set(['p-grandma', 'p-patel', 'p-sam', 'p-mina'])
+/**
+ * The demo content, moved `days` later (or earlier) in whole calendar days: every date it holds, its reminders and what is already logged or
+ * finished. The demo is made relative to the day it is added; this keeps it that way as time passes, so a person who opens it weeks later
+ * still finds things coming up and not already over. A reminder that has been moved is armed again. Only the demo's own items are touched.
+ */
+export function shiftDemo(tasks: Task[], people: Person[], days: number): { tasks: Task[]; people: Person[] } {
+  if (!days) return { tasks, people }
+  const date = (d: string | null | undefined) => (d ? addDays(d, days) : d)
+  const stamp = (ms: number | null | undefined) => {
+    if (ms == null) return ms
+    const d = new Date(ms)
+    d.setDate(d.getDate() + days) // (the same clock time, across a change of clocks too)
+    return d.getTime()
+  }
+  return {
+    tasks: tasks.map((t) =>
+      !isDemoTask(t.id)
+        ? t
+        : {
+            ...t,
+            day: date(t.day) ?? null,
+            due: date(t.due) ?? null,
+            start: date(t.start) ?? null,
+            repeat: t.repeat ? { ...t.repeat, from: addDays(t.repeat.from, days), ...(t.repeat.until ? { until: addDays(t.repeat.until, days) } : {}) } : t.repeat,
+            log: t.log.map((d) => addDays(d, days)),
+            remindAt: stamp(t.remindAt) ?? null,
+            dueRemindAt: stamp(t.dueRemindAt),
+            completedAt: stamp(t.completedAt) ?? null,
+            reminded: false,
+            dueReminded: false,
+            alertsDone: [],
+          },
+    ),
+    people: people.map((p) => {
+      if (!isDemoPerson(p.id) || !p.birthday) return p
+      // (a birthday keeps its own year: only its day of the year moves)
+      const [y, m, d] = p.birthday.split('-')
+      const moved = addDays(`2000-${m}-${d}`, days).slice(4)
+      return { ...p, birthday: `${y}${moved}` }
+    }),
+  }
+}
+
 export const isDemoTask = (id: string) => /^(seed-\d+|demo-.+)$/.test(id)
 export const isDemoFolder = (id: string) => DEMO_FOLDERS.has(id)
 export const isDemoPerson = (id: string) => DEMO_PEOPLE.has(id)

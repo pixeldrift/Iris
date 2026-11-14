@@ -54,6 +54,8 @@ export interface Settings {
   autoRemind: boolean
   /** Automatically check off non-repeating items after their date (events after their end time). */
   autoCompletePastDue: boolean
+  /** The day the demo content's dates were last made relative to (it is moved forward a week at a time to keep up, see `rebaseDemo`). */
+  demoDate: string
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */
@@ -184,6 +186,8 @@ export interface PeopleSlice {
 export interface DataSlice {
   /** Add the demo content (anything not already there), or take it away again. */
   importDemo: () => void
+  /** Move the demo content's dates forward, a week at a time, so it is always about this month. */
+  rebaseDemo: () => void
   removeDemo: () => void
   /** Start fresh: every task, group and person goes (your own profile stays). */
   clearEverything: () => void

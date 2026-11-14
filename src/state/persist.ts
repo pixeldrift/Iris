@@ -9,7 +9,7 @@ import type { PersistOptions } from 'zustand/middleware'
 /** How the store is saved to the device, and how an older save is brought up to date when the app loads. */
 export const persistOptions: PersistOptions<State, Partial<State>> = {
   name: 'lilac-v1',
-  version: 14,
+  version: 15,
   partialize: (s) => ({
     tasks: s.tasks,
     folders: s.folders,
@@ -71,6 +71,10 @@ export const persistOptions: PersistOptions<State, Partial<State>> = {
       })
     }
     p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
+    if (from < 15) {
+      // the demo content was made relative to the day it was added: the weekly repeat of "Attend English 101" starts on that day
+      p.settings.demoDate = (p.tasks ?? []).find((t) => t.id === 'demo-class')?.repeat?.from ?? DEFAULT_SETTINGS.demoDate
+    }
     return p as State
   },
   merge: (persisted, current) => {

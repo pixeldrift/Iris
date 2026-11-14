@@ -3,8 +3,8 @@ import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordin
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { completedDateMatches, filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
-import { seedData } from './seed'
-import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, reminderPresets } from './reminders'
+import { seedData, shiftDemo } from './seed'
+import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, hasPendingReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
 import { parseQuickAdd } from './quickadd'
 import { matchesQuery } from './search'
@@ -1194,5 +1194,44 @@ describe('edge dots for off-screen items', () => {
     const pt = [{ id: 'a', x: 1000, y: 200, r: 30, hue: 0 }]
     expect(edgeDots(pt, { scale: 1, tx: 0, ty: 0 }, 800, 400)).toHaveLength(1)
     expect(edgeDots(pt, { scale: 1, tx: -400, ty: 0 }, 800, 400)).toEqual([]) // panned: now in view
+  })
+})
+
+describe('the demo content keeps up with the calendar', () => {
+  it('moves every date it holds by whole days, arms the moved reminders again, and leaves other items alone', () => {
+    const { tasks, people } = seedData()
+    const mine = { ...tasks[0], id: 'mine-1', day: '2026-01-01' }
+    const moved = shiftDemo([...tasks, mine], people, 14)
+    expect(moved.tasks.find((t) => t.id === 'mine-1')!.day).toBe('2026-01-01')
+    const a = tasks.find((t) => t.id === 'demo-lab')!
+    const b = moved.tasks.find((t) => t.id === 'demo-lab')!
+    expect(b.day).toBe(addDays(a.day!, 14))
+    expect(b.due).toBe(addDays(a.due!, 14))
+    expect(b.start).toBe(addDays(a.start!, 14))
+    // a reminder keeps its clock time
+    const plumber = tasks.find((t) => t.id === 'demo-plumber')!
+    const was = new Date(plumber.remindAt!)
+    const now = new Date(moved.tasks.find((t) => t.id === 'demo-plumber')!.remindAt!)
+    expect([now.getHours(), now.getMinutes()]).toEqual([was.getHours(), was.getMinutes()])
+    expect(Math.round((now.getTime() - was.getTime()) / 3_600_000 / 24)).toBe(14)
+    // a repeating series and its log move with it
+    const stretch = moved.tasks.find((t) => t.id === 'demo-stretch')!
+    expect(stretch.log[0]).toBe(addDays(tasks.find((t) => t.id === 'demo-stretch')!.log[0], 14))
+    expect(stretch.repeat!.from).toBe(addDays(tasks.find((t) => t.id === 'demo-stretch')!.repeat!.from, 14))
+    // a birthday keeps its year
+    const sam = people.find((p) => p.id === 'p-sam')!
+    expect(moved.people.find((p) => p.id === 'p-sam')!.birthday!.slice(0, 4)).toBe(sam.birthday!.slice(0, 4))
+    // nothing to do for no days
+    expect(shiftDemo(tasks, people, 0).tasks).toBe(tasks)
+  })
+})
+
+describe('reminders still to come', () => {
+  it('are noticed, so an item is not finished off behind their back', () => {
+    const t = { remindAt: 2_000, reminded: false, dueRemindAt: null, dueReminded: false }
+    expect(hasPendingReminder(t, 1_000)).toBe(true)
+    expect(hasPendingReminder({ ...t, reminded: true }, 1_000)).toBe(false)
+    expect(hasPendingReminder(t, 3_000)).toBe(false)
+    expect(hasPendingReminder({ ...t, remindAt: null, dueRemindAt: 5_000 }, 1_000)).toBe(true)
   })
 })
