@@ -193,8 +193,11 @@ create table if not exists workspace_invites (
   token_hash    text,
   expires_at    timestamptz not null,
   used          boolean not null default false,
+  -- what the invitation is for: a place in a shared group or item, or being a guest at an event (the invited person is told which)
+  purpose       text not null default 'share' check (purpose in ('share', 'event')),
   created_at    timestamptz not null default now()
 );
+alter table workspace_invites add column if not exists purpose text not null default 'share' check (purpose in ('share', 'event'));
 create index if not exists workspace_invites_user_idx on workspace_invites (to_user);
 create index if not exists workspace_invites_token_idx on workspace_invites (token_hash);
 

@@ -82,8 +82,9 @@ export async function inviteConnection(db: Db, who: Caller, body: { workspaceId?
   if (!open.rows.length) {
     // A declined invitation may be sent again with a different purpose (event guest vs. ordinary share).
     await db.query("delete from notifications where user_id = $1 and workspace_id = $2 and kind = 'share-invite'", [to, ws])
-    await db.query("insert into workspace_invites (id, workspace_id, role, created_by, to_user, expires_at) values ($1,$2,$3,$4,$5, now() + ($6 || ' days')::interval)", [randomUUID(), ws, roleOfInput(body.role), who.userId, to, String(INVITE_DAYS)])
-    await notify(db, to, 'share-invite', ws, who.userId, w.name, body.purpose === 'event' ? 'event' : '')
+    const purpose = body.purpose === 'event' ? 'event' : 'share'
+    await db.query("insert into workspace_invites (id, workspace_id, role, created_by, to_user, purpose, expires_at) values ($1,$2,$3,$4,$5,$6, now() + ($7 || ' days')::interval)", [randomUUID(), ws, roleOfInput(body.role), who.userId, to, purpose, String(INVITE_DAYS)])
+    await notify(db, to, 'share-invite', ws, who.userId, w.name, purpose === 'event' ? 'event' : '')
   }
   return { ok: true }
 }
@@ -103,30 +104,28 @@ export async function accept(db: Db, who: Caller, body: { inviteId?: unknown; to
   const byId = idOf(body.inviteId)
   const token = typeof body.token === 'string' && body.token.length <= 200 ? body.token : null
   if (!byId && !token) throw new BadRequest('Which invitation?')
+  type Row = { id: string; workspace_id: string; role: 'editor' | 'viewer'; created_by: string; to_user: string | null; purpose: string }
   const { rows } = byId
-    ? await db.query<{ id: string; workspace_id: string; role: 'editor' | 'viewer'; created_by: string; to_user: string | null }>('select id, workspace_id, role, created_by, to_user from workspace_invites where id = $1 and not used and expires_at > now()', [byId])
-    : await db.query<{ id: string; workspace_id: string; role: 'editor' | 'viewer'; created_by: string; to_user: string | null }>('select id, workspace_id, role, created_by, to_user from workspace_invites where token_hash = $1 and not used and expires_at > now()', [hashToken(token!)])
+    ? await db.query<Row>('select id, workspace_id, role, created_by, to_user, purpose from workspace_invites where id = $1 and not used and expires_at > now()', [byId])
+    : await db.query<Row>('select id, workspace_id, role, created_by, to_user, purpose from workspace_invites where token_hash = $1 and not used and expires_at > now()', [hashToken(token!)])
   const inv = rows[0]
   if (!inv || (inv.to_user && inv.to_user !== who.userId)) throw new BadRequest('That invitation is no longer valid.')
   await db.query("insert into workspace_members (workspace_id, user_id, role) values ($1,$2,$3) on conflict (workspace_id, user_id) do update set role = excluded.role, status = 'active', can_copy = false", [inv.workspace_id, who.userId, inv.role])
   await db.query('update workspace_invites set used = true where id = $1', [inv.id])
   const w = await db.query<{ name: string }>('select name from workspaces where id = $1', [inv.workspace_id])
-  const eventInvite = await db.query('select 1 from notifications where user_id = $1 and workspace_id = $2 and kind = \'share-invite\' and extra = \'event\' limit 1', [who.userId, inv.workspace_id])
-  await notify(db, inv.created_by, eventInvite.rows.length ? 'event-accepted' : 'share-joined', inv.workspace_id, who.userId, w.rows[0]?.name ?? '')
+  await notify(db, inv.created_by, inv.purpose === 'event' ? 'event-accepted' : 'share-joined', inv.workspace_id, who.userId, w.rows[0]?.name ?? '')
   return { workspaceId: inv.workspace_id, name: w.rows[0]?.name ?? '' }
 }
 
 export async function decline(db: Db, who: Caller, body: { inviteId?: unknown }) {
   const id = idOf(body.inviteId)
   if (!id) throw new BadRequest('Which invitation?')
-  const { rows } = await db.query<{ workspace_id: string; created_by: string }>('select workspace_id, created_by from workspace_invites where id = $1 and to_user = $2', [id, who.userId])
+  const { rows } = await db.query<{ workspace_id: string; created_by: string; purpose: string }>('select workspace_id, created_by, purpose from workspace_invites where id = $1 and to_user = $2', [id, who.userId])
   await db.query('delete from workspace_invites where id = $1 and to_user = $2', [id, who.userId])
-  if (rows[0]) {
-    const eventInvite = await db.query('select 1 from notifications where user_id = $1 and workspace_id = $2 and kind = \'share-invite\' and extra = \'event\' limit 1', [who.userId, rows[0].workspace_id])
-    if (eventInvite.rows.length) {
-      const w = await db.query<{ name: string }>('select name from workspaces where id = $1', [rows[0].workspace_id])
-      await notify(db, rows[0].created_by, 'event-declined', rows[0].workspace_id, who.userId, w.rows[0]?.name ?? '')
-    }
+  const declined = rows[0]
+  if (declined?.purpose === 'event') {
+    const w = await db.query<{ name: string }>('select name from workspaces where id = $1', [declined.workspace_id])
+    await notify(db, declined.created_by, 'event-declined', declined.workspace_id, who.userId, w.rows[0]?.name ?? '')
   }
   return { ok: true }
 }
@@ -251,8 +250,7 @@ export async function shareState(db: Db, who: Caller) {
     ? await db.query<{ workspace_id: string; user_id: string; role: Role; status: 'active' | 'leaving' }>('select workspace_id, user_id, role, status from workspace_members where workspace_id = any($1::text[])', [ids])
     : { rows: [] as { workspace_id: string; user_id: string; role: Role; status: 'active' | 'leaving' }[] }
   const inv = await db.query<{ id: string; workspace_id: string; role: string; created_by: string; name: string; event: boolean }>(
-    `select i.id, i.workspace_id, i.role, i.created_by, w.name,
-       exists(select 1 from notifications n where n.user_id = i.to_user and n.workspace_id = i.workspace_id and n.kind = 'share-invite' and n.extra = 'event') as event
+    `select i.id, i.workspace_id, i.role, i.created_by, w.name, i.purpose = 'event' as event
        from workspace_invites i join workspaces w on w.id = i.workspace_id
        where i.to_user = $1 and not i.used and i.expires_at > now() order by i.created_at desc`,
     [who.userId],

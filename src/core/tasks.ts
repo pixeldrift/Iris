@@ -133,7 +133,7 @@ export function sortTasks(tasks: Task[], key: SortKey, desc: boolean, folders: F
       importance: (a, b) => b.importance - a.importance,
       urgency: (a, b) => effectiveUrgency(b) - effectiveUrgency(a),
     }
-    return cmp[sortKey] (a, b) * dir
+    return cmp[sortKey](a, b) * dir
   }
 
   return [...tasks].sort((a, b) => {

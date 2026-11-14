@@ -15,7 +15,6 @@ export function retagTask(id: string, clusterId: string) {
   const cur = t.folderIds.find((x) => have.has(x))
   let ids = t.folderIds.filter((x) => x !== cur)
   if (clusterId !== 'none') ids = [clusterId, ...ids.filter((x) => x !== clusterId)]
-  // A loose task is not orphaned: it remains in the Unsorted inbox scope even while its spatial position is free.
   st.updateTask(id, { folderIds: ids })
   sound.plink()
 }

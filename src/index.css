@@ -47,6 +47,7 @@
   --z-toast: 130;
   --z-alert: 135; /* reminders */
   --z-notice: 140; /* the update bubble */
+  --z-viewer: 145; /* the full-screen image viewer */
   --z-popover: 150; /* menus and pickers */
   --z-tip: 200; /* tooltips */
   --z-input: 400; /* the landscape type-here bar... */
@@ -318,7 +319,7 @@ input[type='date'] {
   0% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.82) translateY(-14px); }
 }
-.bloom-out { animation: bloom-out 5s ease-in both; }
+.bloom-out { animation: bloom-out 0.8s ease-in 0.6s both; }
 
 @keyframes slide-out-right {
   from { opacity: 1; transform: translateX(0); }
@@ -639,6 +640,42 @@ input, textarea, select, [contenteditable='true'], .select-text, .select-text * 
 }
 img { -webkit-user-drag: none; user-drag: none; }
 
+/* The Spatial view's backdrop: a faint 32px grid over a lilac wash (the flat canvas draws on top of it, so both views share it). */
+.space-grid {
+  background-image:
+    linear-gradient(rgb(var(--lr-500) / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--lr-500) / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-lilac-100), #fff);
+  background-size: 32px 32px, 32px 32px, 100% 100%;
+}
+
 /* the edge dots in the room (Space): steady, no breathing (a pulse looks like flicker when they sit at the edge of the screen) */
 .edge-dot.still { animation: edge-in 0.45s ease-out forwards; }
 .edge-dot.still.leaving { animation: edge-out 0.4s ease-in forwards; }
+
+/* ---- swiping a list row (touch): the gesture in ui/swipe.ts sets --dx, --pull, --reach, --strike and data-dir / data-phase on .swipe ---- */
+.swipe { --dx: 0px; --pull: 0; --reach: 0; --strike: 0; --swipe-spring: cubic-bezier(0.2, 0.9, 0.25, 1.15); }
+.swipe-row { transform: translateX(var(--dx)); transition: transform 420ms var(--swipe-spring); }
+.swipe[data-phase='drag'] .swipe-row { transition: none; }
+.swipe[data-phase='delete'] .swipe-row { transform: translateX(-110%) scale(0.96); transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1) 90ms; }
+/* pulled left: the trash can, with the chips and name making room for it */
+.swipe-del { background: #fff; opacity: 0; transition: opacity 180ms ease-out, background-color 140ms; }
+.swipe[data-dir='left'] .swipe-del { opacity: 1; }
+.swipe[data-phase='delete'] .swipe-del { background: var(--color-danger); }
+.swipe-trash { color: var(--color-danger-ink); opacity: 0; transition: opacity 100ms ease-out, color 140ms; }
+.swipe[data-dir='left'] .swipe-trash { opacity: 1; }
+.swipe[data-phase='delete'] .swipe-trash { color: #fff; }
+.swipe-lid { transform-box: fill-box; transform-origin: right center; transform: rotate(calc(var(--pull) * 38deg)) translateY(calc(var(--pull) * -3px)); transition: transform 420ms var(--swipe-spring); }
+.swipe[data-phase='drag'] .swipe-lid { transition: none; }
+.swipe[data-phase='delete'] .swipe-lid { transform: none; transition: transform 100ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.swipe[data-dir='left'] .swipe-chips { transform: translateX(calc(var(--reach) * -38px)); }
+.swipe[data-dir='left'] .swipe-name { padding-right: calc(var(--reach) * 38px); }
+.swipe[data-dir='left'][data-phase=''] .swipe-chips { transition: transform 420ms var(--swipe-spring); }
+/* pulled right: a check, and a line drawn across the name (drawn off again for a done one) */
+.swipe-chk { background: rgb(var(--lr-500) / 0.9); opacity: 0; }
+.swipe[data-dir='right'] .swipe-chk { opacity: var(--reach); }
+.swipe[data-phase='check'] .swipe-chk { opacity: 0; transition: opacity 200ms; }
+.swipe-strike { background: rgb(var(--lr-500) / 0.8); transform: scaleX(var(--strike)); transform-origin: left; opacity: 0; transition: transform 420ms var(--swipe-spring), opacity 160ms ease-out; }
+.swipe[data-done='true'] .swipe-strike { transform-origin: right; }
+.swipe[data-dir='right'] .swipe-strike, .swipe[data-phase='check'] .swipe-strike { opacity: 1; }
+.swipe[data-phase='drag'] .swipe-strike { transition: none; }

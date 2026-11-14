@@ -8,7 +8,8 @@ test('a note can be copied and pasted elsewhere', async ({ page }) => {
   await open(page)
   await goto(page, 'List')
   await page.getByText('Lab report: osmosis').first().click()
-  const notes = page.getByLabel('Notes').first()
+  // (the notes stay a text box when they lose focus, so a selection in them is never swept away before a copy)
+  const notes = page.getByRole('textbox', { name: 'Notes', exact: true })
   await notes.fill('copy this line please')
   await notes.press('ControlOrMeta+A')
   await notes.press('ControlOrMeta+C')
@@ -21,4 +22,7 @@ test('a note can be copied and pasted elsewhere', async ({ page }) => {
     return out
   })
   expect(around).not.toContain('none')
+  // and clicking away does not swap the box for plain text
+  await page.getByRole('heading', { level: 1 }).first().click({ force: true }).catch(() => undefined)
+  await expect(notes).toBeVisible()
 })

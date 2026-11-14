@@ -70,7 +70,7 @@ test.describe('on a phone', () => {
   test('a field that the keyboard would cover is scrolled back into view', async ({ page }) => {
     await toList(page)
     await page.locator('[data-lift-id^="task:"]').first().tap()
-    const notes = page.locator('textarea[placeholder^="Notes"]')
+    const notes = page.getByRole('textbox', { name: 'Notes', exact: true })
     await notes.scrollIntoViewIfNeeded()
     await notes.click() // (a real tap: focusing it from a script makes the test runner insist on focus staying put)
     await page.setViewportSize({ width: 390, height: 430 }) // what is left above a keyboard
@@ -258,7 +258,7 @@ test.describe('a phone turned sideways', () => {
       await page.locator('aside').getByRole('button', { name: /Address book/ }).first().click()
     })
     await page.getByRole('button', { name: 'Add a person' }).last().click()
-    const notes = page.getByRole('dialog').getByPlaceholder('Notes') // (the typing bar's own box shares the placeholder, but is not in the dialog)
+    const notes = page.getByRole('dialog').getByRole('textbox', { name: 'Notes', exact: true }) // (the typing bar's own box shares the placeholder, but is not in the dialog)
     await notes.scrollIntoViewIfNeeded()
     await notes.click() // (a real tap: the bar only opens for a focus that follows a gesture)
     // the bar appears at the top, named for the box
@@ -306,7 +306,7 @@ test.describe('the typing bar, sideways: Enter commits', () => {
     await page.keyboard.press('Escape')
     // a plain field (a task's notes, say) keeps its text as it is typed: nothing to commit
     await page.locator('[data-lift-id^="task:"]').first().click()
-    await expect(page.getByLabel('Notes')).not.toHaveAttribute('data-proxy-commit', /.*/)
+    await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).not.toHaveAttribute('data-proxy-commit', /.*/)
   })
 
   test('pressing Enter in the bar flies the text to the list\'s add line and presses Enter there: a new item', async ({ page }) => {

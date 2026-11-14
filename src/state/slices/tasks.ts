@@ -12,6 +12,13 @@ import * as sound from '../../audio/engine'
 import { initial, uid } from '../defaults'
 import type { SetState, GetState, TasksSlice } from '../types'
 
+/** How long a checked-off item stays on screen to bloom away (the CSS animation is timed to this). */
+const LINGER_MS = 1500
+const withoutKey = <T extends Record<string, unknown>>(o: T, key: string): T => {
+  const { [key]: _gone, ...rest } = o
+  return rest as T
+}
+
 export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
       tasks: initial.tasks,
 
@@ -114,11 +121,11 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         }
         get().setStatus(id, t.status === 'done' ? 'todo' : 'done')
       },
-      setStatus: (id, status) => {
+      setStatus: (id, status, quiet = false) => {
         const t = get().tasks.find((x) => x.id === id)
         if (!t) return
         const n = stagesForTask(t, get().folders).length
-        get().moveToStage(id, status === 'done' ? n - 1 : status === 'doing' ? Math.min(1, n - 2) : 0)
+        get().moveToStage(id, status === 'done' ? n - 1 : status === 'doing' ? Math.min(1, n - 2) : 0, undefined, false, quiet)
       },
       setStage: (id, stageId, stages) => {
         const t = get().tasks.find((x) => x.id === id)
@@ -127,7 +134,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         const i = list.findIndex((st) => st.id === stageId)
         if (i >= 0) get().moveToStage(id, i, list)
       },
-      moveToStage: (id, i, given, keepProgress = false) => {
+      moveToStage: (id, i, given, keepProgress = false, quiet = false) => {
         const t = get().tasks.find((x) => x.id === id)
         if (!t) return
         const stages = given ?? stagesForTask(t, get().folders)
@@ -140,29 +147,24 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           if (Object.keys(withProgress).length && (t.progress ?? null) !== at) get().updateTask(id, withProgress)
           return
         }
-        if (t.status === 'done' && to.status !== 'done') sound.undone()
-        const completionTime = to.status === 'done' ? (t.completedAt ?? Date.now()) : null
-        if (to.status === 'done' && t.status !== 'done') {
+        if (t.status === 'done' && to.status !== 'done') {
+          if (!quiet) sound.undone()
+          set((s) => ({ lingering: withoutKey(s.lingering, id) }))
+        }
+        if (to.status === 'done' && t.status !== 'done' && !quiet) {
           sound.bloom()
           // keep it on screen long enough to bloom, then it fades out
           set((s) => ({ lingering: { ...s.lingering, [id]: true } }))
-          window.setTimeout(() => {
-            // If it was undone during the grace period, or its details are still open, do not remove it.
-            const current = get().tasks.find((x) => x.id === id)
-            if (get().selectedId === id || current?.status !== 'done' || current.completedAt !== completionTime) return
-            set((s) => {
-              const { [id]: _l, ...lingering } = s.lingering
-              return { lingering }
-            })
-          }, 5000)
+          get().settleLingering(id)
         }
-        if (t.status === 'done' && to.status !== 'done') {
-          set((s) => {
-            const { [id]: _l, ...lingering } = s.lingering
-            return { lingering }
-          })
-        }
-        get().updateTask(id, { ...to, ...withProgress, completedAt: completionTime, archived: to.status === 'done' ? false : false })
+        get().updateTask(id, { ...to, ...withProgress, completedAt: to.status === 'done' ? (t.completedAt ?? Date.now()) : null, archived: false })
+      },
+      settleLingering: (id) => {
+        window.setTimeout(() => {
+          // (undone in the meantime: nothing to end. Details still open: the row stays, and this runs again when they close.)
+          if (!get().lingering[id] || get().selectedId === id) return
+          set((s) => ({ lingering: withoutKey(s.lingering, id) }))
+        }, LINGER_MS)
       },
       setProgress: (id, pct) => {
         const t = get().tasks.find((x) => x.id === id)
@@ -236,7 +238,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           for (const t of snapshot.tasks) {
             if (t.status === 'done' || t.draft || repeatOf(t) || t.kind === 'idea') continue
             const past = t.kind === 'event' ? isPastEvent(t) : !!(t.due ?? t.day) && (t.due ?? t.day)! < now
-            if (past) get().setStatus(t.id, 'done')
+            if (past) get().setStatus(t.id, 'done', true)
           }
         }
         const moves = new Map<string, string>()
