@@ -33,15 +33,32 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe('wall mode', () => {
-  test('finds a sheet of paper and holds on to it; leaving lets go of the camera', async ({ page }) => {
+  test('on Automatic, an already-allowed camera steers 3D by itself (and Touch turns it off)', async ({ page }) => {
     await open(page)
     await goto(page, 'Spatial')
+    await page.getByRole('radio', { name: '3D' }).click()
     await page.getByRole('button', { name: 'Use touch only' }).click()
-    await page.getByRole('radio', { name: 'Wall' }).click()
+    await expect(page.locator('[data-wall-status]')).toBeVisible()
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    await page.getByRole('radiogroup', { name: 'Steering' }).getByRole('radio', { name: 'Touch', exact: true }).click()
+    await expect(page.locator('[data-wall-status]')).toHaveCount(0)
+  })
+
+  test('finds a sheet of paper and holds on to it; leaving lets go of the camera', async ({ page }) => {
+    // (steering by touch to begin with, since the allowed camera would otherwise take over at once)
+    await page.addInitScript(() => { if (!localStorage.getItem('lilac-spatial-v5')) localStorage.setItem('lilac-spatial-v5', JSON.stringify({ state: { tracking: 'touch' }, version: 2 })) })
+    await open(page)
+    await goto(page, 'Spatial')
+    await page.getByRole('radio', { name: '3D' }).click()
+    await page.getByRole('button', { name: 'Use touch only' }).click()
+    // the camera steers when it is chosen (or, on Automatic, when it is already allowed)
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    await page.getByRole('radiogroup', { name: 'Steering' }).getByRole('radio', { name: 'Camera' }).click()
     await expect(page.locator('[data-wall-status]')).toBeVisible()
     await expect(page.locator('video')).toHaveCount(1)
     // the camera is what shows while the surface is being found
     expect(await page.locator('video').evaluate((v) => v.getBoundingClientRect().width)).toBeGreaterThan(300)
+    await page.keyboard.press('Escape')
     await expect(page.locator('[data-wall-status="holding"]')).toBeVisible({ timeout: 15000 })
     if (process.env.SHOT) {
       await page.waitForTimeout(Number(process.env.SHOT_AT ?? 0))
@@ -71,7 +88,7 @@ test.describe('wall mode', () => {
     await expect.poll(box).toBeLessThan(10)
     await page.keyboard.press('Escape')
     const stream = await page.evaluateHandle(() => document.querySelector('video')!.srcObject as MediaStream)
-    await page.getByRole('radiogroup', { name: 'Drawing' }).getByRole('radio', { name: 'Virtual' }).click()
+    await page.getByRole('radiogroup', { name: 'View' }).getByRole('radio', { name: '2D' }).click()
     await expect(page.locator('[data-wall-status]')).toHaveCount(0)
     await expect.poll(() => stream.evaluate((s) => (s as MediaStream).getTracks().every((t) => t.readyState === 'ended'))).toBe(true)
   })

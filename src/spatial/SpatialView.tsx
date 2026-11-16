@@ -30,7 +30,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
-  const { environment, tracking: trackPref, render, seen, tipSeen, links, tidy, radius, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed, wallSteady: s.wallSteady })))
+  const { environment, tracking: trackPref, view, seen, tipSeen, links, tidy, radius, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed, wallSteady: s.wallSteady })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -39,8 +39,6 @@ export default function SpatialView() {
   const select = useStore((s) => s.select)
   const toggleDone = useStore((s) => s.toggleDone)
   const setTally = useStore((s) => s.setTally)
-  const setView = useStore((s) => s.setView)
-  const lastView = useStore((s) => s.lastView)
   const visible = useVisibleTasks(false)
   const allTasks = useStore((s) => s.tasks)
   const folders = useStore((s) => s.folders)
@@ -63,12 +61,27 @@ export default function SpatialView() {
     })
   }, [contentKey])
 
-  const simple = render === 'simple' || !caps.webgl
+  // 2D is the default; 3D is one feature whose steering depends on what is there (see `wall` and the tracking setting)
+  const [gfxFailed, setGfxFailed] = useState(false)
+  const simple = view === '2d' || !caps.webgl || gfxFailed
   const simpleRef = useRef(simple)
   simpleRef.current = simple
+  // the camera can steer 3D when it was chosen, or (on Automatic) when it is already allowed, so nobody is asked for it unprompted
+  const [camAllowed, setCamAllowed] = useState(false)
+  const [camFailed, setCamFailed] = useState(false)
+  useEffect(() => {
+    try {
+      void navigator.permissions?.query({ name: 'camera' as PermissionName }).then((r) => setCamAllowed(r.state === 'granted'), () => undefined)
+    } catch {
+      /* no permissions API: Automatic then uses motion */
+    }
+  }, [])
   // wall mode: the camera finds a flat surface (a sheet, a frame, a wall) and the groups hang flat just in front of it
-  const wall = render === 'wall' && caps.webgl && !!navigator.mediaDevices?.getUserMedia
+  const wall = !simple && caps.camera && !camFailed && (trackPref === 'camera' || (trackPref === 'auto' && camAllowed))
   const [phase, setPhase] = useState<'intro' | 'running'>('intro')
+  // the first-use explanation: only when 3D is asked for (and until the person says they do not want it again)
+  const [introOpen, setIntroOpen] = useState(() => view === '3d' && caps.webgl && !seen)
+  const [again, setAgain] = useState(false)
   const [status, setStatus] = useState<TrackingStatus>({ source: 'touch', quality: 'good' })
   const [note, setNote] = useState<string | null>(null)
   // motion that has gone quiet (the page was away): picked up again by itself where it can be; where it cannot, this says so
@@ -127,7 +140,6 @@ export default function SpatialView() {
   /* ---------- starting: the first call must be inside the tap (iOS asks for motion permission only from one) ---------- */
   const begin = useCallback(
     (wantMotion: boolean) => {
-      prefs({ seen: true })
       const tr = new SpatialTracking()
       track.current = tr
       tr.onStatus((s) => {
@@ -143,10 +155,32 @@ export default function SpatialView() {
     },
     [prefs, simple, trackPref, caps.motion],
   )
-  // where no permission has to be asked for, and it has been explained once, go straight in
+  // in: 2D needs nothing. 3D starts looking around at once where no permission has to be asked for (otherwise from a tap: the explanation, or "Enable motion")
   useEffect(() => {
-    if (phase === 'intro' && seen && !caps.motionNeedsPermission) begin(true)
-  }, [phase, seen, caps.motionNeedsPermission, begin])
+    if (phase === 'intro') begin(!simple && !introOpen && !caps.motionNeedsPermission)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // a tap on 3D (or on the explanation's Start): ask for motion from inside that tap, as iOS requires
+  const startMotion = () => {
+    const tr = track.current
+    if (!tr || trackPref === 'touch' || !caps.motion || tr.motion) return
+    void tr.start(true).then((ok) => !ok && setNote('Motion tracking was not allowed, so you can look around by dragging. You can switch it on again from the settings button.'))
+  }
+  const pick = (v: 'simple' | 'auto') => {
+    prefs({ view: v === 'simple' ? '2d' : '3d' })
+    if (v === 'simple') return setIntroOpen(false)
+    setGfxFailed(false)
+    if (!useSpatial.getState().seen) setIntroOpen(true)
+    else startMotion()
+  }
+  const closeIntro = (go: 'motion' | 'touch' | 'back') => {
+    setIntroOpen(false)
+    if (go === 'back') return void prefs({ view: '2d' })
+    prefs({ seen: !again })
+    if (go === 'motion') startMotion()
+  }
+  // iOS asks for motion only from a tap: when 3D opens already explained, a small button gives it
+  const needsMotionTap = !simple && !introOpen && caps.motionNeedsPermission && trackPref !== 'touch' && status.source !== 'motion'
 
   useEffect(() => {
     if (!wall || !details || phase !== 'running') return void setHud('')
@@ -277,7 +311,7 @@ export default function SpatialView() {
     } catch {
       // the graphics could not start after all: fall back to the flat canvas
       setNote('3D could not start on this device, so here is the flat view.')
-      prefs({ render: 'simple' })
+      setGfxFailed(true)
       return
     }
     scene.current = sc
@@ -290,13 +324,13 @@ export default function SpatialView() {
       const cam = wallCam.current!
       void cam.start(host.current!).then((ok) => {
         if (!ok) {
-          setNote('Wall mode needs the camera, which was not available (or not allowed), so here is the 3D view.')
-          prefs({ render: 'auto' })
+          setNote('The camera was not available (or not allowed), so the view follows your phone’s motion instead.')
+          setCamFailed(true)
           return
         }
         wallTrack.current?.attach(cam.video!)
         void wallTrack.current?.start()
-        cam.onLost = () => setNote('The camera stopped. Choose Wall again to start it.')
+        cam.onLost = () => setNote('The camera stopped, so the view follows your phone’s motion. Choose Camera in the settings to start it again.')
         void chooseEnv(environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
       })
     } else void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
@@ -348,8 +382,6 @@ export default function SpatialView() {
     [],
   )
 
-  const exit = () => setView(lastView === 'spatial' ? 'pond' : lastView)
-
   /* ---------- what is shown ---------- */
   const where = env === 'camera' ? 'Camera' : env === 'panorama' ? 'Panorama' : ''
   const how = simple ? 'Flat view' : status.source === 'motion' ? 'Motion tracking' : 'Touch navigation'
@@ -361,30 +393,35 @@ export default function SpatialView() {
       <div ref={host} className="space-grid absolute inset-0" />
       {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} />}
 
-      {phase === 'intro' && (
+      {introOpen && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 p-5 backdrop-blur-sm">
-          <div className="glass glass-strong w-full max-w-sm rounded-3xl p-5 text-center">
+          <div className="glass glass-strong w-full max-w-sm rounded-3xl p-5 text-center" role="dialog" aria-label="Looking around in 3D">
             <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-lilac-100 text-lilac-600">
               <IconCube size={24} />
             </span>
             <h2 className="mt-3 font-display text-2xl italic">Look around your tasks</h2>
             <p className="mt-2 text-sm text-ink-soft">
-              {simple
-                ? 'Your groups and tasks side by side on a canvas you can drag around and zoom.'
-                : 'Your groups hang around you like notes on a wall, each subgroup under its group. Turn your phone to look around, or drag empty space. Drag any task or group to move it (a task let go over another group joins it; in open space it floats until you drop it into one). Tap a task to open it, its circle to tick it off.'}
+              Your groups hang around you like notes on a wall, each subgroup under its group. Turn your phone to look around, or drag empty space. Drag any task or group to move it (a task let go over another group joins it; in open space it floats until you drop it into one). Tap a task to open it, its circle to tick it off.
             </p>
-            {!simple && caps.motion && <p className="mt-2 text-xs text-ink-faint">Your phone will ask to use its motion sensors. Nothing leaves the device, and you can use touch instead.</p>}
-            <div className="mt-4 flex flex-col gap-2">
-              <button type="button" onClick={() => begin(true)} className="rounded-full bg-lilac-500 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
-                {simple || !caps.motion ? 'Start' : 'Start looking around'}
+            <p className="mt-2 text-xs text-ink-faint">
+              {caps.motion ? 'It uses your phone’s motion sensors, and the camera too if you choose Camera in the settings (or have already allowed it). ' : 'Drag to look around. '}
+              Nothing leaves the device.
+            </p>
+            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-xs text-ink-soft">
+              <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} className="h-4 w-4 accent-lilac-500" />
+              Show this again next time
+            </label>
+            <div className="mt-3 flex flex-col gap-2">
+              <button type="button" onClick={() => closeIntro('motion')} className="rounded-full bg-lilac-500 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
+                {caps.motion ? 'Start looking around' : 'Start'}
               </button>
-              {!simple && caps.motion && (
-                <button type="button" onClick={() => begin(false)} className="rounded-full px-5 py-2 text-sm text-ink-soft transition hover:bg-white/70">
+              {caps.motion && (
+                <button type="button" onClick={() => closeIntro('touch')} className="rounded-full px-5 py-2 text-sm text-ink-soft transition hover:bg-white/70">
                   Use touch only
                 </button>
               )}
-              <button type="button" onClick={exit} className="rounded-full px-5 py-1.5 text-xs text-ink-faint transition hover:text-ink">
-                Not now
+              <button type="button" onClick={() => closeIntro('back')} className="rounded-full px-5 py-1.5 text-xs text-ink-faint transition hover:text-ink">
+                Back to 2D
               </button>
             </div>
           </div>
@@ -399,9 +436,14 @@ export default function SpatialView() {
               <pre className="pointer-events-none absolute left-3 top-14 z-10 whitespace-pre rounded-lg bg-black/55 px-2 py-1 font-mono text-[0.62rem] leading-tight text-white">{hud}</pre>
             </>
           )}
+          {needsMotionTap && (
+            <button type="button" onClick={startMotion} className="absolute bottom-16 left-1/2 z-10 -translate-x-1/2 rounded-full bg-lilac-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-lilac-500/30">
+              Turn on motion
+            </button>
+          )}
           <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between">
             <span className="pointer-events-auto">
-              <SegmentedToggle label="Drawing" value={render === 'simple' ? 'simple' : render === 'wall' ? 'wall' : 'auto'} options={[...(caps.webgl && !!navigator.mediaDevices?.getUserMedia ? [{ id: 'wall' as const, label: 'Wall' }] : []), { id: 'auto' as const, label: 'Virtual' }, { id: 'simple' as const, label: '2D' }]} onChange={(r) => prefs({ render: r })} />
+              <SegmentedToggle label="View" value={simple ? 'simple' : 'auto'} options={[{ id: 'simple' as const, label: '2D' }, ...(caps.webgl ? [{ id: 'auto' as const, label: '3D' }] : [])]} onChange={pick} />
             </span>
             <button ref={menuBtn} type="button" aria-label="Spatial settings" aria-expanded={menu} onClick={() => setMenu((o) => !o)} className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full bg-white/80 text-ink-soft shadow-md backdrop-blur transition hover:bg-white">
               <IconSliders size={17} />
@@ -409,27 +451,33 @@ export default function SpatialView() {
           </div>
           <Popover open={menu} onClose={() => setMenu(false)} anchor={menuBtn} align="end" className="w-72 p-3">
             <div className="space-y-3 text-xs font-medium text-ink-soft">
-              {!simple && caps.motion && (
+              {!simple && (
                 <div>
-                  Looking around
+                  Steering
                   <div className="mt-1">
                     <SegmentedToggle
-                      label="Looking around"
+                      label="Steering"
                       value={trackPref}
                       options={[
                         { id: 'auto', label: 'Automatic' },
-                        { id: 'motion', label: 'Motion' },
-                        { id: 'touch', label: 'Touch only' },
+                        ...(caps.camera ? [{ id: 'camera' as const, label: 'Camera' }] : []),
+                        ...(caps.motion ? [{ id: 'motion' as const, label: 'Motion' }] : []),
+                        { id: 'touch', label: 'Touch' },
                       ]}
                       onChange={(m) => {
+                        setCamFailed(false)
                         prefs({ tracking: m })
                         const tr = track.current
                         if (!tr) return
                         if (m === 'touch') tr.disableMotion()
-                        else if (!tr.motion) void tr.start(true).then((ok) => !ok && setNote('Motion tracking is not available, so you can look around by dragging.'))
+                        else if (!tr.motion && caps.motion) void tr.start(true).then((ok) => !ok && m === 'motion' && setNote('Motion tracking is not available, so you can look around by dragging.'))
                       }}
                     />
                   </div>
+                  <p className="mt-1 text-[0.68rem] font-normal text-ink-faint">
+                    {wall ? 'Using the camera to find a surface, with motion' : status.source === 'motion' ? 'Using your phone’s motion' : 'Using touch: drag to look around'}
+                    {trackPref === 'auto' ? ' (Automatic picks the best this device allows)' : ''}
+                  </p>
                 </div>
               )}
               {!simple && (

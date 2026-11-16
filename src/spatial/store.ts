@@ -4,14 +4,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { RADIUS } from './layout'
-import type { EnvironmentKind, RenderMode, SpatialLayoutData, TrackingPreference } from './types'
+import type { EnvironmentKind, SpatialLayoutData, SpatialLook, TrackingPreference } from './types'
 
 interface SpatialState {
   layout: SpatialLayoutData
   environment: EnvironmentKind
   tracking: TrackingPreference
-  render: RenderMode
-  /** The first-use explanation has been read. */
+  /** Flat (2D, the default) or 3D. */
+  view: SpatialLook
+  /** The first-use explanation of 3D has been read, and the person does not want it again. */
   seen: boolean
   /** The one-line tip about holding to move things has been shown. */
   tipSeen: boolean
@@ -27,7 +28,7 @@ interface SpatialState {
   collapsed: Record<string, true>
   toggleCollapsed: (id: string) => void
   setLayout: (l: SpatialLayoutData) => void
-  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'render' | 'seen' | 'tipSeen' | 'links' | 'tidy' | 'radius' | 'wallSteady'>>) => void
+  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'view' | 'seen' | 'tipSeen' | 'links' | 'tidy' | 'radius' | 'wallSteady'>>) => void
   /** Forget where things were put (they are laid out afresh). */
   resetLayout: () => void
 }
@@ -38,7 +39,7 @@ export const useSpatial = create<SpatialState>()(
       layout: { clusters: {}, tasks: {} },
       environment: 'virtual',
       tracking: 'auto',
-      render: 'auto',
+      view: '2d',
       seen: false,
       tipSeen: false,
       links: true,
@@ -59,15 +60,21 @@ export const useSpatial = create<SpatialState>()(
     }),
     {
       name: 'lilac-spatial-v5',
-      version: 1,
+      version: 2,
       // the usual radius is now 200: a person who never moved it off the old usual (150) follows
       migrate: (state, version) => {
-        const s = state as { radius?: number }
+        const s = state as { radius?: number; render?: string; view?: string; tracking?: string }
         if (version < 1 && s.radius === 150) s.radius = RADIUS.start
+        if (version < 2) {
+          // 2D is where everyone starts now; the old "Wall" drawing is the camera way of tracking in 3D
+          if (s.render === 'wall') s.tracking = 'camera'
+          s.view = '2d'
+          delete s.render
+        }
         return s as never
       },
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
-      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, render: s.render, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, wallSteady: s.wallSteady, collapsed: s.collapsed }),
+      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, wallSteady: s.wallSteady, collapsed: s.collapsed }),
     },
   ),
 )

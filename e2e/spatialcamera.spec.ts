@@ -7,8 +7,11 @@ test.use({ launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-
 const intro = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Spatial workspace' })
 
 async function enter(page: import('@playwright/test').Page) {
+  // (the camera is allowed up front, so Automatic would steer by it: these tests are about the background, so they steer by touch)
+  await page.addInitScript(() => { if (!localStorage.getItem('lilac-spatial-v5')) localStorage.setItem('lilac-spatial-v5', JSON.stringify({ state: { tracking: 'touch' }, version: 2 })) })
   await open(page)
   await goto(page, 'Spatial')
+  await page.getByRole('radio', { name: '3D' }).click()
   await page.getByRole('button', { name: 'Use touch only' }).click()
 }
 
@@ -17,7 +20,7 @@ test.describe('camera background', () => {
     await enter(page)
     await expect(intro(page).locator('video')).toHaveCount(0) // (never started by itself)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
-    await page.getByRole('radio', { name: 'Camera' }).click()
+    await page.getByRole('radiogroup', { name: 'Background' }).getByRole('radio', { name: 'Camera' }).click()
     await expect(intro(page).locator('video')).toHaveCount(1)
     await expect(page.getByText('Camera · Touch navigation', { exact: true })).toBeVisible()
     const live = () => page.evaluate(() => (document.querySelector('video')?.srcObject as MediaStream | null)?.getTracks().some((t) => t.readyState === 'live') ?? false)
@@ -28,7 +31,7 @@ test.describe('camera background', () => {
     await expect(intro(page).locator('video')).toHaveCount(0)
     await expect.poll(() => stream.evaluate((s) => (s as MediaStream).getTracks().every((t) => t.readyState === 'ended'))).toBe(true)
     // and leaving while it is on stops it too
-    await page.getByRole('radio', { name: 'Camera' }).click()
+    await page.getByRole('radiogroup', { name: 'Background' }).getByRole('radio', { name: 'Camera' }).click()
     await expect(intro(page).locator('video')).toHaveCount(1)
     const s2 = await page.evaluateHandle(() => document.querySelector('video')!.srcObject as MediaStream)
     await page.locator('button', { hasText: /^Pond/ }).first().click()
@@ -43,7 +46,7 @@ test.describe('camera denied', () => {
     })
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
-    await page.getByRole('radio', { name: 'Camera' }).click()
+    await page.getByRole('radiogroup', { name: 'Background' }).getByRole('radio', { name: 'Camera' }).click()
     await expect(page.getByText(/camera was not available/)).toBeVisible()
     await expect(page.getByRole('radiogroup', { name: 'Background' }).getByRole('radio', { name: 'Virtual' })).toBeChecked()
     await expect(intro(page).locator('canvas')).toBeVisible()
