@@ -3,7 +3,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { RADIUS } from './layout'
+import { curveFromRadius, RADIUS } from './layout'
 import type { EnvironmentKind, SpatialLayoutData, SpatialLook, TrackingPreference } from './types'
 
 interface SpatialState {
@@ -20,15 +20,15 @@ interface SpatialState {
   links: boolean
   /** "Keep tidy": things let go in Space snap to a grid, so it stays organised. */
   tidy: boolean
-  /** The radius of the cylinder the groups hang on (a testing control). */
-  radius: number
+  /** How curved the wall is (0 flat … 100 wraps round you); null is Automatic: flat while the camera holds a surface, gently curved otherwise. */
+  curve: number | null
   /** Wall mode: how much the view is smoothed (0: follows every twitch, 1: very steady). */
   wallSteady: number
   /** Groups folded down to just their names. */
   collapsed: Record<string, true>
   toggleCollapsed: (id: string) => void
   setLayout: (l: SpatialLayoutData) => void
-  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'view' | 'seen' | 'tipSeen' | 'links' | 'tidy' | 'radius' | 'wallSteady'>>) => void
+  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'view' | 'seen' | 'tipSeen' | 'links' | 'tidy' | 'curve' | 'wallSteady'>>) => void
   /** Forget where things were put (they are laid out afresh). */
   resetLayout: () => void
 }
@@ -44,7 +44,7 @@ export const useSpatial = create<SpatialState>()(
       tipSeen: false,
       links: true,
       tidy: true,
-      radius: RADIUS.start,
+      curve: null,
       wallSteady: 0.15,
       collapsed: {},
       toggleCollapsed: (id) =>
@@ -60,11 +60,16 @@ export const useSpatial = create<SpatialState>()(
     }),
     {
       name: 'lilac-spatial-v5',
-      version: 2,
+      version: 3,
       // the usual radius is now 200: a person who never moved it off the old usual (150) follows
       migrate: (state, version) => {
-        const s = state as { radius?: number; render?: string; view?: string; tracking?: string }
+        const s = state as { radius?: number; curve?: number | null; render?: string; view?: string; tracking?: string }
         if (version < 1 && s.radius === 150) s.radius = RADIUS.start
+        if (version < 3) {
+          // a radius someone had chosen by hand becomes the same bend; the usual one is now Automatic
+          s.curve = typeof s.radius === 'number' && s.radius !== RADIUS.start ? curveFromRadius(s.radius) : null
+          delete s.radius
+        }
         if (version < 2) {
           // 2D is where everyone starts now; the old "Wall" drawing is the camera way of tracking in 3D
           if (s.render === 'wall') s.tracking = 'camera'
@@ -74,7 +79,7 @@ export const useSpatial = create<SpatialState>()(
         return s as never
       },
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
-      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, wallSteady: s.wallSteady, collapsed: s.collapsed }),
+      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, curve: s.curve, wallSteady: s.wallSteady, collapsed: s.collapsed }),
     },
   ),
 )

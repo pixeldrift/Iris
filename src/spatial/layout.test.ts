@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { K, WORLD, type ClusterPlacement } from './types'
-import { arrangeFor, ensureLayout, slotAt, FLAT_R, TASK_LIFT, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { CURVE, curveFromRadius, radiusFromCurve, RADIUS, arrangeFor, ensureLayout, slotAt, FLAT_R, TASK_LIFT, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -334,5 +334,20 @@ describe('a flat wall', () => {
     // the same groups and the same cards inside them
     expect(Object.keys(portrait.clusters).sort()).toEqual(Object.keys(base.clusters).sort())
     for (const id of Object.keys(base.tasks)) expect(portrait.tasks[id].slot).toBe(base.tasks[id].slot)
+  })
+})
+
+describe('the curve of the wall', () => {
+  it('0 is flat, more wraps closer, and a radius survives the round trip', () => {
+    expect(radiusFromCurve(0)).toBe(FLAT_R)
+    expect(radiusFromCurve(100)).toBeCloseTo(RADIUS.min, 5)
+    let last = Infinity
+    for (let c = 3; c <= CURVE.max; c += 7) {
+      const r = radiusFromCurve(c)
+      expect(r).toBeLessThan(last)
+      last = r
+    }
+    expect(Math.abs(radiusFromCurve(CURVE.auto) - RADIUS.start)).toBeLessThan(5) // (Automatic's bend is about the old usual radius)
+    for (const r of [30, 60, 120, 240]) expect(Math.abs(radiusFromCurve(curveFromRadius(r)) - r) / r).toBeLessThan(0.07)
   })
 })

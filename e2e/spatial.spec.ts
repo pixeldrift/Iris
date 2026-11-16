@@ -199,15 +199,17 @@ test.describe('spatial workspace', () => {
     await expect(slider).toHaveValue('50')
   })
 
-  test('the radius slider (in the settings) starts at 200 and its dot puts it back', async ({ page }) => {
+  test('the curve slider (in the settings) starts on Automatic and its dot puts it back', async ({ page }) => {
     await enter(page)
     await page.getByRole('button', { name: 'Spatial settings' }).click()
-    const slider = page.getByRole('slider', { name: 'Radius' })
-    await expect(slider).toHaveValue('200')
+    const slider = page.getByRole('slider', { name: 'Curve' })
+    await expect(page.getByText('Automatic', { exact: true }).first()).toBeVisible()
     await slider.fill('60')
     await expect(slider).toHaveValue('60')
-    await page.getByRole('button', { name: 'Back to the usual radius' }).click()
-    await expect(slider).toHaveValue('200')
+    await expect(page.getByText('60%')).toBeVisible()
+    await page.getByRole('button', { name: 'Back to Automatic curve' }).click()
+    await expect(slider).toHaveValue('12')
+    await expect(page.getByText('60%')).toHaveCount(0)
   })
 
   test('fit, clean up and the 3D / Flat switch are always on the canvas', async ({ page }) => {

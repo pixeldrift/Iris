@@ -12,6 +12,7 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   LinearMipmapLinearFilter,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -86,6 +87,8 @@ type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number; uvy: numbe
 const HUB_W = 1.5 * WORLD.cardW
 export const FOV = { min: 20, max: 100, start: 50 }
 const TAP_PX = 6
+/** How long the wall takes to bend or straighten, and the view to ease, when the steering changes. */
+const BEND_MS = 700
 
 export class SpatialScene {
   private renderer: WebGLRenderer
@@ -118,6 +121,10 @@ export class SpatialScene {
   private running = true
   private dirty = true
   private lastQ = ''
+  /** The view easing from one steering to another (see `setWall`), and the wall bending or straightening (see `setRadius`). */
+  private blend?: { from: Matrix4; ref: Vector3; t0: number }
+  private bend?: { from: number; to: number; t0: number }
+  private reducedMotion = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   private ro?: ResizeObserver
   private fov = FOV.start
   private focusTween?: { t0: number; from: [number, number]; to: [number, number]; fov?: [number, number] }
@@ -158,21 +165,82 @@ export class SpatialScene {
     el.addEventListener('keydown', this.key)
     if (wall) {
       this.radius = FLAT_R
-      this.rig = new WallRig(wall, {
-        scene: this.scene,
-        host,
-        camera: this.camera,
-        envKind: () => this.env?.kind,
-        setEnvOpacity: (a) => this.env?.setOpacity?.(a), // (the virtual sky or photo comes in as the camera goes)
-        extents: () => this.wallExtents(),
-        onReveal: (r) => this.events.onWallReveal?.(r),
-        invalidate: () => {
-          this.dirty = true
-        },
-      })
+      this.attachRig(wall)
     }
     this.loop = this.loop.bind(this)
     this.raf = requestAnimationFrame(this.loop)
+  }
+
+  private attachRig(wall: WallTracking) {
+    this.wall = wall
+    this.rig = new WallRig(wall, {
+      scene: this.scene,
+      host: this.host,
+      camera: this.camera,
+      envKind: () => this.env?.kind,
+      setEnvOpacity: (a) => this.env?.setOpacity?.(a), // (the virtual sky or photo comes in as the camera goes)
+      extents: () => this.wallExtents(),
+      onReveal: (r) => this.events.onWallReveal?.(r),
+      invalidate: () => {
+        this.dirty = true
+      },
+    })
+  }
+
+  /**
+   * The camera starts (or stops) finding a surface while the scene stays as it is: the same canvas and the same cards. The view eases from
+   * where it was to where the new steering puts it, and (with `setRadius`) the wall bends or straightens over the same moments.
+   */
+  setWall(wall?: WallTracking) {
+    if (wall === this.wall) return
+    this.startBlend()
+    this.rig?.dispose()
+    this.rig = undefined
+    this.wall = undefined
+    if (wall) this.attachRig(wall)
+    this.dirty = true
+  }
+
+  /** Where the camera's view-projection is now, scaled so the middle of the groups has a clip depth of 1 (two such views can then be blended). */
+  private viewMatrix(ref: Vector3): Matrix4 {
+    this.camera.updateMatrixWorld(true)
+    const m = new Matrix4().multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+    const e = m.elements
+    const w = e[3] * ref.x + e[7] * ref.y + e[11] * ref.z + e[15]
+    const k = Math.abs(w) > 1e-9 ? 1 / w : 1
+    for (let i = 0; i < 16; i++) e[i] *= k
+    return m
+  }
+  private blendRef(): Vector3 {
+    const cs = this.content.clusters.map((c) => this.shown[c.id]).filter(Boolean)
+    if (!cs.length) return new Vector3(0, 0, -WORLD.ring)
+    return new Vector3(cs.reduce((n, c) => n + c.x, 0) / cs.length, cs.reduce((n, c) => n + c.y, 0) / cs.length, cs.reduce((n, c) => n + c.z, 0) / cs.length)
+  }
+  private startBlend() {
+    if (this.reducedMotion) return
+    const ref = this.blendRef()
+    this.blend = { from: this.viewMatrix(ref), ref, t0: performance.now() }
+  }
+  /** Mid-blend: the view is a mix of where it was and where it is now going. */
+  private applyBlend(): boolean {
+    const b = this.blend
+    if (!b) return false
+    const t = Math.min(1, (performance.now() - b.t0) / BEND_MS)
+    if (t >= 1) {
+      this.blend = undefined
+      return false
+    }
+    const k = t * t * (3 - 2 * t)
+    const to = this.viewMatrix(b.ref)
+    const m = new Matrix4()
+    for (let i = 0; i < 16; i++) m.elements[i] = b.from.elements[i] * (1 - k) + to.elements[i] * k
+    // (the whole mix goes in as the projection, with the camera itself at the origin looking straight on)
+    this.camera.position.set(0, 0, 0)
+    this.camera.quaternion.identity()
+    this.camera.updateMatrixWorld(true)
+    this.camera.projectionMatrix.copy(m)
+    this.camera.projectionMatrixInverse.copy(m).invert()
+    return true
   }
 
   /* ---------- content ---------- */
@@ -449,8 +517,15 @@ export class SpatialScene {
     this.place()
   }
   /** Hang the groups on a cylinder of this radius: the same layout, curled more around you when near and flatter when far. */
-  setRadius(r: number) {
+  setRadius(r: number, animate = false) {
     const changed = Math.abs(r - this.radius) > 1e-9
+    if (changed && animate && !this.reducedMotion) {
+      // the bend is eased in curvature (1 / radius), which is how a flat wall (no curvature) becomes a curved one without a jump
+      this.bend = { from: 1 / this.radius, to: 1 / r, t0: performance.now() }
+      this.dirty = true
+      return
+    }
+    this.bend = undefined
     this.radius = r
     this.layout = withRadius(this.content.layout, r)
     this.shown = { ...this.layout.clusters }
@@ -737,6 +812,20 @@ export class SpatialScene {
       this.place()
     }
     if (this.rig) this.dirty = true // (the camera picture moves all the time: draw every frame)
+    if (this.bend) {
+      const b = this.bend
+      const t = Math.min(1, (performance.now() - b.t0) / BEND_MS)
+      const k = t * t * (3 - 2 * t)
+      const curv = b.from + (b.to - b.from) * k
+      const r = t >= 1 ? 1 / b.to : curv <= 1 / FLAT_R ? FLAT_R : 1 / curv
+      this.radius = r
+      this.layout = withRadius(this.content.layout, r)
+      this.shown = { ...this.layout.clusters }
+      this.place()
+      if (t >= 1) this.bend = undefined
+      this.dirty = true
+    }
+    if (this.blend) this.dirty = true
     const pose = this.rig ? null : this.tracking.getPose()
     const sig = pose ? pose.q.map((x) => x.toFixed(4)).join(',') + this.fov : ''
     // in touch mode nothing changes unless it is moved: draw only when something did (kinder to the battery)
@@ -752,6 +841,7 @@ export class SpatialScene {
         this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
         this.camera.updateProjectionMatrix()
       }
+      this.applyBlend()
       this.renderer.render(this.scene, this.camera)
       this.updateDots()
     }
