@@ -107,6 +107,7 @@ export default function SpatialView() {
   const dbgCanvas = useRef<HTMLCanvasElement>(null)
   const [hud, setHud] = useState('')
   const scene = useRef<SpatialScene | null>(null)
+  const radiusSet = useRef<SpatialScene | null>(null)
   const envRef = useRef<EnvironmentProvider | null>(null)
   const panoUrl = useRef<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -271,16 +272,6 @@ export default function SpatialView() {
     if (phase !== 'running' || simple || !host.current || !track.current) return
     let sc: SpatialScene
     try {
-      let wt: WallTracking | undefined
-      if (wall) {
-        wt = new WallTracking()
-        wt.smoothing = useSpatial.getState().wallSteady
-        wt.device = (q, ageMs) => track.current?.deviceRaw(q, ageMs) ?? false
-        wt.onStatus(() => setWallPhase(wt!.phase))
-        wallTrack.current = wt
-        wallCam.current = new TrackingCamera()
-        setWallPhase('searching')
-      }
       sc = new SpatialScene(host.current, track.current, {
         onOpen: (id) => select(id),
         onToggle: (id) => toggleDone(id),
@@ -307,7 +298,7 @@ export default function SpatialView() {
         },
         // a task dropped into another group joins it (and leaves the one it was in)
         onRetag: retagTask,
-      }, wt)
+      })
     } catch {
       // the graphics could not start after all: fall back to the flat canvas
       setNote('3D could not start on this device, so here is the flat view.')
@@ -315,25 +306,10 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), dbgTasks: () => { const s = sc as unknown as { tasks: Map<string, { mesh: { visible: boolean; position: { x: number; y: number; z: number } } }>; layout: { tasks: Record<string, unknown> } }; return [...s.tasks].slice(0, 40).map(([id, n]) => [id, n.mesh.visible, Math.round(n.mesh.position.x), Math.round(n.mesh.position.y), Math.round(n.mesh.position.z), JSON.stringify(s.layout.tasks[id])]) }, surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), radius: () => sc.getRadius(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), dbgTasks: () => { const s = sc as unknown as { tasks: Map<string, { mesh: { visible: boolean; position: { x: number; y: number; z: number } } }>; layout: { tasks: Record<string, unknown> } }; return [...s.tasks].slice(0, 40).map(([id, n]) => [id, n.mesh.visible, Math.round(n.mesh.position.x), Math.round(n.mesh.position.y), Math.round(n.mesh.position.z), JSON.stringify(s.layout.tasks[id])]) }, surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
-    if (wall) {
-      // wall mode needs the camera: if it is not allowed, say so and go back to 3D
-      // (the tracker's own camera runs whatever the background is; the background is then chosen as usual)
-      const cam = wallCam.current!
-      void cam.start(host.current!).then((ok) => {
-        if (!ok) {
-          setNote('The camera was not available (or not allowed), so the view follows your phone’s motion instead.')
-          setCamFailed(true)
-          return
-        }
-        wallTrack.current?.attach(cam.video!)
-        void wallTrack.current?.start()
-        cam.onLost = () => setNote('The camera stopped, so the view follows your phone’s motion. Choose Camera in the settings to start it again.')
-        void chooseEnv(environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
-      })
-    } else void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
+    void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)
     const onVis = () => {
       if (document.visibilityState === 'hidden') sc.pause()
       else {
@@ -350,13 +326,50 @@ export default function SpatialView() {
     document.addEventListener('visibilitychange', onVis)
     return () => {
       document.removeEventListener('visibilitychange', onVis)
-      wallTrack.current?.stop()
-      wallTrack.current = null
-      wallCam.current?.stop()
-      wallCam.current = null
       sc.dispose() // (also lets go of the camera and the sky)
       scene.current = null
       envRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, simple])
+
+  // The camera steering comes and goes on the same scene (same canvas, same cards): the view eases to the new steering while the wall bends or straightens
+  useEffect(() => {
+    const sc = scene.current
+    if (phase !== 'running' || simple || !wall || !sc || !host.current) return
+    const wt = new WallTracking()
+    wt.smoothing = useSpatial.getState().wallSteady
+    wt.device = (q, ageMs) => track.current?.deviceRaw(q, ageMs) ?? false
+    wt.onStatus(() => setWallPhase(wt.phase))
+    const cam = new TrackingCamera()
+    wallTrack.current = wt
+    wallCam.current = cam
+    setWallPhase('searching')
+    sc.setWall(wt)
+    let live = true
+    // the tracker's own camera runs whatever the background is; the background is then chosen as usual
+    void cam.start(host.current).then((ok) => {
+      if (!live) return
+      if (!ok) {
+        setNote('The camera was not available (or not allowed), so the view follows your phone’s motion instead.')
+        setCamFailed(true)
+        return
+      }
+      wt.attach(cam.video!)
+      void wt.start()
+      cam.onLost = () => setNote('The camera stopped, so the view follows your phone’s motion. Choose Camera in the settings to start it again.')
+      void chooseEnv(envRef.current?.kind === 'panorama' && !panoUrl.current ? 'virtual' : (envRef.current?.kind ?? environment))
+    })
+    return () => {
+      live = false
+      const keepCamera = envRef.current?.kind === 'camera'
+      scene.current?.setWall(undefined)
+      wt.stop()
+      wallTrack.current = null
+      wallCam.current = null
+      // a camera background has been using the tracker's camera: it takes its own before that one lets go
+      if (keepCamera && scene.current) void chooseEnv('camera').finally(() => cam.stop())
+      else cam.stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, simple, wall])
@@ -369,7 +382,11 @@ export default function SpatialView() {
   }, [links, phase, simple])
   useEffect(() => {
     // flat while the camera holds a surface; else the person's bend, or the usual gentle one (Automatic)
-    scene.current?.setRadius(wall ? FLAT_R : curve == null ? RADIUS.start : radiusFromCurve(curve))
+    // (eased, except when the scene has only just been made)
+    const sc = scene.current
+    if (!sc) return
+    sc.setRadius(wall ? FLAT_R : curve == null ? RADIUS.start : radiusFromCurve(curve), radiusSet.current === sc)
+    radiusSet.current = sc
   }, [curve, phase, simple, wall])
   useEffect(() => {
     scene.current?.setTidy(tidy)

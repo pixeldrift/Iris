@@ -33,6 +33,35 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe('wall mode', () => {
+  test('switching steering bends the same wall in place: one canvas throughout, the curve easing between flat and curved', async ({ page }) => {
+    await page.addInitScript(() => { if (!localStorage.getItem('lilac-spatial-v5')) localStorage.setItem('lilac-spatial-v5', JSON.stringify({ state: { tracking: 'touch' }, version: 3 })) })
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    await page.goto('/?spacetest')
+    await page.locator('[data-node]').first().waitFor()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
+    await goto(page, 'Spatial')
+    await page.getByRole('radio', { name: '3D' }).click()
+    await page.getByRole('button', { name: 'Use touch only' }).click()
+    const canvas = page.getByRole('region', { name: 'Spatial workspace' }).locator('canvas').first()
+    await expect(canvas).toBeVisible()
+    await canvas.evaluate((c) => { (c as HTMLElement).dataset.same = 'yes' })
+    const radius = () => page.evaluate(() => (window as unknown as { __space: { radius: () => number } }).__space.radius())
+    await expect.poll(radius).toBeLessThan(1000) // curved to begin with
+    // the camera starts steering: the same canvas, and the wall straightens through values in between
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    await page.getByRole('radiogroup', { name: 'Steering' }).getByRole('radio', { name: 'Camera' }).click()
+    const seen = new Set<string>()
+    await expect.poll(async () => { const r = await radius(); seen.add(r >= 1e6 ? 'flat' : r > 1000 ? 'mid' : 'curved'); return r }, { timeout: 5000 }).toBeGreaterThanOrEqual(1e6)
+    expect(seen.has('mid') || seen.size > 1).toBe(true)
+    await expect(canvas).toHaveAttribute('data-same', 'yes')
+    // and back to touch: curved again, still the same canvas
+    await page.getByRole('radiogroup', { name: 'Steering' }).getByRole('radio', { name: 'Touch', exact: true }).click()
+    await expect.poll(radius, { timeout: 5000 }).toBeLessThan(1000)
+    await expect(canvas).toHaveAttribute('data-same', 'yes')
+    expect(errors).toEqual([])
+  })
+
   test('on Automatic, an already-allowed camera steers 3D by itself (and Touch turns it off)', async ({ page }) => {
     await open(page)
     await goto(page, 'Spatial')
