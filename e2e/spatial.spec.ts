@@ -6,13 +6,18 @@ const intro = (page: import('@playwright/test').Page) => page.getByRole('region'
 async function enter(page: import('@playwright/test').Page, how: 'Start looking around' | 'Use touch only' | 'Start' = 'Use touch only') {
   await open(page)
   await goto(page, 'Spatial')
+  await page.getByRole('radio', { name: '3D' }).click()
   await page.getByRole('button', { name: how }).click()
 }
 
 test.describe('spatial workspace', () => {
-  test('opens with a short explanation, then shows the tasks in 3D with touch navigation when there is no motion sensor @smoke', async ({ page }) => {
+  test('opens flat (2D) with no explanation; 3D gives a short one, then shows the tasks with touch navigation when there is no motion sensor @smoke', async ({ page }) => {
     await open(page)
     await goto(page, 'Spatial')
+    await expect(page.getByText('Look around your tasks')).toHaveCount(0)
+    await expect(page.getByRole('radio', { name: '2D' })).toBeChecked()
+    await expect(page.getByText('Flat view', { exact: true })).toBeVisible()
+    await page.getByRole('radio', { name: '3D' }).click()
     await expect(page.getByText('Look around your tasks')).toBeVisible()
     await page.getByRole('button', { name: 'Start looking around' }).click() // (a desktop browser has no motion: it falls back to touch)
     await expect(intro(page).locator('canvas')).toBeVisible()
@@ -40,7 +45,6 @@ test.describe('spatial workspace', () => {
     await goto(page, 'Pond')
     await expect(page.locator('[data-node]').first()).toBeVisible() // (the pond again)
     await goto(page, 'Spatial')
-    await page.getByRole('button', { name: 'Use touch only' }).click()
     await expect.poll(async () => JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v5')!).state.layout))).toBe(before)
   })
 
@@ -89,7 +93,7 @@ test.describe('spatial workspace', () => {
     await expect(intro(page).locator('canvas')).toBeVisible()
     // and turning it off falls back to touch
     await page.getByRole('button', { name: 'Spatial settings' }).click()
-    await page.getByRole('radio', { name: 'Touch only' }).click()
+    await page.getByRole('radio', { name: 'Touch', exact: true }).click()
     await expect(page.getByText('Touch navigation', { exact: true })).toBeVisible()
   })
 
@@ -131,7 +135,6 @@ test.describe('spatial workspace', () => {
     })
     await open(page)
     await goto(page, 'Spatial')
-    await page.getByRole('button', { name: /^Start/ }).first().click()
     await expect(intro(page).locator('canvas')).toHaveCount(0)
     await expect(page.getByText('Flat view', { exact: true })).toBeVisible()
     await expect(page.getByRole('region', { name: 'School' })).toBeVisible()
@@ -214,8 +217,35 @@ test.describe('spatial workspace', () => {
     await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0)
     await page.getByRole('radio', { name: '2D' }).click()
     for (const n of ['Fit all', 'Clean up']) await expect(page.getByRole('button', { name: n })).toBeVisible()
-    await page.getByRole('radio', { name: 'Virtual' }).click()
+    await page.getByRole('radio', { name: '3D' }).click()
     await expect(intro(page).locator('canvas')).toBeVisible()
+  })
+
+  test('the explanation is for the first time only: its box says whether to show it again', async ({ page }) => {
+    await open(page)
+    await goto(page, 'Spatial')
+    await page.getByRole('radio', { name: '3D' }).click()
+    await expect(page.getByRole('checkbox', { name: 'Show this again next time' })).not.toBeChecked()
+    await page.getByRole('checkbox', { name: 'Show this again next time' }).check()
+    await page.getByRole('button', { name: 'Use touch only' }).click()
+    await page.getByRole('radio', { name: '2D' }).click()
+    await page.getByRole('radio', { name: '3D' }).click() // asked to see it again: here it is
+    await expect(page.getByText('Look around your tasks')).toBeVisible()
+    await page.getByRole('checkbox', { name: 'Show this again next time' }).uncheck()
+    await page.getByRole('button', { name: 'Use touch only' }).click()
+    await page.getByRole('radio', { name: '2D' }).click()
+    await page.getByRole('radio', { name: '3D' }).click() // not asked for again: straight in
+    await expect(page.getByText('Look around your tasks')).toHaveCount(0)
+    await expect(intro(page).locator('canvas')).toBeVisible()
+  })
+
+  test('"Back to 2D" in the explanation leaves 3D alone', async ({ page }) => {
+    await open(page)
+    await goto(page, 'Spatial')
+    await page.getByRole('radio', { name: '3D' }).click()
+    await page.getByRole('button', { name: 'Back to 2D' }).click()
+    await expect(page.getByRole('radio', { name: '2D' })).toBeChecked()
+    await expect(intro(page).locator('canvas')).toHaveCount(0)
   })
 
   test('the flat view can be chosen by hand', async ({ page }) => {
@@ -243,6 +273,7 @@ test.describe('a lot of tasks', () => {
     await page.reload()
     await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
     await goto(page, 'Spatial')
+    await page.getByRole('radio', { name: '3D' }).click()
     await page.getByRole('button', { name: 'Use touch only' }).click()
     await expect(intro(page).locator('canvas')).toBeVisible()
     await page.waitForTimeout(1500)

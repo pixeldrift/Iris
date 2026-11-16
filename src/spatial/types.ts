@@ -67,8 +67,10 @@ export interface SpatialLayoutData {
 export type TrackingQuality = 'good' | 'limited' | 'none'
 export type TrackingSource = 'touch' | 'motion' | 'visual' | 'native'
 export type EnvironmentKind = 'virtual' | 'camera' | 'panorama'
-export type TrackingPreference = 'auto' | 'motion' | 'touch'
-export type RenderMode = 'auto' | 'simple' | 'wall'
+/** What steers the 3D view: 'auto' takes the best the device offers (the camera when it is already allowed, else motion, else touch). */
+export type TrackingPreference = 'auto' | 'camera' | 'motion' | 'touch'
+/** The two ways to see the groups: flat on a canvas (the first and the default), or in 3D, where how much the camera, the motion sensors or touch steer the view follows what the device has. */
+export type SpatialLook = '2d' | '3d'
 
 /** What the renderer is given each frame. */
 export interface CameraPose {

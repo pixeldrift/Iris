@@ -109,7 +109,12 @@ Every item has a real 1px border in its group's colour and a soft white glow aro
 ## Keep tidy
 Space is the organised view (the pond is the free one): with **Keep tidy** on (the default; a checkbox in the Space settings), things let go settle onto a grid, gliding there rather than jumping. A card let go in a group goes to the nearest free slot of that group's grid; a group snaps to a half-card grid across and a card-row grid down, its subgroups keeping their places around it, and the others make room (and are snapped too); a floating card snaps to a coarser grid. Turning it on tidies what is already there; turning it off leaves things where they are let go. Pure maths in `layout.ts` (`snapCluster`, `tidyClusters`, `nearestFreeSlot`, `snapFree`, `tidyEverything`), tested in `layout.test.ts`; the 3D scene eases each card toward its place, and the flat canvas does the same with CSS transitions.
 
-## Wall mode (third drawing: 3D, Flat, Wall)
+## 2D first, and one 3D (what steers it follows what the device has)
+The workspace opens in **2D** (the flat canvas), with no explanation. The switch at the top is **2D | 3D** (`view` in the spatial store, default `2d`; everyone was moved to 2D when this arrived). Choosing 3D shows a short explanation the first time, with a box *Show this again next time* (unticked: it is first-use only; `seen` in the store). *Back to 2D* in it leaves 3D alone.
+
+3D is one feature. What steers it is the **Steering** setting in the settings menu: **Automatic** (the camera when it is already allowed, so nobody is asked for it unprompted; else the phone's motion; else touch), **Camera** (finds a surface, with motion; asked for from the tap), **Motion**, or **Touch**. When one is not available or not allowed it falls back to the next with a note (camera, then motion, then touch; no WebGL gives 2D). iOS asks for motion only from a tap, so when 3D opens already explained, a *Turn on motion* button appears. The old *Wall* and *Virtual* drawings are now just "Camera steering" and "motion/touch steering" of this one 3D; the Background (Virtual, Camera, Photo) is separate and unchanged. A future native build adds ARKit as one more step in the same order.
+
+## Wall mode (the camera steering of 3D)
 
 Wall mode uses the camera to find a flat surface and hangs the groups flat, just in front of it, so moving the phone moves you across them (a replacement for finger navigation, not measured AR). All of it is plain TypeScript in `src/spatial/wall/` (see "The wall module" below); nothing here needs ARKit or WebXR (iPhone Safari has neither).
 
