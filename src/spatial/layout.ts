@@ -437,6 +437,19 @@ export function fromRadius(l: SpatialLayoutData, r: number): SpatialLayoutData {
 /** The radius the testing slider offers (the default is the reference radius). */
 export const RADIUS = { start: 200, min: 25, max: 250 }
 
+/**
+ * How curved the wall is, as the person sees it: 0 is flat, 100 wraps right round you. `null` (Automatic) is flat while the camera holds a
+ * surface (cards stuck to something real look right flat) and the usual gentle curve otherwise (with only a compass and gyro you turn on the
+ * spot, so a wall curved round you keeps cards facing you instead of slanting away at the sides).
+ */
+export const CURVE = { auto: 12, max: 100 }
+export function radiusFromCurve(pct: number): number {
+  if (pct <= 2) return FLAT_R
+  return RADIUS.max * Math.pow(RADIUS.min / RADIUS.max, (Math.min(pct, CURVE.max) - 2) / 98)
+}
+/** The curve (0..100) that gives a radius (for what was saved as a radius). */
+export const curveFromRadius = (r: number) => Math.round(2 + (98 * Math.log(Math.min(RADIUS.max, Math.max(RADIUS.min, r)) / RADIUS.max)) / Math.log(RADIUS.min / RADIUS.max))
+
 
 /* ---------- keeping tidy: a grid to snap to ---------- */
 

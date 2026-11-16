@@ -15,7 +15,7 @@ import { detectCapabilities } from './capabilities'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, NONE, sameLayout } from './content'
 import { FOV } from './SpatialScene'
-import { FLAT_R, RADIUS } from './layout'
+import { CURVE, FLAT_R, radiusFromCurve, RADIUS } from './layout'
 import { WallTracking, type WallPhase } from './wall'
 import { TrackingCamera } from './wall'
 import { DefaultDot } from '../ui/DefaultDot'
@@ -30,7 +30,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
-  const { environment, tracking: trackPref, view, seen, tipSeen, links, tidy, radius, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, radius: s.radius, collapsed: s.collapsed, wallSteady: s.wallSteady })))
+  const { environment, tracking: trackPref, view, seen, tipSeen, links, tidy, curve, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, curve: s.curve, collapsed: s.collapsed, wallSteady: s.wallSteady })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -368,8 +368,9 @@ export default function SpatialView() {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
   useEffect(() => {
-    scene.current?.setRadius(wall ? FLAT_R : radius)
-  }, [radius, phase, simple, wall])
+    // flat while the camera holds a surface; else the person's bend, or the usual gentle one (Automatic)
+    scene.current?.setRadius(wall ? FLAT_R : curve == null ? RADIUS.start : radiusFromCurve(curve))
+  }, [curve, phase, simple, wall])
   useEffect(() => {
     scene.current?.setTidy(tidy)
   }, [tidy, phase, simple])
@@ -543,18 +544,22 @@ export default function SpatialView() {
                   Show tracking details
                 </label>
               )}
-              {!simple && !wall && (
-                <div>
-                  Radius <span className="font-normal text-ink-faint">{radius}</span>
-                  <div className="relative mt-1 pb-1">
-                    <input type="range" min={RADIUS.min} max={RADIUS.max} step={1} value={radius} aria-label="Radius" onChange={(e) => prefs({ radius: Number(e.target.value) })} className="soft relative z-10" />
-                    <DefaultDot at={(RADIUS.start - RADIUS.min) / (RADIUS.max - RADIUS.min)} label="Back to the usual radius" onReset={() => prefs({ radius: RADIUS.start })} />
+              {!simple && (
+                wall ? (
+                  <p className="text-[0.68rem] font-normal text-ink-faint">The wall is flat while the camera holds a surface. With motion or touch it curves round you.</p>
+                ) : (
+                  <div>
+                    Curve <span className="font-normal text-ink-faint">{curve == null ? 'Automatic' : `${curve}%`}</span>
+                    <div className="relative mt-1 pb-1">
+                      <input type="range" min={0} max={CURVE.max} step={1} value={curve ?? CURVE.auto} aria-label="Curve" onChange={(e) => prefs({ curve: Number(e.target.value) })} className="soft relative z-10" />
+                      <DefaultDot at={CURVE.auto / CURVE.max} label="Back to Automatic curve" onReset={() => prefs({ curve: null })} />
+                    </div>
+                    <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
+                      <span>Flat wall</span>
+                      <span>Wraps around you</span>
+                    </div>
                   </div>
-                  <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
-                    <span>Wraps around you</span>
-                    <span>Flat wall</span>
-                  </div>
-                </div>
+                )
               )}
               <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
                 <span>
