@@ -6,23 +6,55 @@ const iso = (d: number) => {
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
 }
 
-async function setUp(page: import('@playwright/test').Page, showDone: boolean) {
+async function setUp(page: import('@playwright/test').Page, showDone: boolean, autoEvents = true) {
   await page.goto('/')
   await page.locator('[data-node]').first().waitFor()
   await savedReady(page)
-  await page.evaluate(([past, future, showDone]) => {
+  await page.evaluate(([past, future, showDone, autoEvents]) => {
     const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
     const base = raw.state.tasks.find((x: { title: string }) => x.title === 'Pay rent')
     const mk = (id: string, title: string, day: string) => ({ ...base, id, title, kind: 'event', day, time: '15:00', endTime: '16:00', due: null, repeat: null, status: 'todo', folderIds: [], personIds: [] })
     raw.state.tasks.push(mk('ev-past', 'Old concert', past), mk('ev-future', 'Next concert', future))
+    const task = { ...base, id: 'task-past', title: 'Late essay', kind: 'task', day: null, time: null, endTime: null, due: past, repeat: null, status: 'todo', folderIds: [], personIds: [] }
+    raw.state.tasks.push(task)
     raw.state.settings.showDone = showDone
+    raw.state.settings.autoCompleteEvents = autoEvents
     localStorage.setItem('lilac-v1', JSON.stringify(raw))
-  }, [iso(-3), iso(3), showDone] as const)
+  }, [iso(-3), iso(3), showDone, autoEvents] as const)
   await page.goto('/')
   await page.locator('[data-node]').first().waitFor()
   await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
   await goto(page, 'List')
 }
+
+test.describe('nothing is finished for you', () => {
+  test('a task past its deadline stays open and findable, whatever the setting; events too unless asked', async ({ page }) => {
+    await setUp(page, false, false)
+    await expect(page.getByText('Late essay', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Old concert', { exact: true }).first()).toBeVisible()
+    await page.waitForTimeout(1500)
+    await expect(page.getByText('Late essay', { exact: true }).first()).toBeVisible()
+  })
+
+  test('with past events switched on, tasks are still left alone, and an event brought back stays back', async ({ page }) => {
+    await setUp(page, true)
+    await expect(page.locator('[data-lift-id^="task:"]').filter({ hasText: 'Late essay' }).first()).not.toContainText('line-through')
+    const status = (id: string) => page.evaluate((i) => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { id: string }) => t.id === i)?.status, id)
+    await expect.poll(() => status('ev-past')).toBe('done')
+    expect(await status('task-past')).toBe('todo')
+    // un-check the event: the rollover (which runs every minute) must not finish it again
+    await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
+      const t = raw.state.tasks.find((x: { id: string }) => x.id === 'ev-past')
+      t.status = 'todo'
+      localStorage.setItem('lilac-v1', JSON.stringify(raw))
+    })
+    await page.reload()
+    await page.locator('[data-lift-id^="task:"]').first().waitFor()
+    await page.waitForTimeout(1500)
+    expect(await status('ev-past')).toBe('todo')
+  })
+})
 
 test.describe('events that are over', () => {
   test('are hidden with the finished ones, like completed tasks', async ({ page }) => {

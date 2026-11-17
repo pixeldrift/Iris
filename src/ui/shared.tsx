@@ -221,8 +221,8 @@ export function PlaceChip({ task }: { task: Task }) {
 
 export function DueChip({ task, compact = false }: { task: Task; compact?: boolean }) {
   const d = dueInfo(task)
-  const autoCompletePastDue = useStore((s) => s.settings.autoCompletePastDue)
-  const past = !autoCompletePastDue && !isDoneNow(task) && (isOverdue(task) || isPastEvent(task))
+  const autoCompleteEvents = useStore((s) => s.settings.autoCompleteEvents)
+  const past = !(autoCompleteEvents && task.kind === 'event') && !isDoneNow(task) && (isOverdue(task) || isPastEvent(task))
   if (!d) return null
   return (
     <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[0.7rem] leading-none ${DUE_TONE_CLASS[d.tone]}`}>

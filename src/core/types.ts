@@ -117,6 +117,8 @@ export interface Task {
   contactDeclined?: boolean
   createdAt: number
   completedAt: number | null
+  /** An event that was checked off by itself after it ended (once only: if it is un-checked it stays open). */
+  autoCompleted?: boolean
   /** Automatically hidden from active views after the retention period; remains in the Completed archive. */
   archived?: boolean
 }

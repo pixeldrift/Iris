@@ -234,11 +234,15 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
       rollover: () => {
         const now = today()
         const snapshot = get()
-        if (snapshot.settings.autoCompletePastDue) {
+        // Only events, only when asked for, and only once: a task is never finished for you (it may still be needed after its date, a night owl's
+        // "tomorrow" is the same day), and an event someone re-opens stays open.
+        if (snapshot.settings.autoCompleteEvents) {
           for (const t of snapshot.tasks) {
-            if (t.status === 'done' || t.draft || repeatOf(t) || t.kind === 'idea' || hasPendingReminder(t, Date.now())) continue // (a reminder still to come keeps it open)
-            const past = t.kind === 'event' ? isPastEvent(t) : !!(t.due ?? t.day) && (t.due ?? t.day)! < now
-            if (past) get().setStatus(t.id, 'done', true)
+            if (t.kind !== 'event' || t.status === 'done' || t.draft || t.autoCompleted || repeatOf(t) || hasPendingReminder(t, Date.now())) continue
+            if (isPastEvent(t)) {
+              get().setStatus(t.id, 'done', true)
+              get().updateTask(t.id, { autoCompleted: true })
+            }
           }
         }
         const moves = new Map<string, string>()
