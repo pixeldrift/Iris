@@ -3,6 +3,7 @@ import { descendantIds, pathOf } from '../../core/folders'
 import { detectContactIntent, matchPerson } from '../../core/people'
 import { hasProgress, patchForStage, percentForStage, percentOfCount, percentsFor, planRank, stageForPercent, stageIndex, stagesForTask, stagesOf, topRank } from '../../core/progress'
 import { currentOccurrence, repeatOf } from '../../core/recurrence'
+import { graceToday } from '../../core/dayend'
 import { isPastEvent } from '../../core/schedule'
 import { hasPendingReminder, remindFromRule } from '../../core/reminders'
 import { completedDateMatches, rolloverDay, tagsOf, urgencyForDue } from '../../core/tasks'
@@ -235,7 +236,8 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
         if (snapshot.settings.autoCompleteEvents) {
           for (const t of snapshot.tasks) {
             if (t.kind !== 'event' || t.status === 'done' || t.draft || t.autoCompleted || repeatOf(t) || hasPendingReminder(t, Date.now())) continue
-            if (isPastEvent(t)) {
+            // (and its day is over for the person: a late-night event is not finished while they are still up)
+            if (isPastEvent(t) && t.day! < graceToday()) {
               get().setStatus(t.id, 'done', true)
               get().updateTask(t.id, { autoCompleted: true })
             }

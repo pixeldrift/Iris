@@ -55,6 +55,8 @@ export interface Settings {
   /** Automatically check off non-repeating items after their date (events after their end time). */
   /** Events (never tasks) are checked off by themselves once they have ended. Off by default. */
   autoCompleteEvents: boolean
+  /** The hour (0–8) a day is over for someone still up: before it, yesterday is not late yet and nothing is finished for them. */
+  dayEndsAt: number
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */

@@ -27,7 +27,8 @@ export function dueInfo(task: Task, now: string = today()): DueInfo | null {
   if (when === now && !late) return { text: task.time ? formatTime(task.time) : 'Today', tone: 'today' }
   return {
     text: relativeLabel(when, now),
-    tone: late ? 'late' : when === now ? 'today' : 'later',
+    // (a day that is not over yet for someone still up is still "today" in colour)
+    tone: late ? 'late' : when <= now ? 'today' : 'later',
     // tomorrow is just "Tomorrow"; the time only rides along for days further out
     time: task.time && when !== addDays(now, 1) ? formatTime(task.time) : undefined,
     deadline: task.day && task.due && task.due !== task.day ? relativeLabel(task.due, now) : undefined,

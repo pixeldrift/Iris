@@ -161,6 +161,8 @@ export function TopBar({ onNew }: { onNew: () => void }) {
       ? 'Several filters'
       : scope.type === 'all'
       ? 'Everything'
+      : scope.type === 'overdue'
+      ? 'Overdue'
       : scope.type === 'inbox'
         ? 'Unsorted'
         : scope.type === 'day'

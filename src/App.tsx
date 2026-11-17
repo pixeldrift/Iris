@@ -20,6 +20,7 @@ import { NewTask, openCompose } from './ui/NewTask'
 import { Sidebar } from './ui/Sidebar'
 import { TaskDetail } from './ui/TaskDetail'
 import { TopBar } from './ui/TopBar'
+import { OverdueBar } from './ui/OverdueBar'
 import { Board } from './ui/views/Board'
 import { CalendarView } from './ui/views/Calendar'
 import { ListView } from './ui/views/ListView'
@@ -140,6 +141,7 @@ export default function App() {
       <Sidebar />
       <main className={`relative z-10 flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ${land ? 'pl-0' : 'pl-[var(--sliver)] md:pl-0'} ${hasDetail && !land ? 'md:pr-[25.5rem]' : ''}`}>
         <TopBar onNew={() => openCompose()} />
+        <OverdueBar />
         <div className="relative min-h-0 flex-1 px-3 pb-3 md:px-4 md:pb-4" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', ...(land ? { paddingTop: '0.75rem', paddingRight: 'calc(var(--rail) + 0.25rem)' } : {}) }}>
           <View />
         </div>

@@ -1,5 +1,7 @@
 import { addDays, diffDays, fromISO, startOfWeek, today } from './dates'
 import { formatClock } from './locale'
+import { graceToday } from './dayend'
+import { isPastEvent } from './schedule'
 import { currentOccurrence, repeatOf, repeatStreak, taskOnDate } from './recurrence'
 import { descendantIds } from './folders'
 import type { Folder, Scope, SortKey, Task } from './types'
@@ -70,6 +72,8 @@ export function scopeMatcher(scope: Scope, folders: Folder[]): (task: Task) => b
       return (t) => !t.archived
     case 'completed':
       return (t) => t.status === 'done' && completedDateMatches(t, scope)
+    case 'overdue':
+      return isLate
     case 'inbox':
       // Unsorted is the home for every task without a group, whether or not it has a date.
       return (t) => !t.archived && t.folderIds.length === 0
@@ -155,7 +159,14 @@ export function bubbleRadius(t: Task, scale: boolean): number {
 }
 
 export function isOverdue(t: Task, now = today()): boolean {
-  return t.status !== 'done' && ((!!t.due && t.due < now) || (!!t.day && t.day < now))
+  // (the real today follows the person's day-end hour: before it, yesterday is not over yet)
+  const cut = now === today() ? graceToday() : now
+  return t.status !== 'done' && ((!!t.due && t.due < cut) || (!!t.day && t.day < cut))
+}
+
+/** Late and still open: a dated task past its date, or an event that has ended and was not checked off (a repeating one is not: it has its log). */
+export function isLate(t: Task): boolean {
+  return t.status !== 'done' && !t.archived && !t.draft && !repeatOf(t) && t.kind !== 'idea' && (isOverdue(t) || isPastEvent(t))
 }
 
 /** First date on or after `from` that falls on one of `days` (0 = Sunday). Any day when unrestricted. */
