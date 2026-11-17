@@ -12,13 +12,17 @@ const CYCLES = 9
 
 /**
  * A list that loops for ever: it is laid out several times over and quietly re-centred whenever the scroll gets near
- * an end, so it never runs out. The chosen entry sits at the top, and picking one scrolls it up there.
+ * an end, so it never runs out. The purple highlight stays put at the top and the numbers scroll up into it: whichever
+ * one is in it when the scrolling settles is the choice (tapping one scrolls it up there).
  */
 export function Wheel({ items, selected, label, onPick, shown = SHOWN, left = false }: { items: React.ReactNode[]; selected: number | null; label: string; onPick: (i: number) => void; shown?: number; left?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [topRow, setTopRow] = useState(0)
   const n = items.length
   const period = n * ROW
+  // the person is scrolling it (as opposed to the list moving because the value was set from outside)
+  const byHand = useRef(false)
+  const settle = useRef<number | undefined>(undefined)
   // start in the middle cycle with the chosen entry (or the first) at the top
   useLayoutEffect(() => {
     const el = ref.current
@@ -26,53 +30,77 @@ export function Wheel({ items, selected, label, onPick, shown = SHOWN, left = fa
       el.scrollTop = (Math.floor(CYCLES / 2) * n + (selected ?? 0)) * ROW
       setTopRow(Math.round(el.scrollTop / ROW))
     }
+    return () => window.clearTimeout(settle.current)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // when the value changes from outside, bring it to the top (the nearest copy)
   useEffect(() => {
     const el = ref.current
     if (!el || selected === null) return
     const base = Math.round(el.scrollTop / ROW)
+    if (((base % n) + n) % n === selected) return // (already in the highlight)
     const cycle = Math.floor(base / n)
     el.scrollTo({ top: (cycle * n + selected) * ROW, behavior: 'smooth' })
   }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const recentre = () => {
+  const onScroll = () => {
     const el = ref.current
     if (!el) return
     if (el.scrollTop < period * 2) el.scrollTop += period * 3
     else if (el.scrollTop > period * (CYCLES - 3)) el.scrollTop -= period * 3
     setTopRow(Math.round(el.scrollTop / ROW))
+    // when it stops: settle exactly on a row, and what is in the highlight is the choice
+    window.clearTimeout(settle.current)
+    settle.current = window.setTimeout(() => {
+      const row = Math.round(el.scrollTop / ROW)
+      if (Math.abs(el.scrollTop - row * ROW) > 1) el.scrollTo({ top: row * ROW, behavior: 'smooth' })
+      else if (byHand.current) {
+        byHand.current = false
+        const i = ((row % n) + n) % n
+        if (i !== selected) onPick(i)
+      }
+    }, 140)
+  }
+  const touched = () => {
+    byHand.current = true
   }
   return (
-    <div
-      ref={ref}
-      role="listbox"
-      aria-label={label}
-      onScroll={recentre}
-      className="no-scrollbar snap-y snap-proximity overflow-y-auto overscroll-contain"
-      style={{ height: ROW * shown, maskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)' }}
-    >
-      {Array.from({ length: n * CYCLES }, (_, k) => {
-        const i = k % n
-        // only one copy is lit: the first one at or below the top of the view
-        const on = selected !== null && k === topRow + ((((selected - topRow) % n) + n) % n)
-        return (
-          <button
-            key={k}
-            type="button"
-            role="option"
-            aria-selected={on}
-            onClick={() => {
-              onPick(i)
-              ref.current?.scrollTo({ top: k * ROW, behavior: 'smooth' })
-            }}
-            className={`grid w-full snap-start rounded-full ${left ? 'items-center justify-items-start pl-3' : 'place-items-center'} text-sm tabular-nums transition ${on ? 'bg-lilac-500 text-white shadow' : 'text-ink hover:bg-lilac-100/80'}`}
-            style={{ height: ROW }}
-          >
-            {items[i]}
-          </button>
-        )
-      })}
+    <div className="relative">
+      {/* the highlight: it does not scroll; the numbers go up into it */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 rounded-full bg-lilac-500 shadow" style={{ height: ROW }} />
+      <div
+        ref={ref}
+        role="listbox"
+        aria-label={label}
+        onScroll={onScroll}
+        onPointerDown={touched}
+        onWheel={touched}
+        onTouchStart={touched}
+        className="no-scrollbar relative snap-y snap-proximity overflow-y-auto overscroll-contain"
+        style={{ height: ROW * shown, maskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)' }}
+      >
+        {Array.from({ length: n * CYCLES }, (_, k) => {
+          const i = k % n
+          // the one in the highlight is the one at the top of the view
+          const on = k === topRow
+          return (
+            <button
+              key={k}
+              type="button"
+              role="option"
+              aria-selected={on}
+              onClick={() => {
+                byHand.current = false
+                onPick(i)
+                ref.current?.scrollTo({ top: k * ROW, behavior: 'smooth' })
+              }}
+              className={`grid w-full snap-start rounded-full ${left ? 'items-center justify-items-start pl-3' : 'place-items-center'} text-sm tabular-nums transition-colors ${on ? 'text-white' : 'text-ink hover:bg-lilac-100/80'}`}
+              style={{ height: ROW }}
+            >
+              {items[i]}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

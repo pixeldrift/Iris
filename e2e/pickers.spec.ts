@@ -32,6 +32,24 @@ test.describe('date and time pickers', () => {
     void before
   })
 
+  test('the highlight stays at the top and the numbers scroll up into it: what settles there is the time', async ({ page }) => {
+    await page.getByText('–None–').first().click()
+    const hours = page.getByRole('listbox', { name: 'Hour' })
+    await expect(hours).toBeVisible()
+    await hours.getByRole('option', { name: '9', exact: true }).nth(4).click()
+    await expect(hours.getByRole('option', { selected: true })).toHaveText('9')
+    await expect(page.getByRole('button', { name: /\b9(:\d\d)? am/i }).first()).toBeVisible() // (picking by tap still sets it)
+    // scrolled by hand (one row of 34px): the highlight has not moved, and it now holds a different number
+    const top = () => hours.evaluate((el) => Math.round(el.scrollTop))
+    const before = await top()
+    await hours.hover()
+    await page.mouse.wheel(0, 34)
+    await expect.poll(top).toBeGreaterThan(before)
+    await expect(hours.getByRole('option', { selected: true })).toHaveText('10')
+    // ... and once it settles that is the hour that was chosen
+    await expect(page.getByRole('button', { name: /\b10(:\d\d)? am/i }).first()).toBeVisible()
+  })
+
   test('Done closes the picker and Clear removes the time', async ({ page }) => {
     await page.getByText('–None–').first().click()
     await page.getByRole('listbox', { name: 'Hour' }).getByRole('option', { name: '3', exact: true }).nth(4).click()
