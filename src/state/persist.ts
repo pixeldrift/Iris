@@ -9,7 +9,7 @@ import type { PersistOptions } from 'zustand/middleware'
 /** How the store is saved to the device, and how an older save is brought up to date when the app loads. */
 export const persistOptions: PersistOptions<State, Partial<State>> = {
   name: 'lilac-v1',
-  version: 14,
+  version: 15,
   partialize: (s) => ({
     tasks: s.tasks,
     folders: s.folders,
@@ -71,6 +71,8 @@ export const persistOptions: PersistOptions<State, Partial<State>> = {
       })
     }
     p.settings = { ...DEFAULT_SETTINGS, ...(p.settings as Settings) }
+    // (the old "complete past-due items" switch, which also finished tasks, is gone: nothing is finished for you unless you turn on events)
+    if (from < 15) delete (p.settings as unknown as Record<string, unknown>).autoCompletePastDue
     return p as State
   },
   merge: (persisted, current) => {

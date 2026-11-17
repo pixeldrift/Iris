@@ -53,7 +53,8 @@ export interface Settings {
   /** A due date brings a reminder with it. */
   autoRemind: boolean
   /** Automatically check off non-repeating items after their date (events after their end time). */
-  autoCompletePastDue: boolean
+  /** Events (never tasks) are checked off by themselves once they have ended. Off by default. */
+  autoCompleteEvents: boolean
   /** Where the play limit stands (kept on this device, so closing the page does not reset it). */
   playGate: PlayGate
   /** How dates are written (see core/locale). */

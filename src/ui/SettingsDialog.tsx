@@ -462,7 +462,7 @@ export function SettingsDialog() {
           <Row k="tooltips" label="Tooltips" hint="labels when you hover an icon" />
           <NotificationsRow />
           <Row k="autoRemind" label="Remind me about due dates" hint="a reminder comes with every due date (you can change or remove it)" />
-          <Row k="autoCompletePastDue" label="Automatically complete past-due items" hint="check off dated tasks after their date, and events after they end" />
+          <Row k="autoCompleteEvents" label="Automatically complete past events" hint="check off calendar events after they end (tasks are never completed for you; off by default)" />
           {accountsConfigured && <Row k="notifyShared" label="Tell others about my new tasks" hint="when I add one to a shared group (off by default)" />}
         </Group>
         <Group title="Date &amp; Time">

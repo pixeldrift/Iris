@@ -72,3 +72,8 @@ Not changed: the group sort is by group name (not sidebar order), as that contri
 - Palette sync: `src/ui/palette.test.ts`
 - Dialog focus: `npx playwright test --project=app e2e/dialogfocus.spec.ts`
 - Unused exports: the one-off script in this pass walked every `export` and looked for other files that mention the name; it is easy to turn into a CI step.
+
+## Nothing is finished for you (the auto-complete bug)
+The merged "automatically complete past-due items" setting (on by default) checked off tasks the moment their date passed, which took them away when they were still needed (a night owl's "tomorrow" is the same working day) and, when un-checked, completed them again within a minute (a limbo loop, with the details only reachable through the completed filter). Now a task is never completed for you. Calendar events only, and only with *Automatically complete past events* (`autoCompleteEvents`, off by default), once per event (`autoCompleted`: an event that is brought back stays open). The old setting was removed from saved data (persist v15), so everyone starts with nothing automatic. Items that were already auto-completed stay completed (they cannot be told apart from ones you ticked); un-check them from the Completed list.
+
+Also: a date or a time never changes what kind of item something is (`updateTask` used to turn a task into an event when it was given a time, and back when the time was taken away). Anything with a start time is already shown at that time whatever its kind, so nothing needs the type to change. The type changes only when someone picks it, or when quick add is told so in words (an invitation, "tonight" with a person, or a time typed into the quick-add line).
