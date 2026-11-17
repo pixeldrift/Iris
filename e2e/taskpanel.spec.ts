@@ -126,7 +126,7 @@ test.describe('the task and notion panels', () => {
     await dialog.getByRole('button', { name: 'Done', exact: true }).click()
   })
 
-  test('the type is only a layout: giving a task a start time makes it an event, and a due time is just as optional', async ({ page }) => {
+  test('a day and a start time do not change the type (it stays a task), and a due time is just as optional', async ({ page }) => {
     await page.keyboard.press('n')
     await page.keyboard.type('Write the report')
     await page.keyboard.press('Enter')
@@ -142,7 +142,7 @@ test.describe('the task and notion panels', () => {
     await page.getByRole('listbox', { name: 'Hour' }).getByRole('option', { name: '3', exact: true }).nth(3).click()
     await page.getByRole('listbox', { name: 'AM or PM' }).getByRole('option', { name: 'PM' }).nth(3).click()
     await expect.poll(async () => (await taskNamed(page, 'Write the report'))?.time).toBeTruthy()
-    await expect.poll(async () => (await taskNamed(page, 'Write the report'))?.kind).toBe('event')
+    expect((await taskNamed(page, 'Write the report'))?.kind).toBe('task') // (scheduling never changes what it is)
     // The deadline's time is optional too, and says "Any time"
     await expect(dialog.getByText('Any time')).toBeVisible()
   })

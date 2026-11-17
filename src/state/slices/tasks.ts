@@ -80,11 +80,7 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
               next.dueRemindAt = remindFromRule(next, next.dueRemindBefore, Date.now(), 'due')
               next.dueReminded = false
             }
-            // the type is only which fields are shown: giving a task a time makes it an event, and taking the time away makes it a task again
-            if ('time' in patch) {
-              if (patch.time && next.kind === 'task') next.kind = 'event'
-              else if (!patch.time && next.kind === 'event') next.kind = 'task'
-            }
+            // (a date or a time never changes what kind of item this is: that is only changed by choosing it)
             // adding a repeat makes a plain task a habit (something you keep doing)
             if (patch.repeat && !t.repeat && next.kind === 'task') next.kind = 'habit'
             return next
