@@ -207,6 +207,8 @@ export interface PersonExtra {
 export type Scope =
   | { type: 'all' }
   | { type: 'inbox' }
+  /** Late and still open: tasks past their date and events that ended without being checked off. */
+  | { type: 'overdue' }
   | { type: 'completed'; period?: 'all' | 'today' | 'week' | 'month' | 'range'; from?: string; to?: string }
   | { type: 'folder'; id: string }
   | { type: 'person'; id: string }

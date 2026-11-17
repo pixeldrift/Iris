@@ -6,7 +6,7 @@ import type { Settings } from '../state/store'
 import { Modal } from './dialogs'
 import { MenuItem, Popover } from './Popover'
 import { applySpace, applyTheme, BASE_HUE, setScrubbing } from './theme'
-import { DATE_STYLES, deviceTimeZone } from '../core/locale'
+import { DATE_STYLES, deviceTimeZone, formatClock } from '../core/locale'
 import { accountsConfigured } from '../sync/auth'
 import { openDanger } from './DangerZone'
 import { SegmentedToggle } from './SegmentedToggle'
@@ -22,6 +22,28 @@ export const openSettings = () => useSettingsDialog.setState({ open: true })
 const close = () => useSettingsDialog.setState({ open: false })
 
 type BoolKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings]
+
+/** Night-owl grace: the hour a day is over. Until then yesterday's things are not late, and no event is checked off. */
+function DayEndsRow() {
+  const at = useStore((s) => s.settings.dayEndsAt)
+  const set = useStore((s) => s.setSetting)
+  useStore((s) => s.settings.clockFormat) // (the hours are written the way the clock is)
+  return (
+    <label className="flex w-full items-center gap-3 rounded-xl py-1.5 pl-7 pr-2 text-sm">
+      <span className="min-w-0 flex-1">
+        My day ends at
+        <span className="block text-[0.7rem] text-ink-faint">until then, yesterday is not late and nothing is completed for you (for night owls)</span>
+      </span>
+      <select aria-label="My day ends at" value={at} onChange={(e) => set('dayEndsAt', Number(e.target.value))} className="well rounded-xl px-2 py-1 text-sm">
+        {Array.from({ length: 9 }, (_, h) => (
+          <option key={h} value={h}>
+            {h === 0 ? 'Midnight' : formatClock(h, 0)}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
 
 function Row({ k, label, hint, indent = false, faded = false, inline = false }: { k: BoolKey; label: string; hint?: string; indent?: boolean; faded?: boolean; inline?: boolean }) {
   const on = useStore((s) => s.settings[k])
@@ -463,6 +485,7 @@ export function SettingsDialog() {
           <NotificationsRow />
           <Row k="autoRemind" label="Remind me about due dates" hint="a reminder comes with every due date (you can change or remove it)" />
           <Row k="autoCompleteEvents" label="Automatically complete past events" hint="check off calendar events after they end (tasks are never completed for you; off by default)" />
+          <DayEndsRow />
           {accountsConfigured && <Row k="notifyShared" label="Tell others about my new tasks" hint="when I add one to a shared group (off by default)" />}
         </Group>
         <Group title="Date &amp; Time">

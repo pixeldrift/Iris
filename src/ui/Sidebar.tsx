@@ -14,7 +14,8 @@ import { useFlip } from './flip'
 import { SPRING } from './lift'
 import { AccountRow } from './Account'
 import { Tip } from './Tip'
-import { IconAll, IconInbox, IconBook, IconPlus } from './icons'
+import { IconAll, IconInbox, IconBook, IconPlus, IconClock } from './icons'
+import { isLate } from '../core/tasks'
 
 import { orderedViews, VIEWS } from './viewList'
 import { Disclosure, Gap, rowBase } from './sidebar/parts'
@@ -114,6 +115,14 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const live = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks])
+  // (what is late changes as the clock moves: counted again each minute, and when the day-end hour is changed)
+  const [minute, setMinute] = useState(0)
+  useEffect(() => {
+    const iv = window.setInterval(() => setMinute((m) => m + 1), 60_000)
+    return () => window.clearInterval(iv)
+  }, [])
+  const dayEndsAt = useStore((s) => s.settings.dayEndsAt)
+  const lateCount = useMemo(() => live.filter(isLate).length, [live, minute, dayEndsAt]) // eslint-disable-line react-hooks/exhaustive-deps
   const t0 = today()
   const days = Array.from({ length: 7 }, (_, i) => addDays(t0, i))
   const dueCount = (d: string) => live.filter((t) => taskOnDate(t, d)).length
@@ -496,6 +505,8 @@ export function Sidebar() {
             </div>
             <div className="mt-1">
               <ScopeRow active={scope.type === 'all'} onClick={() => setScope({ type: 'all' })} icon={<IconAll />} label="Everything" count={live.length} />
+              {/* what is late and still open: tasks past their date, events that ended unchecked (nothing is finished for you) */}
+              {(lateCount > 0 || scope.type === 'overdue') && <ScopeRow active={scope.type === 'overdue'} onClick={() => setScope({ type: 'overdue' })} icon={<IconClock />} label="Overdue" count={lateCount} />}
             </div>
             {order.map((id) => (
               <Fragment key={id}>{sections[id]}</Fragment>

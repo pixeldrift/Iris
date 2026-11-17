@@ -56,6 +56,30 @@ test.describe('nothing is finished for you', () => {
   })
 })
 
+test.describe('the Overdue filter', () => {
+  test('lists late tasks and ended events, and one tap checks off the events', async ({ page }) => {
+    await setUp(page, false, false)
+    await page.getByRole('button', { name: /^Overdue/ }).click()
+    await expect(page.getByText('Late essay', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Old concert', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Next concert', { exact: true })).toHaveCount(0) // (still to come)
+    await page.getByRole('button', { name: 'Check off past events' }).click()
+    await page.getByRole('button', { name: 'Check off', exact: true }).click()
+    await expect(page.getByText('Old concert', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Late essay', { exact: true }).first()).toBeVisible() // (a task is only ever checked off by you)
+    await expect(page.getByRole('button', { name: 'Check off past events' })).toHaveCount(0)
+  })
+
+  test('the day-end hour is a setting beside the past-events switch', async ({ page }) => {
+    await setUp(page, false, false)
+    await page.getByRole('button', { name: 'My settings' }).click()
+    const hour = page.getByRole('combobox', { name: 'My day ends at' })
+    await expect(hour).toHaveValue('4')
+    await hour.selectOption('2')
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.settings.dayEndsAt)).toBe(2)
+  })
+})
+
 test.describe('events that are over', () => {
   test('are hidden with the finished ones, like completed tasks', async ({ page }) => {
     await setUp(page, false)

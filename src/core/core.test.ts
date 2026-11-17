@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordinalSuffix, startOfWeek, today, WEEKDAYS } from './dates'
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
-import { completedDateMatches, filterTasks, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
+import { setDayEnds, graceToday } from './dayend'
+import { completedDateMatches, filterTasks, isLate, isOverdue, scopeMatcher, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, hasPendingReminder, reminderPresets } from './reminders'
 import { describeRecurrence, nextOccurrence, occursOn } from './recurrence'
@@ -1204,5 +1205,42 @@ describe('reminders still to come', () => {
     expect(hasPendingReminder({ ...t, reminded: true }, 1_000)).toBe(false)
     expect(hasPendingReminder(t, 3_000)).toBe(false)
     expect(hasPendingReminder({ ...t, remindAt: null, dueRemindAt: 5_000 }, 1_000)).toBe(true)
+  })
+})
+
+describe('a night owl\'s day (grace) and the Overdue filter', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    setDayEnds(4)
+  })
+  const mk = (over: Record<string, unknown>) => ({ ...seedData().tasks[0], status: 'todo', repeat: null, draft: false, archived: false, kind: 'task', day: null, due: null, time: null, endTime: null, ...over }) as ReturnType<typeof seedData>['tasks'][number]
+  it('yesterday is not late until the day-end hour; after it, it is', () => {
+    setDayEnds(4)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 11, 1, 30)) // 1:30 a.m. on the 11th: still the 10th for someone up
+    expect(graceToday()).toBe('2026-06-10')
+    const due10 = mk({ due: '2026-06-10' })
+    const due9 = mk({ due: '2026-06-09' })
+    expect(isOverdue(due10)).toBe(false)
+    expect(isOverdue(due9)).toBe(true)
+    vi.setSystemTime(new Date(2026, 5, 11, 4, 0))
+    expect(graceToday()).toBe('2026-06-11')
+    expect(isOverdue(due10)).toBe(true)
+    setDayEnds(0) // no grace: the day ends at midnight
+    vi.setSystemTime(new Date(2026, 5, 11, 1, 30))
+    expect(isOverdue(due10)).toBe(true)
+  })
+  it('the Overdue filter holds open late tasks and ended events, and nothing else', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 11, 12, 0))
+    const late = mk({ id: 'a', due: '2026-06-01' })
+    const ended = mk({ id: 'b', kind: 'event', day: '2026-06-11', time: '09:00', endTime: '10:00' })
+    const coming = mk({ id: 'c', kind: 'event', day: '2026-06-11', time: '15:00', endTime: '16:00' })
+    const done = mk({ id: 'd', due: '2026-06-01', status: 'done' })
+    const undated = mk({ id: 'e' })
+    const habit = mk({ id: 'f', day: '2026-06-01', repeat: { freq: 'weekly', every: 1, from: '2026-06-01' } })
+    const only = (ts: ReturnType<typeof mk>[]) => ts.filter(scopeMatcher({ type: 'overdue' }, [])).map((t) => t.id)
+    expect(only([late, ended, coming, done, undated, habit])).toEqual(['a', 'b'])
+    expect([late, ended, coming, done, undated, habit].filter(isLate).length).toBe(2)
   })
 })
