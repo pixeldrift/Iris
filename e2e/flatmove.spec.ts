@@ -124,7 +124,7 @@ test('a tap on blank space inside a group box opens the new-item box with that g
   await enterFlat(page)
   const b = (await page.locator('[data-box="eng101"]').boundingBox())!
   // the bottom-right of the box: the third row has an empty slot there
-  await page.mouse.click(b.x + b.width - 14, b.y + b.height - 12)
+  await page.mouse.click(b.x + b.width * 0.75, b.y + b.height - 22) // (clear of the corner dots)
   await page.getByLabel('New item').first().fill('Flat blank tap')
   await page.keyboard.press('Enter')
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.find((t: { title: string }) => t.title === 'Flat blank tap')?.folderIds ?? [])).toContain('eng101')
@@ -195,8 +195,10 @@ test.describe('a group can be made bigger or smaller by its corner dots', () => 
 test.describe('what the flat canvas shows at its edges, and a tap that only closes a menu', () => {
   test('small dots at the edge point to groups out of view; the setting for the flat view is its own', async ({ page }) => {
     await enterFlat(page)
-    for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Zoom in' }).click()
-    await page.waitForTimeout(400)
+    const c = (await page.getByRole('region', { name: 'Spatial workspace' }).boundingBox())!
+    await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2)
+    await page.mouse.wheel(0, -900) // (in: the groups at the sides leave the screen)
+    await page.waitForTimeout(500)
     const dots = page.locator('.edge-dot')
     await expect.poll(() => dots.count()).toBeGreaterThan(0)
     const box = (await dots.first().boundingBox())!
@@ -235,8 +237,8 @@ test.describe('what the flat canvas shows at its edges, and a tap that only clos
     await page.waitForTimeout(600)
     await expect(page.getByRole('dialog')).toHaveCount(0)
     expect(await count()).toBe(before)
-    // and a tap with nothing open still makes one
+    // and a tap with nothing open still opens the box for a new one
     await page.mouse.click(r.x + r.width * 0.12, r.y + r.height * 0.82)
-    await expect.poll(count).toBeGreaterThan(before)
+    await expect(page.getByLabel('New item').first()).toBeVisible()
   })
 })

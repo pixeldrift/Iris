@@ -122,7 +122,7 @@ test.describe('the task and notion panels', () => {
     await page.keyboard.type('event: Dinner with Sam')
     await page.keyboard.press('Enter')
     const dialog = page.getByLabel('Task details')
-    await expect(dialog.getByRole('button', { name: /Mark (not )?done/ })).toHaveCount(1)
+    await expect(dialog.getByRole('button', { name: /Mark (not )?completed/ })).toHaveCount(1)
     await dialog.getByRole('button', { name: 'Ok', exact: true }).click()
   })
 
