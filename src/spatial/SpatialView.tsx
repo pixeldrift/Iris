@@ -162,7 +162,9 @@ export default function SpatialView() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // a tap on 3D (or on the explanation's Start): ask for motion from inside that tap, as iOS requires
+  const [motionAsked, setMotionAsked] = useState(false)
   const startMotion = () => {
+    setMotionAsked(true)
     const tr = track.current
     if (!tr || trackPref === 'touch' || !caps.motion || tr.motion) return
     void tr.start(true).then((ok) => !ok && setNote('Motion tracking was not allowed, so you can look around by dragging. You can switch it on again from the settings button.'))
@@ -179,9 +181,10 @@ export default function SpatialView() {
     if (go === 'back') return void prefs({ view: '2d' })
     prefs({ seen: !again })
     if (go === 'motion') startMotion()
+    else setMotionAsked(true) // (touch only was chosen: no button asking for motion)
   }
   // iOS asks for motion only from a tap: when 3D opens already explained, a small button gives it
-  const needsMotionTap = !simple && !introOpen && caps.motionNeedsPermission && trackPref !== 'touch' && status.source !== 'motion'
+  const needsMotionTap = !simple && !introOpen && caps.mobile && caps.motionNeedsPermission && trackPref !== 'touch' && !motionAsked && status.source !== 'motion'
 
   useEffect(() => {
     if (!wall || !details || phase !== 'running') return void setHud('')
@@ -306,7 +309,7 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), radius: () => sc.getRadius(), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), dbgTasks: () => { const s = sc as unknown as { tasks: Map<string, { mesh: { visible: boolean; position: { x: number; y: number; z: number } } }>; layout: { tasks: Record<string, unknown> } }; return [...s.tasks].slice(0, 40).map(([id, n]) => [id, n.mesh.visible, Math.round(n.mesh.position.x), Math.round(n.mesh.position.y), Math.round(n.mesh.position.z), JSON.stringify(s.layout.tasks[id])]) }, surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
+    if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), radius: () => sc.getRadius(), grip: (id: string, edge: 'left' | 'right') => sc.gripPoint(id, edge), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), dbgTasks: () => { const s = sc as unknown as { tasks: Map<string, { mesh: { visible: boolean; position: { x: number; y: number; z: number } } }>; layout: { tasks: Record<string, unknown> } }; return [...s.tasks].slice(0, 40).map(([id, n]) => [id, n.mesh.visible, Math.round(n.mesh.position.x), Math.round(n.mesh.position.y), Math.round(n.mesh.position.z), JSON.stringify(s.layout.tasks[id])]) }, surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
     void chooseEnv(environment === 'camera' ? 'virtual' : environment === 'panorama' && !panoUrl.current ? 'virtual' : environment)

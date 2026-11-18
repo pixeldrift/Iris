@@ -9,6 +9,8 @@ export interface Capabilities {
   camera: boolean
   secure: boolean
   reducedMotion: boolean
+  /** A phone or tablet: a touch screen is the main way of pointing (a desktop has no motion sensors worth using, and its camera is not held up to a wall). */
+  mobile: boolean
 }
 
 export function detectCapabilities(): Capabilities {
@@ -28,5 +30,6 @@ export function detectCapabilities(): Capabilities {
     camera: !!(typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia),
     secure: typeof window !== 'undefined' ? window.isSecureContext : false,
     reducedMotion: !!w?.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+    mobile: !!w?.matchMedia?.('(pointer: coarse)').matches,
   }
 }

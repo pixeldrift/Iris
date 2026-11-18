@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { K, WORLD, type ClusterPlacement } from './types'
-import { CURVE, curveFromRadius, radiusFromCurve, RADIUS, arrangeFor, ensureLayout, slotAt, FLAT_R, TASK_LIFT, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
+import { MAX_COLS, MAX_ROWS, detent, minSizeOf, resizeCluster, settled, springStep, CURVE, curveFromRadius, radiusFromCurve, RADIUS, arrangeFor, ensureLayout, slotAt, FLAT_R, TASK_LIFT, withRadius, fromRadius, separate, repose, lookAt, moveCluster, moveTask, planeBasis, taskWorld, type LayoutInput } from './layout'
 import type { SpatialLayoutData } from './types'
 
 const empty: SpatialLayoutData = { clusters: {}, tasks: {} }
@@ -349,5 +349,68 @@ describe('the curve of the wall', () => {
     }
     expect(Math.abs(radiusFromCurve(CURVE.auto) - RADIUS.start)).toBeLessThan(5) // (Automatic's bend is about the old usual radius)
     for (const r of [30, 60, 120, 240]) expect(Math.abs(radiusFromCurve(curveFromRadius(r)) - r) / r).toBeLessThan(0.07)
+  })
+})
+
+describe('wrapTitle', () => {
+  const g = { measureText: (t: string) => ({ width: t.length * 10 }) } as unknown as Pick<CanvasRenderingContext2D, 'measureText'>
+  it('one line keeps what fits and ends in an ellipsis; more lines wrap, the last ending in one', async () => {
+    const { wrapTitle } = await import('./cards')
+    expect(wrapTitle(g, 'Read chapters 4–5 of Mrs Dalloway', 150, 1)).toEqual(['Read chapters…'])
+    expect(wrapTitle(g, 'Short', 150, 1)).toEqual(['Short'])
+    expect(wrapTitle(g, 'one two three four five six', 100, 2)).toEqual(['one two', 'three fou…'])
+    expect(wrapTitle(g, 'one two three four five six', 100, 4)).toEqual(['one two', 'three four', 'five six'])
+  })
+})
+
+describe('making a group bigger or smaller', () => {
+  const base = () => ensureLayout({ clusters: {}, tasks: {} }, input({ g: ['a', 'b', 'c'], other: ['x'] }))
+  const world = (l: ReturnType<typeof base>, id: string) => {
+    const cp = l.clusters[l.tasks[id].c]
+    return cp.a * cp.r + l.tasks[id].u // (where a card is across the wall, in world units)
+  }
+  it('gives more slots and keeps every card exactly where it was, whichever side grew', () => {
+    const l0 = base()
+    const cols0 = l0.clusters.g.cols
+    for (const edge of ['right', 'left'] as const) {
+      const l1 = resizeCluster(l0, 'g', cols0 + 1, l0.clusters.g.rows! + 2, edge)
+      expect(l1.clusters.g.cols).toBe(cols0 + 1)
+      expect(l1.clusters.g.rows).toBeGreaterThanOrEqual(l0.clusters.g.rows! + 2)
+      for (const id of ['a', 'b', 'c']) expect(world(l1, id)).toBeCloseTo(world(l0, id), 5)
+      // the slots are all distinct, and each card sits at its own slot's place
+      expect(new Set(['a', 'b', 'c'].map((id) => l1.tasks[id].slot)).size).toBe(3)
+    }
+  })
+  it('cannot go smaller than the cards need, nor bigger than allowed', () => {
+    const l0 = resizeCluster(base(), 'g', 3, 4, 'right')
+    expect(minSizeOf(l0, 'g').cols).toBeGreaterThanOrEqual(1)
+    const tiny = resizeCluster(l0, 'g', 1, 1, 'right')
+    const need = minSizeOf(l0, 'g')
+    expect(tiny.clusters.g.cols).toBe(need.cols)
+    expect(resizeCluster(base(), 'g', 99, 99).clusters.g.cols).toBe(MAX_COLS)
+    expect(resizeCluster(base(), 'g', 99, 99).clusters.g.rows).toBe(MAX_ROWS)
+  })
+  it('the room asked for stays when the cards change, and a larger group pushes its neighbours clear', () => {
+    const l1 = resizeCluster(base(), 'g', 3, 6, 'right')
+    expect(l1.clusters.g.minRows).toBe(6)
+    const again = ensureLayout(l1, input({ g: ['a', 'b', 'c'], other: ['x'] }))
+    expect(again.clusters.g.rows).toBe(6)
+    const a = l1.clusters.g
+    const b = l1.clusters.other
+    const gap = Math.abs(a.a * a.r - b.a * b.r)
+    expect(gap).toBeGreaterThan(0)
+  })
+  it('the detent pulls the size toward the nearest whole one, stretching a little past it, and the spring settles', () => {
+    expect(detent(2.0, 1, 4)).toEqual({ snap: 2, want: 2 })
+    const near = detent(2.3, 1, 4)
+    expect(near.snap).toBe(2)
+    expect(near.want).toBeGreaterThan(2)
+    expect(near.want).toBeLessThan(2.3) // (it follows, but less than the pointer does)
+    expect(detent(2.6, 1, 4).snap).toBe(3)
+    expect(detent(9, 1, 4).snap).toBe(4)
+    expect(detent(-3, 2, 4).snap).toBe(2)
+    let sp = { x: 2, v: 0 }
+    for (let i = 0; i < 240; i++) sp = springStep(sp, 3, 1 / 60)
+    expect(settled(sp, 3)).toBe(true)
   })
 })
