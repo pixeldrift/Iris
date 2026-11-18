@@ -184,7 +184,7 @@ export default function SpatialView() {
     else setMotionAsked(true) // (touch only was chosen: no button asking for motion)
   }
   // iOS asks for motion only from a tap: when 3D opens already explained, a small button gives it
-  const needsMotionTap = !simple && !introOpen && caps.motionNeedsPermission && trackPref !== 'touch' && !motionAsked && status.source !== 'motion'
+  const needsMotionTap = !simple && !introOpen && caps.mobile && caps.motionNeedsPermission && trackPref !== 'touch' && !motionAsked && status.source !== 'motion'
 
   useEffect(() => {
     if (!wall || !details || phase !== 'running') return void setHud('')

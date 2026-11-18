@@ -351,3 +351,14 @@ describe('the curve of the wall', () => {
     for (const r of [30, 60, 120, 240]) expect(Math.abs(radiusFromCurve(curveFromRadius(r)) - r) / r).toBeLessThan(0.07)
   })
 })
+
+describe('wrapTitle', () => {
+  const g = { measureText: (t: string) => ({ width: t.length * 10 }) } as unknown as Pick<CanvasRenderingContext2D, 'measureText'>
+  it('one line keeps what fits and ends in an ellipsis; more lines wrap, the last ending in one', async () => {
+    const { wrapTitle } = await import('./cards')
+    expect(wrapTitle(g, 'Read chapters 4–5 of Mrs Dalloway', 150, 1)).toEqual(['Read chapters…'])
+    expect(wrapTitle(g, 'Short', 150, 1)).toEqual(['Short'])
+    expect(wrapTitle(g, 'one two three four five six', 100, 2)).toEqual(['one two', 'three fou…'])
+    expect(wrapTitle(g, 'one two three four five six', 100, 4)).toEqual(['one two', 'three four', 'five six'])
+  })
+})

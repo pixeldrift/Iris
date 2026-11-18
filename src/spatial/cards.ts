@@ -54,6 +54,14 @@ function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number,
 /** Break a title into at most `max` lines that fit `width`, with an ellipsis if it runs on. */
 export function wrapTitle(g: Pick<CanvasRenderingContext2D, 'measureText'>, text: string, width: number, max: number): string[] {
   const words = text.split(/\s+/).filter(Boolean)
+  if (max <= 1) {
+    // one line: the whole title, or as much as fits with an ellipsis
+    const all = words.join(' ')
+    if (g.measureText(all).width <= width) return [all]
+    let t = all
+    while (t.length > 1 && g.measureText(`${t}…`).width > width) t = t.slice(0, -1)
+    return [`${t.trimEnd()}…`]
+  }
   const lines: string[] = []
   let cur = ''
   for (let i = 0; i < words.length; i++) {
@@ -159,9 +167,12 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.restore()
   }
   // the check: an inset circle (a well), filled in the group's colour when ticked
-  const cx = x + 42
-  const cy = y + h / 2
-  const cr = 24
+  // (pinned at the top, level with the title's first line: every card is the same height, and nothing is centred on what is below)
+  const PAD = 12
+  const LH = 28
+  const cx = x + 40
+  const cy = y + PAD + LH / 2
+  const cr = 19
   g.save()
   g.beginPath()
   g.arc(cx, cy, cr, 0, Math.PI * 2)
@@ -200,40 +211,42 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.strokeStyle = '#fff'
     g.stroke()
   }
-  // the words (up to two lines, with an ellipsis) have the whole width between the check and the edge; the date chip sits on a row of its
-  // own under them, so it never takes room from the title
-  const tx = cx + cr + 18
+  // the words start at the top, beside the check, and wrap onto whatever room is left: the date chip (if there is one) sits at the bottom of the
+  // card and the progress bar under it, so a card with neither has the title all the way down. Every card is the same height.
+  const tx = cx + cr + 16
   const maxW = x + w - 18 - tx - (c.tally && c.tally.done < c.tally.total && !c.done ? 58 : 0)
   g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : TOKENS['--color-ink']
   // a little white glow around the words, as on every other item
   g.shadowColor = LOOK.textGlow.color
   g.shadowBlur = LOOK.textGlow.blur
   g.textBaseline = 'middle'
-  g.font = `600 27px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
-  const lines = wrapTitle(g, c.title || 'Untitled', maxW, 2)
-  const lh = 30
-  const chipH = 30
-  const stackH = lines.length * lh + (c.due ? 6 + chipH : 0)
+  g.font = `600 26px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
+  const chipH = 26
   const hasBar = c.progress != null && c.progress < 100 && !c.done
-  const top = y + (h - stackH) / 2 - (hasBar ? 4 : 0)
+  const bottom = y + h - PAD - (hasBar ? 8 : 0)
+  const chipTop = bottom - chipH
+  const limit = c.due ? chipTop - 4 : bottom
+  const top = y + PAD
+  const room = Math.max(1, Math.floor((limit - top) / LH))
+  const lines = wrapTitle(g, c.title || 'Untitled', maxW, room)
   lines.forEach((ln, i) => {
-    g.fillText(ln, tx, top + lh / 2 + i * lh)
-    if (c.done) g.fillRect(tx, top + lh / 2 + i * lh, g.measureText(ln).width, 2.5)
+    g.fillText(ln, tx, top + LH / 2 + i * LH)
+    if (c.done) g.fillRect(tx, top + LH / 2 + i * LH, g.measureText(ln).width, 2.5)
   })
   if (c.due) {
     g.shadowColor = 'transparent'
     g.shadowBlur = 0
-    g.font = `600 20px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
+    g.font = `600 19px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
     g.textBaseline = 'middle'
-    const chipW = Math.min(g.measureText(c.due).width + 22, x + w - 18 - tx)
-    const py = top + lines.length * lh + 6 + chipH / 2
-    roundRect(g, tx, py - chipH / 2, chipW, chipH, chipH / 2)
+    const chipW = Math.min(g.measureText(c.due).width + 20, x + w - 18 - tx)
+    const py = chipTop + chipH / 2
+    roundRect(g, tx, chipTop, chipW, chipH, chipH / 2)
     // the same three tones as the chip everywhere else: today, late, a later day
     const tone = CHIP[c.dueTone ?? 'later']
     g.fillStyle = tone.fill
     g.fill()
     g.fillStyle = tone.ink
-    g.fillText(c.due, tx + 11, py + 1)
+    g.fillText(c.due, tx + 10, py + 1)
   }
   g.shadowColor = 'transparent'
   g.shadowBlur = 0

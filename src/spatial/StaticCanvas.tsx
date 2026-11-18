@@ -4,6 +4,8 @@ import { useStore } from '../state/store'
 import { colorVars } from '../ui/taskColor'
 import { dueInfo } from '../core/rowModel'
 import { DoneButton, DueChip, ItemProgress, TallyIncrement } from '../ui/shared'
+import { hasProgress, progressOf } from '../core/progress'
+import { isDoneNow } from '../core/recurrence'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
@@ -33,22 +35,25 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
   const task = useStore((s) => s.tasks.find((x) => x.id === t.id))
   const select = useStore((s) => s.select)
   if (!task) return null
+  // every card is the same height. The check and the title are pinned at the top; the chips (a date, a +1) sit at the bottom, and a card with
+  // none lets the title wrap onto the room that is left
+  const chips = !!dueInfo(task) || !!task.tally
+  const bar = hasProgress(task.kind) && !isDoneNow(task) && progressOf(task) > 0
   return (
-    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint relative flex cursor-grab items-center gap-2.5 rounded-2xl px-2.5 py-1.5 pb-3">
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, height: ROW, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint relative flex cursor-grab items-start gap-2.5 rounded-2xl px-2.5 pb-2.5 pt-1.5">
       <DoneButton task={task} size={22} />
-      {/* the title has the whole width; the chips (a date, a +1) sit on a row of their own under it */}
-      <div className="min-w-0 flex-1">
-        <button type="button" onClick={() => select(t.id)} className={`block w-full cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        <button type="button" onClick={() => select(t.id)} className={`block w-full cursor-grab text-left text-sm leading-5 ${chips ? 'truncate' : 'line-clamp-2'} ${t.done ? 'text-ink-faint line-through' : ''}`}>
           {t.title || 'Untitled'}
         </button>
-        {(task.tally || dueInfo(task)) && (
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
+        {chips && (
+          <div className="mt-auto flex min-w-0 items-center gap-1.5 overflow-hidden">
             {task.tally && <TallyIncrement task={task} compact />}
             <DueChip task={task} compact />
           </div>
         )}
       </div>
-      <ItemProgress task={task} className="absolute bottom-1 left-3 right-3 min-w-0" />
+      {bar && <ItemProgress task={task} className="absolute bottom-1 left-3 right-3 min-w-0" />}
     </div>
   )
 }
