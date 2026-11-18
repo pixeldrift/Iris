@@ -30,12 +30,12 @@ test.describe('interface sounds', () => {
     await expect.poll(async () => (await played(page)).some((d) => near(d, LEN.drop))).toBe(true)
     // finish it from the list
     await page.locator('button', { hasText: /^List/ }).first().click()
-    await page.getByRole('button', { name: 'Mark done' }).first().click()
+    await page.getByRole('button', { name: 'Mark completed' }).first().click()
     await expect.poll(async () => (await played(page)).some((d) => near(d, LEN.drip))).toBe(true)
     // adding it played no drip: the double drip belongs to checking off alone
     expect((await played(page)).filter((d) => near(d, LEN.drip))).toHaveLength(1)
     // un-checking plays the same two drips the other way round (a habit's tick: its row does not fade away like a finished task's)
-    await page.getByRole('button', { name: 'Done this one' }).first().click()
+    await page.getByRole('button', { name: 'Completed this one' }).first().click()
     await page.getByRole('button', { name: 'Undo this one' }).first().click()
     await expect.poll(async () => (await played(page)).some((d) => near(d, LEN.down))).toBe(true)
   })

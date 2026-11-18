@@ -13,6 +13,7 @@ import {
   Float32BufferAttribute,
   LinearMipmapLinearFilter,
   Matrix4,
+  RepeatWrapping,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -26,6 +27,7 @@ import {
   WebGLRenderer,
 } from 'three'
 import { edgeDots } from '../core/edges'
+import { popupWasOpen } from '../ui/popupGuard'
 import { CARD_PLANE, HUB_PX, cardImage, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
@@ -87,6 +89,24 @@ type Hit = { kind: 'task' | 'hub' | 'plate' | 'grip'; id: string; uvx: number; u
 const HUB_W = 1.5 * WORLD.cardW
 export const FOV = { min: 20, max: 100, start: 50 }
 const TAP_PX = 6
+/** The faint grid behind everything in 3D (the flat canvas has one): thin lines, in white-ish lilac, repeating. */
+let gridTex: CanvasTexture | undefined
+function gridTexture(): CanvasTexture {
+  if (gridTex) return gridTex
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 64
+  const g = cv.getContext('2d')!
+  g.fillStyle = 'rgba(139,105,190,0.16)'
+  g.fillRect(0, 0, 64, 2)
+  g.fillRect(0, 0, 2, 64)
+  gridTex = new CanvasTexture(cv)
+  gridTex.colorSpace = SRGBColorSpace
+  gridTex.wrapS = gridTex.wrapT = RepeatWrapping
+  gridTex.anisotropy = 4
+  return gridTex
+}
+const GRID_CELL = 0.145 * WORLD.cardW // (the same few-to-a-card proportion as the flat canvas's grid)
+
 /** The faint empty slot shown while a group is being made bigger: a soft dashed outline and a hint of fill, in white so it takes the group's colour. */
 let slotTex: CanvasTexture | undefined
 function slotTexture(): CanvasTexture {
@@ -626,20 +646,31 @@ export class SpatialScene {
   /** Hang the groups on a cylinder of this radius: the same layout, curled more around you when near and flatter when far. */
   setRadius(r: number, animate = false) {
     const changed = Math.abs(r - this.radius) > 1e-9
-    if (changed && animate && !this.reducedMotion) {
+    const bothCurved = !isFlat(this.radius) && !isFlat(r)
+    // (only a flat wall becoming curved, or back, is eased: a curve being dragged follows the slider at once)
+    if (changed && animate && !bothCurved && !this.reducedMotion) {
       // the bend is eased in curvature (1 / radius), which is how a flat wall (no curvature) becomes a curved one without a jump
       this.bend = { from: 1 / this.radius, to: 1 / r, t0: performance.now() }
       this.dirty = true
       return
     }
     this.bend = undefined
+    const before = this.radius
     this.radius = r
     this.layout = withRadius(this.content.layout, r)
     this.shown = { ...this.layout.clusters }
     this.place()
     this.dirty = true
-    if (changed && !isFlat(r)) this.frameAll(true) // (a new radius changes how big everything looks, so fit it again)
+    if (changed && !isFlat(r)) {
+      if (this.radiusSet && bothCurved && !this.rig) {
+        // the cards are as far off as the wall is round, so they would shrink as it is curved less (and swell as it is curved more, out of view):
+        // the lens is changed to match, so what you see keeps the same size and only the person changes the scale (with the view angle)
+        this.setFov(2 * Math.atan((before * Math.tan((this.fov * Math.PI) / 360)) / r) * (180 / Math.PI))
+      } else this.frameAll(true) // (the first time, and when coming from a flat wall: fit everything in view)
+    }
+    this.radiusSet = true
   }
+  private radiusSet = false
   getRadius() {
     return this.radius
   }
@@ -702,6 +733,16 @@ export class SpatialScene {
     // with motion on, the sensor already turns the view: the touch offset only has to make up the difference
     this.focusTween = { t0: performance.now(), from: [t.yaw, t.pitch], to: [yaw - this.tracking.sensorYaw(), pitch] }
     this.events.onFocus?.(id)
+  }
+  /** Turn to a loose card. */
+  focusTask(id: string) {
+    if (this.wall) return
+    const m = this.tasks.get(id)?.mesh
+    if (!m) return
+    const yaw = -Math.atan2(m.position.x, -m.position.z)
+    const pitch = Math.atan2(m.position.y, Math.hypot(m.position.x, m.position.z))
+    const t = this.tracking.touch
+    this.focusTween = { t0: performance.now(), from: [t.yaw, t.pitch], to: [yaw - this.tracking.sensorYaw(), pitch] }
   }
   /** Turn and zoom so the whole wall is in view (as far as the widest lens allows). */
   frameAll(instant = false) {
@@ -892,6 +933,11 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
     }
     this.plates.clear()
+    if (this.grid) {
+      this.scene.remove(this.grid)
+      this.grid.geometry.dispose()
+      ;(this.grid.material as MeshBasicMaterial).dispose()
+    }
     for (const g of this.grips.values())
       for (const m of [g.l, g.r]) {
         m.geometry.dispose()
@@ -969,21 +1015,89 @@ export class SpatialScene {
         this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
         this.camera.updateProjectionMatrix()
       }
+      this.updateGrid()
       this.applyBlend()
       this.renderer.render(this.scene, this.camera)
       this.updateDots()
     }
   }
 
-  /** One dot per group wholly out of view, riding the frame where a line from the middle of the screen to it crosses (fades in and out). */
+  private edgeOn = true
+  /** The faint grid behind the groups, bent to the wall's curve (a flat wall in wall mode has its own, so none here). */
+  private grid?: Mesh
+  private gridR = NaN
+  private updateGrid() {
+    const want = !this.rig && !isFlat(this.radius) && (this.env?.kind ?? 'virtual') === 'virtual'
+    if (!want) {
+      if (this.grid) this.grid.visible = false
+      return
+    }
+    if (!this.grid) {
+      this.grid = new Mesh(new BufferGeometry(), new MeshBasicMaterial({ map: gridTexture(), transparent: true, depthWrite: false, side: DoubleSide }))
+      this.grid.renderOrder = 0
+      this.grid.frustumCulled = false
+      this.scene.add(this.grid)
+    }
+    this.grid.visible = true
+    if (Math.abs(this.gridR - this.radius) < 1e-6) return
+    this.gridR = this.radius
+    // a patch of the cylinder behind the cards: its arc length the same whatever the radius, up and down well past any group
+    const r = this.radius
+    const R = r + 0.6 * K
+    const half = Math.min(420, Math.PI * r * 0.98)
+    const nx = 96
+    const ny = 20
+    const yMax = 11 * K
+    const pos: number[] = []
+    const uv: number[] = []
+    const idx: number[] = []
+    for (let iy = 0; iy <= ny; iy++)
+      for (let ix = 0; ix <= nx; ix++) {
+        const s = -half + (2 * half * ix) / nx
+        const y = -yMax + (2 * yMax * iy) / ny
+        pos.push(R * Math.sin(s / r), y, -R * Math.cos(s / r))
+        uv.push(s / GRID_CELL, y / GRID_CELL)
+      }
+    for (let iy = 0; iy < ny; iy++)
+      for (let ix = 0; ix < nx; ix++) {
+        const a = iy * (nx + 1) + ix
+        const b = a + 1
+        const c = a + nx + 1
+        idx.push(a, b, c, b, c + 1, c)
+      }
+    const g = this.grid.geometry as BufferGeometry
+    g.setAttribute('position', new Float32BufferAttribute(pos, 3))
+    g.setAttribute('uv', new Float32BufferAttribute(uv, 2))
+    g.setIndex(idx)
+    g.computeBoundingSphere()
+    this.dirty = true
+  }
+  /** Whether the little dots along the edge of the screen (pointing to what is out of view) are drawn. */
+  setEdgeDots(on: boolean) {
+    this.edgeOn = on
+    this.dirty = true
+  }
+
+  /** One dot per group or loose card wholly out of view, riding the frame where a line from the middle of the screen to it crosses (fades in and out). */
   private updateDots() {
     const W = this.host.clientWidth
     const H = this.host.clientHeight
     const v = new Vector3()
-    const pts = this.content.clusters.flatMap((c) => {
-      const cp = this.shown[c.id]
-      if (!cp) return []
-      v.set(cp.x, cp.y, cp.z)
+    const things: { id: string; at: [number, number, number]; hue: number }[] = []
+    if (this.edgeOn) {
+      for (const c of this.content.clusters) {
+        const cp = this.shown[c.id]
+        if (cp) things.push({ id: c.id, at: [cp.x, cp.y, cp.z], hue: c.hue })
+      }
+      // (a loose card, left on the wall, is out of view too when it is off to the side)
+      for (const t of this.content.tasks) {
+        if (!this.layout.tasks[t.id]?.free) continue
+        const m = this.tasks.get(t.id)?.mesh
+        if (m && m.visible) things.push({ id: `task:${t.id}`, at: [m.position.x, m.position.y, m.position.z], hue: t.hue })
+      }
+    }
+    const pts = things.flatMap((c) => {
+      v.set(...c.at)
       const cam = v.clone().applyMatrix4(this.camera.matrixWorldInverse)
       let sx: number
       let sy: number
@@ -998,7 +1112,7 @@ export class SpatialScene {
         sy = H / 2 - (cam.y / len) * 5000
       }
       // a dot that is showing stays until its group is well back in view, so one hovering at the edge never flickers
-      return [{ id: c.id, x: sx, y: sy, r: this.dotEls.has(c.id) && !this.dotEls.get(c.id)!.classList.contains('leaving') ? -40 : 60, hue: c.hue }]
+      return [{ id: c.id, x: sx, y: sy, r: this.dotEls.has(c.id) && !this.dotEls.get(c.id)!.classList.contains('leaving') ? -40 : c.id.startsWith('task:') ? 30 : 60, hue: c.hue }]
     })
     const dots = edgeDots(pts, { scale: 1, tx: 0, ty: 0 }, W, H, { inset: 14 })
     const now = new Set(dots.map((d) => d.id))
@@ -1008,11 +1122,13 @@ export class SpatialScene {
         el = document.createElement('button')
         el.type = 'button'
         el.className = 'edge-dot still'
-        el.setAttribute('aria-label', 'A group out of view this way: turn to it')
-        el.title = 'A group out of view this way'
-        Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '16px', height: '16px', translate: '-50% -50%', borderRadius: '9999px' })
+        const isTask = d.id.startsWith('task:')
+        el.setAttribute('aria-label', isTask ? 'A task out of view this way: turn to it' : 'A group out of view this way: turn to it')
+        el.title = isTask ? 'A task out of view this way' : 'A group out of view this way'
+        // (small: they are only a hint, and must not distract)
+        Object.assign(el.style, { position: 'absolute', zIndex: '3', width: '11px', height: '11px', translate: '-50% -50%', borderRadius: '9999px' })
         const id = d.id
-        el.addEventListener('click', () => this.focusCluster(id))
+        el.addEventListener('click', () => (isTask ? this.focusTask(id.slice(5)) : this.focusCluster(id)))
         el.addEventListener('pointerdown', (e) => e.stopPropagation())
         this.host.appendChild(el)
         this.dotEls.set(d.id, el)
@@ -1450,11 +1566,13 @@ export class SpatialScene {
         if (p.hit.uvx < 0.2) this.events.onToggle(p.hit.id)
         else if (p.hit.uvx > 0.78 && p.hit.uvy < 0.43) this.events.onIncrement?.(p.hit.id)
         else this.events.onOpen(p.hit.id)
-      } else if (p.hit.kind === 'plate') this.events.onAddIn?.(p.hit.id) // (the box itself, not a card on it)
+      } else if (p.hit.kind === 'plate') {
+        if (!popupWasOpen()) this.events.onAddIn?.(p.hit.id)
+      } // (the box itself, not a card on it)
     } else if (p.mode === 'pending' && !p.hit && performance.now() - p.t0 < 700) {
       // a tap on empty space: a new item left there
       const spot = this.spotAt(e)
-      if (spot) this.events.onAddAt?.(spot.a, spot.y)
+      if (spot && !popupWasOpen()) this.events.onAddAt?.(spot.a, spot.y)
     }
   }
   /** The place on the wall (a free card's, at the reference radius) under a screen point. */

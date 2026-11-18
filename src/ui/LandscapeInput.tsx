@@ -221,7 +221,7 @@ export function LandscapeInput() {
         <button type="button" onPointerDown={keep} onClick={() => ((done.current = true), close())} aria-label="Cancel" title="Cancel" className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-faint transition hover:bg-white/70 hover:text-ink">
           <IconClose size={14} />
         </button>
-        <button type="button" onPointerDown={keep} onClick={() => ((done.current = true), apply())} aria-label="Done" title="Done" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow shadow-lilac-500/30 transition hover:bg-lilac-600">
+        <button type="button" onPointerDown={keep} onClick={() => ((done.current = true), apply())} aria-label="Ok" title="Ok" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-500 text-white shadow shadow-lilac-500/30 transition hover:bg-lilac-600">
           <IconCheck size={15} />
         </button>
       </div>

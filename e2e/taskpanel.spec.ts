@@ -86,7 +86,7 @@ test.describe('the task and notion panels', () => {
     let dialog = page.getByLabel('Task details')
     await dialog.getByRole('button', { name: 'Where' }).click()
     await expect(dialog.getByRole('textbox', { name: 'Where' })).toHaveCount(0)
-    await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Ok', exact: true }).click()
     await page.keyboard.press('n')
     await page.keyboard.type('Second')
     await page.keyboard.press('Enter')
@@ -123,7 +123,7 @@ test.describe('the task and notion panels', () => {
     await page.keyboard.press('Enter')
     const dialog = page.getByLabel('Task details')
     await expect(dialog.getByRole('button', { name: /Mark (not )?done/ })).toHaveCount(1)
-    await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Ok', exact: true }).click()
   })
 
   test('a day and a start time do not change the type (it stays a task), and a due time is just as optional', async ({ page }) => {

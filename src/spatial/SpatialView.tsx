@@ -30,7 +30,7 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
-  const { environment, tracking: trackPref, view, seen, tipSeen, links, tidy, curve, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, tidy: s.tidy, curve: s.curve, collapsed: s.collapsed, wallSteady: s.wallSteady })))
+  const { environment, tracking: trackPref, view, seen, tipSeen, links, edgeDots2d, edgeDots3d, tidy, curve, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, edgeDots2d: s.edgeDots2d, edgeDots3d: s.edgeDots3d, tidy: s.tidy, curve: s.curve, collapsed: s.collapsed, wallSteady: s.wallSteady })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
   const stored = useSpatial((s) => s.layout)
@@ -89,6 +89,21 @@ export default function SpatialView() {
   const [pauseClosed, setPauseClosed] = useState(false)
   const [env, setEnv] = useState<EnvironmentKind>('virtual')
   const [menu, setMenu] = useState(false)
+  // holding a slider in the menu fades the rest of the menu away, so the effect of the slider can be seen
+  const [peek, setPeek] = useState<string | null>(null)
+  const peekOf = (id: string) => ({
+    onPointerDown: () => {
+      setPeek(id)
+      const end = () => setPeek(null)
+      window.addEventListener('pointerup', end, { once: true })
+      window.addEventListener('pointercancel', end, { once: true })
+    },
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (!e.repeat) setPeek(id)
+    },
+    onKeyUp: () => setPeek(null),
+  })
+  const fade = (id: string) => `transition-opacity duration-150 ${peek && peek !== id ? 'pointer-events-none opacity-0' : ''}`
   const showPaused = !!status.paused && !resuming && !pauseClosed
   const host = useRef<HTMLDivElement>(null)
   const menuBtn = useRef<HTMLButtonElement>(null)
@@ -384,6 +399,9 @@ export default function SpatialView() {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
   useEffect(() => {
+    scene.current?.setEdgeDots(edgeDots3d)
+  }, [edgeDots3d, phase, simple])
+  useEffect(() => {
     // flat while the camera holds a surface; else the person's bend, or the usual gentle one (Automatic)
     // (eased, except when the scene has only just been made)
     const sc = scene.current
@@ -412,7 +430,7 @@ export default function SpatialView() {
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
       <div ref={host} className="space-grid absolute inset-0" />
-      {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} />}
+      {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} edgeDots={edgeDots2d} />}
 
       {introOpen && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 p-5 backdrop-blur-sm">
@@ -470,10 +488,10 @@ export default function SpatialView() {
               <IconSliders size={17} />
             </button>
           </div>
-          <Popover open={menu} onClose={() => setMenu(false)} anchor={menuBtn} align="end" className="w-72 p-3">
+          <Popover open={menu} onClose={() => setMenu(false)} anchor={menuBtn} align="end" className={`w-72 p-3 ${peek ? 'pop-peek' : ''}`}>
             <div className="space-y-3 text-xs font-medium text-ink-soft">
               {!simple && (
-                <div>
+                <div className={fade('steer')}>
                   Steering
                   <div className="mt-1">
                     <SegmentedToggle
@@ -502,7 +520,7 @@ export default function SpatialView() {
                 </div>
               )}
               {!simple && (
-                <div>
+                <div className={fade('bg')}>
                   Background
                   <div className="mt-1">
                     <SegmentedToggle
@@ -522,10 +540,10 @@ export default function SpatialView() {
                 </div>
               )}
               {!simple && (
-                <div>
+                <div className={fade('fov')}>
                   {wall ? 'Camera angle' : 'View angle'}
                   <div className="relative mt-1 pb-1">
-                    <input type="range" min={FOV.min} max={FOV.max} step={1} value={fov} aria-label={wall ? 'Camera angle' : 'View angle'} onChange={(e) => { const v = Number(e.target.value); scene.current?.setFov(v); wallTrack.current?.configure({ fovV: v }) }} className="soft relative z-10" />
+                    <input type="range" min={FOV.min} max={FOV.max} step={1} value={fov} aria-label={wall ? 'Camera angle' : 'View angle'} onChange={(e) => { const v = Number(e.target.value); scene.current?.setFov(v); wallTrack.current?.configure({ fovV: v }) }} className="soft relative z-10" {...peekOf('fov')} />
                     <DefaultDot at={(FOV.start - FOV.min) / (FOV.max - FOV.min)} label="Back to the usual view angle" onReset={() => scene.current?.setFov(FOV.start)} />
                   </div>
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
@@ -535,10 +553,10 @@ export default function SpatialView() {
                 </div>
               )}
               {wall && (
-                <div>
+                <div className={fade('smooth')}>
                   Smoothing
                   <div className="relative mt-1 pb-1">
-                    <input type="range" min={0} max={1} step={0.05} value={wallSteady} aria-label="Smoothing" onChange={(e) => prefs({ wallSteady: Number(e.target.value) })} className="soft relative z-10" />
+                    <input type="range" min={0} max={1} step={0.05} value={wallSteady} aria-label="Smoothing" onChange={(e) => prefs({ wallSteady: Number(e.target.value) })} className="soft relative z-10" {...peekOf('smooth')} />
                     <DefaultDot at={0.15} label="Back to the usual smoothing" onReset={() => prefs({ wallSteady: 0.15 })} />
                   </div>
                   <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
@@ -548,7 +566,7 @@ export default function SpatialView() {
                 </div>
               )}
               {wall && (
-                <label className="flex items-center gap-2 font-normal">
+                <label className={`flex items-center gap-2 font-normal ${fade('details')}`}>
                   <input
                     type="checkbox"
                     checked={details}
@@ -566,12 +584,12 @@ export default function SpatialView() {
               )}
               {!simple && (
                 wall ? (
-                  <p className="text-[0.68rem] font-normal text-ink-faint">The wall is flat while the camera holds a surface. With motion or touch it curves round you.</p>
+                  <p className={`text-[0.68rem] font-normal text-ink-faint ${fade('curvenote')}`}>The wall is flat while the camera holds a surface. With motion or touch it curves round you.</p>
                 ) : (
-                  <div>
+                  <div className={fade('curve')}>
                     Curve <span className="font-normal text-ink-faint">{curve == null ? 'Automatic' : `${curve}%`}</span>
                     <div className="relative mt-1 pb-1">
-                      <input type="range" min={0} max={CURVE.max} step={1} value={curve ?? CURVE.auto} aria-label="Curve" onChange={(e) => prefs({ curve: Number(e.target.value) })} className="soft relative z-10" />
+                      <input type="range" min={0} max={CURVE.max} step={1} value={curve ?? CURVE.auto} aria-label="Curve" onChange={(e) => prefs({ curve: Number(e.target.value) })} className="soft relative z-10" {...peekOf('curve')} />
                       <DefaultDot at={CURVE.auto / CURVE.max} label="Back to Automatic curve" onReset={() => prefs({ curve: null })} />
                     </div>
                     <div className="-mt-2.5 flex justify-between text-[0.68rem] font-normal text-ink-faint">
@@ -581,19 +599,27 @@ export default function SpatialView() {
                   </div>
                 )
               )}
-              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
+              <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal ${fade('row')}`}>
                 <span>
                   Keep tidy
-                  <span className="block text-[0.68rem] text-ink-faint">things you let go settle onto a grid</span>
+                  <span className="block text-[0.68rem] text-ink-faint">tasks and groups stay aligned to a grid</span>
                 </span>
                 <input type="checkbox" checked={tidy} onChange={(e) => prefs({ tidy: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
               </label>
-              {!simple && (
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal">
+              <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal ${fade('row')}`}>
+                <span>
+                  Indicate off-screen tasks
+                  <span className="block text-[0.68rem] text-ink-faint">little dots at the edge point to what is out of view ({simple ? 'in 2D' : 'in 3D'})</span>
+                </span>
+                <input type="checkbox" checked={simple ? edgeDots2d : edgeDots3d} onChange={(e) => prefs(simple ? { edgeDots2d: e.target.checked } : { edgeDots3d: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+              </label>
+              <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal ${fade('row')}`}>
+                <span>
                   Connecting lines
-                  <input type="checkbox" checked={links} onChange={(e) => prefs({ links: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
-                </label>
-              )}
+                  <span className="block text-[0.68rem] text-ink-faint">draw lines between parent and child items</span>
+                </span>
+                <input type="checkbox" checked={links} onChange={(e) => prefs({ links: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+              </label>
             </div>
           </Popover>
           <input
@@ -708,7 +734,7 @@ export default function SpatialView() {
                   {t.title || 'Untitled'}
                 </button>
                 <button type="button" onClick={() => toggleDone(t.id)}>
-                  {t.done ? 'Mark not done' : 'Mark done'}: {t.title}
+                  {t.done ? 'Mark not completed' : 'Mark completed'}: {t.title}
                 </button>
               </li>
             ))}

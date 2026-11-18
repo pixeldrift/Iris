@@ -23,7 +23,7 @@ test.describe('the day as a schedule', () => {
     await expect(dlg.getByText('Duration')).toBeVisible()
     await dlg.getByRole('button', { name: /Duration/ }).click()
     await page.getByRole('button', { name: '30 min', exact: true }).click()
-    await page.getByRole('button', { name: 'Done', exact: true }).last().click()
+    await page.getByRole('button', { name: 'Ok', exact: true }).last().click()
     // 30 minutes after the start: the end followed
     await expect(dlg.getByRole('button', { name: 'Duration: 30 min' })).toBeVisible()
     // (the grid's first hour depends on the time of day, so read the times back from the block rather than assuming them)

@@ -191,3 +191,52 @@ test.describe('a group can be made bigger or smaller by its corner dots', () => 
     expect(Math.max(...slots.map((t) => t.slot))).toBeLessThan(small.cols * (small.rows ?? 1))
   })
 })
+
+test.describe('what the flat canvas shows at its edges, and a tap that only closes a menu', () => {
+  test('small dots at the edge point to groups out of view; the setting for the flat view is its own', async ({ page }) => {
+    await enterFlat(page)
+    for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Zoom in' }).click()
+    await page.waitForTimeout(400)
+    const dots = page.locator('.edge-dot')
+    await expect.poll(() => dots.count()).toBeGreaterThan(0)
+    const box = (await dots.first().boundingBox())!
+    expect(box.width).toBeLessThan(14) // (small: only a hint)
+    // switched off for the flat view: gone, and the 3D view's own choice is untouched
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    await page.getByRole('checkbox', { name: /Indicate off-screen tasks/ }).uncheck()
+    await expect(dots).toHaveCount(0)
+    const st = await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-spatial-v5')!).state)
+    expect(st.edgeDots2d).toBe(false)
+    expect(st.edgeDots3d).not.toBe(false)
+  })
+
+  test('loose cards have a gap between them like the cards in a group', async ({ page }) => {
+    await enterFlat(page)
+    const loose = page.locator('[data-task]').filter({ hasNot: page.locator('xpath=ancestor::*[@data-box]') })
+    const boxes: { x: number; y: number; width: number; height: number }[] = []
+    for (const id of ['demo-plumber', 'demo-rent', 'demo-books']) {
+      const b = await page.locator(`[data-task="${id}"]`).boundingBox()
+      if (b) boxes.push(b)
+    }
+    void loose
+    boxes.sort((a, b) => a.x - b.x)
+    for (let i = 1; i < boxes.length; i++) if (Math.abs(boxes[i].y - boxes[i - 1].y) < 20) expect(boxes[i].x - (boxes[i - 1].x + boxes[i - 1].width)).toBeGreaterThan(1)
+  })
+
+  test('a tap on the canvas while the settings menu is open only closes it', async ({ page }) => {
+    await enterFlat(page)
+    const count = async () => (await page.evaluate(() => JSON.parse(localStorage.getItem('lilac-v1')!).state.tasks.length)) as number
+    const before = await count()
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    await expect(page.locator('[data-popover]')).toBeVisible()
+    const r = (await page.getByRole('region', { name: 'Spatial workspace' }).boundingBox())!
+    await page.mouse.click(r.x + r.width * 0.12, r.y + r.height * 0.82) // (empty canvas)
+    await expect(page.locator('[data-popover]')).toHaveCount(0)
+    await page.waitForTimeout(600)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect(await count()).toBe(before)
+    // and a tap with nothing open still makes one
+    await page.mouse.click(r.x + r.width * 0.12, r.y + r.height * 0.82)
+    await expect.poll(count).toBeGreaterThan(before)
+  })
+})

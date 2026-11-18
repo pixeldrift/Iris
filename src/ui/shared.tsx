@@ -96,7 +96,7 @@ export function DoneButton({ task, size = 22 }: { task: Task; size?: number }) {
       }}
       style={{ width: size, height: size, ...checkVars(hue) }}
       className={`well-circle group/check grid shrink-0 place-items-center rounded-full ${done ? 'is-on text-white' : 'text-[color:var(--chk-ring,var(--color-lilac-400))] hover:text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
-      aria-label={occ ? (done ? 'Undo this one' : 'Done this one') : done ? 'Mark not done' : 'Mark done'}
+      aria-label={occ ? (done ? 'Undo this one' : 'Completed this one') : done ? 'Mark not completed' : 'Mark completed'}
       aria-pressed={done}
     >
       {done ? (

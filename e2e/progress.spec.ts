@@ -17,13 +17,13 @@ test.describe('progress: percent complete, a count, and the columns', () => {
     const pad = page.getByRole('group', { name: 'Total items keypad' })
     await pad.getByRole('button', { name: '2', exact: true }).click()
     await pad.getByRole('button', { name: '0', exact: true }).click()
-    await pad.getByRole('button', { name: 'Done' }).click()
+    await pad.getByRole('button', { name: 'Ok' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.tally?.total).toBe(20)
     await dialog.getByRole('button', { name: 'Items completed' }).click()
     const pad2 = page.getByRole('group', { name: 'Items completed keypad' })
     await pad2.getByRole('button', { name: '1', exact: true }).click()
     await pad2.getByRole('button', { name: '2', exact: true }).click()
-    await pad2.getByRole('button', { name: 'Done' }).click()
+    await pad2.getByRole('button', { name: 'Ok' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(60)
     expect((await taskNamed(page, 'Grade essays'))?.status).toBe('doing') // (60 is past the In progress break point, 1)
     // the + counter
@@ -52,7 +52,7 @@ test.describe('progress: percent complete, a count, and the columns', () => {
       await dialog.getByLabel('Add item').fill(w)
       await dialog.getByLabel('Add item').press('Enter')
     }
-    await dialog.getByRole('checkbox', { name: 'Done: a' }).click()
+    await dialog.getByRole('checkbox', { name: 'Completed: a' }).click()
     await expect.poll(async () => (await taskNamed(page, 'Grade essays'))?.progress).toBe(50)
     await expect(dialog.getByRole('slider', { name: 'Progress' })).toBeDisabled()
   })
@@ -71,7 +71,7 @@ test.describe('column break points', () => {
     const pad = page.getByRole('group', { name: 'Stage 2 starts at percent keypad' })
     await pad.getByRole('button', { name: '3', exact: true }).click()
     await pad.getByRole('button', { name: '0', exact: true }).click()
-    await pad.getByRole('button', { name: 'Done' }).click()
+    await pad.getByRole('button', { name: 'Ok' }).click()
     const percents = async () => (await saved(page))!.folders.find((f) => f.name === 'English 101')!.stagePercents
     await expect.poll(percents).toEqual([0, 30, 100])
     await page.getByRole('button', { name: 'Add stage' }).click()

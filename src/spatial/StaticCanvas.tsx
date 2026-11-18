@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ui/ZoomControl'
 import { useStore } from '../state/store'
+import { popupWasOpen } from '../ui/popupGuard'
 import { colorVars } from '../ui/taskColor'
 import { dueInfo } from '../core/rowModel'
 import { DoneButton, DueChip, ItemProgress, TallyIncrement } from '../ui/shared'
@@ -11,16 +12,17 @@ import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { descendantsOf } from '../core/tree'
+import { edgeDots } from '../core/edges'
 import { LOOSE, MAX_COLS, MAX_ROWS, cellH, cellW, detent, ensureLayout, minSizeOf, nearestFreeSlot, repose, resizeCluster, separate, settled, slotAt, snapCluster, snapFree, springStep, tidyClusters, tidyEverything, type Edge, type Spring } from './layout'
 import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
 
 // layout units to pixels: across (a group is as wide as its columns) and down (rows are tighter than in 3D)
 const PX = 11.8
-const PY = 5
+const PY = 5.9 // (with the taller cards: the same room between groups as before)
 const ROW = 56
 const HEAD = 40
-const TASK_W = 220
+const TASK_W = Math.round(cellW * PX) - 8 // (a loose card is as wide as a slot in a group, less the same little gap)
 const MOVE = 6
 const SPRING_MS = 700
 
@@ -64,9 +66,10 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
  * the open to leave it floating; drag a group by its name or box to move it, or onto another name to put it inside; hover over a folded
  * name and it opens to show you where things go; tap a name to turn to it, the twirl to fold it.
  */
-export function StaticCanvas({ content, layout, fitTick = 0 }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number }) {
+export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = true }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number; edgeDots?: boolean }) {
   const toggleCollapsed = useSpatial((s) => s.toggleCollapsed)
   const tidy = useSpatial((s) => s.tidy)
+  const drawLines = useSpatial((s) => s.links)
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
   const pts = useRef(new Map<number, { x: number; y: number }>())
@@ -98,6 +101,18 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const live = useRef({ content, v })
   live.current = { content, v }
+  // the canvas's size, for the dots along its edge that point to what is out of view
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const dotShown = useRef(new Set<string>())
 
   // where each group sits (the layout is kept up to date by the view; this fills any gap so nothing is left out)
   const L = useMemo(() => ensureLayout(layout, { clusters: content.clusters.map((c, i) => ({ id: c.id, parent: c.parent ?? null, depth: c.depth, order: i })), tasks: content.tasks.map((t) => ({ id: t.id, cluster: t.cluster })), allTaskIds: new Set(content.tasks.map((t) => t.id)), allClusterIds: new Set(content.clusters.map((c) => c.id)) }), [content, layout])
@@ -125,6 +140,26 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
     return out
   }, [content, L, inGrid])
   const kidsOf = (id: string): Set<string> => descendantsOf(content.clusters, id)
+  // one small dot for each group or loose card wholly out of view, on the edge where a line from the middle to it crosses (once showing, it stays until well back in view)
+  const dots = dotsOn
+    ? edgeDots(
+        [
+          ...content.clusters.flatMap((c) => {
+            const b = places.get(c.id)
+            return b ? [{ id: c.id, x: b.x + b.w / 2, y: b.y + b.h / 2, r: dotShown.current.has(c.id) ? -40 / v.k : Math.max(b.w, b.h) / 2, hue: c.hue }] : []
+          }),
+          ...content.tasks.flatMap((t) => {
+            const f = L.tasks[t.id]?.free
+            return f ? [{ id: `task:${t.id}`, x: f.a * PX * r0, y: -f.y * PY - 20 + ROW / 2, r: dotShown.current.has(`task:${t.id}`) ? -40 / v.k : TASK_W / 2, hue: t.hue }] : []
+          }),
+        ],
+        { scale: v.k, tx: v.x, ty: v.y },
+        size.w,
+        size.h,
+        { inset: 14 },
+      )
+    : []
+  dotShown.current = new Set(dots.map((d) => d.id))
   const carriedKids = useMemo(() => (carry?.kind === 'group' ? kidsOf(carry.id) : new Set<string>()), [carry?.kind, carry?.id, content]) // eslint-disable-line react-hooks/exhaustive-deps
   const at = (id: string): Box | undefined => {
     const b = places.get(id)
@@ -419,7 +454,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         const pr = press.current
         // a tap on empty canvas: a new item left there
         const g0 = gesture.current
-        if (!pr && g0 && g0.blank && g0.d === 0 && pts.current.size === 0 && Math.hypot(e.clientX - g0.x, e.clientY - g0.y) < MOVE) {
+        if (!pr && g0 && g0.blank && !popupWasOpen() && g0.d === 0 && pts.current.size === 0 && Math.hypot(e.clientX - g0.x, e.clientY - g0.y) < MOVE) {
           const c = canvasPoint(e)
           const free = { a: c.x / PX / r0, y: -c.y / PY }
           addLoose(tidy ? snapFree(free).a : free.a, tidy ? snapFree(free).y : free.y)
@@ -442,7 +477,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           const el = e.target as HTMLElement
           if (pr.kind === 'group' && el.closest('[data-hub]') && !el.closest('button')) focus(pr.id)
           // blank space inside a group's box: a new item there, tagged with the group
-          else if (pr.kind === 'group' && el.closest('[data-box]') && !el.closest('[data-task]') && !el.closest('button')) addInGroup(pr.id)
+          else if (pr.kind === 'group' && el.closest('[data-box]') && !el.closest('[data-task]') && !el.closest('button') && !popupWasOpen()) addInGroup(pr.id)
           return
         }
         gesture.current = pts.current.size === 1 ? { x: [...pts.current.values()][0].x, y: [...pts.current.values()][0].y, vx: v.x, vy: v.y, d: 0, k: v.k } : null
@@ -474,7 +509,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
     >
       <div className="absolute left-0 top-0" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})`, transformOrigin: '0 0' }}>
         <svg className="pointer-events-none absolute overflow-visible" width={1} height={1} aria-hidden>
-          {links.map((c) => {
+          {drawLines && links.map((c) => {
             const a = at(c.parent as string)!
             const b = at(c.id)!
             const x0 = a.x + a.w / 2
@@ -587,6 +622,18 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           })()}
         {content.tasks.length === 0 && <p className="p-6 text-sm text-ink-faint">Nothing to show here yet.</p>}
       </div>
+      {dots.map((d) => (
+        <button
+          key={d.id}
+          type="button"
+          className="edge-dot still absolute z-[3]"
+          aria-label={d.id.startsWith('task:') ? 'A task out of view this way: go to it' : 'A group out of view this way: go to it'}
+          title={d.id.startsWith('task:') ? 'A task out of view this way' : 'A group out of view this way'}
+          style={{ left: d.x, top: d.y, width: 11, height: 11, translate: '-50% -50%', borderRadius: 9999, ['--h' as string]: String(Math.max(0, d.hue)), ['--s' as string]: d.hue < 0 ? '0' : '1' }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => (d.id.startsWith('task:') ? setV({ k: v.k, x: size.w / 2 - d.at.x * v.k, y: size.h / 2 - d.at.y * v.k }) : focus(d.id))}
+        />
+      ))}
       <div data-ui className="absolute bottom-3 right-3 z-10">
         <ZoomControl onZoom={(f) => zoomAt(f, centre().x, centre().y)} />
       </div>

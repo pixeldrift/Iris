@@ -380,7 +380,7 @@ export function NoticesHost() {
                     Snooze 10 min
                   </button>
                   <button type="button" className={pill} onClick={() => popOut([`r:${t.id}`], () => (toggleDone(t.id), dismissAlert(t.id)))}>
-                    {t.kind === 'habit' ? 'Done today' : 'Done'}
+                    {t.kind === 'habit' ? 'Completed today' : 'Completed'}
                   </button>
                 </div>
               </div>

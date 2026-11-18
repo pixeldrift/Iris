@@ -74,14 +74,14 @@ test.describe('quick add understanding', () => {
     await page.keyboard.press('Enter')
     await expect.poll(async () => !!(await taskNamed(page, 'Check-up at downtown clinic'))).toBe(true)
     expect((await taskNamed(page, 'Check-up at downtown clinic'))!.place).toBe('')
-    await page.getByRole('button', { name: 'Done', exact: true }).click() // (the new item opened in the panel)
+    await page.getByRole('button', { name: 'Ok', exact: true }).click() // (the new item opened in the panel)
     // a reminder: the words around it are not the title
     await page.keyboard.press('n')
     await page.keyboard.type('at 5pm remind me to pick up the kids')
     await expect(page.getByRole('group', { name: 'What was understood' })).toBeVisible()
     await page.keyboard.press('Enter')
     await expect.poll(async () => !!(await taskNamed(page, 'pick up the kids'))?.remindAt).toBe(true)
-    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await page.getByRole('button', { name: 'Ok', exact: true }).click()
     // keep as typed: the title stays as typed, the time is still set
     await page.keyboard.press('n')
     await page.keyboard.type('Orthodontist friday 2:30pm')
@@ -89,7 +89,7 @@ test.describe('quick add understanding', () => {
     await page.getByLabel('New item').focus()
     await page.keyboard.press('Enter')
     await expect.poll(async () => (await taskNamed(page, 'Orthodontist friday 2:30pm'))?.time).toBe('14:30')
-    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await page.getByRole('button', { name: 'Ok', exact: true }).click()
     // the big x clears everything it understood
     await page.keyboard.press('n')
     await page.keyboard.type('Swim lesson saturday 9am')

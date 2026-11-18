@@ -72,7 +72,7 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
               <button
                 role="checkbox"
                 aria-checked={it.done}
-                aria-label={`Done: ${it.text}`}
+                aria-label={`Completed: ${it.text}`}
                 onClick={() => {
                   if (it.done) sound.tickUndone()
                   else sound.tickDone()

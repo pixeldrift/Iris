@@ -59,7 +59,7 @@ test('sharing a group: invite a connection, they join and are given a task, then
   await expect(ann.getByRole('list', { name: 'Members' })).toBeVisible()
   await ann.getByRole('button', { name: 'Invite', exact: true }).click()
   await expect(ann.getByText('1 waiting')).toBeVisible()
-  await ann.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+  await ann.getByRole('dialog').getByRole('button', { name: 'Ok', exact: true }).click()
   await expect(row(ann, 'Trip planning').getByRole('img', { name: 'Shared group' })).toBeVisible()
 
   // Bob is invited, joins, and sees the group and its task
@@ -142,7 +142,7 @@ test('a shared group carries a person mark and shows who is in it; sharing it ag
     await ann.getByRole('button', { name: 'Share', exact: true }).click()
     await ann.getByRole('button', { name: 'Share this group' }).click()
     await ann.getByRole('button', { name: 'Invite', exact: true }).click()
-    await ann.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+    await ann.getByRole('dialog').getByRole('button', { name: 'Ok', exact: true }).click()
   }
   const join = async () => {
     await bob.reload()
@@ -222,7 +222,7 @@ test('a subgroup made inside a shared group is shared with it by default', async
   await ann.getByRole('button', { name: 'Share', exact: true }).click()
   await ann.getByRole('button', { name: 'Share this group' }).click()
   await ann.getByRole('button', { name: 'Invite', exact: true }).click()
-  await ann.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+  await ann.getByRole('dialog').getByRole('button', { name: 'Ok', exact: true }).click()
   await bob.reload()
   await bob.locator('[aria-label^="Account"]').click()
   await bob.getByRole('button', { name: /Notifications/ }).click()
@@ -274,7 +274,7 @@ test('a subgroup shared without its parent shows at the top for the other person
   await ann.getByRole('button', { name: 'Share', exact: true }).click()
   await ann.getByRole('button', { name: 'Share this group' }).click()
   await ann.getByRole('button', { name: 'Invite', exact: true }).click()
-  await ann.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+  await ann.getByRole('dialog').getByRole('button', { name: 'Ok', exact: true }).click()
   // Bob, with the app open, is told about it as it arrives
   await expect(bob.getByText(/invited you to share “Inner”/).first()).toBeVisible({ timeout: 40_000 })
   await bob.locator('[aria-label^="Account"]').click()

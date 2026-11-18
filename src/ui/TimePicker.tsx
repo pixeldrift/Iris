@@ -151,7 +151,7 @@ export function TimePicker({ label, value, onChange, placeholder = '–None–' 
             </button>
           )}
           <button type="button" className="ml-auto rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => setOpen(false)}>
-            Done
+            Ok
           </button>
         </div>
       </Popover>
@@ -209,7 +209,7 @@ export function DurationPicker({ label, value, onChange, disabled = false }: { l
             </button>
           )}
           <button type="button" className="ml-auto rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600" onClick={() => setOpen(false)}>
-            Done
+            Ok
           </button>
         </div>
       </Popover>

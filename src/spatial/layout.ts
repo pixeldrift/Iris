@@ -460,7 +460,7 @@ export const curveFromRadius = (r: number) => Math.round(2 + (98 * Math.log(Math
 /** The grid groups snap to: half a card across (arc length) and one card row down, so groups line up with each other. */
 export const GROUP_GRID = { x: cellW / 2, y: cellH }
 /** The grid a floating card snaps to. */
-export const FREE_GRID = { x: cellW, y: cellH }
+export const FREE_GRID = { x: cellW, y: 1.45 * cellH } // (a loose card has the room a slot in a group has, and a little gap, in both directions)
 
 /** A group moved to the nearest spot on the grid. */
 export function snapCluster(c: ClusterPlacement): ClusterPlacement {

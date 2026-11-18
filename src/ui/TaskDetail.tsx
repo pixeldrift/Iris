@@ -483,7 +483,7 @@ export function TaskDetail() {
               <IconCheck size={13} /> Saved automatically
             </span>
             <button onClick={() => select(null)} className="rounded-full bg-lilac-500 px-4 py-1.5 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
-              Done
+              Ok
             </button>
           </div>
         </footer>

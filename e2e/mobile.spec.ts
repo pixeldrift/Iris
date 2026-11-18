@@ -270,7 +270,7 @@ test.describe('a phone turned sideways', () => {
     await typing.fill('met at the lab')
     // the bar names the box, once: its label is shown, and the box inside has no placeholder repeating it
     await expect(bar.locator('textarea')).toHaveAttribute('placeholder', '')
-    await bar.getByRole('button', { name: 'Done' }).click()
+    await bar.getByRole('button', { name: 'Ok' }).click()
     // what was typed flies down to the box it belongs in
     await expect(page.locator('body > div.well')).toHaveCount(1)
     await expect(page.locator('body > div.well')).toHaveCount(0, { timeout: 3000 })
