@@ -319,3 +319,39 @@ test.describe('the flat canvas grid', () => {
     expect(parseFloat(g2.size)).toBeGreaterThan(parseFloat(g1.size)) // (and scaled with them)
   })
 })
+
+test.describe('dragging a task into a group, and the room round a group', () => {
+  test('the group a card is over shows its empty slots faintly, and they fade away when it is let go', async ({ page }) => {
+    await enterFlat(page)
+    const from = await centre(page, '[data-task="demo-grandma"] button.truncate')
+    const to = await centre(page, '[data-box="eng101"]')
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 10, from.y + 6, { steps: 2 })
+    await page.mouse.move(to.x, to.y, { steps: 14 })
+    await page.waitForTimeout(500)
+    const faint = page.locator('[data-box="eng101"] .border-dashed')
+    // (English 101 has a free slot in its box: a card over it is shown where it could go)
+    await expect.poll(() => faint.count()).toBeGreaterThan(0)
+    await page.mouse.up()
+    await expect(faint).toHaveCount(0, { timeout: 4000 })
+  })
+
+  test('loose cards are spaced exactly like the cards in a group, and the box has room round its cards (so the dots are clear)', async ({ page }) => {
+    await enterFlat(page)
+    const gapOf = async (a: string, b: string) => {
+      const x = (await page.locator(`[data-task="${a}"]`).boundingBox())!
+      const y = (await page.locator(`[data-task="${b}"]`).boundingBox())!
+      return y.x - (x.x + x.width)
+    }
+    const inGroup = await gapOf('demo-study', 'demo-stretch') // (side by side in the Life group)
+    const loose = await gapOf('demo-rent', 'demo-plumber') // (side by side among the loose ones)
+    expect(Math.abs(inGroup - loose)).toBeLessThan(1.5)
+    // the box has a margin round its cards: the left dot is not up against the first card
+    const box = (await page.locator('[data-box="life"]').boundingBox())!
+    const card = (await page.locator('[data-task="demo-study"]').boundingBox())!
+    const dot = (await page.locator('[data-resize="life"][data-edge="left"] .emboss-dot').boundingBox())!
+    expect(card.x - box.x).toBeGreaterThan(10)
+    expect(card.x - (dot.x + dot.width)).toBeGreaterThan(4)
+  })
+})
