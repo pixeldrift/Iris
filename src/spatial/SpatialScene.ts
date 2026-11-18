@@ -87,7 +87,8 @@ type Hit = { kind: 'task' | 'hub' | 'plate' | 'grip'; id: string; uvx: number; u
 
 /** The horizontal field of view of the lens, in degrees. */
 const HUB_W = 1.5 * WORLD.cardW
-export const FOV = { min: 20, max: 100, start: 50 }
+/** The lens (its horizontal angle): from wide down to a few degrees, enough to bring a single card up to the width of the screen. */
+export const FOV = { min: 4, max: 100, start: 50 }
 const TAP_PX = 6
 /** The faint grid behind everything in 3D (the flat canvas has one): thin lines, in white-ish lilac, repeating. */
 let gridTex: CanvasTexture | undefined
@@ -1012,7 +1013,7 @@ export class SpatialScene {
         if (pose.position) this.camera.position.set(...pose.position)
         // the lens is described by its horizontal angle; the vertical one follows the window's shape
         const asp = this.camera.aspect
-        this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
+        this.camera.fov = Math.max(0.5, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
         this.camera.updateProjectionMatrix()
       }
       this.updateGrid()

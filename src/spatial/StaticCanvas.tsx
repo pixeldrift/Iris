@@ -42,11 +42,11 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
   const chips = !!dueInfo(task) || !!task.tally
   const bar = hasProgress(task.kind) && !isDoneNow(task) && progressOf(task) > 0
   return (
-    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, height: ROW, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint relative flex cursor-grab items-start gap-2.5 rounded-2xl px-2.5 pb-2.5 pt-1.5">
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...(task.image ? { ['--photo' as string]: `url("${task.image}")` } : {}), ...extra, height: ROW, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className={`tint ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : ''} relative flex cursor-grab items-start gap-2.5 rounded-2xl px-2.5 pb-2.5 pt-1.5`}>
       <DoneButton task={task} size={22} />
       <div className="flex h-full min-w-0 flex-1 flex-col">
-        <button type="button" onClick={() => select(t.id)} className={`block w-full cursor-grab text-left text-sm leading-5 ${chips ? 'truncate' : 'line-clamp-2'} ${t.done ? 'text-ink-faint line-through' : ''}`}>
-          {t.title || 'Untitled'}
+        <button type="button" onClick={() => select(t.id)} aria-label={t.title || 'Untitled'} className={`block min-h-5 w-full cursor-grab text-left text-sm leading-5 ${chips ? 'truncate' : 'line-clamp-2'} ${t.done ? 'text-ink-faint line-through' : ''}`}>
+          {t.title || (task.image ? '' : 'Untitled')}
         </button>
         {chips && (
           <div className="mt-auto flex min-w-0 items-center gap-1.5 overflow-hidden">
@@ -113,6 +113,14 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
     return () => ro.disconnect()
   }, [])
   const dotShown = useRef(new Set<string>())
+  // the grid: one line every 32 canvas pixels (doubled while that would be too fine to see), anchored to the canvas's own origin
+  let cell = 32 * v.k
+  while (cell < 14) cell *= 2
+  const gridStyle: React.CSSProperties = {
+    backgroundImage: 'linear-gradient(rgb(var(--lr-500) / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--lr-500) / 0.06) 1px, transparent 1px)',
+    backgroundSize: `${cell}px ${cell}px`,
+    backgroundPosition: `${v.x}px ${v.y}px`,
+  }
 
   // where each group sits (the layout is kept up to date by the view; this fills any gap so nothing is left out)
   const L = useMemo(() => ensureLayout(layout, { clusters: content.clusters.map((c, i) => ({ id: c.id, parent: c.parent ?? null, depth: c.depth, order: i })), tasks: content.tasks.map((t) => ({ id: t.id, cluster: t.cluster })), allTaskIds: new Set(content.tasks.map((t) => t.id)), allClusterIds: new Set(content.clusters.map((c) => c.id)) }), [content, layout])
@@ -339,6 +347,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
     <div
       ref={box}
       className="absolute inset-0 touch-none select-none overflow-hidden rounded-[inherit]"
+      // the faint grid is part of the canvas: it shifts and scales with the groups, so panning and zooming keep a sense of where things are
+      style={gridStyle}
       onClickCapture={(e) => {
         if (suppress.current) {
           suppress.current = false

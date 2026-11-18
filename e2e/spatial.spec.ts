@@ -292,3 +292,16 @@ test.describe('a lot of tasks', () => {
     expect(errors).toEqual([])
   })
 })
+
+test.describe('zooming right in', () => {
+  test('3D can be zoomed in far enough for a single card to fill the screen width', async ({ page }) => {
+    await enter(page)
+    const c = (await intro(page).boundingBox())!
+    await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2)
+    for (let i = 0; i < 14; i++) await page.mouse.wheel(0, -500)
+    await page.waitForTimeout(400)
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    const slider = page.getByRole('slider', { name: 'View angle' })
+    expect(Number(await slider.inputValue())).toBeLessThanOrEqual(8)
+  })
+})

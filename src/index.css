@@ -655,6 +655,9 @@ input, textarea, select, [contenteditable='true'], .select-text, .select-text * 
 img { -webkit-user-drag: none; user-drag: none; }
 
 /* The Spatial view's backdrop: a faint 32px grid over a lilac wash (the flat canvas draws on top of it, so both views share it). */
+.space-plain {
+  background: linear-gradient(to bottom, var(--color-lilac-100), #fff);
+}
 .space-grid {
   background-image:
     linear-gradient(rgb(var(--lr-500) / 0.05) 1px, transparent 1px),

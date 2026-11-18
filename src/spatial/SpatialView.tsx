@@ -429,7 +429,7 @@ export default function SpatialView() {
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
-      <div ref={host} className="space-grid absolute inset-0" />
+      <div ref={host} className={`${simple ? 'space-plain' : 'space-grid'} absolute inset-0`} />
       {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} edgeDots={edgeDots2d} />}
 
       {introOpen && (

@@ -300,3 +300,22 @@ test.describe('moving around the flat canvas', () => {
     expect(v3.x - v2.x).toBeGreaterThan(40)
   })
 })
+
+test.describe('the flat canvas grid', () => {
+  test('moves and scales with the groups when the canvas is panned and zoomed', async ({ page }) => {
+    await enterFlat(page)
+    const root = page.getByRole('region', { name: 'Spatial workspace' }).locator('[aria-label^="Your tasks by group"]')
+    const grid = () => root.evaluate((el) => ({ pos: getComputedStyle(el).backgroundPosition, size: getComputedStyle(el).backgroundSize }))
+    const g0 = await grid()
+    const c = (await root.boundingBox())!
+    await drag(page, { x: c.x + 60, y: c.y + c.height - 90 }, { x: c.x + 160, y: c.y + c.height - 50 })
+    const g1 = await grid()
+    expect(g1.pos).not.toBe(g0.pos) // (it shifted with the groups)
+    expect(g1.size).toBe(g0.size)
+    await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2)
+    await page.mouse.wheel(0, -600)
+    await page.waitForTimeout(300)
+    const g2 = await grid()
+    expect(parseFloat(g2.size)).toBeGreaterThan(parseFloat(g1.size)) // (and scaled with them)
+  })
+})

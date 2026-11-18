@@ -370,7 +370,7 @@ export class WallRig {
   setWallZoom(z: number) {
     const centre = () => this.planePointAt(this.h.host.clientWidth / 2, this.h.host.clientHeight / 2)
     const before = centre()
-    this.wallZoom = Math.min(8, Math.max(0.6, z))
+    this.wallZoom = Math.min(40, Math.max(0.6, z))
     this.applyWall()
     const after = centre()
     if (before && after) {
