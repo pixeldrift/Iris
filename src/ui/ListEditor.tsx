@@ -1,4 +1,5 @@
 import * as sound from '../audio/engine'
+import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
 import { useStore } from '../state/store'
@@ -37,6 +38,54 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
   }
   const patch = (id: string, p: Partial<ListItem>) => set(items.map((i) => (i.id === id ? { ...i, ...p } : i)))
 
+  // Reordering: a grip on each entry (kept well away from the delete button). Holding it and moving up or down takes the entry past its neighbours as the
+  // pointer crosses them; the arrow keys do the same from the grip. The entries are shown in the new order while it is held and kept when it is let go.
+  const rows = useRef(new Map<string, HTMLLIElement>())
+  const [moving, setMoving] = useState<{ id: string; order: string[]; x: number; y: number } | null>(null)
+  const shown = moving ? moving.order.map((id) => items.find((i) => i.id === id)).filter((i): i is ListItem => !!i) : items
+  const startMove = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const mids = new Map([...rows.current].map(([k, el]) => [k, el.getBoundingClientRect()] as const).map(([k, r]) => [k, r.top + r.height / 2] as const))
+    const ids = items.map((i) => i.id)
+    let order = ids
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    document.body.classList.add('dragging')
+    const at = (y: number) => {
+      const others = ids.filter((x) => x !== id)
+      const before = others.filter((x) => (mids.get(x) ?? 0) < y).length
+      return [...others.slice(0, before), id, ...others.slice(before)]
+    }
+    const move = (ev: PointerEvent) => {
+      order = at(ev.clientY)
+      setMoving({ id, order, x: ev.clientX, y: ev.clientY })
+    }
+    const end = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      document.body.classList.remove('dragging')
+      setMoving(null)
+      if (order.some((x, i) => x !== ids[i])) {
+        sound.drop()
+        set(order.map((x) => items.find((i) => i.id === x)!))
+      }
+    }
+    setMoving({ id, order, x: e.clientX, y: e.clientY })
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }
+  const nudge = (id: string, by: -1 | 1) => {
+    const at = items.findIndex((i) => i.id === id)
+    const to = at + by
+    if (at < 0 || to < 0 || to >= items.length) return
+    const next = [...items]
+    next.splice(to, 0, ...next.splice(at, 1))
+    set(next)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-item-grip="${id}"]`)?.focus())
+  }
+
   const commit = () => {
     const el = add.current
     if (!el || !el.value.trim()) return
@@ -66,8 +115,8 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
         </ul>
       )}
       <ul className="mt-2 space-y-1">
-        {items.map((it, n) => (
-          <li key={it.id} className="group flex items-center gap-2">
+        {shown.map((it, n) => (
+          <li key={it.id} ref={(el) => void (el ? rows.current.set(it.id, el) : rows.current.delete(it.id))} className={`group flex items-center gap-2 rounded-lg transition-opacity ${moving?.id === it.id ? 'bg-white/50 opacity-60 ring-1 ring-lilac-300/70' : ''}`}>
             {task.listStyle === 'check' ? (
               <button
                 role="checkbox"
@@ -94,16 +143,44 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
               aria-label={`Item ${n + 1}`}
               className={`min-w-0 flex-1 rounded-lg bg-transparent px-1.5 py-1 text-sm outline-none focus:bg-white/60 ${task.listStyle === 'check' && it.done ? 'text-ink-faint line-through' : ''}`}
             />
+            {/* the grip: just a few dots, the same kind as the grab dots elsewhere. Pressed and held, it moves the entry; a gap separates it from the delete button */}
+            {items.length > 1 && (
+              <button
+                type="button"
+                data-item-grip={it.id}
+                aria-label={`Move ${it.text || 'this item'} (arrow keys move it up or down)`}
+                title="Drag to reorder"
+                onPointerDown={(e) => startMove(e, it.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowUp') (e.preventDefault(), nudge(it.id, -1))
+                  else if (e.key === 'ArrowDown') (e.preventDefault(), nudge(it.id, 1))
+                }}
+                className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-ink-faint transition hover:bg-white/60 active:cursor-grabbing"
+              >
+                <span aria-hidden className="grid grid-cols-2 gap-[3px]">
+                  {[0, 1, 2, 3, 4, 5].map((d) => (
+                    <span key={d} className="emboss-dot" />
+                  ))}
+                </span>
+              </button>
+            )}
             <button
               onClick={() => set(items.filter((x) => x.id !== it.id))}
               aria-label={`Remove ${it.text}`}
-              className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint opacity-60 transition hover:bg-white/70 hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint opacity-60 transition hover:bg-white/70 hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 ${items.length > 1 ? 'ml-3' : ''}`}
             >
               <IconClose size={12} />
             </button>
           </li>
         ))}
       </ul>
+      {moving &&
+        createPortal(
+          <div className="pointer-events-none fixed z-[var(--z-drag)] max-w-[240px] truncate rounded-full border border-white/70 bg-white/85 px-3 py-1 text-sm text-ink shadow-[0_8px_30px_rgba(132,83,180,0.28)] backdrop-blur-md" style={{ left: moving.x + 14, top: moving.y + 10 }}>
+            {items.find((i) => i.id === moving.id)?.text || 'Item'}
+          </div>,
+          document.body,
+        )}
       <div className="well mt-2 flex items-center gap-1 rounded-xl px-2 py-1">
         <IconPlus size={14} />
         <input

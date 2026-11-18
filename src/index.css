@@ -118,6 +118,20 @@ body.dragging {
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.95), rgba(250, 244, 255, 0.92));
 }
 
+/* a tag torn off a task's details and carried over another task: the target is ringed in the tag's colour, and when it lands the ring pulses once
+   and a small "+ Group" rises from the task */
+.tag-over { outline: 2px dashed hsl(var(--tag-h, 285) 62% 52% / 0.9); outline-offset: 3px; }
+@keyframes tag-landed { 0% { box-shadow: 0 0 0 0 hsl(var(--tag-h, 285) 70% 58% / 0.75); } 100% { box-shadow: 0 0 0 16px hsl(var(--tag-h, 285) 70% 58% / 0); } }
+.tag-landed { animation: tag-landed 0.9s ease-out; }
+.tag-badge {
+  position: fixed; z-index: var(--z-drag, 80); pointer-events: none; transform: translate(-100%, -50%);
+  border-radius: 9999px; padding: 3px 10px; font-size: 12px; font-weight: 600; color: hsl(var(--tag-h, 285) 55% 30%);
+  background: hsl(var(--tag-h, 285) 80% 92%); border: 1px solid hsl(var(--tag-h, 285) 60% 62%);
+  box-shadow: 0 6px 18px -6px hsl(var(--tag-h, 285) 50% 40% / 0.5); animation: tag-badge 1.3s ease-out both;
+}
+@keyframes tag-badge { 0% { opacity: 0; margin-top: 6px; } 15% { opacity: 1; margin-top: 0; } 75% { opacity: 1; margin-top: -16px; } 100% { opacity: 0; margin-top: -26px; } }
+@media (prefers-reduced-motion: reduce) { .tag-landed, .tag-badge { animation-duration: 0.01s; } }
+
 /* a menu while one of its sliders is held: it fades away (all but that slider) so what the slider changes can be watched behind it */
 .glass.pop-peek {
   background: transparent;

@@ -76,6 +76,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
     <div
       ref={outer}
       data-node
+      data-task-id={task.id}
       className="absolute left-0 top-0 will-change-transform"
       style={{ width: r * 2, height: r * 2, transform: `translate(${start.x - r}px, ${start.y - r}px)` }}
     >
