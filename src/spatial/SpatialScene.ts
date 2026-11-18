@@ -30,7 +30,7 @@ import { CARD_PLANE, HUB_PX, cardImage, drawCard, drawHub, drawPlate, type CardI
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
 import { linkGeometry } from './links'
-import { FLAT_R, LOOSE, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
+import { FLAT_R, LOOSE, MAX_COLS, MAX_ROWS, cellH, cellW, detent, minSizeOf, resizeCluster, settled, springStep, type Edge, type Spring, isFlat, freePose, fromRadius, nearestFreeSlot, snapCluster, snapFree, tidyClusters, tidyEverything, lookAt, localIn, moveCluster, onCylinder, paneOf, planeBasis, repose, separate, slotAt, taskWorld, withRadius } from './layout'
 import type { SpatialTracking } from './tracking'
 import { WallRig, type WallTracking } from './wall'
 import { K, WORLD, type ClusterPlacement, type SpatialLayoutData } from './types'
@@ -81,12 +81,54 @@ interface Node {
   tex: CanvasTexture
   key: string
 }
-type Hit = { kind: 'task' | 'hub' | 'plate'; id: string; uvx: number; uvy: number }
+type Hit = { kind: 'task' | 'hub' | 'plate' | 'grip'; id: string; uvx: number; uvy: number; edge?: Edge }
 
 /** The horizontal field of view of the lens, in degrees. */
 const HUB_W = 1.5 * WORLD.cardW
 export const FOV = { min: 20, max: 100, start: 50 }
 const TAP_PX = 6
+/** The faint empty slot shown while a group is being made bigger: a soft dashed outline and a hint of fill, in white so it takes the group's colour. */
+let slotTex: CanvasTexture | undefined
+function slotTexture(): CanvasTexture {
+  if (slotTex) return slotTex
+  const cv = document.createElement('canvas')
+  cv.width = 256
+  cv.height = 92
+  const g = cv.getContext('2d')!
+  g.fillStyle = 'rgba(255,255,255,0.5)'
+  g.strokeStyle = 'rgba(255,255,255,1)'
+  g.lineWidth = 3
+  g.setLineDash([10, 8])
+  g.beginPath()
+  g.roundRect(5, 5, 246, 82, 28)
+  g.fill()
+  g.stroke()
+  slotTex = new CanvasTexture(cv)
+  slotTex.colorSpace = SRGBColorSpace
+  return slotTex
+}
+/** A corner grip: a small soft dot (the same kind as the end grips of the Timeline's bars), white so it takes the group's colour. */
+let gripTex: CanvasTexture | undefined
+function gripTexture(): CanvasTexture {
+  if (gripTex) return gripTex
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 64
+  const g = cv.getContext('2d')!
+  const gr = g.createRadialGradient(30, 29, 1, 32, 32, 8)
+  gr.addColorStop(0, 'rgba(255,255,255,1)')
+  gr.addColorStop(1, 'rgba(255,255,255,0.78)')
+  g.beginPath()
+  g.arc(32, 32, 8, 0, Math.PI * 2)
+  g.fillStyle = gr
+  g.shadowColor = 'rgba(60,30,110,0.45)'
+  g.shadowBlur = 6
+  g.shadowOffsetY = 2
+  g.fill()
+  gripTex = new CanvasTexture(cv)
+  gripTex.colorSpace = SRGBColorSpace
+  return gripTex
+}
+
 /** How long the wall takes to bend or straighten, and the view to ease, when the steering changes. */
 const BEND_MS = 700
 
@@ -98,6 +140,13 @@ export class SpatialScene {
   private tasks = new Map<string, Node>()
   private hubs = new Map<string, Node>()
   private plates = new Map<string, Mesh>()
+  /** The two dots in the bottom corners of each group's box, to make it bigger or smaller. */
+  private grips = new Map<string, { l: Mesh; r: Mesh }>()
+  /** The faint empty slots shown while a group is being resized, and how visible they are now. */
+  private slotMeshes: Mesh[] = []
+  private slotAlpha = 0
+  /** A group being resized: what is drawn (springy, between whole sizes) and the whole size it will take when let go. */
+  private rz?: { pid: number; id: string; edge: Edge; c0: number; r0: number; minC: number; minR: number; u0: number; v0: number; wantC: number; wantR: number; snapC: number; snapR: number; sc: Spring; sr: Spring; open: boolean; last: number }
   private links?: Mesh
   private showLinks = true
   /** The radius of the cylinder the groups hang on (the layout itself is kept at WORLD.ring and bent to this). */
@@ -420,6 +469,20 @@ export class SpatialScene {
         right = Math.max(right, tp.u + WORLD.cardW / 2 + 0.4 * K)
         bottom = Math.min(bottom, tp.v - WORLD.cardH / 2 - 0.4 * K)
       }
+      // being made bigger or smaller: the box is drawn at the springy size, its fixed edge staying where it is (the cards stay where they are in it)
+      const rv = this.rz && this.rz.id === h.id ? this.rz : null
+      if (rv) {
+        const sized = paneOf({ ...cp, cols: rv.sc.x, rows: rv.sr.x })
+        const width = sized.u1 - sized.u0
+        if (rv.edge === 'right') {
+          left = pane.u0
+          right = left + width
+        } else {
+          right = pane.u1
+          left = right - width
+        }
+        bottom = sized.v0
+      }
       const hov = this.carry?.hover === h.id
       if (n.mesh.userData.hov !== hov && n.key) {
         n.mesh.userData.hov = hov
@@ -464,6 +527,38 @@ export class SpatialScene {
       plate.rotation.set(cp.rx ?? 0, cp.ry, 0)
       plate.visible = !h.collapsed && gridCount > 0
       plateSeen.add(h.id)
+      // the grips, in the box's two bottom corners
+      let gr = this.grips.get(h.id)
+      if (!gr) {
+        const mk = (edge: Edge) => {
+          const m = new Mesh(new PlaneGeometry(1.1 * K, 1.1 * K), new MeshBasicMaterial({ map: gripTexture(), transparent: true, depthWrite: false, side: DoubleSide }))
+          m.renderOrder = 3
+          m.userData = { kind: 'grip', id: h.id, edge }
+          this.scene.add(m)
+          return m
+        }
+        gr = { l: mk('left'), r: mk('right') }
+        this.grips.set(h.id, gr)
+      }
+      for (const [m, u] of [[gr.l, left + 0.1 * K], [gr.r, right - 0.1 * K]] as const) {
+        const uu = u * s
+        const vv = (bottom + 0.1 * K) * s
+        const lift = back + 0.12 * K
+        m.position.set(cp.x + bs.right[0] * uu + bs.up[0] * vv + bs.normal[0] * lift, cp.y + bs.right[1] * uu + bs.up[1] * vv + bs.normal[1] * lift, cp.z + bs.right[2] * uu + bs.up[2] * vv + bs.normal[2] * lift)
+        m.rotation.set(cp.rx ?? 0, cp.ry, 0)
+        m.scale.setScalar(s)
+        ;(m.material as MeshBasicMaterial).color.setHSL(((hueOf.get(h.id) ?? 285) < 0 ? 285 : (hueOf.get(h.id) ?? 285)) / 360, 0.5, 0.62)
+        m.visible = plate.visible
+      }
+    }
+    for (const [id, g] of this.grips) {
+      if (plateSeen.has(id)) continue
+      for (const m of [g.l, g.r]) {
+        this.scene.remove(m)
+        m.geometry.dispose()
+        ;(m.material as MeshBasicMaterial).dispose()
+      }
+      this.grips.delete(id)
     }
     for (const [id, p] of this.plates) {
       if (plateSeen.has(id)) continue
@@ -715,6 +810,15 @@ export class SpatialScene {
     const r = this.renderer.domElement.getBoundingClientRect()
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
   }
+  /** Where a group's corner grip is on the screen. For tests. */
+  gripPoint(id: string, edge: Edge): { x: number; y: number } | null {
+    const g = this.grips.get(id)
+    const mesh = g && (edge === 'left' ? g.l : g.r)
+    if (!mesh || !mesh.visible) return null
+    const p = mesh.position.clone().project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
   /** A spot on a group's box with no card or name over it (where a tap adds an item). For tests. */
   blankInPlate(id: string): { x: number; y: number } | null {
     const plate = this.plates.get(id)
@@ -776,6 +880,17 @@ export class SpatialScene {
       ;(p.material as MeshBasicMaterial).dispose()
     }
     this.plates.clear()
+    for (const g of this.grips.values())
+      for (const m of [g.l, g.r]) {
+        m.geometry.dispose()
+        ;(m.material as MeshBasicMaterial).dispose()
+      }
+    this.grips.clear()
+    for (const m of this.slotMeshes) {
+      m.geometry.dispose()
+      ;(m.material as MeshBasicMaterial).dispose()
+    }
+    this.slotMeshes = []
     this.rig?.dispose()
     if (this.links) {
       this.links.geometry.dispose()
@@ -811,6 +926,7 @@ export class SpatialScene {
     if (this.glide()) {
       this.place()
     }
+    if (this.rz || this.slotAlpha > 0) this.stepResize(now)
     if (this.rig) this.dirty = true // (the camera picture moves all the time: draw every frame)
     if (this.bend) {
       const b = this.bend
@@ -916,15 +1032,16 @@ export class SpatialScene {
   /** What is under the finger: a task first, then a group's name, then the pane of a group. */
   private pick(e: { clientX: number; clientY: number }): Hit | null {
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
-    const objs = [...this.tasks.values(), ...this.hubs.values()].map((n) => n.mesh).concat([...this.plates.values()]).filter((o) => o.visible)
+    const grips = [...this.grips.values()].flatMap((g) => [g.l, g.r])
+    const objs = [...this.tasks.values(), ...this.hubs.values()].map((n) => n.mesh).concat([...this.plates.values()], grips).filter((o) => o.visible)
     const hits = this.raycaster.intersectObjects(objs, false)
-    const rank = { task: 0, hub: 1, plate: 2 } as const
+    const rank = { grip: -1, task: 0, hub: 1, plate: 2 } as const
     let best: (typeof hits)[number] | undefined
     for (const h of hits) {
       const k = h.object.userData.kind as keyof typeof rank
       if (!best || rank[k] < rank[best.object.userData.kind as keyof typeof rank]) best = h
     }
-    return best ? { kind: best.object.userData.kind, id: best.object.userData.id, uvx: best.uv?.x ?? 0.5, uvy: best.uv?.y ?? 0.5 } : null
+    return best ? { kind: best.object.userData.kind, id: best.object.userData.id, uvx: best.uv?.x ?? 0.5, uvy: best.uv?.y ?? 0.5, edge: best.object.userData.edge } : null
   }
   private radPerPx() {
     return (this.camera.fov * Math.PI) / 180 / Math.max(1, this.renderer.domElement.clientHeight)
@@ -941,8 +1058,92 @@ export class SpatialScene {
       this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: this.fov, zoom: this.rig?.wallZoom ?? 1 }
       return
     }
-    this.press = { id: e.pointerId, x: e.clientX, y: e.clientY, t0: performance.now(), hit: this.pick(e), mode: 'pending' }
+    const hit = this.pick(e)
+    if (hit?.kind === 'grip' && hit.edge) return void this.startResize(hit.id, hit.edge, e)
+    this.press = { id: e.pointerId, x: e.clientX, y: e.clientY, t0: performance.now(), hit, mode: 'pending' }
   }
+
+  /* ---------- making a group bigger or smaller ---------- */
+
+  private planeUV(e: { clientX: number; clientY: number }, cp: ClusterPlacement): { u: number; v: number } | null {
+    this.raycaster.setFromCamera(this.ndc(e), this.camera)
+    const bs = planeBasis(cp)
+    const plane = new Plane().setFromNormalAndCoplanarPoint(new Vector3(...bs.normal), new Vector3(cp.x, cp.y, cp.z))
+    const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
+    return at ? localIn(cp, [at.x, at.y, at.z]) : null
+  }
+  private startResize(id: string, edge: Edge, e: PointerEvent) {
+    const cp = this.shown[id]
+    const at = cp && this.planeUV(e, cp)
+    if (!cp || !at) return
+    const min = minSizeOf(this.content.layout, id, edge)
+    const rows = cp.rows ?? 1
+    this.rz = { pid: e.pointerId, id, edge, c0: cp.cols, r0: rows, minC: min.cols, minR: min.rows, u0: at.u, v0: at.v, wantC: cp.cols, wantR: rows, snapC: cp.cols, snapR: rows, sc: { x: cp.cols, v: 0 }, sr: { x: rows, v: 0 }, open: true, last: performance.now() }
+    this.dirty = true
+  }
+  /** One frame of a resize: the drawn size springs toward what it is heading for (a whole size once let go), and the empty slots fade. */
+  private stepResize(now: number) {
+    const d = this.rz
+    if (d) {
+      const dt = (now - d.last) / 1000
+      d.last = now
+      d.sc = springStep(d.sc, d.wantC, dt)
+      d.sr = springStep(d.sr, d.wantR, dt)
+      if (!d.open && settled(d.sc, d.wantC) && settled(d.sr, d.wantR)) this.rz = undefined
+      this.place()
+      this.dirty = true
+    }
+    const to = this.rz?.open ? 0.5 : 0
+    if (Math.abs(this.slotAlpha - to) > 0.004) {
+      this.slotAlpha += (to - this.slotAlpha) * Math.min(1, 0.09 + 0.0)
+      this.dirty = true
+      this.paintSlots()
+    } else if (this.slotAlpha !== to) {
+      this.slotAlpha = to
+      this.paintSlots()
+    }
+  }
+  /** The slots of the size it is heading for that no card is in, as faint empty places. */
+  private paintSlots() {
+    const d = this.rz
+    const cp = d && this.shown[d.id]
+    const need = d && cp ? d.snapC * d.snapR : 0
+    while (this.slotMeshes.length < need) {
+      const m = new Mesh(new PlaneGeometry(WORLD.cardW, WORLD.cardH), new MeshBasicMaterial({ map: slotTexture(), transparent: true, depthWrite: false, side: DoubleSide }))
+      m.renderOrder = 1.5
+      this.scene.add(m)
+      this.slotMeshes.push(m)
+    }
+    let used = 0
+    if (d && cp) {
+      const shift = d.edge === 'left' ? d.snapC - cp.cols : 0
+      const busy = new Set<string>()
+      for (const tp of Object.values(this.layout.tasks)) if (tp.c === d.id && !tp.free) busy.add(`${Math.floor(tp.slot / cp.cols)}:${(tp.slot % cp.cols) + shift}`)
+      const dw = (d.snapC - cp.cols) * cellW
+      const centre = (d.edge === 'right' ? dw : -dw) / 2 // (the new grid's middle, relative to the group's centre now)
+      const bs = planeBasis(cp)
+      const s = cp.scale ?? 1
+      const hue = this.content.clusters.find((c) => c.id === d.id)?.hue ?? 285
+      for (let row = 0; row < d.snapR; row++)
+        for (let col = 0; col < d.snapC; col++) {
+          if (busy.has(`${row}:${col}`)) continue
+          const m = this.slotMeshes[used++]
+          const { u, v } = slotAt(row * d.snapC + col, d.snapC)
+          const uu = (centre + u) * s
+          const vv = v * s
+          const lift = 0.05 * K
+          m.position.set(cp.x + bs.right[0] * uu + bs.up[0] * vv + bs.normal[0] * lift, cp.y + bs.right[1] * uu + bs.up[1] * vv + bs.normal[1] * lift, cp.z + bs.right[2] * uu + bs.up[2] * vv + bs.normal[2] * lift)
+          m.rotation.set(cp.rx ?? 0, cp.ry, 0)
+          m.scale.setScalar(s)
+          const mat = m.material as MeshBasicMaterial
+          mat.opacity = this.slotAlpha
+          mat.color.setHSL(((hue < 0 ? 285 : hue) % 360) / 360, 0.55, 0.62)
+          m.visible = this.slotAlpha > 0.01
+        }
+    }
+    for (let i = used; i < this.slotMeshes.length; i++) this.slotMeshes[i].visible = false
+  }
+
 
   /** Begin carrying a task or a whole group: it follows the finger on a plane facing the viewer. */
   private startCarry(kind: 'task' | 'cluster', id: string, e: { clientX: number; clientY: number }) {
@@ -1029,6 +1230,22 @@ export class SpatialScene {
       else this.setFov(this.pinch.fov * (this.pinch.d / Math.max(10, d)))
       return
     }
+    const rd = this.rz
+    if (rd && rd.open && rd.pid === e.pointerId) {
+      const cp = this.shown[rd.id]
+      const at = cp && this.planeUV(e, cp)
+      if (!cp || !at) return
+      // the pointer says how many columns and rows it asks for; the size is pulled toward the nearest whole one
+      const c = detent(rd.c0 + (rd.edge === 'right' ? at.u - rd.u0 : rd.u0 - at.u) / cellW, rd.minC, MAX_COLS)
+      const r = detent(rd.r0 + (rd.v0 - at.v) / cellH, rd.minR, MAX_ROWS)
+      rd.wantC = c.want
+      rd.wantR = r.want
+      rd.snapC = c.snap
+      rd.snapR = r.snap
+      this.dirty = true
+      this.paintSlots()
+      return
+    }
     const p = this.press
     if (!p || p.id !== e.pointerId) return
     if (p.mode === 'pending' && Math.hypot(e.clientX - p.x, e.clientY - p.y) > TAP_PX) {
@@ -1094,6 +1311,25 @@ export class SpatialScene {
   private up = (e: PointerEvent) => {
     this.pointers.delete(e.pointerId)
     if (this.pointers.size < 2) this.pinch = undefined
+    const rd = this.rz
+    if (rd && rd.open && rd.pid === e.pointerId) {
+      // let go: the layout takes the nearest whole size now (cards stay where they are), and what is drawn settles onto it
+      rd.open = false
+      rd.wantC = rd.snapC
+      rd.wantR = rd.snapR
+      if (rd.snapC !== rd.c0 || rd.snapR !== rd.r0) {
+        const next = resizeCluster(this.content.layout, rd.id, rd.snapC, rd.snapR, rd.edge)
+        this.content = { ...this.content, layout: next }
+        this.layout = withRadius(next, this.radius)
+        if (this.layout.clusters[rd.id]) this.shown[rd.id] = this.layout.clusters[rd.id] // (the group itself does not glide: its cards stay put)
+        for (const t of this.content.tasks) if (this.layout.tasks[t.id]?.c === rd.id) this.taskShown.delete(t.id)
+        this.events.onLayout(next)
+      }
+      this.place()
+      this.paintSlots()
+      this.dirty = true
+      return
+    }
     const p = this.press
     if (!p || p.id !== e.pointerId) return
     this.press = undefined

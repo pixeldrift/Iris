@@ -138,3 +138,56 @@ test('flat: a card let go in a box settles into a slot, not on top of another ca
   const slots = Object.values(l.tasks as Record<string, { c: string; slot: number; free?: unknown }>).filter((x) => x.c === 'life' && !x.free).map((x) => x.slot)
   expect(new Set(slots).size).toBe(slots.length)
 })
+
+test.describe('a group can be made bigger or smaller by its corner dots', () => {
+  const grip = (page: P, id: string, edge: 'left' | 'right') => centre(page, `[data-resize="${id}"][data-edge="${edge}"]`)
+  const cell = async (page: P) => {
+    // one column of the group, in screen pixels: the distance between two cards side by side
+    const a = await page.locator('[data-box="life"] [data-task]').nth(0).boundingBox()
+    const b = await page.locator('[data-box="life"] [data-task]').nth(1).boundingBox()
+    return Math.abs(b!.x - a!.x) || 220
+  }
+
+  test('dragging the right dot a column wider adds a column, keeps every card, and shows faint empty slots while it is dragged', async ({ page }) => {
+    await enterFlat(page)
+    const before = (await stored(page)).clusters.life
+    const start = await grip(page, 'life', 'right')
+    const step = await cell(page)
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(start.x + 10, start.y + 2, { steps: 2 })
+    await page.mouse.move(start.x + step * 1.05, start.y + 2, { steps: 12 })
+    await page.waitForTimeout(500)
+    // the empty slots of the size it is heading for show faintly while the dot is held
+    const faint = page.locator('[data-box="life"] .border-dashed')
+    await expect.poll(() => faint.count()).toBeGreaterThan(0)
+    await page.mouse.up()
+    await expect.poll(async () => (await stored(page)).clusters.life.cols).toBe(before.cols + 1)
+    // ... and they fade away once it is let go
+    await expect(faint).toHaveCount(0, { timeout: 4000 })
+    const after = await stored(page)
+    const slots = Object.values(after.tasks as Record<string, { c: string; slot: number }>).filter((t) => t.c === 'life').map((t) => t.slot)
+    expect(new Set(slots).size).toBe(slots.length)
+  })
+
+  test('the left dot grows it to the left, and the size cannot go below what the cards need', async ({ page }) => {
+    await enterFlat(page)
+    const before = (await stored(page)).clusters.life
+    const box0 = (await page.locator('[data-box="life"]').boundingBox())!
+    const g = await grip(page, 'life', 'left')
+    const step = await cell(page)
+    await drag(page, g, { x: g.x - step, y: g.y }, 200)
+    await expect.poll(async () => (await stored(page)).clusters.life.cols).toBe(before.cols + 1)
+    await page.waitForTimeout(800)
+    const box1 = (await page.locator('[data-box="life"]').boundingBox())!
+    expect(box1.x + box1.width).toBeCloseTo(box0.x + box0.width, -1) // (its right edge stayed put)
+    expect(box1.x).toBeLessThan(box0.x - 20)
+    // drag the right dot far inward: the cards stop it (six cards need at least two columns of three rows)
+    const r = await grip(page, 'life', 'right')
+    await drag(page, r, { x: r.x - step * 4, y: r.y - 400 }, 200)
+    const small = (await stored(page)).clusters.life
+    expect(small.cols).toBeGreaterThanOrEqual(1)
+    const slots = Object.values((await stored(page)).tasks as Record<string, { c: string; slot: number }>).filter((t) => t.c === 'life')
+    expect(Math.max(...slots.map((t) => t.slot))).toBeLessThan(small.cols * (small.rows ?? 1))
+  })
+})

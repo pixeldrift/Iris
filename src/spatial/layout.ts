@@ -38,6 +38,10 @@ export const START_SPAN = (Math.PI * 11) / 18
 const MARGIN = 1.1 * K // clear space between neighbouring groups
 const TIER_HEAD = 2.3 * K // a group's name, and the gap above its cards
 
+/** How big a group's grid can be made by hand, in slots. */
+export const MAX_COLS = 4
+export const MAX_ROWS = 12
+
 const widthOf = (cols: number) => cols * cellW + MARGIN
 const heightOf = (rows: number) => rows * cellH + TIER_HEAD
 
@@ -255,7 +259,7 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: 
   for (const c of input.clusters) {
     const cur = clusters[c.id]
     if (!cur) continue
-    const rows = rowsOf(c.id, cur.cols)
+    const rows = Math.max(rowsOf(c.id, cur.cols), cur.minRows ?? 1)
     if (rows !== cur.rows || cur.parent !== c.parent || cur.depth !== c.depth) {
       clusters[c.id] = tilt({ ...cur, rows, half: (rows * cellH) / 2, parent: c.parent, depth: c.depth })
       if (rows !== cur.rows) grew = true
@@ -544,3 +548,83 @@ export function tidyEverything(l: SpatialLayoutData): SpatialLayoutData {
   }
   return { tasks, clusters: separate(clusters) }
 }
+
+
+/* ---------- making a group bigger or smaller (the corner dots) ---------- */
+
+/** Which side of a group a corner dot is on: dragging the right one grows it to the right (its left edge stays), and the left one the other way. */
+export type Edge = 'left' | 'right'
+
+/**
+ * The smallest a group can be made on one side: every card keeps its slot (a card in the last column, or the lowest row, stops it going
+ * smaller). From the left edge the columns are counted from the right, because that is the side that stays.
+ */
+export function minSizeOf(l: SpatialLayoutData, id: string, edge: Edge = 'right'): { cols: number; rows: number } {
+  const cl = l.clusters[id]
+  if (!cl) return { cols: 1, rows: 1 }
+  let lastCol = 0
+  let firstCol = cl.cols - 1
+  let lastRow = 0
+  for (const t of Object.values(l.tasks)) {
+    if (t.c !== id || t.free) continue
+    const col = t.slot % cl.cols
+    lastCol = Math.max(lastCol, col)
+    firstCol = Math.min(firstCol, col)
+    lastRow = Math.max(lastRow, Math.floor(t.slot / cl.cols))
+  }
+  const any = Object.values(l.tasks).some((t) => t.c === id && !t.free)
+  return { cols: any ? (edge === 'right' ? lastCol + 1 : cl.cols - firstCol) : 1, rows: any ? lastRow + 1 : 1 }
+}
+
+/**
+ * Resize a group's grid to `cols` by `rows` slots. Cards stay exactly where they are on the screen (the columns are added or taken away on the
+ * side that moved), the group's other edge stays put, and any group it now overlaps is pushed clear. Sizes are kept within what the cards need
+ * and what is allowed.
+ */
+export function resizeCluster(l: SpatialLayoutData, id: string, cols: number, rows: number, edge: Edge = 'right'): SpatialLayoutData {
+  const cur = l.clusters[id]
+  if (!cur) return l
+  const min = minSizeOf(l, id, edge)
+  const nc = Math.max(min.cols, Math.min(MAX_COLS, Math.round(cols)))
+  const nr = Math.max(min.rows, Math.min(MAX_ROWS, Math.round(rows)))
+  const tasks = { ...l.tasks }
+  const shift = edge === 'left' ? nc - cur.cols : 0 // (columns added on the left push every card's column number up)
+  for (const [tid, t] of Object.entries(tasks)) {
+    if (t.c !== id || t.free) continue
+    const row = Math.floor(t.slot / cur.cols)
+    const col = (t.slot % cur.cols) + shift
+    const slot = row * nc + col
+    tasks[tid] = { ...t, slot, ...slotAt(slot, nc) }
+  }
+  const needed = Math.max(1, ...Object.values(tasks).filter((t) => t.c === id && !t.free).map((t) => Math.floor(t.slot / nc) + 1))
+  const grown = Math.max(needed, nr)
+  const dw = (nc - cur.cols) * cellW
+  const next = repose({ ...cur, cols: nc, rows: grown, minRows: nr > needed ? nr : undefined, half: (grown * cellH) / 2 }, cur.a + ((edge === 'right' ? dw : -dw) / 2) / cur.r, cur.y)
+  const clusters = separate({ ...l.clusters, [id]: next }, new Set([id]))
+  return { ...l, clusters, tasks }
+}
+
+/**
+ * The size follows the pointer, but softly: the grid wants to be a whole number of columns and rows, so the size you are dragging to is
+ * pulled most of the way toward the nearest whole one (it stretches a little past it, then snaps as the nearest changes), and `springStep` eases
+ * what is drawn toward that so it never jumps.
+ */
+export const STRETCH = 0.4
+export function detent(raw: number, min: number, max: number): { snap: number; want: number } {
+  const clamped = Math.max(min - 0.45, Math.min(max + 0.45, raw))
+  const snap = Math.max(min, Math.min(max, Math.round(clamped)))
+  return { snap, want: snap + (clamped - snap) * STRETCH }
+}
+export interface Spring {
+  x: number
+  v: number
+}
+/** One step of a slightly under-damped spring (a little overshoot, then rest): `s` moves toward `to` over `dt` seconds. */
+export function springStep(s: Spring, to: number, dt: number, stiffness = 300, damping = 24): Spring {
+  let { x, v } = s
+  const h = Math.min(dt, 1 / 30)
+  v += (stiffness * (to - x) - damping * v) * h
+  x += v * h
+  return { x, v }
+}
+export const settled = (s: Spring, to: number) => Math.abs(s.x - to) < 0.004 && Math.abs(s.v) < 0.02

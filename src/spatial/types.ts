@@ -38,6 +38,8 @@ export interface ClusterPlacement {
   /** How deep it is in the group tree (0 = a top-level group), and how many rows of cards it has. */
   depth?: number
   rows?: number
+  /** Room the person gave it by dragging a corner: it is at least this many rows tall, even when its cards need fewer. */
+  minRows?: number
   parent: string | null
   scale?: number
   anchor?: SpatialAnchor

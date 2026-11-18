@@ -11,7 +11,7 @@ import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { descendantsOf } from '../core/tree'
-import { LOOSE, cellH, cellW, ensureLayout, nearestFreeSlot, repose, separate, slotAt, snapCluster, snapFree, tidyClusters, tidyEverything } from './layout'
+import { LOOSE, MAX_COLS, MAX_ROWS, cellH, cellW, detent, ensureLayout, minSizeOf, nearestFreeSlot, repose, resizeCluster, separate, settled, slotAt, snapCluster, snapFree, springStep, tidyClusters, tidyEverything, type Edge, type Spring } from './layout'
 import { useSpatial } from './store'
 import { K, type SpatialLayoutData } from './types'
 
@@ -74,6 +74,26 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
   const [carry, setCarry] = useState<Carry | null>(null)
   const press = useRef<{ pid: number; sx: number; sy: number; kind: 'task' | 'group'; id: string; started: boolean } | null>(null)
   const suppress = useRef(false)
+  // a group being made bigger or smaller by a corner dot: what is drawn (springy, between whole sizes) and the nearest whole size (where it lands)
+  type Rs = { id: string; edge: Edge; c: number; r: number; open: boolean; snapC: number; snapR: number }
+  const [rs, setRs] = useState<Rs | null>(null)
+  const rsDrag = useRef<{ pid: number; id: string; edge: Edge; sx: number; sy: number; c0: number; r0: number; minC: number; minR: number; wantC: number; wantR: number; snapC: number; snapR: number; sc: Spring; sr: Spring; open: boolean; raf: number; last: number } | null>(null)
+  const rsTick = (t: number) => {
+    const d = rsDrag.current
+    if (!d) return
+    const dt = d.last ? (t - d.last) / 1000 : 1 / 60
+    d.last = t
+    d.sc = springStep(d.sc, d.wantC, dt)
+    d.sr = springStep(d.sr, d.wantR, dt)
+    if (!d.open && settled(d.sc, d.wantC) && settled(d.sr, d.wantR)) {
+      rsDrag.current = null
+      setRs(null)
+      return
+    }
+    setRs({ id: d.id, edge: d.edge, c: d.sc.x, r: d.sr.x, open: d.open, snapC: d.snapC, snapR: d.snapR })
+    d.raf = requestAnimationFrame(rsTick)
+  }
+  useEffect(() => () => cancelAnimationFrame(rsDrag.current?.raf ?? 0), [])
   const sprung = useRef(new Set<string>())
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const live = useRef({ content, v })
@@ -98,7 +118,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
       if (!p) continue
       const n = inGrid.get(c.id)?.length ?? 0
       // as many rows as the cards need (a card tidied into a low slot makes the box taller)
-      const rows = Math.max(1, Math.ceil(n / p.cols), ...(inGrid.get(c.id) ?? []).map((t) => Math.floor((L.tasks[t.id]?.slot ?? 0) / p.cols) + 1))
+      const rows = Math.max(1, Math.ceil(n / p.cols), p.minRows ?? 1, ...(inGrid.get(c.id) ?? []).map((t) => Math.floor((L.tasks[t.id]?.slot ?? 0) / p.cols) + 1))
       const w = p.cols * (cellW * PX) - 14
       out.set(c.id, { x: p.a * p.r * PX - w / 2, y: -(p.y + 1.2 * K) * PY, w, cols: p.cols, n, rows, h: HEAD + (n && !c.collapsed ? 24 + rows * ROW + (rows - 1) * 8 : 0) })
     }
@@ -305,6 +325,20 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           return
         }
         const el = e.target as HTMLElement
+        const handle = el.closest('[data-resize]') as HTMLElement | null
+        if (handle) {
+          const id = handle.dataset.resize!
+          const edge = handle.dataset.edge as Edge
+          const pl = places.get(id)
+          if (pl) {
+            const min = minSizeOf(L, id, edge)
+            e.currentTarget.setPointerCapture(e.pointerId)
+            cancelAnimationFrame(rsDrag.current?.raf ?? 0)
+            rsDrag.current = { pid: e.pointerId, id, edge, sx: e.clientX, sy: e.clientY, c0: pl.cols, r0: pl.rows, minC: min.cols, minR: min.rows, wantC: pl.cols, wantR: pl.rows, snapC: pl.cols, snapR: pl.rows, sc: { x: pl.cols, v: 0 }, sr: { x: pl.rows, v: 0 }, open: true, raf: 0, last: 0 }
+            rsDrag.current.raf = requestAnimationFrame(rsTick)
+          }
+          return
+        }
         const taskEl = el.closest('[data-task]') as HTMLElement | null
         const hubEl = el.closest('[data-hub]') as HTMLElement | null
         const boxEl = el.closest('[data-box]') as HTMLElement | null
@@ -318,6 +352,19 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: 0, k: v.k, blank: !el.closest('[data-ui], button') }
       }}
       onPointerMove={(e) => {
+        const rd = rsDrag.current
+        if (rd && rd.open && rd.pid === e.pointerId) {
+          // the pointer says how many columns and rows it is asking for; the size is pulled toward the nearest whole one
+          const dx = (e.clientX - rd.sx) / v.k
+          const dy = (e.clientY - rd.sy) / v.k
+          const c = detent(rd.c0 + (rd.edge === 'right' ? dx : -dx) / (cellW * PX), rd.minC, MAX_COLS)
+          const r = detent(rd.r0 + dy / (ROW + 8), rd.minR, MAX_ROWS)
+          rd.wantC = c.want
+          rd.wantR = r.want
+          rd.snapC = c.snap
+          rd.snapR = r.snap
+          return
+        }
         if (pts.current.has(e.pointerId)) pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
         const pr = press.current
         if (pr && pr.pid === e.pointerId) {
@@ -357,6 +404,17 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         } else if (!b) setV((s) => ({ ...s, x: g.vx + e.clientX - g.x, y: g.vy + e.clientY - g.y }))
       }}
       onPointerUp={(e) => {
+        const rd = rsDrag.current
+        if (rd && rd.open && rd.pid === e.pointerId) {
+          // let go: the layout takes the nearest whole size now, and what is drawn settles onto it
+          rd.open = false
+          rd.wantC = rd.snapC
+          rd.wantR = rd.snapR
+          if (rd.snapC !== rd.c0 || rd.snapR !== rd.r0) writeLayout(resizeCluster(L, rd.id, rd.snapC, rd.snapR, rd.edge))
+          cancelAnimationFrame(rd.raf)
+          rd.raf = requestAnimationFrame(rsTick)
+          return
+        }
         pts.current.delete(e.pointerId)
         const pr = press.current
         // a tap on empty canvas: a new item left there
@@ -390,6 +448,15 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
         gesture.current = pts.current.size === 1 ? { x: [...pts.current.values()][0].x, y: [...pts.current.values()][0].y, vx: v.x, vy: v.y, d: 0, k: v.k } : null
       }}
       onPointerCancel={(e) => {
+        const rd = rsDrag.current
+        if (rd && rd.open && rd.pid === e.pointerId) {
+          rd.open = false
+          rd.wantC = rd.c0
+          rd.wantR = rd.r0
+          cancelAnimationFrame(rd.raf)
+          rd.raf = requestAnimationFrame(rsTick)
+          return
+        }
         pts.current.delete(e.pointerId)
         gesture.current = null
         if (press.current?.pid === e.pointerId) {
@@ -424,38 +491,78 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
           const grid = inGrid.get(c.id) ?? []
           const lit = carry?.hover === c.id
           const dragging = carry?.kind === 'group' && carry.id === c.id
+          // being resized (or settling onto its new size): the box is drawn at the springy size, and the cards stay where they are in it
+          const rz = rs?.id === c.id ? rs : null
+          const cell = cellW * PX
+          const wD = rz ? rz.c * cell - 14 : p.w
+          const hD = 24 + (rz ? rz.r : p.rows) * ROW + ((rz ? rz.r : p.rows) - 1) * 8
+          const off = rz && rz.edge === 'left' ? p.w - wD : 0 // (growing to the left pushes the box's left edge out past the group's name)
+          // where the whole slots of the size it is heading for would be (the empty ones are shown faintly)
+          const slots: { row: number; col: number }[] = []
+          let cwN = 0
+          let tl = 0
+          if (rz) {
+            const shift = rz.edge === 'left' ? rz.snapC - p.cols : 0
+            const busy = new Set(grid.map((t) => `${Math.floor((L.tasks[t.id]?.slot ?? 0) / p.cols)}:${((L.tasks[t.id]?.slot ?? 0) % p.cols) + shift}`))
+            for (let row = 0; row < rz.snapR; row++) for (let col = 0; col < rz.snapC; col++) if (!busy.has(`${row}:${col}`)) slots.push({ row, col })
+            cwN = (rz.snapC * cell - 14 - 24 - (rz.snapC - 1) * 8) / rz.snapC
+            tl = rz.edge === 'left' ? p.w - (rz.snapC * cell - 14) : 0
+          }
+          const hue = Math.max(0, c.hue)
           return (
-            <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w, zIndex: dragging ? 5 : 1, opacity: dragging ? 0.92 : 1, transition: carry?.kind === 'group' ? 'none' : 'left 0.38s cubic-bezier(0.3,1.1,0.5,1), top 0.38s cubic-bezier(0.3,1.1,0.5,1)' }} aria-label={c.name}>
+            <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w, zIndex: dragging || rz ? 5 : 1, opacity: dragging ? 0.92 : 1, transition: carry?.kind === 'group' ? 'none' : 'left 0.38s cubic-bezier(0.3,1.1,0.5,1), top 0.38s cubic-bezier(0.3,1.1,0.5,1)' }} aria-label={c.name}>
               <h3
                 data-hub={c.id}
                 className={`mb-2 flex cursor-grab items-center gap-1.5 rounded-full px-1 font-display text-2xl font-bold italic transition-colors ${lit ? 'bg-white/80 ring-2 ring-white' : ''}`}
-                style={{ color: `hsl(${Math.max(0, c.hue)},50%,36%)`, textShadow: '0 0 8px rgba(255,255,255,0.95)' }}
+                style={{ color: `hsl(${hue},50%,36%)`, textShadow: '0 0 8px rgba(255,255,255,0.95)' }}
               >
                 <button type="button" aria-expanded={!c.collapsed} aria-label={`${c.collapsed ? 'Show' : 'Fold'} ${c.name}`} onClick={() => toggleCollapsed(c.id)} className="grid h-6 w-5 shrink-0 place-items-center text-[0.7rem] not-italic opacity-75">
                   {c.collapsed ? '▸' : '▾'}
                 </button>
                 <Flower hue={c.hue} shape={c.shape} size={22} />
                 {c.name}
-                <span className="rounded-full px-2 text-xs not-italic" style={{ background: `hsl(${Math.max(0, c.hue)},60%,90%)` }}>
+                <span className="rounded-full px-2 text-xs not-italic" style={{ background: `hsl(${hue},60%,90%)` }}>
                   {c.count}
                 </span>
               </h3>
               <div
                 data-box={c.id}
                 className={`relative rounded-[2rem] border transition-shadow ${c.collapsed || grid.length === 0 ? 'hidden' : ''}`}
-                style={{ height: 24 + p.rows * ROW + (p.rows - 1) * 8, background: `hsl(${Math.max(0, c.hue)},60%,${lit ? 78 : 84}%,${lit ? 0.6 : 0.3})`, borderColor: `hsl(${Math.max(0, c.hue)},55%,${lit ? 58 : 72}%,${lit ? 0.95 : 0.5})`, borderWidth: lit ? 3 : 1 }}
+                style={{ height: hD, ...(rz ? { width: wD, marginLeft: off } : {}), background: `hsl(${hue},60%,${lit ? 78 : 84}%,${lit ? 0.6 : 0.3})`, borderColor: `hsl(${hue},55%,${lit ? 58 : 72}%,${lit ? 0.95 : 0.5})`, borderWidth: lit ? 3 : 1 }}
               >
+                {rz && (
+                  // the slots there would be at the size it is heading for: faint, fading in as it is dragged and away once it is let go
+                  <div aria-hidden className="pointer-events-none absolute inset-0 z-0" style={{ opacity: rz.open ? 1 : 0, transition: 'opacity 0.45s ease', animation: 'slots-in 0.35s ease' }}>
+                    {slots.map(({ row, col }) => (
+                      <div key={`${row}:${col}`} className="absolute rounded-2xl border border-dashed" style={{ left: tl - off + 12 + col * (cwN + 8), top: 12 + row * (ROW + 8), width: cwN, height: ROW, borderColor: `hsl(${hue},55%,58%,0.5)`, background: `hsl(${hue},60%,92%,0.4)` }} />
+                    ))}
+                  </div>
+                )}
                 {grid.map((t) => {
                   // each card sits in its slot of the group's grid, and glides there when the slot changes
                   const slot = L.tasks[t.id]?.slot ?? 0
                   const cw = (p.w - 24 - (p.cols - 1) * 8) / p.cols
                   const ghost = carry?.kind === 'task' && carry.id === t.id
                   return (
-                    <div key={t.id} className="absolute" style={{ left: 12 + (slot % p.cols) * (cw + 8), top: 12 + Math.floor(slot / p.cols) * (ROW + 8), width: cw, transition: carry ? 'none' : 'left 0.32s cubic-bezier(0.3,1.1,0.5,1), top 0.32s cubic-bezier(0.3,1.1,0.5,1)' }}>
+                    <div key={t.id} className="absolute z-[1]" style={{ left: 12 + (slot % p.cols) * (cw + 8) - off, top: 12 + Math.floor(slot / p.cols) * (ROW + 8), width: cw, transition: carry || rz ? 'none' : 'left 0.32s cubic-bezier(0.3,1.1,0.5,1), top 0.32s cubic-bezier(0.3,1.1,0.5,1)' }}>
                       {row(t, ghost ? { opacity: 0.3 } : undefined)}
                     </div>
                   )
                 })}
+                {/* the grips: a dot in each bottom corner, to give the group more room (or take it back) a column and a row at a time */}
+                {(['left', 'right'] as const).map((edge) => (
+                  <span
+                    key={edge}
+                    data-resize={c.id}
+                    data-edge={edge}
+                    role="presentation"
+                    title="Drag to make this group bigger or smaller"
+                    className={`absolute -bottom-3 z-[2] grid h-6 w-6 touch-none place-items-center ${edge === 'left' ? '-left-3 cursor-nesw-resize' : '-right-3 cursor-nwse-resize'}`}
+                    style={colorVars(c.hue, 0.5)}
+                  >
+                    <span className="emboss-dot emboss-dot-tint" />
+                  </span>
+                ))}
               </div>
             </section>
           )

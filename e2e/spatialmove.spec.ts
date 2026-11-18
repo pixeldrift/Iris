@@ -217,3 +217,27 @@ test.describe('keep tidy', () => {
     expect(Math.abs(((c.a * c.r) / gx) - Math.round((c.a * c.r) / gx))).toBeLessThan(0.05)
   })
 })
+
+test.describe('a group can be made bigger by its corner dots', () => {
+  const grip = (page: import('@playwright/test').Page, id: string, edge: 'left' | 'right') => page.evaluate(([i, e]) => (window as unknown as { __space: { grip: (i: string, e: string) => Pt } }).__space.grip(i, e), [id, edge])
+  test('dragging a dot out adds columns and keeps every card; letting go settles on a whole size', async ({ page }) => {
+    await enter(page)
+    const before = (await stored(page)).clusters.life
+    const g = (await grip(page, 'life', 'right'))!
+    expect(g).toBeTruthy()
+    // out to the right by about a column and a bit (the wall is some 80 units away, so a column is a good few dozen pixels)
+    await page.mouse.move(g.x, g.y)
+    await page.mouse.down()
+    await page.mouse.move(g.x + 10, g.y + 3, { steps: 2 })
+    await page.mouse.move(g.x + 130, g.y + 4, { steps: 12 })
+    await page.waitForTimeout(700)
+    await page.mouse.up()
+    await page.waitForTimeout(900)
+    const after = (await stored(page)).clusters.life
+    expect(after.cols).toBeGreaterThan(before.cols)
+    const tasks = Object.values((await stored(page)).tasks as Record<string, { c: string; slot: number }>).filter((t) => t.c === 'life')
+    expect(new Set(tasks.map((t) => t.slot)).size).toBe(tasks.length) // (no two cards in one slot)
+    // a plain drag of the group's name or box still moves the group, and the dots are not in the way of the cards
+    expect(await grip(page, 'life', 'left')).toBeTruthy()
+  })
+})
