@@ -62,8 +62,8 @@ test.describe('settings', () => {
     await expect.poll(count).toBe(0)
   })
 
-  test('there is a close button, and no Done / Save', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'Done', exact: true })).toHaveCount(0)
+  test('there is a close button, and no Ok / Save', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Ok', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'Close settings' }).click()
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })

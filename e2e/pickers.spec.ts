@@ -50,19 +50,19 @@ test.describe('date and time pickers', () => {
     await expect(page.getByRole('button', { name: /\b10(:\d\d)? am/i }).first()).toBeVisible()
   })
 
-  test('Done closes the picker and Clear removes the time', async ({ page }) => {
+  test('Ok closes the picker and Clear removes the time', async ({ page }) => {
     await page.getByText('–None–').first().click()
     await page.getByRole('listbox', { name: 'Hour' }).getByRole('option', { name: '3', exact: true }).nth(4).click()
-    await pop(page).getByRole('button', { name: 'Done', exact: true }).click()
+    await pop(page).getByRole('button', { name: 'Ok', exact: true }).click()
     await expect(page.getByRole('listbox', { name: 'Hour' })).toHaveCount(0)
     expect((await saved(page))!.tasks.some((t) => t.remindAt)).toBe(true)
   })
 
-  test('the date picker has Done and Clear', async ({ page }) => {
+  test('the date picker has Ok and Clear', async ({ page }) => {
     await page.getByText('Or pick a day').locator('xpath=..').getByRole('button').first().click()
     await page.getByRole('button', { name: 'Tomorrow', exact: true }).click()
     await page.getByText('Or pick a day').locator('xpath=..').getByRole('button').first().click()
-    await expect(pop(page).getByRole('button', { name: 'Done', exact: true })).toBeVisible()
+    await expect(pop(page).getByRole('button', { name: 'Ok', exact: true })).toBeVisible()
     await pop(page).getByRole('button', { name: 'Clear', exact: true }).click()
     await expect(pop(page).getByRole('button', { name: 'Clear', exact: true })).toHaveCount(0)
   })

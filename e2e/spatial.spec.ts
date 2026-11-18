@@ -51,7 +51,7 @@ test.describe('spatial workspace', () => {
   test('a task completed from the workspace is completed everywhere, and one added appears', async ({ page }) => {
     await enter(page)
     const list = page.getByRole('list', { name: 'Tasks in your workspace' })
-    await list.getByRole('button', { name: 'Mark done: Call grandma' }).dispatchEvent('click')
+    await list.getByRole('button', { name: 'Mark completed: Call grandma' }).dispatchEvent('click')
     await expect(list.getByRole('button', { name: 'Call grandma' })).toHaveCount(0) // (completed ones leave, as in the other views)
     await goto(page, 'List')
     await expect(page.getByText('Call grandma', { exact: true })).toHaveCount(0)
@@ -141,7 +141,7 @@ test.describe('spatial workspace', () => {
     await page.getByRole('button', { name: 'Zoom in' }).click()
     await page.getByRole('button', { name: /Lab report/ }).first().click()
     await expect(page.getByLabel('Task details')).toBeVisible()
-    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await page.getByRole('button', { name: 'Ok', exact: true }).click()
   })
 
   test('groups out of view get a soft dot on the frame, and tapping one turns to that group', async ({ page }) => {

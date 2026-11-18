@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { openCompose } from '../NewTask'
+import { popupWasOpen } from '../popupGuard'
 import { MAX_SCALE, MIN_SCALE, type View } from './types'
 
 /** Pan with a finger or the mouse, pinch to zoom, wheel to zoom about the cursor, and tap the water to add. */
@@ -72,7 +73,7 @@ export function usePondGestures(o: {
           select(null)
           const v = view.current
           const { w: W, h: H } = dims.current
-          if (!tap.current?.(p)) openCompose({ x: (p.x - v.tx) / v.scale / W, y: (p.y - v.ty) / v.scale / H })
+          if (!tap.current?.(p) && !popupWasOpen()) openCompose({ x: (p.x - v.tx) / v.scale / W, y: (p.y - v.ty) / v.scale / H })
         }
         mode = 'none'
         el.style.cursor = ''

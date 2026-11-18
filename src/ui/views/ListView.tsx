@@ -237,7 +237,7 @@ export function ListView() {
           title="Select several items (or hold Shift and click)"
           className={`rounded-full px-3 py-1.5 text-sm transition ${selecting ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`}
         >
-          {selecting ? 'Done' : 'Select'}
+          {selecting ? 'Ok' : 'Select'}
         </button>
         <span className="ml-auto text-xs text-ink-faint">{rows.length} floating</span>
       </div>

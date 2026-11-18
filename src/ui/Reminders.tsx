@@ -192,7 +192,7 @@ function ReminderCard({ id, title, text, habit }: { id: string; title: string; t
             Snooze 10 min
           </button>
           <button onClick={() => (toggleDone(id), dismiss(id))} className="rounded-full bg-white/60 px-3 py-1 text-xs text-ink-soft hover:bg-white">
-            {habit ? 'Done today' : 'Done'}
+            {habit ? 'Completed today' : 'Completed'}
           </button>
         </div>
       </div>

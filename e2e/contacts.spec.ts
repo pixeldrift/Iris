@@ -91,7 +91,7 @@ test.describe('the address book', () => {
     await expect(day.getByRole('heading')).toContainText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/)
     const before = await day.getByRole('heading').innerText()
     // items carry a checkbox (left) and their type (right), like the list view
-    await expect(day.getByRole('button', { name: /Mark done|Done this one/ }).first()).toBeVisible()
+    await expect(day.getByRole('button', { name: /Mark completed|Completed this one/ }).first()).toBeVisible()
     await day.getByRole('button', { name: 'Next day' }).click()
     await expect(day.getByRole('heading')).not.toHaveText(before)
     await page.keyboard.press('Escape')
@@ -128,7 +128,7 @@ test.describe('the address book', () => {
     await page.locator('button', { hasText: /^Calendar/ }).first().click()
     await page.getByRole('img', { name: /items? on / }).first().locator('..').click() // the first day with something on it
     const day = page.getByRole('dialog')
-    await day.getByRole('button', { name: /Mark done|Done this one/ }).first().waitFor()
+    await day.getByRole('button', { name: /Mark completed|Completed this one/ }).first().waitFor()
     await day.locator('.tint').first().click()
     await expect(page.getByRole('dialog', { name: /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/ })).toHaveCount(0)
     await page.getByRole('button', { name: 'Close' }).first().click()

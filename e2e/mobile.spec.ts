@@ -247,7 +247,7 @@ test.describe('a phone turned sideways', () => {
     const p = (await panel.boundingBox())!
     expect(Math.abs((await page.locator('main').boundingBox())!.width - main.width)).toBeLessThan(2) // nothing squeezed
     // the notch is on the left: the panel has no safe-area padding of its own
-    const title = (await panel.getByRole('button', { name: /Mark (not )?done/ }).first().boundingBox())!
+    const title = (await panel.getByRole('button', { name: /Mark (not )?completed/ }).first().boundingBox())!
     expect(title.x - p.x).toBeLessThan(40)
     expect(p.x + p.width).toBeLessThanOrEqual(844 + 1)
   })
@@ -270,7 +270,7 @@ test.describe('a phone turned sideways', () => {
     await typing.fill('met at the lab')
     // the bar names the box, once: its label is shown, and the box inside has no placeholder repeating it
     await expect(bar.locator('textarea')).toHaveAttribute('placeholder', '')
-    await bar.getByRole('button', { name: 'Done' }).click()
+    await bar.getByRole('button', { name: 'Ok' }).click()
     // what was typed flies down to the box it belongs in
     await expect(page.locator('body > div.well')).toHaveCount(1)
     await expect(page.locator('body > div.well')).toHaveCount(0, { timeout: 3000 })

@@ -57,7 +57,7 @@ export function NumberField({ label, value, onChange, min = 0, max = 99999, clas
             </button>
           </div>
           <button type="button" onClick={commit} className="mt-2 w-full rounded-full bg-lilac-500 py-2 text-sm font-medium text-white shadow-md shadow-lilac-500/30 transition hover:bg-lilac-600">
-            Done
+            Ok
           </button>
         </div>
       </Popover>

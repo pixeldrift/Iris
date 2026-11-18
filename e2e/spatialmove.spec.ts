@@ -241,3 +241,30 @@ test.describe('a group can be made bigger by its corner dots', () => {
     expect(await grip(page, 'life', 'left')).toBeTruthy()
   })
 })
+
+test.describe('the curve and the view angle sliders', () => {
+  test('changing the curve keeps the cards the same apparent size (the lens follows), and holding a slider fades the rest of the menu', async ({ page }) => {
+    await enter(page)
+    const across = async () => {
+      const a = (await pt(page, 'task', 'demo-grandma'))!
+      const b = (await pt(page, 'task', 'demo-club'))!
+      return Math.hypot(a.x - b.x, a.y - b.y)
+    }
+    const before = await across()
+    await page.getByRole('button', { name: 'Spatial settings' }).click()
+    const curve = page.getByRole('slider', { name: 'Curve' })
+    await curve.fill('22')
+    await page.waitForTimeout(500)
+    const after = await across()
+    expect(Math.abs(after - before) / before).toBeLessThan(0.15)
+    // held: the rest of the menu is out of the way
+    const box = (await curve.boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * 0.35, box.y + box.height / 2, { steps: 3 })
+    const row = page.locator('label', { hasText: 'Keep tidy' })
+    await expect(row).toHaveCSS('opacity', '0')
+    await page.mouse.up()
+    await expect(row).toHaveCSS('opacity', '1')
+  })
+})

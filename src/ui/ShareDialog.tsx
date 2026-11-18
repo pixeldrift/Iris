@@ -194,7 +194,7 @@ export function ShareDialog() {
                   </>
                 )}
                 <button type="button" className={`${btnGhost} ml-auto`} onClick={close}>
-                  Done
+                  Ok
                 </button>
               </div>
             </>
