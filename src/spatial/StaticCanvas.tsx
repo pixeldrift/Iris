@@ -557,7 +557,7 @@ export function StaticCanvas({ content, layout, fitTick = 0 }: { content: Spatia
                     data-edge={edge}
                     role="presentation"
                     title="Drag to make this group bigger or smaller"
-                    className={`absolute -bottom-3 z-[2] grid h-6 w-6 touch-none place-items-center ${edge === 'left' ? '-left-3 cursor-nesw-resize' : '-right-3 cursor-nwse-resize'}`}
+                    className={`absolute bottom-[2px] z-[2] grid h-6 w-6 touch-none place-items-center ${edge === 'left' ? 'left-[2px] cursor-nesw-resize' : 'right-[2px] cursor-nwse-resize'}`}
                     style={colorVars(c.hue, 0.5)}
                   >
                     <span className="emboss-dot emboss-dot-tint" />

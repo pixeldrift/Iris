@@ -107,23 +107,35 @@ function slotTexture(): CanvasTexture {
   slotTex.colorSpace = SRGBColorSpace
   return slotTex
 }
-/** A corner grip: a small soft dot (the same kind as the end grips of the Timeline's bars), white so it takes the group's colour. */
+/** A corner grip: a small dot pressed into the surface (a soft shadow inside along the top, a light edge along the bottom), like the grab dots of the sidebar and the ends of the Timeline's bars. */
 let gripTex: CanvasTexture | undefined
 function gripTexture(): CanvasTexture {
   if (gripTex) return gripTex
   const cv = document.createElement('canvas')
   cv.width = cv.height = 64
   const g = cv.getContext('2d')!
-  const gr = g.createRadialGradient(30, 29, 1, 32, 32, 8)
-  gr.addColorStop(0, 'rgba(255,255,255,1)')
-  gr.addColorStop(1, 'rgba(255,255,255,0.78)')
+  const R = 5
+  // the light edge along the bottom
   g.beginPath()
-  g.arc(32, 32, 8, 0, Math.PI * 2)
-  g.fillStyle = gr
-  g.shadowColor = 'rgba(60,30,110,0.45)'
-  g.shadowBlur = 6
-  g.shadowOffsetY = 2
+  g.arc(32, 33.2, R, 0, Math.PI * 2)
+  g.fillStyle = 'rgba(255,255,255,0.95)'
   g.fill()
+  // the dot itself, a soft recess
+  g.beginPath()
+  g.arc(32, 32, R, 0, Math.PI * 2)
+  g.fillStyle = 'rgba(120,100,150,0.42)'
+  g.fill()
+  // the shadow just inside along the top
+  g.save()
+  g.beginPath()
+  g.arc(32, 32, R, 0, Math.PI * 2)
+  g.clip()
+  const sh = g.createLinearGradient(0, 32 - R, 0, 32 + R * 0.4)
+  sh.addColorStop(0, 'rgba(60,40,90,0.6)')
+  sh.addColorStop(1, 'rgba(60,40,90,0)')
+  g.fillStyle = sh
+  g.fillRect(0, 32 - R, 64, R * 1.4)
+  g.restore()
   gripTex = new CanvasTexture(cv)
   gripTex.colorSpace = SRGBColorSpace
   return gripTex
@@ -531,7 +543,7 @@ export class SpatialScene {
       let gr = this.grips.get(h.id)
       if (!gr) {
         const mk = (edge: Edge) => {
-          const m = new Mesh(new PlaneGeometry(1.1 * K, 1.1 * K), new MeshBasicMaterial({ map: gripTexture(), transparent: true, depthWrite: false, side: DoubleSide }))
+          const m = new Mesh(new PlaneGeometry(0.9 * K, 0.9 * K), new MeshBasicMaterial({ map: gripTexture(), transparent: true, depthWrite: false, side: DoubleSide }))
           m.renderOrder = 3
           m.userData = { kind: 'grip', id: h.id, edge }
           this.scene.add(m)
@@ -540,14 +552,14 @@ export class SpatialScene {
         gr = { l: mk('left'), r: mk('right') }
         this.grips.set(h.id, gr)
       }
-      for (const [m, u] of [[gr.l, left + 0.1 * K], [gr.r, right - 0.1 * K]] as const) {
+      for (const [m, u] of [[gr.l, left + 0.28 * K], [gr.r, right - 0.28 * K]] as const) {
         const uu = u * s
-        const vv = (bottom + 0.1 * K) * s
+        const vv = (bottom + 0.28 * K) * s
         const lift = back + 0.12 * K
         m.position.set(cp.x + bs.right[0] * uu + bs.up[0] * vv + bs.normal[0] * lift, cp.y + bs.right[1] * uu + bs.up[1] * vv + bs.normal[1] * lift, cp.z + bs.right[2] * uu + bs.up[2] * vv + bs.normal[2] * lift)
         m.rotation.set(cp.rx ?? 0, cp.ry, 0)
         m.scale.setScalar(s)
-        ;(m.material as MeshBasicMaterial).color.setHSL(((hueOf.get(h.id) ?? 285) < 0 ? 285 : (hueOf.get(h.id) ?? 285)) / 360, 0.5, 0.62)
+        ;(m.material as MeshBasicMaterial).color.setHSL(((hueOf.get(h.id) ?? 285) < 0 ? 285 : (hueOf.get(h.id) ?? 285)) / 360, 0.35, 0.82)
         m.visible = plate.visible
       }
     }
