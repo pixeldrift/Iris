@@ -242,3 +242,61 @@ test.describe('what the flat canvas shows at its edges, and a tap that only clos
     await expect(page.getByLabel('New item').first()).toBeVisible()
   })
 })
+
+test.describe('moving around the flat canvas', () => {
+  test.use({ hasTouch: true })
+  const view = (page: P) => page.locator('[aria-label^="Your tasks by group"] > div.absolute.left-0.top-0').first().evaluate((el) => { const m = new DOMMatrix(getComputedStyle(el).transform); return { k: m.a, x: m.e, y: m.f } })
+  const touch = async (page: P, type: 'touchStart' | 'touchMove' | 'touchEnd', pts: { x: number; y: number }[]) => {
+    const cdp = (touch as unknown as { cdp?: import('@playwright/test').CDPSession }).cdp ?? (await page.context().newCDPSession(page))
+    ;(touch as unknown as { cdp?: unknown }).cdp = cdp
+    await cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, id) => ({ x: p.x, y: p.y, id })) })
+  }
+
+  test('after a corner dot has been dragged with a finger, a drag on the canvas still pans it (it does not zoom)', async ({ page }) => {
+    await enterFlat(page)
+    const g = await centre(page, '[data-resize="life"][data-edge="right"]')
+    // (a finger: each touch is a pointer of its own, so one left counted as down would make the next drag look like a pinch)
+    await touch(page, 'touchStart', [g])
+    for (let i = 1; i <= 8; i++) await touch(page, 'touchMove', [{ x: g.x + i * 8, y: g.y + i * 3 }])
+    await touch(page, 'touchEnd', [])
+    await page.waitForTimeout(900)
+    const before = await view(page)
+    const c = (await page.getByRole('region', { name: 'Spatial workspace' }).boundingBox())!
+    const p = { x: c.x + 60, y: c.y + c.height - 90 }
+    await touch(page, 'touchStart', [p])
+    for (let i = 1; i <= 8; i++) await touch(page, 'touchMove', [{ x: p.x + i * 12, y: p.y + i * 4 }])
+    await touch(page, 'touchEnd', [])
+    const after = await view(page)
+    expect(after.k).toBeCloseTo(before.k, 3)
+    expect(Math.abs(after.x - before.x)).toBeGreaterThan(40)
+  })
+
+  test('two fingers move the canvas wherever they land (even on cards), and pinch zooms it', async ({ page }) => {
+    await enterFlat(page)
+    const a = await centre(page, '[data-task="demo-grandma"] button.truncate') // (on a card)
+    const b = { x: a.x + 120, y: a.y + 10 } // (the other on a neighbouring card or the box)
+    const v0 = await view(page)
+    await touch(page, 'touchStart', [a, b])
+    for (let i = 1; i <= 8; i++) await touch(page, 'touchMove', [{ x: a.x + i * 10, y: a.y + i * 5 }, { x: b.x + i * 10, y: b.y + i * 5 }])
+    await touch(page, 'touchEnd', [])
+    const v1 = await view(page)
+    expect(v1.k).toBeCloseTo(v0.k, 2)
+    expect(v1.x - v0.x).toBeGreaterThan(50)
+    expect(v1.y - v0.y).toBeGreaterThan(25)
+    // spread apart: it zooms in
+    const c = { x: a.x, y: a.y + 120 }
+    await touch(page, 'touchStart', [{ x: c.x - 40, y: c.y }, { x: c.x + 40, y: c.y }])
+    for (let i = 1; i <= 8; i++) await touch(page, 'touchMove', [{ x: c.x - 40 - i * 15, y: c.y }, { x: c.x + 40 + i * 15, y: c.y }])
+    await touch(page, 'touchEnd', [])
+    expect((await view(page)).k).toBeGreaterThan(v1.k * 1.5)
+    // and one finger still drags afterwards
+    const v2 = await view(page)
+    const p = { x: c.x, y: c.y + 100 }
+    await touch(page, 'touchStart', [p])
+    for (let i = 1; i <= 6; i++) await touch(page, 'touchMove', [{ x: p.x + i * 12, y: p.y }])
+    await touch(page, 'touchEnd', [])
+    const v3 = await view(page)
+    expect(v3.k).toBeCloseTo(v2.k, 2)
+    expect(v3.x - v2.x).toBeGreaterThan(40)
+  })
+})

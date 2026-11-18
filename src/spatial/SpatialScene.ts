@@ -138,12 +138,12 @@ function gripTexture(): CanvasTexture {
   // the light edge along the bottom
   g.beginPath()
   g.arc(32, 33.2, R, 0, Math.PI * 2)
-  g.fillStyle = 'rgba(255,255,255,0.95)'
+  g.fillStyle = 'rgba(255,255,255,0.8)'
   g.fill()
   // the dot itself, a soft recess
   g.beginPath()
   g.arc(32, 32, R, 0, Math.PI * 2)
-  g.fillStyle = 'rgba(120,100,150,0.42)'
+  g.fillStyle = 'rgba(120,100,150,0.26)'
   g.fill()
   // the shadow just inside along the top
   g.save()
@@ -151,7 +151,7 @@ function gripTexture(): CanvasTexture {
   g.arc(32, 32, R, 0, Math.PI * 2)
   g.clip()
   const sh = g.createLinearGradient(0, 32 - R, 0, 32 + R * 0.4)
-  sh.addColorStop(0, 'rgba(60,40,90,0.6)')
+  sh.addColorStop(0, 'rgba(60,40,90,0.36)')
   sh.addColorStop(1, 'rgba(60,40,90,0)')
   g.fillStyle = sh
   g.fillRect(0, 32 - R, 64, R * 1.4)
@@ -212,7 +212,7 @@ export class SpatialScene {
   private pointers = new Map<number, { x: number; y: number }>()
   private press?: { id: number; x: number; y: number; t0: number; hit: Hit | null; mode: 'pending' | 'look' | 'task' | 'cluster' }
   private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3; kids: Set<string> }
-  private pinch?: { d: number; fov: number; zoom: number }
+  private pinch?: { d: number; fov: number; zoom: number; mx: number; my: number }
   private disposed = false
   /** Wall mode's side of the scene (the world -> screen map, the scan effect, pins, zoom, level), when the camera is finding a surface. */
   private rig?: WallRig
@@ -1183,7 +1183,13 @@ export class SpatialScene {
       this.press = undefined
       this.cancelCarry()
       const [a, b] = [...this.pointers.values()]
-      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: this.fov, zoom: this.rig?.wallZoom ?? 1 }
+      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: this.fov, zoom: this.rig?.wallZoom ?? 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
+      if (this.rz?.open) {
+        // (a resize under way is let go where it began: two fingers are for moving the view)
+        this.rz.open = false
+        this.rz.wantC = this.rz.c0
+        this.rz.wantR = this.rz.r0
+      }
       return
     }
     const hit = this.pick(e)
@@ -1356,6 +1362,17 @@ export class SpatialScene {
       const d = Math.hypot(a.x - b.x, a.y - b.y)
       if (this.rig) this.rig.setWallZoom(this.pinch.zoom * (d / Math.max(10, this.pinch.d)))
       else this.setFov(this.pinch.fov * (this.pinch.d / Math.max(10, d)))
+      // two fingers also move the view where they move together (wherever they went down): the same as a drag on empty space
+      const mx = (a.x + b.x) / 2
+      const my = (a.y + b.y) / 2
+      if (this.rig) this.rig.panPixels(mx - this.pinch.mx, my - this.pinch.my)
+      else {
+        const k = this.radPerPx()
+        this.tracking.touch.look((mx - this.pinch.mx) * k, (my - this.pinch.my) * k)
+        this.dirty = true
+      }
+      this.pinch.mx = mx
+      this.pinch.my = my
       return
     }
     const rd = this.rz

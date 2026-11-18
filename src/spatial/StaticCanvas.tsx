@@ -73,7 +73,7 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
   const pts = useRef(new Map<number, { x: number; y: number }>())
-  const gesture = useRef<{ x: number; y: number; vx: number; vy: number; d: number; k: number; blank?: boolean } | null>(null)
+  const gesture = useRef<{ x: number; y: number; vx: number; vy: number; d: number; k: number; blank?: boolean; mx?: number; my?: number } | null>(null)
   const [carry, setCarry] = useState<Carry | null>(null)
   const press = useRef<{ pid: number; sx: number; sy: number; kind: 'task' | 'group'; id: string; started: boolean } | null>(null)
   const suppress = useRef(false)
@@ -355,8 +355,16 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
           press.current = null
           setCarry(null)
           closeSprung(null)
+          const rd0 = rsDrag.current
+          if (rd0?.open) {
+            // (a resize that is under way is let go where it began: two fingers are for moving the view)
+            rd0.open = false
+            rd0.wantC = rd0.c0
+            rd0.wantR = rd0.r0
+          }
           e.currentTarget.setPointerCapture(e.pointerId)
-          gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: Math.hypot(a.x - b.x, a.y - b.y), k: v.k }
+          const rect0 = box.current!.getBoundingClientRect()
+          gesture.current = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, d: Math.hypot(a.x - b.x, a.y - b.y), k: v.k, mx: (a.x + b.x) / 2 - rect0.left, my: (a.y + b.y) / 2 - rect0.top }
           return
         }
         const el = e.target as HTMLElement
@@ -433,9 +441,14 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
           const k = Math.min(3, Math.max(0.15, g.k * f))
           const mx = (a.x + b.x) / 2 - r.left
           const my = (a.y + b.y) / 2 - r.top
-          setV((s) => ({ k, x: mx - ((mx - s.x) * k) / s.k, y: my - ((my - s.y) * k) / s.k }))
+          // two fingers: the canvas follows where they move together (wherever they went down), and zooms about them as they spread or close
+          const dx = g.mx === undefined ? 0 : mx - g.mx
+          const dy = g.my === undefined ? 0 : my - g.my
+          setV((s) => ({ k, x: mx - ((mx - (s.x + dx)) * k) / s.k, y: my - ((my - (s.y + dy)) * k) / s.k }))
           g.d = Math.hypot(a.x - b.x, a.y - b.y)
           g.k = k
+          g.mx = mx
+          g.my = my
         } else if (!b) setV((s) => ({ ...s, x: g.vx + e.clientX - g.x, y: g.vy + e.clientY - g.y }))
       }}
       onPointerUp={(e) => {
@@ -448,6 +461,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
           if (rd.snapC !== rd.c0 || rd.snapR !== rd.r0) writeLayout(resizeCluster(L, rd.id, rd.snapC, rd.snapR, rd.edge))
           cancelAnimationFrame(rd.raf)
           rd.raf = requestAnimationFrame(rsTick)
+          pts.current.delete(e.pointerId) // (this finger is up: it must not be left counting as one of two, or the next drag would zoom)
+          gesture.current = null
           return
         }
         pts.current.delete(e.pointerId)
@@ -490,6 +505,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
           rd.wantR = rd.r0
           cancelAnimationFrame(rd.raf)
           rd.raf = requestAnimationFrame(rsTick)
+          pts.current.delete(e.pointerId)
+          gesture.current = null
           return
         }
         pts.current.delete(e.pointerId)
