@@ -704,7 +704,7 @@ export default function SpatialView() {
           </div>
           {!note && !showPaused && !tipSeen && !simple && (
             <button type="button" onClick={() => prefs({ tipSeen: true })} className="absolute inset-x-6 top-14 z-10 mx-auto max-w-sm rounded-2xl bg-white/85 px-3.5 py-2 text-center text-xs text-ink-soft shadow-md backdrop-blur">
-              Drag a task or a group to move it. Pull a task out into the open, then drop it into another group. <span className="text-lilac-600">Got it</span>
+              Drag a task or a group to move it. Pull a task out into the open, then drop it into another group. <b className="font-bold text-lilac-700 underline decoration-lilac-300 underline-offset-2">Got it</b>
             </button>
           )}
           {showPaused && (

@@ -140,26 +140,6 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
     return out
   }, [content, L, inGrid])
   const kidsOf = (id: string): Set<string> => descendantsOf(content.clusters, id)
-  // one small dot for each group or loose card wholly out of view, on the edge where a line from the middle to it crosses (once showing, it stays until well back in view)
-  const dots = dotsOn
-    ? edgeDots(
-        [
-          ...content.clusters.flatMap((c) => {
-            const b = places.get(c.id)
-            return b ? [{ id: c.id, x: b.x + b.w / 2, y: b.y + b.h / 2, r: dotShown.current.has(c.id) ? -40 / v.k : Math.max(b.w, b.h) / 2, hue: c.hue }] : []
-          }),
-          ...content.tasks.flatMap((t) => {
-            const f = L.tasks[t.id]?.free
-            return f ? [{ id: `task:${t.id}`, x: f.a * PX * r0, y: -f.y * PY - 20 + ROW / 2, r: dotShown.current.has(`task:${t.id}`) ? -40 / v.k : TASK_W / 2, hue: t.hue }] : []
-          }),
-        ],
-        { scale: v.k, tx: v.x, ty: v.y },
-        size.w,
-        size.h,
-        { inset: 14 },
-      )
-    : []
-  dotShown.current = new Set(dots.map((d) => d.id))
   const carriedKids = useMemo(() => (carry?.kind === 'group' ? kidsOf(carry.id) : new Set<string>()), [carry?.kind, carry?.id, content]) // eslint-disable-line react-hooks/exhaustive-deps
   const at = (id: string): Box | undefined => {
     const b = places.get(id)
@@ -332,6 +312,26 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
   const links = content.clusters.filter((c) => c.parent && places.has(c.parent) && places.has(c.id))
   const free = content.tasks.filter((t) => L.tasks[t.id]?.free)
   const r0 = L.clusters[Object.keys(L.clusters)[0]]?.r ?? 80
+  // one small dot for each group or loose card wholly out of view, on the edge where a line from the middle to it crosses (once showing, it stays until well back in view)
+  const dots = dotsOn
+    ? edgeDots(
+        [
+          ...content.clusters.flatMap((c) => {
+            const b = places.get(c.id)
+            return b ? [{ id: c.id, x: b.x + b.w / 2, y: b.y + b.h / 2, r: dotShown.current.has(c.id) ? -40 / v.k : Math.max(b.w, b.h) / 2, hue: c.hue }] : []
+          }),
+          ...content.tasks.flatMap((t) => {
+            const f = L.tasks[t.id]?.free
+            return f ? [{ id: `task:${t.id}`, x: f.a * PX * r0, y: -f.y * PY - 20 + ROW / 2, r: dotShown.current.has(`task:${t.id}`) ? -40 / v.k : TASK_W / 2, hue: t.hue }] : []
+          }),
+        ],
+        { scale: v.k, tx: v.x, ty: v.y },
+        size.w,
+        size.h,
+        { inset: 14 },
+      )
+    : []
+  dotShown.current = new Set(dots.map((d) => d.id))
 
   const row = (t: SceneTask, extra?: React.CSSProperties) => <FlatRow key={t.id} t={t} extra={extra} />
 
