@@ -200,37 +200,41 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.strokeStyle = '#fff'
     g.stroke()
   }
-  // the due chip, on the right (measured first, so the words never run under it)
-  g.font = `600 22px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
-  const chipW = c.due ? g.measureText(c.due).width + 24 : 0
-  if (c.due) {
-    const px = x + w - 16 - chipW
-    const py = cy
-    roundRect(g, px, py - 17, chipW, 34, 17)
-    // the same three tones as the chip everywhere else: today, late, a later day
-    const tone = CHIP[c.dueTone ?? 'later']
-    g.fillStyle = tone.fill
-    g.fill()
-    g.fillStyle = tone.ink
-    g.textBaseline = 'middle'
-    g.fillText(c.due, px + 12, py + 1)
-  }
-  // the words (up to two lines, with an ellipsis, in the space between the check and the chip)
+  // the words (up to two lines, with an ellipsis) have the whole width between the check and the edge; the date chip sits on a row of its
+  // own under them, so it never takes room from the title
   const tx = cx + cr + 18
-  const maxW = x + w - 18 - tx - (c.due ? chipW + 10 : 0) - (c.tally && c.tally.done < c.tally.total && !c.done ? 58 : 0)
+  const maxW = x + w - 18 - tx - (c.tally && c.tally.done < c.tally.total && !c.done ? 58 : 0)
   g.fillStyle = c.done ? 'rgba(80,70,100,0.7)' : TOKENS['--color-ink']
   // a little white glow around the words, as on every other item
   g.shadowColor = LOOK.textGlow.color
   g.shadowBlur = LOOK.textGlow.blur
   g.textBaseline = 'middle'
-  g.font = `600 29px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
+  g.font = `600 27px 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif`
   const lines = wrapTitle(g, c.title || 'Untitled', maxW, 2)
-  const lh = 33
-  const top = cy - ((lines.length - 1) * lh) / 2
+  const lh = 30
+  const chipH = 30
+  const stackH = lines.length * lh + (c.due ? 6 + chipH : 0)
+  const hasBar = c.progress != null && c.progress < 100 && !c.done
+  const top = y + (h - stackH) / 2 - (hasBar ? 4 : 0)
   lines.forEach((ln, i) => {
-    g.fillText(ln, tx, top + i * lh)
-    if (c.done) g.fillRect(tx, top + i * lh, g.measureText(ln).width, 2.5)
+    g.fillText(ln, tx, top + lh / 2 + i * lh)
+    if (c.done) g.fillRect(tx, top + lh / 2 + i * lh, g.measureText(ln).width, 2.5)
   })
+  if (c.due) {
+    g.shadowColor = 'transparent'
+    g.shadowBlur = 0
+    g.font = `600 20px ui-rounded,'SF Pro Rounded',system-ui,sans-serif`
+    g.textBaseline = 'middle'
+    const chipW = Math.min(g.measureText(c.due).width + 22, x + w - 18 - tx)
+    const py = top + lines.length * lh + 6 + chipH / 2
+    roundRect(g, tx, py - chipH / 2, chipW, chipH, chipH / 2)
+    // the same three tones as the chip everywhere else: today, late, a later day
+    const tone = CHIP[c.dueTone ?? 'later']
+    g.fillStyle = tone.fill
+    g.fill()
+    g.fillStyle = tone.ink
+    g.fillText(c.due, tx + 11, py + 1)
+  }
   g.shadowColor = 'transparent'
   g.shadowBlur = 0
   if (c.progress != null && c.progress < 100 && !c.done) {

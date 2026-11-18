@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ui/ZoomControl'
 import { useStore } from '../state/store'
 import { colorVars } from '../ui/taskColor'
+import { dueInfo } from '../core/rowModel'
 import { DoneButton, DueChip, ItemProgress, TallyIncrement } from '../ui/shared'
 import { Flower } from '../ui/Flower'
 import type { SceneCluster, SceneTask } from './SpatialScene'
@@ -15,7 +16,7 @@ import { K, type SpatialLayoutData } from './types'
 // layout units to pixels: across (a group is as wide as its columns) and down (rows are tighter than in 3D)
 const PX = 11.8
 const PY = 5
-const ROW = 46
+const ROW = 56
 const HEAD = 40
 const TASK_W = 220
 const MOVE = 6
@@ -33,14 +34,19 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
   const select = useStore((s) => s.select)
   if (!task) return null
   return (
-    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint relative flex cursor-grab items-center gap-2.5 rounded-2xl px-2.5 py-2 pb-3.5">
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint relative flex cursor-grab items-center gap-2.5 rounded-2xl px-2.5 py-1.5 pb-3">
       <DoneButton task={task} size={22} />
-      <button type="button" onClick={() => select(t.id)} className={`min-w-0 flex-1 cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
-        {t.title || 'Untitled'}
-      </button>
-      <div className="flex shrink-0 items-center gap-2">
-        {task.tally && <TallyIncrement task={task} compact />}
-        <DueChip task={task} compact />
+      {/* the title has the whole width; the chips (a date, a +1) sit on a row of their own under it */}
+      <div className="min-w-0 flex-1">
+        <button type="button" onClick={() => select(t.id)} className={`block w-full cursor-grab truncate text-left text-sm ${t.done ? 'text-ink-faint line-through' : ''}`}>
+          {t.title || 'Untitled'}
+        </button>
+        {(task.tally || dueInfo(task)) && (
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
+            {task.tally && <TallyIncrement task={task} compact />}
+            <DueChip task={task} compact />
+          </div>
+        )}
       </div>
       <ItemProgress task={task} className="absolute bottom-1 left-3 right-3 min-w-0" />
     </div>

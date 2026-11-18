@@ -162,7 +162,9 @@ export default function SpatialView() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // a tap on 3D (or on the explanation's Start): ask for motion from inside that tap, as iOS requires
+  const [motionAsked, setMotionAsked] = useState(false)
   const startMotion = () => {
+    setMotionAsked(true)
     const tr = track.current
     if (!tr || trackPref === 'touch' || !caps.motion || tr.motion) return
     void tr.start(true).then((ok) => !ok && setNote('Motion tracking was not allowed, so you can look around by dragging. You can switch it on again from the settings button.'))
@@ -179,9 +181,10 @@ export default function SpatialView() {
     if (go === 'back') return void prefs({ view: '2d' })
     prefs({ seen: !again })
     if (go === 'motion') startMotion()
+    else setMotionAsked(true) // (touch only was chosen: no button asking for motion)
   }
   // iOS asks for motion only from a tap: when 3D opens already explained, a small button gives it
-  const needsMotionTap = !simple && !introOpen && caps.motionNeedsPermission && trackPref !== 'touch' && status.source !== 'motion'
+  const needsMotionTap = !simple && !introOpen && caps.motionNeedsPermission && trackPref !== 'touch' && !motionAsked && status.source !== 'motion'
 
   useEffect(() => {
     if (!wall || !details || phase !== 'running') return void setHud('')
