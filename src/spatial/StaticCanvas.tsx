@@ -22,7 +22,17 @@ const PX = 11.8
 const PY = 5.9 // (with the taller cards: the same room between groups as before)
 const ROW = 56
 const HEAD = 40
-const TASK_W = Math.round(cellW * PX) - 8 // (a loose card is as wide as a slot in a group, less the same little gap)
+// a group's box, in canvas pixels: the cards sit in columns CELL apart with GAP between them, and the box has the same room round them as in 3D
+// (a good margin at the sides, less above and a little more below), so the corner dots are clear of the cards
+const CELL = Math.round(cellW * PX)
+const GAP = 8
+const CARD_W = CELL - GAP
+const PADX = 40
+const PAD_TOP = 14
+const PAD_BOTTOM = 24
+const boxW = (cols: number) => cols * CELL - GAP + 2 * PADX
+const boxH = (rows: number) => PAD_TOP + PAD_BOTTOM + rows * ROW + (rows - 1) * GAP
+const TASK_W = CARD_W // (a loose card is the width of one in a group, and its grid has the same gap)
 const MOVE = 6
 const SPRING_MS = 700
 
@@ -42,11 +52,11 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
   const chips = !!dueInfo(task) || !!task.tally
   const bar = hasProgress(task.kind) && !isDoneNow(task) && progressOf(task) > 0
   return (
-    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...extra, height: ROW, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className="tint relative flex cursor-grab items-start gap-2.5 rounded-2xl px-2.5 pb-2.5 pt-1.5">
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...(task.image ? { ['--photo' as string]: `url("${task.image}")` } : {}), ...extra, height: ROW, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className={`tint ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : 'tint-flat'} relative flex cursor-grab items-start gap-2.5 rounded-2xl px-2.5 pb-2.5 pt-1.5`}>
       <DoneButton task={task} size={22} />
       <div className="flex h-full min-w-0 flex-1 flex-col">
-        <button type="button" onClick={() => select(t.id)} className={`block w-full cursor-grab text-left text-sm leading-5 ${chips ? 'truncate' : 'line-clamp-2'} ${t.done ? 'text-ink-faint line-through' : ''}`}>
-          {t.title || 'Untitled'}
+        <button type="button" onClick={() => select(t.id)} aria-label={t.title || 'Untitled'} className={`block min-h-5 w-full cursor-grab text-left text-sm leading-5 ${chips ? 'truncate' : 'line-clamp-2'} ${t.done ? 'text-ink-faint line-through' : ''}`}>
+          {t.title || (task.image ? '' : 'Untitled')}
         </button>
         {chips && (
           <div className="mt-auto flex min-w-0 items-center gap-1.5 overflow-hidden">
@@ -113,6 +123,26 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
     return () => ro.disconnect()
   }, [])
   const dotShown = useRef(new Set<string>())
+  // the group a carried task is over shows its empty slots faintly (the same hint as when a group is resized); they fade in, and away once it is let go
+  const [slotsFor, setSlotsFor] = useState<{ id: string; on: boolean } | null>(null)
+  useEffect(() => {
+    const h = carry?.kind === 'task' ? carry.hover : null
+    if (h) {
+      setSlotsFor({ id: h, on: true })
+      return
+    }
+    setSlotsFor((s) => (s && s.on ? { ...s, on: false } : s))
+    const t = window.setTimeout(() => setSlotsFor((s) => (s && !s.on ? null : s)), 500)
+    return () => window.clearTimeout(t)
+  }, [carry?.kind, carry?.hover])
+  // the grid: one line every 32 canvas pixels (doubled while that would be too fine to see), anchored to the canvas's own origin
+  let cell = 32 * v.k
+  while (cell < 14) cell *= 2
+  const gridStyle: React.CSSProperties = {
+    backgroundImage: 'linear-gradient(rgb(var(--lr-500) / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--lr-500) / 0.06) 1px, transparent 1px)',
+    backgroundSize: `${cell}px ${cell}px`,
+    backgroundPosition: `${v.x}px ${v.y}px`,
+  }
 
   // where each group sits (the layout is kept up to date by the view; this fills any gap so nothing is left out)
   const L = useMemo(() => ensureLayout(layout, { clusters: content.clusters.map((c, i) => ({ id: c.id, parent: c.parent ?? null, depth: c.depth, order: i })), tasks: content.tasks.map((t) => ({ id: t.id, cluster: t.cluster })), allTaskIds: new Set(content.tasks.map((t) => t.id)), allClusterIds: new Set(content.clusters.map((c) => c.id)) }), [content, layout])
@@ -134,8 +164,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
       const n = inGrid.get(c.id)?.length ?? 0
       // as many rows as the cards need (a card tidied into a low slot makes the box taller)
       const rows = Math.max(1, Math.ceil(n / p.cols), p.minRows ?? 1, ...(inGrid.get(c.id) ?? []).map((t) => Math.floor((L.tasks[t.id]?.slot ?? 0) / p.cols) + 1))
-      const w = p.cols * (cellW * PX) - 14
-      out.set(c.id, { x: p.a * p.r * PX - w / 2, y: -(p.y + 1.2 * K) * PY, w, cols: p.cols, n, rows, h: HEAD + (n && !c.collapsed ? 24 + rows * ROW + (rows - 1) * 8 : 0) })
+      const w = boxW(p.cols)
+      out.set(c.id, { x: p.a * p.r * PX - w / 2, y: -(p.y + 1.2 * K) * PY, w, cols: p.cols, n, rows, h: HEAD + (n && !c.collapsed ? boxH(rows) : 0) })
     }
     return out
   }, [content, L, inGrid])
@@ -262,9 +292,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
       const bx = places.get(over.id)
       if (tidy && !over.name && bx) {
         // keep tidy: the nearest free slot to where it was let go in the box
-        const cw = (bx.w - 24 - (cl.cols - 1) * 8) / cl.cols
-        const col = (c.x - bx.x - 12) / (cw + 8) - 0.5
-        const row = (c.y - bx.y - HEAD - 12) / (ROW + 8) - 0.5
+        const col = (c.x - bx.x - PADX) / CELL - 0.5
+        const row = (c.y - bx.y - HEAD - PAD_TOP) / (ROW + GAP) - 0.5
         ;({ slot, u, v: vv } = nearestFreeSlot(used, cl.cols, (col - (cl.cols - 1) / 2) * cellW, -(row + 1) * cellH))
       }
       writeLayout({ ...L, tasks: { ...L.tasks, [c.id]: { ...tp, c: over.id, u, v: vv, dz: 0, slot, free: undefined } } })
@@ -339,6 +368,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
     <div
       ref={box}
       className="absolute inset-0 touch-none select-none overflow-hidden rounded-[inherit]"
+      // the faint grid is part of the canvas: it shifts and scales with the groups, so panning and zooming keep a sense of where things are
+      style={gridStyle}
       onClickCapture={(e) => {
         if (suppress.current) {
           suppress.current = false
@@ -400,8 +431,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
           // the pointer says how many columns and rows it is asking for; the size is pulled toward the nearest whole one
           const dx = (e.clientX - rd.sx) / v.k
           const dy = (e.clientY - rd.sy) / v.k
-          const c = detent(rd.c0 + (rd.edge === 'right' ? dx : -dx) / (cellW * PX), rd.minC, MAX_COLS)
-          const r = detent(rd.r0 + dy / (ROW + 8), rd.minR, MAX_ROWS)
+          const c = detent(rd.c0 + (rd.edge === 'right' ? dx : -dx) / CELL, rd.minC, MAX_COLS)
+          const r = detent(rd.r0 + dy / (ROW + GAP), rd.minR, MAX_ROWS)
           rd.wantC = c.want
           rd.wantR = r.want
           rd.snapC = c.snap
@@ -545,9 +576,8 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
           const dragging = carry?.kind === 'group' && carry.id === c.id
           // being resized (or settling onto its new size): the box is drawn at the springy size, and the cards stay where they are in it
           const rz = rs?.id === c.id ? rs : null
-          const cell = cellW * PX
-          const wD = rz ? rz.c * cell - 14 : p.w
-          const hD = 24 + (rz ? rz.r : p.rows) * ROW + ((rz ? rz.r : p.rows) - 1) * 8
+          const wD = rz ? boxW(rz.c) : p.w
+          const hD = boxH(rz ? rz.r : p.rows)
           const off = rz && rz.edge === 'left' ? p.w - wD : 0 // (growing to the left pushes the box's left edge out past the group's name)
           // where the whole slots of the size it is heading for would be (the empty ones are shown faintly)
           const slots: { row: number; col: number }[] = []
@@ -557,10 +587,29 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
             const shift = rz.edge === 'left' ? rz.snapC - p.cols : 0
             const busy = new Set(grid.map((t) => `${Math.floor((L.tasks[t.id]?.slot ?? 0) / p.cols)}:${((L.tasks[t.id]?.slot ?? 0) % p.cols) + shift}`))
             for (let row = 0; row < rz.snapR; row++) for (let col = 0; col < rz.snapC; col++) if (!busy.has(`${row}:${col}`)) slots.push({ row, col })
-            cwN = (rz.snapC * cell - 14 - 24 - (rz.snapC - 1) * 8) / rz.snapC
-            tl = rz.edge === 'left' ? p.w - (rz.snapC * cell - 14) : 0
+            cwN = CARD_W
+            tl = rz.edge === 'left' ? p.w - boxW(rz.snapC) : 0
           }
           const hue = Math.max(0, c.hue)
+          // where a carried task could go in this group: its empty slots, and the one it would take
+          const ds = slotsFor?.id === c.id && !c.collapsed && !rz ? slotsFor : null
+          const dropSlots: { row: number; col: number; pick: boolean }[] = []
+          if (ds) {
+            const busy = new Set(grid.filter((t) => !(carry?.kind === 'task' && carry.id === t.id)).map((t) => L.tasks[t.id]?.slot ?? 0))
+            const empties: { row: number; col: number; d: number }[] = []
+            for (let row = 0; row < p.rows; row++)
+              for (let col = 0; col < p.cols; col++) {
+                if (busy.has(row * p.cols + col)) continue
+                const cx = p.x + PADX + col * CELL + CARD_W / 2
+                const cy = p.y + HEAD + PAD_TOP + row * (ROW + GAP) + ROW / 2
+                empties.push({ row, col, d: carry ? Math.hypot(carry.x - cx, carry.y - cy) : 0 })
+              }
+            // (with keep tidy it takes the nearest, otherwise the first free one)
+            const first = empties[0]
+            const nearest = empties.reduce<(typeof empties)[number] | undefined>((b, e) => (!b || e.d < b.d ? e : b), undefined)
+            const pick = ds.on && carry ? (tidy ? nearest : first) : undefined
+            for (const e of empties) dropSlots.push({ row: e.row, col: e.col, pick: e === pick })
+          }
           return (
             <section key={c.id} className="absolute" style={{ left: p.x, top: p.y, width: p.w, zIndex: dragging || rz ? 5 : 1, opacity: dragging ? 0.92 : 1, transition: carry?.kind === 'group' ? 'none' : 'left 0.38s cubic-bezier(0.3,1.1,0.5,1), top 0.38s cubic-bezier(0.3,1.1,0.5,1)' }} aria-label={c.name}>
               <h3
@@ -582,21 +631,28 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
                 className={`relative rounded-[2rem] border transition-shadow ${c.collapsed || grid.length === 0 ? 'hidden' : ''}`}
                 style={{ height: hD, ...(rz ? { width: wD, marginLeft: off } : {}), background: `hsl(${hue},60%,${lit ? 78 : 84}%,${lit ? 0.6 : 0.3})`, borderColor: `hsl(${hue},55%,${lit ? 58 : 72}%,${lit ? 0.95 : 0.5})`, borderWidth: lit ? 3 : 1 }}
               >
+                {ds && (
+                  <div aria-hidden className="pointer-events-none absolute inset-0 z-0" style={{ opacity: ds.on ? 1 : 0, transition: 'opacity 0.45s ease', animation: 'slots-in 0.35s ease' }}>
+                    {dropSlots.map(({ row, col, pick }) => (
+                      <div key={`${row}:${col}`} className="absolute rounded-2xl border border-dashed transition-colors" style={{ left: PADX + col * CELL - off, top: PAD_TOP + row * (ROW + GAP), width: CARD_W, height: ROW, borderColor: `hsl(${hue},55%,${pick ? 48 : 58}%,${pick ? 0.9 : 0.5})`, background: `hsl(${hue},60%,${pick ? 86 : 92}%,${pick ? 0.7 : 0.4})` }} />
+                    ))}
+                  </div>
+                )}
                 {rz && (
                   // the slots there would be at the size it is heading for: faint, fading in as it is dragged and away once it is let go
                   <div aria-hidden className="pointer-events-none absolute inset-0 z-0" style={{ opacity: rz.open ? 1 : 0, transition: 'opacity 0.45s ease', animation: 'slots-in 0.35s ease' }}>
                     {slots.map(({ row, col }) => (
-                      <div key={`${row}:${col}`} className="absolute rounded-2xl border border-dashed" style={{ left: tl - off + 12 + col * (cwN + 8), top: 12 + row * (ROW + 8), width: cwN, height: ROW, borderColor: `hsl(${hue},55%,58%,0.5)`, background: `hsl(${hue},60%,92%,0.4)` }} />
+                      <div key={`${row}:${col}`} className="absolute rounded-2xl border border-dashed" style={{ left: tl - off + PADX + col * CELL, top: PAD_TOP + row * (ROW + GAP), width: cwN, height: ROW, borderColor: `hsl(${hue},55%,58%,0.5)`, background: `hsl(${hue},60%,92%,0.4)` }} />
                     ))}
                   </div>
                 )}
                 {grid.map((t) => {
                   // each card sits in its slot of the group's grid, and glides there when the slot changes
                   const slot = L.tasks[t.id]?.slot ?? 0
-                  const cw = (p.w - 24 - (p.cols - 1) * 8) / p.cols
+                  const cw = CARD_W
                   const ghost = carry?.kind === 'task' && carry.id === t.id
                   return (
-                    <div key={t.id} className="absolute z-[1]" style={{ left: 12 + (slot % p.cols) * (cw + 8) - off, top: 12 + Math.floor(slot / p.cols) * (ROW + 8), width: cw, transition: carry || rz ? 'none' : 'left 0.32s cubic-bezier(0.3,1.1,0.5,1), top 0.32s cubic-bezier(0.3,1.1,0.5,1)' }}>
+                    <div key={t.id} className="absolute z-[1]" style={{ left: PADX + (slot % p.cols) * CELL - off, top: PAD_TOP + Math.floor(slot / p.cols) * (ROW + GAP), width: cw, transition: carry || rz ? 'none' : 'left 0.32s cubic-bezier(0.3,1.1,0.5,1), top 0.32s cubic-bezier(0.3,1.1,0.5,1)' }}>
                       {row(t, ghost ? { opacity: 0.3 } : undefined)}
                     </div>
                   )

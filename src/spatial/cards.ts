@@ -163,7 +163,15 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     roundRect(g, x, y, w, h, R)
     g.clip()
     g.globalAlpha = 0.42
-    g.drawImage(c.image, x, y, w, h)
+    // (covers the card, cropped from the middle, never stretched)
+    const iw = c.image.naturalWidth || c.image.width
+    const ih = c.image.naturalHeight || c.image.height
+    if (iw > 0 && ih > 0) {
+      const k = Math.max(w / iw, h / ih)
+      const sw = w / k
+      const sh = h / k
+      g.drawImage(c.image, (iw - sw) / 2, (ih - sh) / 2, sw, sh, x, y, w, h)
+    }
     g.restore()
   }
   // the check: an inset circle (a well), filled in the group's colour when ticked
@@ -228,7 +236,8 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   const limit = c.due ? chipTop - 4 : bottom
   const top = y + PAD
   const room = Math.max(1, Math.floor((limit - top) / LH))
-  const lines = wrapTitle(g, c.title || 'Untitled', maxW, room)
+  // (a picture with no title is left without words: no "Untitled" laid over it)
+  const lines = c.title || !(c.image || c.imageUrl) ? wrapTitle(g, c.title || 'Untitled', maxW, room) : []
   lines.forEach((ln, i) => {
     g.fillText(ln, tx, top + LH / 2 + i * LH)
     if (c.done) g.fillRect(tx, top + LH / 2 + i * LH, g.measureText(ln).width, 2.5)

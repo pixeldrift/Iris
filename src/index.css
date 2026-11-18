@@ -245,6 +245,14 @@ body.dragging {
   -webkit-backdrop-filter: blur(6px);
 }
 .tint:hover { filter: brightness(1.03); }
+/* a card on the flat canvas: the same colours, but the shine comes from the top and the colour from the bottom middle, so the two ends of a wide card stay pale
+   (with the colour at the sides it read as coloured end caps) */
+.tint.tint-flat {
+  background:
+    radial-gradient(ellipse 110% 90% at 50% 0%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(ellipse 62% 125% at 50% 108%, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 72%),
+    rgba(255, 255, 255, 0.72);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .drift-a, .drift-b, .drift-c { animation: none; }
@@ -655,6 +663,9 @@ input, textarea, select, [contenteditable='true'], .select-text, .select-text * 
 img { -webkit-user-drag: none; user-drag: none; }
 
 /* The Spatial view's backdrop: a faint 32px grid over a lilac wash (the flat canvas draws on top of it, so both views share it). */
+.space-plain {
+  background: linear-gradient(to bottom, var(--color-lilac-100), #fff);
+}
 .space-grid {
   background-image:
     linear-gradient(rgb(var(--lr-500) / 0.05) 1px, transparent 1px),

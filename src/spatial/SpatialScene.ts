@@ -87,7 +87,8 @@ type Hit = { kind: 'task' | 'hub' | 'plate' | 'grip'; id: string; uvx: number; u
 
 /** The horizontal field of view of the lens, in degrees. */
 const HUB_W = 1.5 * WORLD.cardW
-export const FOV = { min: 20, max: 100, start: 50 }
+/** The lens (its horizontal angle): from wide down to a few degrees, enough to bring a single card up to the width of the screen. */
+export const FOV = { min: 4, max: 100, start: 50 }
 const TAP_PX = 6
 /** The faint grid behind everything in 3D (the flat canvas has one): thin lines, in white-ish lilac, repeating. */
 let gridTex: CanvasTexture | undefined
@@ -134,10 +135,10 @@ function gripTexture(): CanvasTexture {
   const cv = document.createElement('canvas')
   cv.width = cv.height = 64
   const g = cv.getContext('2d')!
-  const R = 5
+  const R = 2.3 // (as small as the flat canvas's grab dots)
   // the light edge along the bottom
   g.beginPath()
-  g.arc(32, 33.2, R, 0, Math.PI * 2)
+  g.arc(32, 32.9, R, 0, Math.PI * 2)
   g.fillStyle = 'rgba(255,255,255,0.8)'
   g.fill()
   // the dot itself, a soft recess
@@ -469,7 +470,7 @@ export class SpatialScene {
       if (fp) {
         n.mesh.position.set(...fp.pos)
         n.mesh.rotation.set(fp.rx, fp.ry, tp.rot ?? 0)
-        n.mesh.scale.setScalar(1.04)
+        n.mesh.scale.setScalar(1) // (the same size as a card in a group: the same gap between neighbours)
         n.mesh.renderOrder = 4 // (floating things are in front)
       } else if (cp) {
         const [x, y, z] = taskWorld(tv, cp)
@@ -984,7 +985,7 @@ export class SpatialScene {
     if (this.glide()) {
       this.place()
     }
-    if (this.rz || this.slotAlpha > 0) this.stepResize(now)
+    if (this.rz || this.slotAlpha > 0 || this.slotTarget()) this.stepResize(now)
     if (this.rig) this.dirty = true // (the camera picture moves all the time: draw every frame)
     if (this.bend) {
       const b = this.bend
@@ -1012,7 +1013,7 @@ export class SpatialScene {
         if (pose.position) this.camera.position.set(...pose.position)
         // the lens is described by its horizontal angle; the vertical one follows the window's shape
         const asp = this.camera.aspect
-        this.camera.fov = Math.max(8, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
+        this.camera.fov = Math.max(0.5, Math.min(110, (2 * Math.atan(Math.tan((this.fov * Math.PI) / 360) / asp) * 180) / Math.PI))
         this.camera.updateProjectionMatrix()
       }
       this.updateGrid()
@@ -1227,7 +1228,7 @@ export class SpatialScene {
       this.place()
       this.dirty = true
     }
-    const to = this.rz?.open ? 0.5 : 0
+    const to = this.slotTarget()?.open ? 0.5 : 0
     if (Math.abs(this.slotAlpha - to) > 0.004) {
       this.slotAlpha += (to - this.slotAlpha) * Math.min(1, 0.09 + 0.0)
       this.dirty = true
@@ -1237,9 +1238,23 @@ export class SpatialScene {
       this.paintSlots()
     }
   }
-  /** The slots of the size it is heading for that no card is in, as faint empty places. */
-  private paintSlots() {
+  /** Whose empty slots are being shown faintly: a group being resized (at the size it is heading for), or the group a carried task is over. */
+  private slotShow?: { id: string; snapC: number; snapR: number; edge: Edge; open: boolean; except?: string }
+  private slotTarget(): { id: string; snapC: number; snapR: number; edge: Edge; open: boolean; except?: string } | null {
     const d = this.rz
+    if (d) return { id: d.id, snapC: d.snapC, snapR: d.snapR, edge: d.edge, open: d.open }
+    const c = this.carry
+    if (c?.kind === 'task' && c.hover) {
+      const cp = this.shown[c.hover]
+      if (cp && !this.clusterMap.get(c.hover)?.collapsed) return { id: c.hover, snapC: cp.cols, snapR: cp.rows ?? 1, edge: 'right', open: true, except: c.id }
+    }
+    return null
+  }
+  /** The slots of that size that no card is in, as faint empty places (fading in as they are asked for, and away once they are not). */
+  private paintSlots() {
+    const now = this.slotTarget()
+    if (now) this.slotShow = now
+    const d = now ?? (this.slotAlpha > 0.01 ? this.slotShow : undefined)
     const cp = d && this.shown[d.id]
     const need = d && cp ? d.snapC * d.snapR : 0
     while (this.slotMeshes.length < need) {
@@ -1252,7 +1267,7 @@ export class SpatialScene {
     if (d && cp) {
       const shift = d.edge === 'left' ? d.snapC - cp.cols : 0
       const busy = new Set<string>()
-      for (const tp of Object.values(this.layout.tasks)) if (tp.c === d.id && !tp.free) busy.add(`${Math.floor(tp.slot / cp.cols)}:${(tp.slot % cp.cols) + shift}`)
+      for (const [tid, tp] of Object.entries(this.layout.tasks)) if (tp.c === d.id && !tp.free && tid !== d.except) busy.add(`${Math.floor(tp.slot / cp.cols)}:${(tp.slot % cp.cols) + shift}`)
       const dw = (d.snapC - cp.cols) * cellW
       const centre = (d.edge === 'right' ? dw : -dw) / 2 // (the new grid's middle, relative to the group's centre now)
       const bs = planeBasis(cp)
@@ -1345,6 +1360,7 @@ export class SpatialScene {
       }, 700)
     }
     this.place()
+    this.paintSlots()
   }
   /** Folded groups that were opened only to see where something goes close again, except the one it landed in. */
   private closeSprung(keep: string | null) {
