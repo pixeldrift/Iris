@@ -135,10 +135,10 @@ function gripTexture(): CanvasTexture {
   const cv = document.createElement('canvas')
   cv.width = cv.height = 64
   const g = cv.getContext('2d')!
-  const R = 5
+  const R = 2.3 // (as small as the flat canvas's grab dots)
   // the light edge along the bottom
   g.beginPath()
-  g.arc(32, 33.2, R, 0, Math.PI * 2)
+  g.arc(32, 32.9, R, 0, Math.PI * 2)
   g.fillStyle = 'rgba(255,255,255,0.8)'
   g.fill()
   // the dot itself, a soft recess
