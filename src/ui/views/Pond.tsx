@@ -749,6 +749,27 @@ export function Pond() {
     [spawnRipple],
   )
   rippleRef.current = rippleFrom
+  // a group's tag was clicked in an item's details: the pond slides to that group (its bubbles filling the view), and a ripple goes out from the item
+  const focusReq = useStore((s) => s.focusReq)
+  const lastFocus = useRef(0)
+  useEffect(() => {
+    if (!focusReq || focusReq.at === lastFocus.current) return
+    lastFocus.current = focusReq.at
+    const { w: W, h: H } = dims.current
+    const cl = live.current.group === 'folder' ? clusters.current.get(focusReq.folderId) : undefined
+    const n = nodes.current.get(focusReq.taskId)
+    const v = view.current
+    if (cl && W && H) {
+      const s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min(W, H) / (2 * (cl.R + 70))))
+      view.current = { scale: s, tx: W / 2 - cl.cx * s, ty: H / 2 - cl.cy * s }
+      applyView(true)
+    } else if (n && W && H) {
+      view.current = { scale: v.scale, tx: W / 2 - n.sim.x * v.scale, ty: H / 2 - n.sim.y * v.scale }
+      applyView(true)
+    }
+    const t = window.setTimeout(() => rippleFrom(focusReq.taskId), 700)
+    return () => window.clearTimeout(t)
+  }, [focusReq, applyView, rippleFrom])
   /** The same, from a spot on the water (a spare bubble that was popped). */
   const rippleAt = useCallback(
     (x: number, y: number, r: number) => {

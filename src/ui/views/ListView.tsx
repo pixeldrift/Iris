@@ -11,11 +11,11 @@ import { useStore } from '../../state/store'
 import { Popover } from '../Popover'
 import { IconCheck, IconTrash } from '../icons'
 import { BatchEditor } from '../BatchEditor'
-import { colorVars, useTaskHue } from '../taskColor'
+import { colorVars, useExtraHues, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
 import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { Dim, DoneButton, DueChip, FolderChips, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, ItemProgress, TallyIncrement, useTaskDrag } from '../shared'
+import { Dim, DoneButton, DueChip, FolderChips, GroupDots, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, ItemProgress, TallyIncrement, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
 
 const SORTS: { id: SortKey; label: string }[] = [
@@ -33,6 +33,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   const el = useRef<HTMLDivElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const hue = useTaskHue(task)
+  const extras = useExtraHues(task)
   // Shift-click (or select mode) picks the item instead of opening it
   const onPointerDown = useTaskDrag(task, el, (e) => (e.shiftKey || selecting ? onToggle() : useStore.getState().select(task.id)))
   const del = useStore((s) => s.deleteTask)
@@ -57,7 +58,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
             onPointerDown(e)
             swipe(e)
           }}
-          style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task)) }}
+          style={{ touchAction: 'pan-y', ...colorVars(hue, effectiveUrgency(task), extras) }}
           className={`swipe-row tint lift-on-press group rise-in relative flex cursor-pointer outline-none ${fresh ? 'just-added' : ''} focus-visible:ring-2 focus-visible:ring-lilac-400 items-center gap-2.5 select-none rounded-2xl px-3 py-2.5 [-webkit-touch-callout:none] ${selected ? 'ring-2 ring-lilac-500' : ''} ${leave}`}
         >
           {(selecting || selected) && (
@@ -73,6 +74,7 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
               <span aria-hidden className="swipe-strike pointer-events-none absolute inset-x-0 top-1/2 -mt-px h-[2px] rounded-full" />
             </span>
           </span>
+          <GroupDots task={task} />
           {/* the chips, with how far along it is as a thin bar underneath them */}
           <div className="swipe-chips flex shrink-0 flex-col items-stretch gap-0.5">
             <div className="flex items-center justify-end gap-1">

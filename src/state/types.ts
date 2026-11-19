@@ -107,6 +107,9 @@ export interface UiSlice {
   setPlayGate: (g: PlayGate) => void
   setView: (v: ViewId) => void
   select: (id: string | null) => void
+  /** Asked for by clicking a group's tag in an item's details: every view brings that group (and the item) into view and highlights it. Not saved. */
+  focusReq: { folderId: string; taskId: string; at: number } | null
+  focusGroup: (folderId: string, taskId: string) => void
   setSidebar: (open: boolean) => void
   /** What is typed in the search box (not saved). Views filter or highlight by it. */
   search: string

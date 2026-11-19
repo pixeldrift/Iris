@@ -25,8 +25,7 @@ function Chip({ task, deadline = false, loggedOn, rich = false }: { task: Task; 
   const missed = !!loggedOn && loggedOn < today() && !task.log.includes(loggedOn)
   const el = useRef<HTMLDivElement>(null)
   const onPointerDown = useTaskDrag(task, el)
-  const folders = useStore((s) => s.folders)
-  const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
+  const hue = useTaskHue(task) ?? 285
   const leave = useLeaveClass(task)
   const isDone = loggedOn ? task.log.includes(loggedOn) : isFinished(task)
   return (
@@ -107,8 +106,7 @@ function ItemRow({ task, deadline = false, loggedOn, onOpen, drag = false }: { t
  * A finished one is faded, with a tiny tick inside.
  */
 function Dot({ task, deadline, loggedOn }: { task: Task; deadline: boolean; loggedOn?: string }) {
-  const folders = useStore((s) => s.folders)
-  const hue = folders.find((f) => f.id === task.folderIds[0])?.hue ?? 285
+  const hue = useTaskHue(task) ?? 285
   const done = loggedOn ? task.log.includes(loggedOn) : isFinished(task)
   return (
     <span

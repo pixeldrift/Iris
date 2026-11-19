@@ -6,7 +6,8 @@ import type { Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { BubbleChrome } from '../BubbleChrome'
 import { TitleFit } from '../TitleFit'
-import { DueChip } from '../shared'
+import { DueChip, GroupDots } from '../shared'
+import { colorVars, useExtraHues } from '../taskColor'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass } from '../useVisible'
 import { bubbleHue } from './hue'
@@ -26,7 +27,9 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
   const leave = useLeaveClass(task)
   const m = useMemo(() => motion(task.id), [task.id])
   const fresh = useRef(Date.now() - task.createdAt < 1500).current
-  const hue = useMemo(() => bubbleHue(task, folders), [folders, task])
+  const scope = useStore((s) => s.scope)
+  const hue = useMemo(() => bubbleHue(task, folders, scope), [folders, task, scope])
+  const extras = useExtraHues(task)
 
   const outer = useRef<HTMLDivElement>(null)
   const jig = useRef<HTMLDivElement>(null)
@@ -108,7 +111,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
               className={`pad ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : ''} group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 done ? 'opacity-55 saturate-50' : ''
               } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
-              style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), ...(task.image ? { '--photo': `url("${task.image}")` } : {}) } as React.CSSProperties}
+              style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), ...colorVars(null, effectiveUrgency(task), extras), ...(task.image ? { '--photo': `url("${task.image}")` } : {}) } as React.CSSProperties}
             >
               {(task.title || !task.image) && <TitleFit text={task.title || 'Untitled'} font={`${font}px`} lineHeight={1.15} done={done} watch={r} />}
               {r >= 58 && plannedDate(task) && (
@@ -117,6 +120,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
                 </span>
               )}
               <BubbleChrome task={task} r={r} hideImageOnlyCheckbox />
+              <GroupDots task={task} className="pointer-events-none absolute bottom-[9%] left-1/2 -translate-x-1/2" />
             </div>
           </div>
         </div>

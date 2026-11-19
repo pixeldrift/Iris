@@ -11,7 +11,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
 import { Tip } from '../ui/Tip'
-import { registerSceneAnchor, registerSceneTaskAt } from '../ui/taskAt'
+import { registerSceneAnchor, registerScenePulse, registerSceneTaskAt } from '../ui/taskAt'
 import { detectCapabilities } from './capabilities'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, NONE, sameLayout } from './content'
@@ -44,7 +44,8 @@ export default function SpatialView() {
   const allTasks = useStore((s) => s.tasks)
   const folders = useStore((s) => s.folders)
 
-  const content = useMemo(() => buildContent(visible, allTasks, folders, stored), [visible, allTasks, folders, stored])
+  const scope = useStore((s) => s.scope)
+  const content = useMemo(() => buildContent(visible, allTasks, folders, stored, undefined, scope), [visible, allTasks, folders, stored, scope])
   const contentKey = useMemo(() => `${content.clusters.map((c) => c.id).join('|')}::${content.tasks.map((t) => t.id).join('|')}`, [content.clusters, content.tasks])
   // a place worked out for something new is kept, so it is the same next time
   useEffect(() => {
@@ -150,7 +151,7 @@ export default function SpatialView() {
   const arrangeAndFrame = () => {
     const el = host.current
     const aspect = el && el.clientHeight > 0 ? el.clientWidth / el.clientHeight : 1
-    setLayout(buildContent(visible, allTasks, folders, stored, aspect).layout)
+    setLayout(buildContent(visible, allTasks, folders, stored, aspect, scope).layout)
     window.setTimeout(() => scene.current?.frameAll(), 160) // (after the scene has taken the new places)
   }
 
@@ -326,6 +327,7 @@ export default function SpatialView() {
     }
     scene.current = sc
     registerSceneTaskAt((x, y) => sc.taskAt(x, y))
+    registerScenePulse((id) => sc.pulseTask(id))
     registerSceneAnchor((id) => {
       const p = sc.screenPoint('task', id)
       return p ? { x: p.x + 40, y: p.y - 14 } : null
@@ -351,6 +353,7 @@ export default function SpatialView() {
     return () => {
       document.removeEventListener('visibilitychange', onVis)
       registerSceneTaskAt(null)
+      registerScenePulse(null)
       registerSceneAnchor(null)
       sc.dispose() // (also lets go of the camera and the sky)
       scene.current = null
@@ -403,6 +406,16 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setContent(shownContent)
   }, [shownContent])
+  // a group's tag was clicked in an item's details: the camera turns to that group
+  const focusReq = useStore((s) => s.focusReq)
+  const lastFocus = useRef(0)
+  useEffect(() => {
+    if (!focusReq || focusReq.at === lastFocus.current) return
+    lastFocus.current = focusReq.at
+    const own = shownContent.clusters.some((c) => c.id === focusReq.folderId) ? focusReq.folderId : shownContent.tasks.find((t) => t.id === focusReq.taskId)?.cluster
+    if (own) scene.current?.focusCluster(own)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusReq])
   useEffect(() => {
     scene.current?.setLinks(links)
   }, [links, phase, simple])

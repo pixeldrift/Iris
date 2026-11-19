@@ -237,8 +237,13 @@ body.dragging {
 .tint,
 .chip-bubble {
   --th: var(--h, 285);
+  /* the item's other groups (up to two tint it softly, further along than the main colour; any more are only the little dots): --h2 / --h3 and --on2 / --on3 */
+  --on2: 0;
+  --on3: 0;
   background:
     radial-gradient(ellipse at 70% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(ellipse 22% 150% at 96% 100%, hsla(var(--h2, 285), calc(70% * var(--s2, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc((0.35 + 0.6 * var(--u, 0.5)) * var(--on2))), transparent 70%),
+    radial-gradient(ellipse 14% 130% at 74% 0%, hsla(var(--h3, 285), calc(70% * var(--s3, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc((0.35 + 0.6 * var(--u, 0.5)) * var(--on3))), transparent 70%),
     radial-gradient(ellipse var(--glow-rx, 99%) 113% at 30% 80%, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
     rgba(255, 255, 255, 0.72);
   /* a real 1px border in the group's colour keeps the item readable however pale the inside gets (urgency only softens the fill) */
@@ -259,11 +264,26 @@ body.dragging {
   -webkit-backdrop-filter: blur(6px);
 }
 .tint:hover { filter: brightness(1.03); }
+/* a round pond bubble puts the other groups' glows in its lower right and left */
+.pad {
+  background:
+    radial-gradient(ellipse at 70% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 82% 82%, hsla(var(--h2, 285), calc(70% * var(--s2, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc((0.35 + 0.6 * var(--u, 0.5)) * var(--on2))), transparent 48%),
+    radial-gradient(circle at 18% 84%, hsla(var(--h3, 285), calc(70% * var(--s3, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc((0.35 + 0.6 * var(--u, 0.5)) * var(--on3))), transparent 40%),
+    radial-gradient(ellipse var(--glow-rx, 99%) 113% at 30% 80%, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 70%),
+    rgba(255, 255, 255, 0.72);
+}
+/* the little dots for an item's other groups: pressed in, with a white ring */
+.group-dots { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.group-dots i { display: block; width: 9px; height: 9px; border-radius: 9999px; background: hsl(var(--dh, 285) calc(62% * var(--ds, 1)) 62%); box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.95), 0 1px 2px rgba(40, 20, 70, 0.3); }
+.pad .group-dots i { width: 8px; height: 8px; }
 /* a card on the flat canvas: the same colours, but the shine comes from the top and the colour from the bottom middle, so the two ends of a wide card stay pale
    (with the colour at the sides it read as coloured end caps) */
 .tint.tint-flat {
   background:
     radial-gradient(ellipse 110% 90% at 50% 0%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(ellipse 26% 125% at 80% 108%, hsla(var(--h2, 285), calc(70% * var(--s2, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc((0.35 + 0.6 * var(--u, 0.5)) * var(--on2))), transparent 72%),
+    radial-gradient(ellipse 20% 120% at 20% 108%, hsla(var(--h3, 285), calc(70% * var(--s3, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc((0.35 + 0.6 * var(--u, 0.5)) * var(--on3))), transparent 72%),
     radial-gradient(ellipse 62% 125% at 50% 108%, hsla(var(--th), calc(70% * var(--s, 1) * (0.55 + 0.9 * var(--u, 0.5))), calc(95% - 20% * var(--u, 0.5)), calc(0.35 + 0.6 * var(--u, 0.5))), transparent 72%),
     rgba(255, 255, 255, 0.72);
 }

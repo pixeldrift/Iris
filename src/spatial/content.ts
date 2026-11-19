@@ -6,7 +6,8 @@ import { hasProgress, progressOf } from '../core/progress'
 import { isDoneNow } from '../core/recurrence'
 import { dueInfo, dueLine } from '../core/rowModel'
 import { effectiveUrgency } from '../core/tasks'
-import type { Folder, Task } from '../core/types'
+import { groupLook } from '../core/looks'
+import type { Folder, Scope, Task } from '../core/types'
 import { bubbleHue } from '../ui/pond/hue'
 import { arrangeFor, ensureLayout, LOOSE, type LayoutCluster, type LayoutTask } from './layout'
 import type { SceneCluster, SceneTask } from './SpatialScene'
@@ -21,7 +22,7 @@ export interface SpatialContent {
 }
 
 /** `arrange`: lay the groups out again for a screen of this shape (width over height) instead of keeping where they are. */
-export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[], stored: SpatialLayoutData, arrange?: number): SpatialContent {
+export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[], stored: SpatialLayoutData, arrange?: number, scope?: Scope): SpatialContent {
   const have = new Set(folders.map((f) => f.id))
   const clusterOf = (t: Task) => t.folderIds.find((id) => have.has(id)) ?? NONE
   // the clusters to show: every group with a task in it, and the groups above them (so the hierarchy reads)
@@ -70,7 +71,8 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
       cluster: clusterOf(t),
       title: t.title,
       imageUrl: t.image ?? null,
-      hue: bubbleHue(t, folders),
+      hue: bubbleHue(t, folders, scope),
+      extras: groupLook(t, folders, scope).extras.map((f) => f.hue),
       done: isDoneNow(t),
       due: due ? dueLine(due) : null,
       dueTone: due?.tone,

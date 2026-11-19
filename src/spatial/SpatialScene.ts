@@ -337,7 +337,7 @@ export class SpatialScene {
     // Keep full-resolution card textures: images are also opened full-screen, so shrinking the source texture makes them visibly chunky.
     for (const t of c.tasks) {
       seen.add(t.id)
-      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${t.imageUrl ?? ''}|${t.tally?.done ?? ''}/${t.tally?.total ?? ''}`
+      const key = `${t.title}|${t.hue}|${(t.extras ?? []).join(",")}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${t.imageUrl ?? ''}|${t.tally?.done ?? ''}/${t.tally?.total ?? ''}`
       let n = this.tasks.get(t.id)
       if (!n) {
         const cv = document.createElement('canvas')
@@ -476,7 +476,7 @@ export class SpatialScene {
         const [x, y, z] = taskWorld(tv, cp)
         n.mesh.position.set(x, y, z)
         n.mesh.rotation.set(cp.rx ?? 0, cp.ry, tp.rot ?? 0)
-        n.mesh.scale.setScalar(cp.scale ?? 1)
+        n.mesh.scale.setScalar((cp.scale ?? 1) * this.bump(t.id))
         n.mesh.renderOrder = 2
       }
     }
@@ -734,6 +734,19 @@ export class SpatialScene {
     // with motion on, the sensor already turns the view: the touch offset only has to make up the difference
     this.focusTween = { t0: performance.now(), from: [t.yaw, t.pitch], to: [yaw - this.tracking.sensorYaw(), pitch] }
     this.events.onFocus?.(id)
+  }
+  /** A card swells once and settles (a group's tag was clicked in its details). */
+  pulseTask(id: string) {
+    this.pulse = { id, t0: performance.now() }
+    this.dirty = true
+  }
+  private pulse?: { id: string; t0: number }
+  private bump(id: string): number {
+    const p = this.pulse
+    if (!p || p.id !== id) return 1
+    const k = (performance.now() - p.t0) / 900
+    if (k >= 1) return 1
+    return 1 + 0.18 * Math.sin(Math.PI * k)
   }
   /** Turn to a loose card. */
   focusTask(id: string) {
@@ -993,6 +1006,11 @@ export class SpatialScene {
       this.place()
     }
     if (this.rz || this.slotAlpha > 0 || this.slotTarget()) this.stepResize(now)
+    if (this.pulse) {
+      if (now - this.pulse.t0 > 950) this.pulse = undefined
+      this.place()
+      this.dirty = true
+    }
     if (this.rig) this.dirty = true // (the camera picture moves all the time: draw every frame)
     if (this.bend) {
       const b = this.bend

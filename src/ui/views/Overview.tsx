@@ -5,6 +5,7 @@ import { formatDate } from '../../core/locale'
 import { completionsByDay, completionsByMonth, groupTotals, streakStats, summarize, windowFor } from '../../core/overview'
 import { repeatOf } from '../../core/recurrence'
 import type { Task } from '../../core/types'
+import { groupLook } from '../../core/looks'
 import { useStore } from '../../state/store'
 import { IconChevron } from '../icons'
 import { ScrollFade } from '../ScrollFade'
@@ -117,7 +118,8 @@ export function Overview() {
         .sort((a, b) => b.current - a.current),
     [tasks, now],
   )
-  const hueOf = (t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? null
+  const scopeNow = useStore((s) => s.scope)
+  const hueOf = (t: Task) => groupLook(t, folders, scopeNow).main?.hue ?? null
   const longestRun = habits[0]?.current ?? 0
   const pops = useStore((st) => st.settings.popStats)
   const popTime = pops.ms < 60_000 ? `${Math.round(pops.ms / 1000)} sec` : pops.ms < 3_600_000 ? `${Math.round(pops.ms / 60_000)} min` : `${Math.floor(pops.ms / 3_600_000)} hr ${Math.round((pops.ms % 3_600_000) / 60_000)} min`
