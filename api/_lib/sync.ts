@@ -53,11 +53,14 @@ export interface SyncResponse {
   workspaces: WorkspaceInfo[]
   /** Pushed changes the server refused (no such workspace, or read-only). */
   rejected: { kind: Kind; id: string; workspaceId: string }[]
+  /** The server's clock (ms). A device whose own clock is off uses it to stamp its edits, since the later stamp wins when two devices edit one item. */
+  now: number
 }
 
 const MAX_CHANGES = 500
 const PAGE = 500
 const MAX_BYTES = 64 * 1024
+const FUTURE_SLACK_MS = 5 * 60_000
 /** A device counts as "open" if it checked in with the app visible this recently. */
 const ACTIVE_SECONDS = 60
 
@@ -146,7 +149,7 @@ export async function lightCheck(db: Db, userId: string, req: SyncRequest): Prom
     ;({ workspaces, heads } = await membership(db, userId))
   }
   const peers = req.beat ? await checkIn(db, userId, req) : null
-  return { changes: [], cursors: req.cursors, heads, more: false, peers, workspaces, rejected: [] }
+  return { changes: [], cursors: req.cursors, heads, more: false, peers, workspaces, rejected: [], now: Date.now() }
 }
 
 /**
@@ -172,6 +175,8 @@ export async function applySync(db: Db, userId: string, req: SyncRequest): Promi
       rejected.push({ kind: c.kind, id: c.id, workspaceId: ws })
       continue
     }
+    // (a clock set far ahead must not win every later edit: a stamp more than a few minutes in the future counts as now)
+    const stamp = Math.min(c.updatedAt, Date.now() + FUTURE_SLACK_MS)
     await db.query(
       `with bump as (update workspaces set head_seq = head_seq + 1 where id = $1 returning head_seq)
        insert into entities (workspace_id, kind, id, data, updated_at, updated_by, deleted, seq)
@@ -180,7 +185,7 @@ export async function applySync(db: Db, userId: string, req: SyncRequest): Promi
          set data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by, deleted = excluded.deleted,
              rev = entities.rev + 1, seq = excluded.seq
          where entities.updated_at <= excluded.updated_at`,
-      [ws, c.kind, c.id, c.data === null ? null : JSON.stringify(c.data), c.updatedAt, userId, c.data === null],
+      [ws, c.kind, c.id, c.data === null ? null : JSON.stringify(c.data), stamp, userId, c.data === null],
     )
   }
 
@@ -209,5 +214,6 @@ export async function applySync(db: Db, userId: string, req: SyncRequest): Promi
     peers,
     workspaces: after,
     rejected,
+    now: Date.now(),
   }
 }

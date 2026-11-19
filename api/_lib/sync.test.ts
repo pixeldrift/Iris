@@ -58,6 +58,20 @@ describe('sync', () => {
   })
 })
 
+describe('device clocks', () => {
+  it('reports the server clock, and a stamp far in the future cannot win every later edit', async () => {
+    const before = Date.now()
+    const r = await sync('cat', { changes: [task('f1', 'Ahead', Date.now() + 10 * 86_400_000)] })
+    expect(r.now).toBeGreaterThanOrEqual(before)
+    expect((await sync('cat', { light: true })).now).toBeGreaterThanOrEqual(before)
+    const stored = r.changes.find((c) => c.id === 'f1')
+    expect(stored!.updatedAt).toBeLessThan(Date.now() + 6 * 60_000)
+    // (the wrong-clock stamp counts as at most ~5 minutes ahead, so a stamp past that point wins again, instead of losing for ten days)
+    await sync('cat', { changes: [task('f1', 'Later edit', Date.now() + 6 * 60_000)] })
+    expect((await sync('cat', {})).changes.find((c) => c.id === 'f1')?.data).toMatchObject({ title: 'Later edit' })
+  })
+})
+
 describe('the "something changed" counter', () => {
   it('counts every write, and a light check is just that counter', async () => {
     const quiet = await sync('jo', { changes: [] })

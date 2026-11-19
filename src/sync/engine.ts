@@ -55,6 +55,13 @@ function entities(): Entity[] {
   return [...s.tasks.filter((t) => !t.draft).map((t) => mk('task', t)), ...s.folders.map((f) => mk('folder', f)), ...s.people.map((p) => mk('person', p))]
 }
 
+/** An item whose reminders are still being set in the details panel is not sent until the panel is closed (so the server never buzzes for a half-chosen time). */
+function heldKeys(): Set<string> {
+  const open = useStore.getState().selectedId
+  const editing = open ? useStore.getState().tasks.find((t) => t.id === open) : undefined
+  return new Set(editing && reminderPending(editing) ? [keyOf('task', editing.id)] : [])
+}
+
 /** This browser, as the server knows it (to tell when two are open at once). */
 function deviceInfo(): { id: string; label: string } {
   let id = ''
@@ -134,11 +141,20 @@ interface Reply {
   rejected?: { kind: string; id: string; workspaceId: string }[]
   /** The workspaces this person is in now (a group that stopped being shared with them is no longer listed). */
   workspaces?: { id: string; personal: boolean }[]
+  /** The server's clock, to correct this device's own when it stamps an edit. */
+  now?: number
 }
+
+/** How far this device's clock is from the server's (ms): added to every stamp, so a clock that is wrong never makes a real edit lose to an older one. */
+let skew = 0
+/** Edits made here that have not been sent yet (or whose sending failed): they are sent again, and the app does not call itself synced while any are waiting. */
+let dirty = false
+const stampNow = () => Date.now() + skew
 
 async function post(body: { cursors: Record<string, number>; changes: Change[]; device?: { id: string; label: string }; active?: boolean; light?: boolean; beat?: boolean; away?: boolean }, retried = false, keepalive = false): Promise<Reply> {
   const token = await apiToken(retried)
   if (!token) throw new SignedOut()
+  const sent = Date.now()
   const res = await fetch('/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body), keepalive })
   if (res.status === 401 && !retried) return post(body, true, keepalive) // the token may have just expired: fetch a fresh one once
   if (!res.ok) {
@@ -146,6 +162,7 @@ async function post(body: { cursors: Record<string, number>; changes: Change[]; 
     throw new Error(detail?.error ? `${detail.error}${detail.reason ? ` (${detail.reason})` : ''}` : res.status === 404 ? 'The sync API was not found (/api/sync returned 404)' : `Sync failed (HTTP ${res.status})`)
   }
   const out = (await res.json()) as Reply
+  if (typeof out.now === 'number') skew = out.now - (sent + Date.now()) / 2 // (the middle of the round trip)
   if (out.build) useSync.setState({ build: out.build })
   return out
 }
@@ -181,6 +198,7 @@ async function syncOnce(userId: string) {
     return
   }
   useSync.setState({ status: 'syncing', error: null })
+  dirty = false // (anything edited from here on sets it again; a failure below sets it too, so the sending is tried again)
   const device = deviceInfo()
   try {
     let mem = loadMemory()
@@ -205,10 +223,8 @@ async function syncOnce(userId: string) {
       alignTaskWorkspaces() // (a task in a shared group is in its workspace)
       const ents = entities()
       // a task whose reminders are still being set in the details panel is not sent until the panel is closed (so the server never buzzes for a half-chosen time)
-      const open = useStore.getState().selectedId
-      const editing = open ? useStore.getState().tasks.find((t) => t.id === open) : undefined
-      const hold = new Set(editing && reminderPending(editing) ? [keyOf('task', editing.id)] : [])
-      const local = localChanges(ents, mem, Date.now(), hold)
+      const hold = heldKeys()
+      const local = localChanges(ents, mem, stampNow(), hold)
       const stamps = local.stamps
       // an item the server would refuse is kept back (it would make every sync fail, and nothing after it would ever arrive)
       const big = local.changes.filter((c) => tooLargeToSync(c.data))
@@ -277,6 +293,7 @@ async function syncOnce(userId: string) {
       useSync.setState({ status: 'off', error: null })
       return
     }
+    dirty = true
     useSync.setState({ status: navigator.onLine === false ? 'offline' : 'error', error: e instanceof Error ? e.message : 'Sync failed' })
   }
 }
@@ -332,6 +349,8 @@ async function poll(userId: string) {
   }
   const mem = loadMemory()
   if (mem.userId !== userId) return syncNow(userId) // never synced here yet
+  // edits that have not got there (a send that failed, or one still waiting): send them now, and do not report "synced" while they are only here
+  if (dirty) return syncNow(userId)
   const beat = Date.now() - lastBeat > BEAT_MS
   try {
     const resp = await post({ cursors: mem.cursors, changes: [], light: true, beat, device: deviceInfo(), active: isPresent() })
@@ -368,6 +387,7 @@ export function startSync(userId: string): () => void {
     edit = window.setTimeout(() => void syncNow(userId), useSync.getState().peers > 0 ? 250 : 1200)
   }
   const unsub = useStore.subscribe((s, prev) => {
+    if (s.tasks !== prev.tasks || s.folders !== prev.folders || s.people !== prev.people) dirty = true
     if (s.tasks !== prev.tasks || s.folders !== prev.folders || s.people !== prev.people || s.selectedId !== prev.selectedId) soon()
   })
   const tick = async (full: boolean) => {
@@ -388,7 +408,25 @@ export function startSync(userId: string): () => void {
     const mem = loadMemory()
     if (mem.userId === userId) void post({ cursors: {}, changes: [], light: true, device: deviceInfo(), away: true }, false, true).catch(() => undefined)
   }
+  // leaving: whatever has not been sent goes now (a page being closed gets a last send that outlives it; one only switched away from sends normally)
+  const sendWaiting = () => {
+    if (!dirty) return
+    if (document.visibilityState === 'hidden') void syncNow(userId)
+  }
+  const flush = () => {
+    if (!dirty) return
+    const mem = loadMemory()
+    if (mem.userId !== userId) return
+    const { changes } = localChanges(entities(), mem, stampNow(), heldKeys())
+    const safe = changes.filter((c) => !tooLargeToSync(c.data))
+    if (!safe.length) return
+    // (a request that outlives the page may carry only so much)
+    if (JSON.stringify(safe).length > 55_000) return void syncNow(userId)
+    void post({ cursors: mem.cursors, changes: safe, device: deviceInfo() }, false, true).catch(() => undefined)
+  }
   document.addEventListener('visibilitychange', wake)
+  document.addEventListener('visibilitychange', sendWaiting)
+  window.addEventListener('pagehide', flush)
   document.addEventListener('visibilitychange', away)
   window.addEventListener('blur', away)
   window.addEventListener('pagehide', away)
@@ -398,6 +436,8 @@ export function startSync(userId: string): () => void {
   return () => {
     stopped = true
     unsub()
+    document.removeEventListener('visibilitychange', sendWaiting)
+    window.removeEventListener('pagehide', flush)
     window.clearTimeout(edit)
     window.clearTimeout(loop)
     document.removeEventListener('visibilitychange', wake)
