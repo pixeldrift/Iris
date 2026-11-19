@@ -40,6 +40,8 @@ test.describe('tags in the task details', () => {
     await page.mouse.down()
     await page.mouse.move(second.x - 20, second.y + 2, { steps: 4 })
     await page.mouse.move(firstBox.x + 3, first.y, { steps: 8 }) // (the left end of the first tag: in front of it)
+    // The tag being displaced should animate into its new slot rather than snapping across the row.
+    await expect.poll(async () => chips.locator('[data-tag-chip="life"]').evaluate((el) => el.getAnimations().some((a) => a.playState === 'running'))).toBe(true)
     await page.mouse.up()
     await expect.poll(async () => (await taskNamed(page, 'Study group'))?.tagOrder?.[0]).toBe('demo-writing')
     // the groups themselves are untouched
