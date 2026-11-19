@@ -101,3 +101,77 @@ test.describe('an item in several groups shows in each of them (the workspace)',
     await expect.poll(async () => ((await saved(page))!.tasks.find((t) => t.title === 'Study group')!.folderIds as string[]).slice().sort()).toEqual(['bio', 'life', 'school'])
   })
 })
+
+test.describe('an item in several groups shows in each of them (the pond)', () => {
+  async function pond(page: import('@playwright/test').Page) {
+    await open(page)
+    await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
+      const t = raw.state.tasks.find((x: { title: string }) => x.title === 'Study group')
+      t.folderIds = ['life', 'demo-writing', 'school']
+      t.tagOrder = ['life', 'school', 'demo-writing']
+      raw.state.settings.pondGroup = 'folder'
+      localStorage.setItem('lilac-v1', JSON.stringify(raw))
+    })
+    await page.reload()
+    await page.locator('[data-node]').first().waitFor()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
+    await page.waitForTimeout(1500)
+  }
+  test('has a bubble in each group, all lit when it is open, each wearing its own group first', async ({ page }) => {
+    await pond(page)
+    const bubbles = page.locator('[data-node][data-task-id^="demo-study"]')
+    await expect(bubbles).toHaveCount(3)
+    // (each bubble wears the colour of the group it sits in)
+    const hues = await bubbles.evaluateAll((els) => els.map((e) => (e.querySelector('[data-hue]') as HTMLElement).dataset.hue))
+    expect(new Set(hues).size).toBe(3)
+    await page.locator('[data-node][data-task-id="demo-study"] [role=button]').focus()
+    await page.keyboard.press('Enter')
+    await page.getByLabel('Task details').waitFor()
+    await expect(page.locator('[data-node][data-task-id^="demo-study"] .ring-2')).toHaveCount(3)
+  })
+
+  test('clicking a group tag slides the pond to that group', async ({ page }) => {
+    await pond(page)
+    const pos = () => page.locator('[data-node][data-task-id="demo-study"]').evaluate((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width } })
+    await page.locator('[data-node][data-task-id="demo-study"] [role=button]').focus()
+    await page.keyboard.press('Enter')
+    await page.getByLabel('Task details').waitFor()
+    await page.waitForTimeout(800)
+    const before = await pos()
+    const chip = page.locator('[data-tag-chip="school"]')
+    await chip.scrollIntoViewIfNeeded()
+    const b = (await chip.boundingBox())!
+    await page.mouse.click(b.x + 12, b.y + b.height / 2)
+    await page.waitForTimeout(2200)
+    const after = await pos()
+    expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y) + Math.abs(after.w - before.w)).toBeGreaterThan(6)
+  })
+})
+
+test.describe('an item in several groups shows in each of them (3D)', () => {
+  test('has a card in each group, and a click on one opens the one item', async ({ page }) => {
+    await page.goto('/?spacetest')
+    await page.locator('[data-node]').first().waitFor()
+    await page.evaluate(() => {
+      const raw = JSON.parse(localStorage.getItem('lilac-v1')!)
+      const t = raw.state.tasks.find((x: { title: string }) => x.title === 'Study group')
+      t.folderIds = ['life', 'demo-writing', 'school']
+      localStorage.setItem('lilac-v1', JSON.stringify(raw))
+    })
+    await page.reload()
+    await page.locator('[data-node]').first().waitFor()
+    await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2500 }).catch(() => {})
+    await goto(page, 'Spatial')
+    await page.getByRole('radio', { name: '3D' }).click()
+    await page.getByRole('button', { name: 'Use touch only' }).click()
+    await page.getByRole('button', { name: 'Got it' }).click({ timeout: 1500 }).catch(() => {})
+    await page.waitForTimeout(2000)
+    const at = (key: string) => page.evaluate((k) => (window as unknown as { __space: { screenPoint: (a: string, b: string) => { x: number; y: number } | null } }).__space.screenPoint('task', k), key)
+    for (const k of ['demo-study', 'demo-study@demo-writing', 'demo-study@school']) expect(await at(k)).toBeTruthy()
+    const p = (await at('demo-study@demo-writing'))!
+    await page.mouse.click(p.x + 10, p.y)
+    await expect(page.getByLabel('Task details')).toBeVisible()
+    await expect(page.getByLabel('Task details').getByText('Study group').first()).toBeVisible()
+  })
+})
