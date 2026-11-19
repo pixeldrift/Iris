@@ -185,7 +185,7 @@ export function TagInput({ taskId }: { taskId: string }) {
             if (!f) return null
             return (
               <Fragment key={tag.id}>
-                {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
+                {markerBefore ? (<span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]"></span>) : null}
                 <Chip id={tag.id} state={chipState(tag.id)} hue={f.hue} title={pathLabel(folders, tag.id)} onGrab={(e) => startCarry(e, tag)} onRemove={() => removeFromFolder(task.id, tag.id)}>
                 {f.name}
                 </Chip>
@@ -196,7 +196,7 @@ export function TagInput({ taskId }: { taskId: string }) {
           if (!p) return null
           return (
             <Fragment key={tag.id}>
-              {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
+              {markerBefore ? (<span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]"></span>) : null}
               <Chip id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
               @{p.name.split(' ')[0]}
               </Chip>
