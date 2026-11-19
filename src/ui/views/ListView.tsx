@@ -345,13 +345,13 @@ export function ListView() {
                 >
                   <svg
                     aria-hidden
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
+                    viewBox="0 0 36 24"
+                    width="24"
+                    height="24"
                     className={`transition-transform duration-200 ${isFolded ? '' : 'rotate-90'}`}
                     fill="currentColor"
                   >
-                    <path d="M7 3.5 18.5 12 7 20.5Z" />
+                    <path d="M6 2.5 30 12 6 21.5Z" />
                   </svg>
                 </button>
                 {group && <Flower hue={group.hue} shape={group.shape} size={18} />}

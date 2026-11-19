@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
+import { Fragment } from 'react'
 import { useMemo, useRef, useState } from 'react'
-import { useFlip } from './flip'
 import { tint } from '../core/color'
 import { pathLabel } from '../core/folders'
 import { tagsOf } from '../core/tasks'
@@ -34,13 +34,11 @@ export function TagInput({ taskId }: { taskId: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const well = useRef<HTMLDivElement>(null)
-  // As the insertion position changes, neighboring chips glide into their new flex-wrap positions.
-  useFlip(well, 'tag-flip')
   const showToast = useStore((s) => s.showToast)
   const updateTask = useStore((s) => s.updateTask)
   // A tag is picked up by pressing on it and moving (no handle). Inside the box it goes between the others (the order is kept, `tagOrder`).
   // Taken outside the box it is only a copy that is torn off (the tag stays where it was) and carried: over another task it tags that task with it.
-  const [carry, setCarry] = useState<{ id: string; kind: 'folder' | 'person'; label: string; hue: number; x: number; y: number; inside: boolean; order: string[] | null; over: string | null } | null>(null)
+  const [carry, setCarry] = useState<{ id: string; kind: 'folder' | 'person'; label: string; hue: number; x: number; y: number; inside: boolean; insertAt: number | null; over: string | null } | null>(null)
 
   const labeled = useMemo(() => folders.map((f) => ({ f, label: pathLabel(folders, f.id) })), [folders])
 
@@ -90,6 +88,7 @@ export function TagInput({ taskId }: { taskId: string }) {
     const meta = tagLabel(tag.kind, tag.id)
     let started = false
     let order: string[] = ids
+    let insertAt: number | null = null
     let target: HTMLElement | null = null
     let over: { id: string; el: HTMLElement | null } | null = null
     const inBox = (x: number, y: number) => {
@@ -105,22 +104,22 @@ export function TagInput({ taskId }: { taskId: string }) {
       const inside = inBox(ev.clientX, ev.clientY)
       if (inside) {
         // (the tags that come before the pointer, reading left to right and row by row)
-        const before = ids.filter((x) => {
-          if (x === tag.id) return false
+        const others = ids.filter((x) => x !== tag.id)
+        insertAt = others.filter((x) => {
           const r = rects.get(x)
           if (!r) return false
           return r.bottom < ev.clientY - 2 || (ev.clientY >= r.top - 2 && r.left + r.width / 2 < ev.clientX)
         }).length
-        const others = ids.filter((x) => x !== tag.id)
-        order = [...others.slice(0, before), tag.id, ...others.slice(before)]
+        order = [...others.slice(0, insertAt), tag.id, ...others.slice(insertAt)]
         over = null
       } else {
         order = ids
+        insertAt = null
         const hit = taskElementAt(ev.clientX, ev.clientY)
         over = hit && hit.id !== task.id ? hit : null
       }
       target = markTarget(over?.el ?? null, target, meta.hue)
-      setCarry({ id: tag.id, kind: tag.kind, label: meta.label, hue: meta.hue, x: ev.clientX, y: ev.clientY, inside, order: inside ? order : null, over: over?.id ?? null })
+      setCarry({ id: tag.id, kind: tag.kind, label: meta.label, hue: meta.hue, x: ev.clientX, y: ev.clientY, inside, insertAt: inside ? insertAt : null, over: over?.id ?? null })
     }
     const end = (ev: PointerEvent, cancelled: boolean) => {
       window.removeEventListener('pointermove', move)
@@ -161,12 +160,8 @@ export function TagInput({ taskId }: { taskId: string }) {
     window.addEventListener('pointercancel', cancel)
   }
   const chipState = (id: string): 'held' | 'stays' | undefined => (carry?.id !== id ? undefined : carry.inside ? 'held' : 'stays')
-  // while one is held inside the box the tags are shown in the order it would leave them
-  const shownTags = (() => {
-    const all = tagsOf(task)
-    if (!carry?.order) return all
-    return carry.order.map((id) => all.find((t) => t.id === id)).filter((t): t is (typeof all)[number] => !!t)
-  })()
+  // Keep chips in their original positions during a drag; the insertion line previews the drop position.
+  const shownTags = tagsOf(task)
 
   const choose = (i: number) => {
     const row = rows[i]
@@ -183,24 +178,32 @@ export function TagInput({ taskId }: { taskId: string }) {
   return (
     <div ref={wrapRef} className="relative">
       <div ref={well} className="well flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
-        {shownTags.map((tag) => {
+        {shownTags.map((tag, index) => {
+          const markerBefore = carry?.inside && tag.id !== carry.id && carry.insertAt === shownTags.slice(0, index).filter((t) => t.id !== carry.id).length
           if (tag.kind === 'folder') {
             const f = folders.find((x) => x.id === tag.id)
             if (!f) return null
             return (
-              <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={f.hue} title={pathLabel(folders, tag.id)} onGrab={(e) => startCarry(e, tag)} onRemove={() => removeFromFolder(task.id, tag.id)}>
+              <Fragment key={tag.id}>
+                {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
+                <Chip id={tag.id} state={chipState(tag.id)} hue={f.hue} title={pathLabel(folders, tag.id)} onGrab={(e) => startCarry(e, tag)} onRemove={() => removeFromFolder(task.id, tag.id)}>
                 {f.name}
-              </Chip>
+                </Chip>
+              </Fragment>
             )
           }
           const p = people.find((x) => x.id === tag.id)
           if (!p) return null
           return (
-            <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
+            <Fragment key={tag.id}>
+              {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
+              <Chip id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
               @{p.name.split(' ')[0]}
-            </Chip>
+              </Chip>
+            </Fragment>
           )
         })}
+        {carry?.inside && carry.insertAt === shownTags.filter((t) => t.id !== carry.id).length && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
         <input
           ref={inputRef}
           value={q}
@@ -298,9 +301,8 @@ function Chip({ id, state, hue, title, onGrab, onRemove, children }: { id: strin
   return (
     <span
       data-tag-chip={id}
-      data-tag-flip={id}
       onPointerDown={onGrab}
-      className={`chip-bubble pop-in inline-flex cursor-grab touch-none select-none items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs transition-[opacity,outline-color] ${state === 'held' ? 'opacity-40' : ''} ${state === 'stays' ? 'outline outline-2 outline-offset-2 outline-dashed' : ''}`}
+      className={`chip-bubble pop-in inline-flex cursor-grab touch-none select-none items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs transition-[opacity,outline-color] ${state === 'held' ? 'opacity-60' : ''} ${state === 'stays' ? 'outline outline-2 outline-offset-2 outline-dashed' : ''}`}
       style={{ ['--h' as string]: hue < 0 ? 0 : hue, ['--s' as string]: hue < 0 ? 0 : 1, ...(state === 'stays' ? { outlineColor: `hsl(${hue < 0 ? 0 : hue} 55% 60% / .8)` } : {}) }}
       title={title}
     >
