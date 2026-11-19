@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useMemo, useRef, useState } from 'react'
 import { tint } from '../core/color'
 import { pathLabel } from '../core/folders'
@@ -5,6 +6,7 @@ import { tagsOf } from '../core/tasks'
 import { fuzzyRank, fuzzyScore, sameName } from '../core/fuzzy'
 import { useStore } from '../state/store'
 import { IconClose, IconPlus } from './icons'
+import { confirmTag, markTarget, taskElementAt } from './taskAt'
 
 type Row =
   | { kind: 'folder' | 'person'; id: string; label: string; hue: number }
@@ -30,6 +32,12 @@ export function TagInput({ taskId }: { taskId: string }) {
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const well = useRef<HTMLDivElement>(null)
+  const showToast = useStore((s) => s.showToast)
+  const updateTask = useStore((s) => s.updateTask)
+  // A tag is picked up by pressing on it and moving (no handle). Inside the box it goes between the others (the order is kept, `tagOrder`).
+  // Taken outside the box it is only a copy that is torn off (the tag stays where it was) and carried: over another task it tags that task with it.
+  const [carry, setCarry] = useState<{ id: string; kind: 'folder' | 'person'; label: string; hue: number; x: number; y: number; inside: boolean; order: string[] | null; over: string | null } | null>(null)
 
   const labeled = useMemo(() => folders.map((f) => ({ f, label: pathLabel(folders, f.id) })), [folders])
 
@@ -61,6 +69,97 @@ export function TagInput({ taskId }: { taskId: string }) {
 
   if (!task) return null
 
+  const tagLabel = (kind: 'folder' | 'person', id: string) => {
+    if (kind === 'folder') {
+      const f = folders.find((x) => x.id === id)
+      return { label: f?.name ?? 'Group', hue: f?.hue ?? 285 }
+    }
+    const p = people.find((x) => x.id === id)
+    return { label: `@${(p?.name ?? 'Person').split(' ')[0]}`, hue: p?.hue ?? 285 }
+  }
+  const startCarry = (e: React.PointerEvent, tag: { kind: 'folder' | 'person'; id: string }) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+    const sx = e.clientX
+    const sy = e.clientY
+    const ids = tagsOf(task).map((t) => t.id)
+    // where each tag sits now (the box is measured once, so the order does not flicker as the others move out of the way)
+    const rects = new Map([...(well.current?.querySelectorAll<HTMLElement>('[data-tag-chip]') ?? [])].map((el) => [el.dataset.tagChip!, el.getBoundingClientRect()] as const))
+    const meta = tagLabel(tag.kind, tag.id)
+    let started = false
+    let order: string[] = ids
+    let target: HTMLElement | null = null
+    let over: { id: string; el: HTMLElement | null } | null = null
+    const inBox = (x: number, y: number) => {
+      const r = well.current?.getBoundingClientRect()
+      return !!r && x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 6 && y <= r.bottom + 6
+    }
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return
+        started = true
+        document.body.classList.add('dragging')
+      }
+      const inside = inBox(ev.clientX, ev.clientY)
+      if (inside) {
+        // (the tags that come before the pointer, reading left to right and row by row)
+        const before = ids.filter((x) => {
+          if (x === tag.id) return false
+          const r = rects.get(x)
+          if (!r) return false
+          return r.bottom < ev.clientY - 2 || (ev.clientY >= r.top - 2 && r.left + r.width / 2 < ev.clientX)
+        }).length
+        const others = ids.filter((x) => x !== tag.id)
+        order = [...others.slice(0, before), tag.id, ...others.slice(before)]
+        over = null
+      } else {
+        order = ids
+        const hit = taskElementAt(ev.clientX, ev.clientY)
+        over = hit && hit.id !== task.id ? hit : null
+      }
+      target = markTarget(over?.el ?? null, target, meta.hue)
+      setCarry({ id: tag.id, kind: tag.kind, label: meta.label, hue: meta.hue, x: ev.clientX, y: ev.clientY, inside, order: inside ? order : null, over: over?.id ?? null })
+    }
+    const end = (ev: PointerEvent, cancelled: boolean) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      document.body.classList.remove('dragging')
+      markTarget(null, target, 0)
+      setCarry(null)
+      if (!started || cancelled) return
+      // the click that follows a drag must not do what a click on a tag does
+      const swallow = (c: Event) => c.stopPropagation()
+      window.addEventListener('click', swallow, { capture: true, once: true })
+      window.setTimeout(() => window.removeEventListener('click', swallow, true), 50)
+      if (inBox(ev.clientX, ev.clientY)) {
+        if (order.some((x, i) => x !== ids[i])) updateTask(task.id, { tagOrder: order })
+        return
+      }
+      if (!over) return
+      const other = useStore.getState().tasks.find((t) => t.id === over!.id)
+      if (!other) return
+      const has = tag.kind === 'folder' ? other.folderIds.includes(tag.id) : other.personIds.includes(tag.id)
+      const name = other.title || 'that item'
+      if (has) return void showToast(`“${name}” already has ${meta.label}`)
+      if (tag.kind === 'folder') addToFolder(other.id, tag.id)
+      else addPerson(other.id, tag.id)
+      confirmTag(other.id, over.el, meta.label, meta.hue)
+      showToast(`Tagged “${name}” with ${meta.label}`)
+    }
+    const up = (ev: PointerEvent) => end(ev, false)
+    const cancel = (ev: PointerEvent) => end(ev, true)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+  }
+  const chipState = (id: string): 'held' | 'stays' | undefined => (carry?.id !== id ? undefined : carry.inside ? 'held' : 'stays')
+  // while one is held inside the box the tags are shown in the order it would leave them
+  const shownTags = (() => {
+    const all = tagsOf(task)
+    if (!carry?.order) return all
+    return carry.order.map((id) => all.find((t) => t.id === id)).filter((t): t is (typeof all)[number] => !!t)
+  })()
+
   const choose = (i: number) => {
     const row = rows[i]
     if (!row) return
@@ -75,13 +174,13 @@ export function TagInput({ taskId }: { taskId: string }) {
 
   return (
     <div ref={wrapRef} className="relative">
-      <div className="well flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
-        {tagsOf(task).map((tag) => {
+      <div ref={well} className="well flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
+        {shownTags.map((tag) => {
           if (tag.kind === 'folder') {
             const f = folders.find((x) => x.id === tag.id)
             if (!f) return null
             return (
-              <Chip key={tag.id} hue={f.hue} title={pathLabel(folders, tag.id)} onRemove={() => removeFromFolder(task.id, tag.id)}>
+              <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={f.hue} title={pathLabel(folders, tag.id)} onGrab={(e) => startCarry(e, tag)} onRemove={() => removeFromFolder(task.id, tag.id)}>
                 {f.name}
               </Chip>
             )
@@ -89,7 +188,7 @@ export function TagInput({ taskId }: { taskId: string }) {
           const p = people.find((x) => x.id === tag.id)
           if (!p) return null
           return (
-            <Chip key={tag.id} hue={p.hue} onRemove={() => removePerson(task.id, tag.id)}>
+            <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
               @{p.name.split(' ')[0]}
             </Chip>
           )
@@ -134,6 +233,19 @@ export function TagInput({ taskId }: { taskId: string }) {
         />
       </div>
 
+      {carry &&
+        createPortal(
+          // the tag carried by the pointer: inside the box it is the tag itself; outside it is a copy (a small + says so) and the original stays where it was
+          <div className="pointer-events-none fixed z-[var(--z-drag)]" style={{ left: carry.x + 10, top: carry.y + 8 }}>
+            <span className="chip-bubble inline-flex items-center gap-1 rounded-full py-0.5 pl-2.5 pr-2.5 text-xs shadow-lg" style={{ ['--h' as string]: carry.hue < 0 ? 0 : carry.hue, ['--s' as string]: 1, transform: 'rotate(-2deg)' }}>
+              {!carry.inside && <span className="font-bold">+</span>}
+              {carry.label}
+              {!carry.inside && carry.over && <span className="ml-1 font-normal opacity-70">tag this</span>}
+            </span>
+          </div>,
+          document.body,
+        )}
+
       {open && rows.length > 0 && (
         <ul className="glass glass-strong pop-in absolute inset-x-0 bottom-full z-30 mb-1.5 overflow-hidden rounded-2xl p-1.5 shadow-xl" style={{ ['--oy' as string]: '100%' }}>
           {rows.map((r, i) => (
@@ -173,9 +285,16 @@ export function TagInput({ taskId }: { taskId: string }) {
   )
 }
 
-function Chip({ hue, title, onRemove, children }: { hue: number; title?: string; onRemove: () => void; children: React.ReactNode }) {
+function Chip({ id, state, hue, title, onGrab, onRemove, children }: { id: string; state?: 'held' | 'stays'; hue: number; title?: string; onGrab: (e: React.PointerEvent) => void; onRemove: () => void; children: React.ReactNode }) {
+  // (held inside the box it is the gap the tag will fall into; taken out of the box it stays put, dashed, to show it is only a copy that is carried off)
   return (
-    <span className="chip-bubble pop-in inline-flex items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs" style={{ ['--h' as string]: hue < 0 ? 0 : hue, ['--s' as string]: hue < 0 ? 0 : 1 }} title={title}>
+    <span
+      data-tag-chip={id}
+      onPointerDown={onGrab}
+      className={`chip-bubble pop-in inline-flex cursor-grab touch-none select-none items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs transition-[opacity,outline-color] ${state === 'held' ? 'opacity-40' : ''} ${state === 'stays' ? 'outline outline-2 outline-offset-2 outline-dashed' : ''}`}
+      style={{ ['--h' as string]: hue < 0 ? 0 : hue, ['--s' as string]: hue < 0 ? 0 : 1, ...(state === 'stays' ? { outlineColor: `hsl(${hue < 0 ? 0 : hue} 55% 60% / .8)` } : {}) }}
+      title={title}
+    >
       {children}
       <button className="rounded-full p-0.5 opacity-50 transition hover:bg-white/60 hover:opacity-100" onClick={onRemove} aria-label="Remove tag">
         <IconClose size={11} />

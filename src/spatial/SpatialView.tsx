@@ -11,6 +11,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
 import { Tip } from '../ui/Tip'
+import { registerSceneAnchor, registerSceneTaskAt } from '../ui/taskAt'
 import { detectCapabilities } from './capabilities'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, NONE, sameLayout } from './content'
@@ -324,6 +325,11 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
+    registerSceneTaskAt((x, y) => sc.taskAt(x, y))
+    registerSceneAnchor((id) => {
+      const p = sc.screenPoint('task', id)
+      return p ? { x: p.x + 40, y: p.y - 14 } : null
+    })
     if (location.search.includes('spacetest')) (window as unknown as { __space?: unknown }).__space = { screenPoint: sc.screenPoint.bind(sc), emptyPoint: sc.emptyPoint.bind(sc), blankInPlate: sc.blankInPlate.bind(sc), fit: () => sc.frameAll(true), probe: () => sc.wallProbe(), dbg: () => sc.wallDebug(), radius: () => sc.getRadius(), grip: (id: string, edge: 'left' | 'right') => sc.gripPoint(id, edge), diag: () => (sc as unknown as { wall: { diagnostics: () => unknown } }).wall.diagnostics(), dbgTasks: () => { const s = sc as unknown as { tasks: Map<string, { mesh: { visible: boolean; position: { x: number; y: number; z: number } } }>; layout: { tasks: Record<string, unknown> } }; return [...s.tasks].slice(0, 40).map(([id, n]) => [id, n.mesh.visible, Math.round(n.mesh.position.x), Math.round(n.mesh.position.y), Math.round(n.mesh.position.z), JSON.stringify(s.layout.tasks[id])]) }, surf: () => (sc as unknown as { wall: { getSurface: () => unknown } }).wall.getSurface() }
     sc.setContent(live.current)
     sc.frameAll(true) // (everything in view to begin with; zoom in or look around from there)
@@ -344,6 +350,8 @@ export default function SpatialView() {
     document.addEventListener('visibilitychange', onVis)
     return () => {
       document.removeEventListener('visibilitychange', onVis)
+      registerSceneTaskAt(null)
+      registerSceneAnchor(null)
       sc.dispose() // (also lets go of the camera and the sky)
       scene.current = null
       envRef.current = null

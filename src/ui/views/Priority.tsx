@@ -55,7 +55,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
   )
   const done = isDoneNow(task)
   return (
-    <div ref={el} data-node className="absolute left-0 top-0 will-change-transform" style={{ width: r * 2, height: r * 2, transform: `translate(${first.x - r}px, ${first.y - r}px)`, ['--r' as string]: r }}>
+    <div ref={el} data-node data-task-id={task.id} className="absolute left-0 top-0 will-change-transform" style={{ width: r * 2, height: r * 2, transform: `translate(${first.x - r}px, ${first.y - r}px)`, ['--r' as string]: r }}>
       <div className={`bloom-in h-full w-full ${leave}`}>
         <div
           role="button"

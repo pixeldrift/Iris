@@ -864,6 +864,13 @@ export class SpatialScene {
     const r = this.renderer.domElement.getBoundingClientRect()
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
   }
+  /** The task under a screen point, if any (for things dragged in from outside the canvas). */
+  taskAt(x: number, y: number): string | null {
+    const r = this.renderer.domElement.getBoundingClientRect()
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom) return null
+    const hit = this.pick({ clientX: x, clientY: y })
+    return hit?.kind === 'task' ? hit.id : null
+  }
   /** Where a group's corner grip is on the screen. For tests. */
   gripPoint(id: string, edge: Edge): { x: number; y: number } | null {
     const g = this.grips.get(id)
