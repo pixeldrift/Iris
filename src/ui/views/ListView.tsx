@@ -18,6 +18,7 @@ import { EmptyState } from '../EmptyState'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
 import { Dim, DoneButton, DueChip, FolderChips, GroupDots, PlaceChip, QuickAdd, SlotLine, TaskFlower, ItemBadges, ItemProgress, TallyIncrement, useTaskDrag } from '../shared'
 import { useDropSlot } from '../dropSlot'
+import { Disclosure } from '../sidebar/parts'
 
 const SORTS: { id: SortKey; label: string }[] = [
   { id: 'flow', label: 'Priority' },
@@ -341,9 +342,9 @@ export function ListView() {
                   onClick={() => toggleFold(groupId)}
                   aria-expanded={!isFolded}
                   aria-label={`${isFolded ? 'Show' : 'Fold'} ${group?.name ?? 'Unsorted'}`}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.7rem] text-ink-soft transition hover:bg-white/60"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60"
                 >
-                  <span aria-hidden className={`inline-block transition-transform ${isFolded ? '-rotate-90' : ''}`}>▾</span>
+                  <Disclosure open={!isFolded} size={16} />
                 </button>
                 {group && <Flower hue={group.hue} shape={group.shape} size={18} />}
                 <span className="min-w-0 truncate font-display text-lg font-bold italic" style={{ color: group ? `hsl(${Math.max(0, group.hue)},50%,36%)` : undefined }}>
