@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { Fragment } from 'react'
 import { useMemo, useRef, useState } from 'react'
 import { tint } from '../core/color'
 import { pathLabel } from '../core/folders'
@@ -183,23 +184,23 @@ export function TagInput({ taskId }: { taskId: string }) {
             const f = folders.find((x) => x.id === tag.id)
             if (!f) return null
             return (
-              <>
+              <Fragment key={tag.id}>
                 {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
                 <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={f.hue} title={pathLabel(folders, tag.id)} onGrab={(e) => startCarry(e, tag)} onRemove={() => removeFromFolder(task.id, tag.id)}>
                 {f.name}
                 </Chip>
-              </>
+              </Fragment>
             )
           }
           const p = people.find((x) => x.id === tag.id)
           if (!p) return null
           return (
-            <>
+            <React.Fragment key={tag.id}>
               {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
-              <Chip key={tag.id> id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
+              <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
               @{p.name.split(' ')[0]}
               </Chip>
-            </>
+            </React.Fragment>
           )
         })}
         {carry?.inside && carry.insertAt === shownTags.filter((t) => t.id !== carry.id).length && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
