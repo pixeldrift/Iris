@@ -186,7 +186,7 @@ export function TagInput({ taskId }: { taskId: string }) {
             return (
               <Fragment key={tag.id}>
                 {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
-                <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={f.hue} title={pathLabel(folders, tag.id)} onGrab={(e) => startCarry(e, tag)} onRemove={() => removeFromFolder(task.id, tag.id)}>
+                <Chip id={tag.id} state={chipState(tag.id)} hue={f.hue} title={pathLabel(folders, tag.id)} onGrab={(e) => startCarry(e, tag)} onRemove={() => removeFromFolder(task.id, tag.id)}>
                 {f.name}
                 </Chip>
               </Fragment>
@@ -195,12 +195,12 @@ export function TagInput({ taskId }: { taskId: string }) {
           const p = people.find((x) => x.id === tag.id)
           if (!p) return null
           return (
-            <React.Fragment key={tag.id}>
+            <Fragment key={tag.id}>
               {markerBefore && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
-              <Chip key={tag.id} id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
+              <Chip id={tag.id} state={chipState(tag.id)} hue={p.hue} onGrab={(e) => startCarry(e, tag)} onRemove={() => removePerson(task.id, tag.id)}>
               @{p.name.split(' ')[0]}
               </Chip>
-            </React.Fragment>
+            </Fragment>
           )
         })}
         {carry?.inside && carry.insertAt === shownTags.filter((t) => t.id !== carry.id).length && <span aria-hidden="true" className="mx-0.5 h-5 w-0.5 shrink-0 rounded-full bg-lilac-500 shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />}
@@ -302,7 +302,7 @@ function Chip({ id, state, hue, title, onGrab, onRemove, children }: { id: strin
     <span
       data-tag-chip={id}
       onPointerDown={onGrab}
-      className={`chip-bubble pop-in inline-flex cursor-grab touch-none select-none items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs transition-[opacity,outline-color] ${state === 'held' ? 'opacity-40' : ''} ${state === 'stays' ? 'outline outline-2 outline-offset-2 outline-dashed' : ''}`}
+      className={`chip-bubble pop-in inline-flex cursor-grab touch-none select-none items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs transition-[opacity,outline-color] ${state === 'held' ? 'opacity-60' : ''} ${state === 'stays' ? 'outline outline-2 outline-offset-2 outline-dashed' : ''}`}
       style={{ ['--h' as string]: hue < 0 ? 0 : hue, ['--s' as string]: hue < 0 ? 0 : 1, ...(state === 'stays' ? { outlineColor: `hsl(${hue < 0 ? 0 : hue} 55% 60% / .8)` } : {}) }}
       title={title}
     >
