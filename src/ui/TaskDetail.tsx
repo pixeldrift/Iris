@@ -14,7 +14,7 @@ import { MAX_ITEM_BYTES } from '../sync/diff'
 import { ImageViewer } from './ImageViewer'
 import { useReorderGrid } from './reorder'
 import { describeRecurrence } from '../core/recurrence'
-import { WhoBox } from './WhoBox'
+import { TagsBox, WhoBox } from './WhoBox'
 import { NotesField } from './NotesField'
 import { Box } from './Box'
 import { askConfirm } from './dialogs'
@@ -178,6 +178,7 @@ function TaskLayout({ task, links }: { task: Task; links: { href: string; label:
           ))}
         </div>
       )}
+      <TagsBox task={task} />
       {!habit && (
         <Box title="When" icon={<IconCalendar size={13} />} startOpen={!list || !!(task.day || task.due || task.time || task.dueTime || task.repeat)} summary={whenSummary || (task.repeat ? describeRecurrence(task.repeat) : 'Not scheduled')}>
           <ScheduleFields task={task} />

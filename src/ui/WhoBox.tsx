@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
-import { assigneesOf } from '../core/tasks'
+import { assigneesOf, tagsOf } from '../core/tasks'
 import type { Task } from '../core/types'
 import { useStore } from '../state/store'
 import { assignToUser, assignTask, leaveGroup, removeMember, setMemberRole, shareTask, stopSharing, useShare, type ShareInfo, type ShareMember } from '../sync/share'
 import { Box } from './Box'
-import { IconClose, IconPerson, IconPlus } from './icons'
+import { IconClose, IconPerson, IconPlus, IconFolder } from './icons'
 import { MenuItem, Popover } from './Popover'
 import { TagInput } from './TagInput'
 
@@ -264,6 +264,24 @@ function Member({ member, share, owner, busy, run }: { member: ShareMember; shar
  * Who is on an item: the people tagged on it (they organize and filter, never invite), who it is assigned to, for an event who is invited, and
  * who it is shared with. An item can be shared on its own, without sharing its group.
  */
+/** An item's groups and @people, in a box of their own (not tucked inside "Who", which may be folded): the box says what is in it even when it is folded. */
+export function TagsBox({ task }: { task: Task }) {
+  const who = useWho(task)
+  const folders = useStore((s) => s.folders)
+  const people = useStore((s) => s.people)
+  const names = tagsOf(task).flatMap((t) => {
+    if (t.kind === 'folder') return folders.find((f) => f.id === t.id)?.name ?? []
+    const p = people.find((x) => x.id === t.id)
+    return p ? `@${p.name.split(' ')[0]}` : []
+  })
+  const summary = names.length === 0 ? 'No groups or tags' : names.length <= 2 ? names.join(', ') : `${names.slice(0, 2).join(', ')} +${names.length - 2}`
+  return (
+    <Box title="Tags" icon={<IconFolder size={13} />} summary={summary}>
+      <Tagged task={task} who={who} />
+    </Box>
+  )
+}
+
 export function WhoBox({ task }: { task: Task }) {
   const who = useWho(task)
   const { busy, run } = useRun()
@@ -275,7 +293,6 @@ export function WhoBox({ task }: { task: Task }) {
       {task.workspaceId && (!who.loaded || !share || share.role === 'viewer') && (
         <p className={hint}>{!who.loaded ? 'Loading sharing permissions…' : share?.role === 'viewer' ? 'View-only access: only the owner and editors can add people or change these settings.' : 'Sharing details are unavailable, so people settings are read-only.'}</p>
       )}
-      <Tagged task={task} who={who} />
       <Assigned {...common} />
       {task.kind === 'event' && <Invited {...common} />}
       <SharedWith {...common} />
