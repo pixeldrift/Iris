@@ -76,3 +76,28 @@ test.describe('clicking a group tag in the details', () => {
     expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y) + Math.abs(after.k - before.k)).toBeGreaterThan(4)
   })
 })
+
+test.describe('an item in several groups shows in each of them (the workspace)', () => {
+  const instances = (page: import('@playwright/test').Page) => page.locator('[data-task^="demo-study"]')
+  test('the flat canvas has a card in each of its groups, both lit when it is open, and moving one moves only that group', async ({ page }) => {
+    await setUp(page, 'Spatial')
+    await page.locator('[data-task]').first().waitFor()
+    // Life (given first), Writing and School: three cards, one in each group's box
+    await expect(instances(page)).toHaveCount(3)
+    const homes = await instances(page).evaluateAll((els) => els.map((e) => (e.closest('[data-box]') as HTMLElement | null)?.dataset.box ?? ''))
+    expect(homes.sort()).toEqual(['demo-writing', 'life', 'school'].sort())
+    // opening one lights all three
+    await page.locator('[data-task="demo-study"] button.truncate').click()
+    await page.getByLabel('Task details').waitFor()
+    await expect(page.locator('[data-task^="demo-study"].ring-2')).toHaveCount(3)
+    // taking the card out of Writing (onto Biology's box) moves only that membership
+    const from = (await page.locator('[data-task="demo-study@demo-writing"] button.truncate').boundingBox())!
+    const to = (await page.locator('[data-box="bio"]').boundingBox())!
+    await page.mouse.move(from.x + 20, from.y + 8)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 40, from.y + 20, { steps: 3 })
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 14 })
+    await page.mouse.up()
+    await expect.poll(async () => ((await saved(page))!.tasks.find((t) => t.title === 'Study group')!.folderIds as string[]).slice().sort()).toEqual(['bio', 'life', 'school'])
+  })
+})

@@ -1,4 +1,5 @@
 import { canReparent } from '../core/folders'
+import { groupOfKey, realId } from '../core/instances'
 import * as sound from '../audio/engine'
 import { useStore } from '../state/store'
 import { targetAt, useDnd } from '../ui/dnd'
@@ -7,10 +8,19 @@ import { LOOSE } from './layout'
 import { useSpatial } from './store'
 
 /** A task dropped into another group joins it (and leaves the one it was in). 'none' takes it out of its group. */
-export function retagTask(id: string, clusterId: string) {
+export function retagTask(key: string, clusterId: string) {
   const st = useStore.getState()
+  const id = realId(key)
+  const from = groupOfKey(key)
   const t = st.tasks.find((x) => x.id === id)
   if (!t) return
+  if (from) {
+    // one of its other places: only that group changes (the item stays wherever else it is)
+    if (clusterId === 'none') st.removeFromFolder(id, from)
+    else st.moveMembership(id, from, clusterId)
+    sound.plink()
+    return
+  }
   const have = new Set(st.folders.map((f) => f.id))
   const cur = t.folderIds.find((x) => have.has(x))
   let ids = t.folderIds.filter((x) => x !== cur)
@@ -40,7 +50,7 @@ export function endCarry() {
 export function dropOutside(kind: 'task' | 'group', id: string, x: number, y: number): boolean {
   const target = targetAt(x, y)
   if (!target) return false
-  if (kind === 'task') useStore.getState().dropTask(id, target)
+  if (kind === 'task') useStore.getState().dropTask(realId(id), target)
   else if (target.startsWith('folder:')) reparentGroup(id, target.slice('folder:'.length))
   return true
 }

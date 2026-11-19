@@ -11,6 +11,7 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
 import { Tip } from '../ui/Tip'
+import { realId } from '../core/instances'
 import { registerSceneAnchor, registerScenePulse, registerSceneTaskAt } from '../ui/taskAt'
 import { detectCapabilities } from './capabilities'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
@@ -293,9 +294,11 @@ export default function SpatialView() {
     let sc: SpatialScene
     try {
       sc = new SpatialScene(host.current, track.current, {
-        onOpen: (id) => select(id),
-        onToggle: (id) => toggleDone(id),
-        onIncrement: (id) => {
+        // (what a card says is its own key: an item shown in several groups has a card in each, all of them the one item)
+        onOpen: (id) => select(realId(id)),
+        onToggle: (id) => toggleDone(realId(id)),
+        onIncrement: (rawId) => {
+          const id = realId(rawId)
           const task = useStore.getState().tasks.find((t) => t.id === id)
           if (!task?.tally || task.status === 'done' || task.tally.done >= task.tally.total) return
           setTally(id, { ...task.tally, done: task.tally.done + 1 })
@@ -326,7 +329,10 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    registerSceneTaskAt((x, y) => sc.taskAt(x, y))
+    registerSceneTaskAt((x, y) => {
+      const k = sc.taskAt(x, y)
+      return k ? realId(k) : null
+    })
     registerScenePulse((id) => sc.pulseTask(id))
     registerSceneAnchor((id) => {
       const p = sc.screenPoint('task', id)
@@ -406,6 +412,11 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setContent(shownContent)
   }, [shownContent])
+  // the item whose details are open is lit wherever it shows (in every group it is in)
+  const selectedId = useStore((s) => s.selectedId)
+  useEffect(() => {
+    scene.current?.setSelected(selectedId)
+  }, [selectedId, phase, simple, shownContent])
   // a group's tag was clicked in an item's details: the camera turns to that group
   const focusReq = useStore((s) => s.focusReq)
   const lastFocus = useRef(0)
@@ -751,10 +762,10 @@ export default function SpatialView() {
           <ul className="sr-only" aria-label="Tasks in your workspace">
             {content.tasks.map((t) => (
               <li key={t.id}>
-                <button type="button" onClick={() => select(t.id)}>
+                <button type="button" onClick={() => select(t.taskId)}>
                   {t.title || 'Untitled'}
                 </button>
-                <button type="button" onClick={() => toggleDone(t.id)}>
+                <button type="button" onClick={() => toggleDone(t.taskId)}>
                   {t.done ? 'Mark not completed' : 'Mark completed'}: {t.title}
                 </button>
               </li>

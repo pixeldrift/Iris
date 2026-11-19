@@ -151,6 +151,8 @@ export interface TasksSlice {
   /** Move unfinished tasks planned for past days to their next available day. */
   rollover: () => void
   /** Dragging a bubble into another pond cluster re-tags it to match. */
+  /** An item's membership of one group moves to another (its other groups are untouched). */
+  moveMembership: (taskId: string, from: string, to: string) => void
   assignToGroup: (taskId: string, mode: PondGroup, key: string) => void
   /** Throw away a task that was only being set up in the quick-add box. */
   discardDraft: (id: string) => void

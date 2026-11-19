@@ -4,6 +4,7 @@ import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { setDayEnds, graceToday } from './dayend'
 import { groupLook, MAX_DOTS } from './looks'
+import { groupOfKey, instancesOf, realId } from './instances'
 import { completedDateMatches, filterTasks, isLate, isOverdue, scopeMatcher, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, hasPendingReminder, reminderPresets } from './reminders'
@@ -1274,5 +1275,24 @@ describe('the colours an item in several groups wears', () => {
     expect(groupLook({ folderIds: [], personIds: [], tagOrder: [] }, folders)).toEqual({ main: null, extras: [] })
     const many = Array.from({ length: 7 }, (_, i) => ({ id: `g${i}`, name: `G${i}`, parentId: null, hue: i * 30, shape: 'blossom', sort: i, createdAt: 0 })) as never[]
     expect(groupLook({ folderIds: many.map((f: { id: string }) => f.id), personIds: [], tagOrder: [] }, many).extras).toHaveLength(MAX_DOTS)
+  })
+})
+
+describe('where an item in several groups shows', () => {
+  const folders = [
+    { id: 'a', name: 'A', parentId: null, hue: 10, shape: 'blossom', sort: 0, createdAt: 0 },
+    { id: 'b', name: 'B', parentId: 'a', hue: 120, shape: 'blossom', sort: 1, createdAt: 0 },
+    { id: 'c', name: 'C', parentId: null, hue: 220, shape: 'blossom', sort: 2, createdAt: 0 },
+  ] as never[]
+  it('has an instance in each group, the first keyed by the item itself', () => {
+    expect(instancesOf({ id: 't', folderIds: ['a', 'c'] }, folders)).toEqual([{ key: 't', folderId: 'a' }, { key: 't@c', folderId: 'c' }])
+    expect(instancesOf({ id: 't', folderIds: [] }, folders)).toEqual([{ key: 't', folderId: 'none' }])
+    expect(realId('t@c')).toBe('t')
+    expect(groupOfKey('t@c')).toBe('c')
+    expect(groupOfKey('t')).toBeUndefined()
+  })
+  it('while a group is viewed, only the places inside it show', () => {
+    expect(instancesOf({ id: 't', folderIds: ['c', 'b'] }, folders, { type: 'folder', id: 'a' })).toEqual([{ key: 't@b', folderId: 'b' }])
+    expect(instancesOf({ id: 't', folderIds: ['c', 'b'] }, folders, { type: 'all' }).length).toBe(2)
   })
 })

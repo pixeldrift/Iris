@@ -7,6 +7,7 @@ import { isDoneNow } from '../core/recurrence'
 import { dueInfo, dueLine } from '../core/rowModel'
 import { effectiveUrgency } from '../core/tasks'
 import { groupLook } from '../core/looks'
+import { instancesOf } from '../core/instances'
 import type { Folder, Scope, Task } from '../core/types'
 import { bubbleHue } from '../ui/pond/hue'
 import { arrangeFor, ensureLayout, LOOSE, type LayoutCluster, type LayoutTask } from './layout'
@@ -24,11 +25,11 @@ export interface SpatialContent {
 /** `arrange`: lay the groups out again for a screen of this shape (width over height) instead of keeping where they are. */
 export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[], stored: SpatialLayoutData, arrange?: number, scope?: Scope): SpatialContent {
   const have = new Set(folders.map((f) => f.id))
-  const clusterOf = (t: Task) => t.folderIds.find((id) => have.has(id)) ?? NONE
+  // an item in several groups shows in each of them: one card (an "instance") per place, the one in its first group keyed by its own id
+  const items = visible.flatMap((t) => instancesOf(t, folders, scope).map((i) => ({ t, key: i.key, cluster: i.folderId === 'none' ? NONE : i.folderId })))
   // the clusters to show: every group with a task in it, and the groups above them (so the hierarchy reads)
   const shown = new Set<string>()
-  for (const t of visible) {
-    const c = clusterOf(t)
+  for (const { cluster: c } of items) {
     // (a task in no group is not in a box: it sits loose on the wall, so there is no Unsorted group to show; in every other view it is in Unsorted)
     if (c === NONE) continue
     shown.add(c)
@@ -50,13 +51,14 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
     return p
   }
   const counts = new Map<string, number>()
-  for (const t of visible) counts.set(clusterOf(t), (counts.get(clusterOf(t)) ?? 0) + 1)
+  for (const it of items) counts.set(it.cluster, (counts.get(it.cluster) ?? 0) + 1)
   const layoutClusters: LayoutCluster[] = order.filter((id) => shown.has(id)).map((id, i) => ({ id, parent: parentOf(id), depth: pathOf(folders, id).length - 1, order: i }))
-  const layoutTasks: LayoutTask[] = visible.map((t) => ({ id: t.id, cluster: clusterOf(t) }))
+  const layoutTasks: LayoutTask[] = items.map((it) => ({ id: it.key, cluster: it.cluster }))
   const input = {
     clusters: layoutClusters,
     tasks: layoutTasks,
-    allTaskIds: new Set(allTasks.map((t) => t.id)),
+    // (every place any item shows, shown now or not: a place is only given up when the item, or its membership of that group, is really gone)
+    allTaskIds: new Set(allTasks.flatMap((t) => instancesOf(t, folders).map((i) => i.key))),
     allClusterIds: new Set([...have, NONE]),
   }
   const layout = arrange ? arrangeFor(stored, input, arrange) : ensureLayout(stored, input)
@@ -64,11 +66,12 @@ export function buildContent(visible: Task[], allTasks: Task[], folders: Folder[
     const f = folders.find((x) => x.id === c.id)
     return { id: c.id, parent: c.parent, name: f?.name ?? 'Unsorted', hue: f?.hue ?? 285, shape: f?.shape, count: counts.get(c.id) ?? 0, depth: c.depth }
   })
-  const tasks: SceneTask[] = visible.map((t) => {
+  const tasks: SceneTask[] = items.map(({ t, key, cluster }) => {
     const due = dueInfo(t)
     return {
-      id: t.id,
-      cluster: clusterOf(t),
+      id: key,
+      taskId: t.id,
+      cluster,
       title: t.title,
       imageUrl: t.image ?? null,
       hue: bubbleHue(t, folders, scope),

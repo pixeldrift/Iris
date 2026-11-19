@@ -25,6 +25,8 @@ export interface CardInfo {
   tally?: { done: number; total: number } | null
   /** The hues of its other groups (at most four): the first two tint the card softly, all of them are drawn as little dots. */
   extras?: number[]
+  /** The item is the one open in the details: it is lit wherever it shows. */
+  selected?: boolean
 }
 
 /** The card itself, and the room around it in the texture for its soft shadow. */
@@ -166,6 +168,17 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   g.lineWidth = 2.5
   g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l - 4, 1)
   g.stroke()
+  if (c.selected) {
+    // lit: a glowing ring in its colour, outside the card's own outline
+    g.save()
+    g.shadowColor = lhsla(lk.h, 85, 58, 0.95)
+    g.shadowBlur = 22
+    roundRect(g, x, y, w, h, R)
+    g.lineWidth = 7
+    g.strokeStyle = lhsla(lk.h, 75, 52, 0.85)
+    g.stroke()
+    g.restore()
+  }
   if (c.image) {
     g.save()
     roundRect(g, x, y, w, h, R)
