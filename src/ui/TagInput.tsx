@@ -179,7 +179,7 @@ export function TagInput({ taskId }: { taskId: string }) {
     <div ref={wrapRef} className="relative">
       <div ref={well} className="well flex flex-wrap items-center gap-1.5 rounded-2xl px-2.5 py-2">
         {shownTags.map((tag, index) => {
-          const markerBefore = carry?.inside && carry.insertAt === shownTags.slice(0, index).filter((t) => t.id !== carry.id).length
+          const markerBefore = carry?.inside && tag.id !== carry.id && carry.insertAt === shownTags.slice(0, index).filter((t) => t.id !== carry.id).length
           if (tag.kind === 'folder') {
             const f = folders.find((x) => x.id === tag.id)
             if (!f) return null
