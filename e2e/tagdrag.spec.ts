@@ -141,3 +141,19 @@ test.describe('reordering the entries of a list', () => {
     await expect.poll(async () => ((await taskNamed(page, 'Groceries'))?.items ?? []).map((i: { text: string }) => i.text)).toEqual(['Milk', 'Eggs', 'Bread'])
   })
 })
+
+test.describe('where the tags are in the details', () => {
+  test('they have a box of their own that names them even when it is folded, and is not hidden in a folded Who box', async ({ page }) => {
+    await setUp(page)
+    // fold Who the way a person might have: the tags must still be there
+    const who = page.getByRole('region', { name: 'Who' })
+    if ((await who.getByRole('button', { name: /^Who/ }).getAttribute('aria-expanded')) === 'true') await who.getByRole('button', { name: /^Who/ }).click()
+    const tags = page.getByRole('region', { name: 'Tags' })
+    await expect(tags).toBeVisible()
+    await expect(page.locator('[data-tag-chip]')).toHaveCount(2)
+    // folded, it still says what is in it
+    await tags.getByRole('button', { name: /^Tags/ }).click()
+    await expect(tags).toContainText('Life, Writing')
+    await expect(page.locator('[data-tag-chip]')).toHaveCount(0)
+  })
+})
