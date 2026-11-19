@@ -346,8 +346,8 @@ export function ListView() {
                   <svg
                     aria-hidden
                     viewBox="0 0 36 24"
-                    width="24"
-                    height="24"
+                    width="18"
+                    height="18"
                     className={`transition-transform duration-200 ${isFolded ? '' : 'rotate-90'}`}
                     fill="currentColor"
                   >
