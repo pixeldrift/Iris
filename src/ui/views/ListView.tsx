@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createFromLine, understandLine } from '../quickCreate'
 import * as sound from '../../audio/engine'
 import { useRowSwipe } from '../swipe'
@@ -10,6 +10,7 @@ import type { SortKey, Task } from '../../core/types'
 import { useStore } from '../../state/store'
 import { Popover } from '../Popover'
 import { IconCheck, IconTrash } from '../icons'
+import { Flower } from '../Flower'
 import { BatchEditor } from '../BatchEditor'
 import { colorVars, useExtraHues, useTaskHue } from '../taskColor'
 import { rowKeys } from '../rowKeys'
@@ -128,6 +129,26 @@ export function ListView() {
   const folders = useStore((s) => s.folders)
 
   const sorted = useMemo(() => sortTasks(visible, sortKey, sortDesc, folders, sortSecondaryKey), [visible, sortKey, sortDesc, folders, sortSecondaryKey])
+  // Sorted by group, each group has a heading (its flower, name, how many it holds, and a twirl that folds its items away). Which are folded is remembered.
+  const [folded, setFolded] = useState<Set<string>>(() => {
+    try {
+      return new Set<string>(JSON.parse(localStorage.getItem('lilac-list-folded') ?? '[]'))
+    } catch {
+      return new Set()
+    }
+  })
+  const toggleFold = (id: string) =>
+    setFolded((cur) => {
+      const next = new Set(cur)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      try {
+        localStorage.setItem('lilac-list-folded', JSON.stringify([...next]))
+      } catch {
+        /* not saved */
+      }
+      return next
+    })
   // Items added from the quick-add box stay at the top, in the order they were added, while more are being typed; a moment after the last
   // one, they glide to where the sort puts them (the list animates the move, so you can see where each went).
   const [fresh, setFresh] = useState<string[]>([])
@@ -141,6 +162,11 @@ export function ListView() {
     return [...here, ...sorted.filter((t) => !set.has(t.id))]
   }, [sorted, fresh])
   const justAdded = useMemo(() => new Set(fresh), [fresh])
+  const groupCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const t of rows) m.set(t.folderIds[0] ?? '__ungrouped', (m.get(t.folderIds[0] ?? '__ungrouped') ?? 0) + 1)
+    return m
+  }, [rows])
   // the quick-add box reads what is typed the way the New dialog does: dates, times, repeats, #groups, @people, places, reminders
   const qaMode = useStore((s) => s.settings.quickAdd)
   const people = useStore((s) => s.people)
@@ -303,13 +329,40 @@ export function ListView() {
         {rows.map((t, i) => {
           const groupId = t.folderIds[0] ?? '__ungrouped'
           const previousGroupId = i > 0 ? (rows[i - 1].folderIds[0] ?? '__ungrouped') : groupId
+          const starts = sortKey === 'group' && (i === 0 || groupId !== previousGroupId)
+          const group = folders.find((f) => f.id === groupId)
+          const isFolded = sortKey === 'group' && folded.has(groupId)
           return (
-          <div key={t.id} data-card-id={t.id} className="relative">
-            {sortKey === 'group' && i > 0 && groupId !== previousGroupId && <span aria-hidden className="pointer-events-none absolute -top-1 inset-x-3 h-px bg-ink-faint/25" />}
-            {slot && slot.before === t.id && <SlotLine at="top" />}
-            <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
-            {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
-          </div>
+          <Fragment key={t.id}>
+            {starts && (
+              <div data-group-head={groupId} className={`flex items-center gap-2 px-1.5 ${i > 0 ? 'mt-5' : 'mt-1'}`}>
+                <button
+                  type="button"
+                  onClick={() => toggleFold(groupId)}
+                  aria-expanded={!isFolded}
+                  aria-label={`${isFolded ? 'Show' : 'Fold'} ${group?.name ?? 'Unsorted'}`}
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.7rem] text-ink-soft transition hover:bg-white/60"
+                >
+                  <span aria-hidden className={`inline-block transition-transform ${isFolded ? '-rotate-90' : ''}`}>▾</span>
+                </button>
+                {group && <Flower hue={group.hue} shape={group.shape} size={18} />}
+                <span className="min-w-0 truncate font-display text-lg font-bold italic" style={{ color: group ? `hsl(${Math.max(0, group.hue)},50%,36%)` : undefined }}>
+                  {group?.name ?? 'Unsorted'}
+                </span>
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ background: group ? `hsl(${Math.max(0, group.hue)},60%,90%)` : 'rgba(255,255,255,0.6)' }}>
+                  {groupCounts.get(groupId) ?? 0}
+                </span>
+                <span aria-hidden className="ml-1 h-px flex-1 bg-ink-faint/20" />
+              </div>
+            )}
+            {!isFolded && (
+              <div data-card-id={t.id} className="relative">
+                {slot && slot.before === t.id && <SlotLine at="top" />}
+                <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
+                {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
+              </div>
+            )}
+          </Fragment>
           )
         })}
         {rows.length === 0 && <EmptyState>Nothing here yet. Still water.</EmptyState>}
