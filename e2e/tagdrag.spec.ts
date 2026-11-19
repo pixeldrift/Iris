@@ -43,7 +43,8 @@ test.describe('tags in the task details', () => {
     await page.mouse.up()
     await expect.poll(async () => (await taskNamed(page, 'Study group'))?.tagOrder?.[0]).toBe('demo-writing')
     // the groups themselves are untouched
-    expect((await taskNamed(page, 'Study group'))!.folderIds.sort()).toEqual(['demo-writing', 'life'])
+    // the groups themselves are untouched, and the main colour is still that of the group it was given first (Life)
+    expect((await taskNamed(page, 'Study group'))!.folderIds).toEqual(['life', 'demo-writing'])
   })
 
   test('a tag dragged out of the box and onto another task tags that task, and the original keeps it', async ({ page }) => {
@@ -64,6 +65,19 @@ test.describe('tags in the task details', () => {
     expect((await taskNamed(page, 'Study group'))!.folderIds).toContain('demo-writing') // (only a copy was carried)
     await expect(page.locator('.tag-badge')).toBeVisible()
     await expect(page.getByText(/Tagged .Pay rent. with Writing/)).toBeVisible()
+  })
+
+  test('a task that already has a group keeps it as its main one when another is dropped on it', async ({ page }) => {
+    await setUp(page)
+    const from = await centre(page.locator('[data-tag-chip="demo-writing"]'))
+    const row = page.locator('[data-lift-id^="task:"]').filter({ hasText: 'Call grandma' }).first()
+    const to = await centre(row)
+    await page.mouse.move(from.x - 8, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x - 20, from.y - 30, { steps: 4 })
+    await page.mouse.move(to.x, to.y, { steps: 14 })
+    await page.mouse.up()
+    await expect.poll(async () => (await taskNamed(page, 'Call grandma'))?.folderIds ?? []).toEqual(['life', 'demo-writing'])
   })
 
   test('letting a torn-off tag go over nothing leaves everything as it was', async ({ page }) => {
