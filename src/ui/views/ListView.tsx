@@ -341,9 +341,18 @@ export function ListView() {
                   onClick={() => toggleFold(groupId)}
                   aria-expanded={!isFolded}
                   aria-label={`${isFolded ? 'Show' : 'Fold'} ${group?.name ?? 'Unsorted'}`}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.7rem] text-ink-soft transition hover:bg-white/60"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60"
                 >
-                  <span aria-hidden className={`inline-block transition-transform ${isFolded ? '-rotate-90' : ''}`}>▾</span>
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    className={`transition-transform duration-200 ${isFolded ? '' : 'rotate-90'}`}
+                    fill="currentColor"
+                  >
+                    <path d="M7 3.5 18.5 12 7 20.5Z" />
+                  </svg>
                 </button>
                 {group && <Flower hue={group.hue} shape={group.shape} size={18} />}
                 <span className="min-w-0 truncate font-display text-lg font-bold italic" style={{ color: group ? `hsl(${Math.max(0, group.hue)},50%,36%)` : undefined }}>

@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useMemo, useRef, useState } from 'react'
+import { useFlip } from './flip'
 import { tint } from '../core/color'
 import { pathLabel } from '../core/folders'
 import { tagsOf } from '../core/tasks'
@@ -33,6 +34,8 @@ export function TagInput({ taskId }: { taskId: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const well = useRef<HTMLDivElement>(null)
+  // As the insertion position changes, neighboring chips glide into their new flex-wrap positions.
+  useFlip(well, 'tag-flip')
   const showToast = useStore((s) => s.showToast)
   const updateTask = useStore((s) => s.updateTask)
   // A tag is picked up by pressing on it and moving (no handle). Inside the box it goes between the others (the order is kept, `tagOrder`).
@@ -295,6 +298,7 @@ function Chip({ id, state, hue, title, onGrab, onRemove, children }: { id: strin
   return (
     <span
       data-tag-chip={id}
+      data-tag-flip={id}
       onPointerDown={onGrab}
       className={`chip-bubble pop-in inline-flex cursor-grab touch-none select-none items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs transition-[opacity,outline-color] ${state === 'held' ? 'opacity-40' : ''} ${state === 'stays' ? 'outline outline-2 outline-offset-2 outline-dashed' : ''}`}
       style={{ ['--h' as string]: hue < 0 ? 0 : hue, ['--s' as string]: hue < 0 ? 0 : 1, ...(state === 'stays' ? { outlineColor: `hsl(${hue < 0 ? 0 : hue} 55% 60% / .8)` } : {}) }}
