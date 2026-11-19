@@ -10,6 +10,9 @@ import { BubbleChrome } from '../BubbleChrome'
 import { TitleFit } from '../TitleFit'
 import { ZoomControl } from '../ZoomControl'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
+import { groupLook } from '../../core/looks'
+import { colorVars, useExtraHues } from '../taskColor'
+import { GroupDots } from '../shared'
 
 const QUADS = [
   { label: 'Tend now', sub: 'urgent & important', cls: '', edge: 'right-3 top-2 items-end text-right md:right-4 md:top-2.5', hue: 345 },
@@ -54,6 +57,7 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
     { clamp: CLAMP, onGrab: () => api.grab(task.id), onDrag: (fx, fy) => api.drag(task.id, fx, fy), onRelease: () => api.release(task.id) },
   )
   const done = isDoneNow(task)
+  const extras = useExtraHues(task)
   return (
     <div ref={el} data-node data-task-id={task.id} className="absolute left-0 top-0 will-change-transform" style={{ width: r * 2, height: r * 2, transform: `translate(${first.x - r}px, ${first.y - r}px)`, ['--r' as string]: r }}>
       <div className={`bloom-in h-full w-full ${leave}`}>
@@ -63,13 +67,14 @@ const Bub = memo(function Bub({ task, r, hue, start, api }: { task: Task; r: num
           onPointerDown={(e) => onPointerDown(e, true)}
           onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
           className={`pad ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : ''} relative grid h-full w-full cursor-grab touch-none select-none place-items-center rounded-full text-center outline-none transition-[opacity,transform] hover:scale-110 focus-visible:ring-2 focus-visible:ring-lilac-500 ${done ? 'opacity-50' : ''}`}
-          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), ...(task.image ? { '--photo': `url("${task.image}")` } : {}), padding: r >= 26 ? 'calc(var(--r) * 0.34 * 1px) calc(var(--r) * 0.14 * 1px) calc(var(--r) * 0.46 * 1px)' : 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
+          style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), ...colorVars(null, effectiveUrgency(task), extras), ...(task.image ? { '--photo': `url("${task.image}")` } : {}), padding: r >= 26 ? 'calc(var(--r) * 0.34 * 1px) calc(var(--r) * 0.14 * 1px) calc(var(--r) * 0.46 * 1px)' : 'calc(var(--r) * 0.14 * 1px)' } as React.CSSProperties}
           title={task.title}
         >
           {r >= 14 && !!task.title && (
             <TitleFit text={task.title} font="calc(var(--r) * 0.26 * 1px)" lineHeight={1.1} />
           )}
           {<BubbleChrome task={task} r={r} minExtras={36} floor={58} />}
+          {r >= 26 && <GroupDots task={task} className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2" />}
         </div>
       </div>
     </div>
@@ -167,7 +172,8 @@ export function Priority() {
   const radius = (t: Task) => radiusFor(weightOf(t))
   const scaleRef = useRef(scale)
   scaleRef.current = scale
-  const hueOf = useCallback((t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? 285, [folders])
+  const scope = useStore((s) => s.scope)
+  const hueOf = useCallback((t: Task) => groupLook(t, folders, scope).main?.hue ?? 285, [folders, scope])
   hueRef.current = hueOf
 
   const paint = useCallback(() => {

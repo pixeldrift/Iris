@@ -26,19 +26,39 @@ import { canReparent, pathOf } from '../../core/folders'
 import { undo } from '../../state/history'
 import { PondMembers } from '../pond/Members'
 import { askName } from '../NameDialog'
+import { groupOfKey, instancesOf, realId } from '../../core/instances'
 import { usePondGestures } from '../pond/usePondGestures'
 import { useSize } from '../pond/useSize'
 import { MAX_SCALE, MIN_SCALE, type PondApi, type PopMode, type Rec, type View } from '../pond/types'
 import { usePhone } from '../useMedia'
 
+/** A bubble let go in another group: the item goes there. A copy (an item's other place) only changes that one group, and the item stays wherever else it is. */
+function moveBubble(key: string, to: string) {
+  const st = useStore.getState()
+  const from = groupOfKey(key)
+  if (from && st.settings.pondGroup === 'folder') st.moveMembership(realId(key), from, to)
+  else st.assignToGroup(realId(key), st.settings.pondGroup, to)
+}
+
 export function Pond() {
   const phone = usePhone()
-  const visible = useVisibleTasks(false, 'keep') // a search fades the others here instead of removing them
+  const visibleItems = useVisibleTasks(false, 'keep') // a search fades the others here instead of removing them
   const matcher = useSearchMatcher()
   const folders = useStore((s) => s.folders)
   const people = useStore((s) => s.people)
   const scale = useStore((s) => s.settings.sizeByPriority)
   const group = useStore((s) => s.settings.pondGroup)
+  const scopeNow = useStore((s) => s.scope)
+  // Gathered by group, an item in several groups has a bubble in each of them (a copy keyed `id@group`, sitting in that group and wearing its colour first).
+  const visible = useMemo(
+    () =>
+      group !== 'folder'
+        ? visibleItems
+        : visibleItems.flatMap((t) =>
+            instancesOf(t, folders, scopeNow).map((i) => (i.folderId === 'none' ? t : { ...t, id: i.key, folderIds: [i.folderId, ...t.folderIds.filter((f) => f !== i.folderId)] })),
+          ),
+    [visibleItems, group, folders, scopeNow],
+  )
   /** The + beside a cluster's name: a new item that already belongs to it (where that means something). */
   const addHere = (key: string): ComposePreset | null =>
     key === 'none' || key === 'all' ? null : group === 'folder' ? { folderIds: [key] } : group === 'person' ? { personIds: [key] } : group === 'kind' ? { kind: key as TaskKind } : null
@@ -627,7 +647,7 @@ export function Pond() {
               plink()
               wobble(id)
               wobble(mid)
-              useStore.getState().assignToGroup(id, live.current.group, k)
+              moveBubble(id, k)
               hotRef.current = k
               setHot(k)
               window.setTimeout(() => {
@@ -682,7 +702,7 @@ export function Pond() {
         hotRef.current = null
         setHot(null)
         if (d?.broken && committed && target && live.current.group !== 'free') {
-          useStore.getState().assignToGroup(id, live.current.group, target)
+          moveBubble(id, target)
         }
         wake()
       },
@@ -749,6 +769,27 @@ export function Pond() {
     [spawnRipple],
   )
   rippleRef.current = rippleFrom
+  // a group's tag was clicked in an item's details: the pond slides to that group (its bubbles filling the view), and a ripple goes out from the item
+  const focusReq = useStore((s) => s.focusReq)
+  const lastFocus = useRef(0)
+  useEffect(() => {
+    if (!focusReq || focusReq.at === lastFocus.current) return
+    lastFocus.current = focusReq.at
+    const { w: W, h: H } = dims.current
+    const cl = live.current.group === 'folder' ? clusters.current.get(focusReq.folderId) : undefined
+    const n = nodes.current.get(focusReq.taskId)
+    const v = view.current
+    if (cl && W && H) {
+      const s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min(W, H) / (2 * (cl.R + 70))))
+      view.current = { scale: s, tx: W / 2 - cl.cx * s, ty: H / 2 - cl.cy * s }
+      applyView(true)
+    } else if (n && W && H) {
+      view.current = { scale: v.scale, tx: W / 2 - n.sim.x * v.scale, ty: H / 2 - n.sim.y * v.scale }
+      applyView(true)
+    }
+    const t = window.setTimeout(() => rippleFrom(focusReq.taskId), 700)
+    return () => window.clearTimeout(t)
+  }, [focusReq, applyView, rippleFrom])
   /** The same, from a spot on the water (a spare bubble that was popped). */
   const rippleAt = useCallback(
     (x: number, y: number, r: number) => {

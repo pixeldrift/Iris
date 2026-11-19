@@ -34,6 +34,8 @@ export const createUiSlice = (set: SetState, get: GetState): UiSlice => ({
         // closing the details of an item that was checked off in them: now it can bloom away
         if (was && was !== selectedId && get().lingering[was]) get().settleLingering(was)
       },
+      focusReq: null,
+      focusGroup: (folderId, taskId) => set({ focusReq: { folderId, taskId, at: Date.now() } }),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
       setNavHidden: (navHidden) => set({ navHidden }),
       search: '',

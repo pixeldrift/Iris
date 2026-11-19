@@ -17,7 +17,9 @@ export const registerSceneAnchor = (fn: ((id: string) => { x: number; y: number 
 const SELECTOR = '[data-lift-id^="task:"], [data-card-id], [data-task-id], [data-task]'
 function idOf(el: Element): string | null {
   const h = el as HTMLElement
-  return h.dataset.liftId?.startsWith('task:') ? h.dataset.liftId.slice(5) : (h.dataset.cardId ?? h.dataset.taskId ?? h.dataset.task ?? null)
+  const raw = h.dataset.liftId?.startsWith('task:') ? h.dataset.liftId.slice(5) : (h.dataset.cardId ?? h.dataset.taskId ?? h.dataset.task ?? null)
+  // (a card on the canvas is one place of an item that may show in several groups: `id@group`)
+  return raw ? raw.split('@')[0] : null
 }
 
 export function taskElementAt(x: number, y: number): { id: string; el: HTMLElement | null } | null {
@@ -34,12 +36,33 @@ export function taskElementAt(x: number, y: number): { id: string; el: HTMLEleme
 
 /** Where on the screen a task is (its element's top right, or the 3D scene's idea of it). */
 export function taskAnchor(id: string, el: HTMLElement | null): { x: number; y: number } | null {
-  const e = el ?? document.querySelector<HTMLElement>(`[data-lift-id="task:${CSS.escape(id)}"], [data-card-id="${CSS.escape(id)}"], [data-task-id="${CSS.escape(id)}"], [data-task="${CSS.escape(id)}"]`)
+  const e = el ?? document.querySelector<HTMLElement>(ELS(id))
   if (e) {
     const r = e.getBoundingClientRect()
     return { x: r.right - 8, y: r.top }
   }
   return sceneAnchor?.(id) ?? null
+}
+
+/** The 3D scene pulses a card (it has no element to ring). */
+let scenePulse: ((id: string) => void) | null = null
+export const registerScenePulse = (fn: ((id: string) => void) | null) => {
+  scenePulse = fn
+}
+const ELS = (id: string) => `[data-lift-id="task:${CSS.escape(id)}"], [data-card-id="${CSS.escape(id)}"], [data-task-id="${CSS.escape(id)}"], [data-task="${CSS.escape(id)}"], [data-task^="${CSS.escape(id)}@"]`
+
+/** Ring a task wherever it is on the screen (every place it shows, in the colour of the group), once. Returns the first element it found. */
+export function pulseTask(id: string, hue: number): HTMLElement | null {
+  const els = [...document.querySelectorAll<HTMLElement>(ELS(id))]
+  for (const el of els) {
+    el.style.setProperty('--tag-h', String(hue < 0 ? 0 : hue))
+    el.classList.remove('tag-landed')
+    void el.offsetWidth
+    el.classList.add('tag-landed')
+    window.setTimeout(() => el.classList.remove('tag-landed'), 1100)
+  }
+  scenePulse?.(id)
+  return els[0] ?? null
 }
 
 /** The look of a target being hovered by a torn-off tag, and of a tag having landed on it (a ring that pulses once, and a small "+ Group" that rises). */
@@ -53,7 +76,7 @@ export function markTarget(el: HTMLElement | null, prev: HTMLElement | null, hue
   return el
 }
 export function confirmTag(id: string, el: HTMLElement | null, label: string, hue: number) {
-  const target = el ?? document.querySelector<HTMLElement>(`[data-lift-id="task:${CSS.escape(id)}"], [data-card-id="${CSS.escape(id)}"], [data-task-id="${CSS.escape(id)}"], [data-task="${CSS.escape(id)}"]`)
+  const target = el ?? document.querySelector<HTMLElement>(ELS(id))
   if (target) {
     target.style.setProperty('--tag-h', String(hue < 0 ? 0 : hue))
     target.classList.remove('tag-landed')

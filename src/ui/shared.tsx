@@ -15,7 +15,7 @@ import { IconBell, IconCheck, IconCheckHint, IconImage, IconLink, IconPerson, Ic
 import { hasProgress, progressOf } from '../core/progress'
 import { habitStreak } from '../core/tasks'
 import { isLink, mapsUrl } from '../core/place'
-import { checkVars, useTaskHue } from './taskColor'
+import { checkVars, useGroupLook, useTaskHue } from './taskColor'
 import * as sound from '../audio/engine'
 import { ExampleHint, useExampleIndex } from './ExampleHint'
 
@@ -234,10 +234,24 @@ export function DueChip({ task, compact = false }: { task: Task; compact?: boole
   )
 }
 
+/** A small dot for each of an item's other groups (up to four, in the order of its tags), in the group's colour. */
+export function GroupDots({ task, className = '' }: { task: Task; className?: string }) {
+  const { extras } = useGroupLook(task)
+  if (!extras.length) return null
+  return (
+    <span className={`group-dots ${className}`} aria-hidden>
+      {extras.map((f) => (
+        <i key={f.id} title={f.name} style={{ ['--dh' as string]: Math.max(0, f.hue), ['--ds' as string]: f.hue < 0 ? 0 : 1 }} />
+      ))}
+    </span>
+  )
+}
+
 /** The task's group as its small flower (the group's own colour and shape); a task in no group gets a plain blossom in its type's colour. */
 export function TaskFlower({ task }: { task: Task }) {
   const folders = useStore((st) => st.folders)
-  const group = folders.find((f) => f.id === task.folderIds[0])
+  // (the group being viewed, when the item is in it; otherwise the one it was given first)
+  const group = useGroupLook(task).main
   return (
     <span className="grid h-5 w-5 shrink-0 place-items-center" aria-hidden>
       <Flower hue={group ? group.hue : bubbleHue(task, folders)} shape={group?.shape ?? 'blossom'} size={16} />

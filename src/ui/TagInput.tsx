@@ -126,6 +126,11 @@ export function TagInput({ taskId }: { taskId: string }) {
       document.body.classList.remove('dragging')
       markTarget(null, target, 0)
       setCarry(null)
+      if (!started && !cancelled && tag.kind === 'folder') {
+        // pressed and released without dragging: bring that group (and this item) into view in whichever view is open
+        useStore.getState().focusGroup(tag.id, task.id)
+        return
+      }
       if (!started || cancelled) return
       // the click that follows a drag must not do what a click on a tag does
       const swallow = (c: Event) => c.stopPropagation()

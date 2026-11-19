@@ -23,6 +23,10 @@ export interface CardInfo {
   image?: HTMLImageElement | null
   imageUrl?: string | null
   tally?: { done: number; total: number } | null
+  /** The hues of its other groups (at most four): the first two tint the card softly, all of them are drawn as little dots. */
+  extras?: number[]
+  /** The item is the one open in the details: it is lit wherever it shows. */
+  selected?: boolean
 }
 
 /** The card itself, and the room around it in the texture for its soft shadow. */
@@ -150,6 +154,12 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     g.restore()
   }
   ellipse(LOOK.glow.at, LOOK.glow.stop, lhsla(lk.h, lk.fill.s, lk.fill.l, lk.fill.a))
+  // the other groups, as softer glows further along the card (a grey one tints nothing)
+  ;(c.extras ?? []).slice(0, 2).forEach((eh, i) => {
+    if (eh < 0) return
+    const lx = look(eh, c.urgency)
+    ellipse(i === 0 ? [0.84, 1.08] : [0.2, 1.08], 0.36, lhsla(lx.h, lx.fill.s, lx.fill.l, lx.fill.a * 0.85))
+  })
   ellipse(LOOK.shine.at, LOOK.shine.stop, `rgba(255,255,255,${LOOK.shine.alpha})`)
   g.restore()
   // the 1px border in the group's colour. The card is drawn about 4x the size it shows at, so the line is thinner than 1px of texture and
@@ -158,6 +168,17 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
   g.lineWidth = 2.5
   g.strokeStyle = lhsla(lk.h, lk.outline.s, lk.outline.l - 4, 1)
   g.stroke()
+  if (c.selected) {
+    // lit: a glowing ring in its colour, outside the card's own outline
+    g.save()
+    g.shadowColor = lhsla(lk.h, 85, 58, 0.95)
+    g.shadowBlur = 22
+    roundRect(g, x, y, w, h, R)
+    g.lineWidth = 7
+    g.strokeStyle = lhsla(lk.h, 75, 52, 0.85)
+    g.stroke()
+    g.restore()
+  }
   if (c.image) {
     g.save()
     roundRect(g, x, y, w, h, R)
@@ -267,6 +288,28 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardInfo, scale = 1) {
     roundRect(g, tx, y + h - 14, (bw * c.progress) / 100, 6, 3)
     g.fillStyle = hsl(c.hue, 60, 62, 1)
     g.fill()
+  }
+  // a little dot for each of its other groups (up to four), bottom right
+  const extra = (c.extras ?? []).slice(0, 4)
+  if (extra.length) {
+    const right = x + w - 26 - (c.tally && c.tally.done < c.tally.total && !c.done ? 56 : 0)
+    extra.forEach((eh, i) => {
+      const cx2 = right - i * 17
+      const cy2 = y + h - 21
+      g.save()
+      g.shadowColor = 'rgba(40,20,70,0.35)'
+      g.shadowBlur = 3
+      g.shadowOffsetY = 1.5
+      g.beginPath()
+      g.arc(cx2, cy2, 8.5, 0, Math.PI * 2)
+      g.fillStyle = 'rgba(255,255,255,0.96)'
+      g.fill()
+      g.restore()
+      g.beginPath()
+      g.arc(cx2, cy2, 6.2, 0, Math.PI * 2)
+      g.fillStyle = eh < 0 ? 'hsl(0,0%,66%)' : hsl(eh, 62, 62, 1)
+      g.fill()
+    })
   }
   if (c.tally && c.tally.done < c.tally.total && !c.done) {
     const bw = 48

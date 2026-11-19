@@ -2,9 +2,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ZoomControl } from '../ui/ZoomControl'
 import { useStore } from '../state/store'
 import { popupWasOpen } from '../ui/popupGuard'
-import { colorVars } from '../ui/taskColor'
+import { colorVars, useExtraHues } from '../ui/taskColor'
 import { dueInfo } from '../core/rowModel'
-import { DoneButton, DueChip, ItemProgress, TallyIncrement } from '../ui/shared'
+import { DoneButton, DueChip, GroupDots, ItemProgress, TallyIncrement } from '../ui/shared'
 import { hasProgress, progressOf } from '../core/progress'
 import { isDoneNow } from '../core/recurrence'
 import { Flower } from '../ui/Flower'
@@ -44,24 +44,27 @@ type Carry = { kind: 'task' | 'group'; id: string; x: number; y: number; dx: num
  * date chip), so it ticks, reads and colours as they do. Dragging it is the canvas's business (the row carries `data-task`).
  */
 function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
-  const task = useStore((s) => s.tasks.find((x) => x.id === t.id))
+  const task = useStore((s) => s.tasks.find((x) => x.id === t.taskId))
+  const lit = useStore((s) => s.selectedId === t.taskId)
   const select = useStore((s) => s.select)
+  const extras = useExtraHues(task ?? { folderIds: [] })
   if (!task) return null
   // every card is the same height. The check and the title are pinned at the top; the chips (a date, a +1) sit at the bottom, and a card with
   // none lets the title wrap onto the room that is left
-  const chips = !!dueInfo(task) || !!task.tally
+  const chips = !!dueInfo(task) || !!task.tally || extras.length > 0
   const bar = hasProgress(task.kind) && !isDoneNow(task) && progressOf(task) > 0
   return (
-    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5), ...(task.image ? { ['--photo' as string]: `url("${task.image}")` } : {}), ...extra, height: ROW, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className={`tint ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : 'tint-flat'} relative flex cursor-grab items-start gap-2.5 rounded-2xl px-2.5 pb-2.5 pt-1.5`}>
+    <div data-task={t.id} style={{ ...colorVars(t.hue, t.urgency ?? 0.5, extras), ...(task.image ? { ['--photo' as string]: `url("${task.image}")` } : {}), ...extra, height: ROW, opacity: t.done ? 0.55 : (extra?.opacity ?? 1) }} className={`tint ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : 'tint-flat'} relative flex cursor-grab items-start gap-2.5 rounded-2xl px-2.5 pb-2.5 pt-1.5 ${lit ? 'ring-2 ring-lilac-500 ring-offset-1' : ''}`}>
       <DoneButton task={task} size={22} />
       <div className="flex h-full min-w-0 flex-1 flex-col">
-        <button type="button" onClick={() => select(t.id)} aria-label={t.title || 'Untitled'} className={`block min-h-5 w-full cursor-grab text-left text-sm leading-5 ${chips ? 'truncate' : 'line-clamp-2'} ${t.done ? 'text-ink-faint line-through' : ''}`}>
+        <button type="button" onClick={() => select(t.taskId)} aria-label={t.title || 'Untitled'} className={`block min-h-5 w-full cursor-grab text-left text-sm leading-5 ${chips ? 'truncate' : 'line-clamp-2'} ${t.done ? 'text-ink-faint line-through' : ''}`}>
           {t.title || (task.image ? '' : 'Untitled')}
         </button>
-        {chips && (
+        {(chips || extras.length > 0) && (
           <div className="mt-auto flex min-w-0 items-center gap-1.5 overflow-hidden">
             {task.tally && <TallyIncrement task={task} compact />}
             <DueChip task={task} compact />
+            <GroupDots task={task} className="ml-auto" />
           </div>
         )}
       </div>
@@ -222,6 +225,17 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
     el.addEventListener('wheel', stop, { passive: false })
     return () => el.removeEventListener('wheel', stop)
   }, [])
+
+  // a group's tag was clicked in an item's details: the canvas slides to that group (and the item is ringed once it is there)
+  const focusReq = useStore((s) => s.focusReq)
+  const lastFocus = useRef(0)
+  useEffect(() => {
+    if (!focusReq || focusReq.at === lastFocus.current) return
+    lastFocus.current = focusReq.at
+    const own = places.has(focusReq.folderId) ? focusReq.folderId : content.tasks.find((t) => t.id === focusReq.taskId)?.cluster
+    if (own && places.has(own)) focus(own)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusReq])
 
   const zoomAt = (f: number, cx: number, cy: number) =>
     setV((s) => {

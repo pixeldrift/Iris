@@ -3,10 +3,12 @@ import { isDoneNow } from '../../core/recurrence'
 import { satOf } from '../../core/color'
 import { plannedDate, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
+import { realId } from '../../core/instances'
 import { useStore } from '../../state/store'
 import { BubbleChrome } from '../BubbleChrome'
 import { TitleFit } from '../TitleFit'
-import { DueChip } from '../shared'
+import { DueChip, GroupDots } from '../shared'
+import { colorVars, useExtraHues } from '../taskColor'
 import { useFloatDrag } from '../useFloatDrag'
 import { useLeaveClass } from '../useVisible'
 import { bubbleHue } from './hue'
@@ -19,21 +21,29 @@ export function motion(id: string) {
   return { cls: (['drift-a', 'drift-b', 'drift-c'] as const)[h % 3], dur: 9 + (h % 8), delay: -(h % 13) }
 }
 
-export const Lily = memo(function Lily({ task, r, api, start, match }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null }) {
+export const Lily = memo(function Lily({ task: placed, r, api, start, match }: { task: Task; r: number; api: PondApi; start: { x: number; y: number }; match: boolean | null }) {
+  // `placed` is this bubble: its own key (an item in several groups has a bubble in each, `id@group`), with the group it sits in first. `task` is the item
+  // itself (what is ticked, opened, deleted), wearing this bubble's group first.
+  const real = useStore((s) => s.tasks.find((x) => x.id === realId(placed.id)))
+  const task = useMemo(() => (real ? { ...real, folderIds: placed.folderIds } : placed), [real, placed])
+  const key = placed.id
+  const lit = useStore((s) => s.selectedId === task.id)
   const update = useStore((s) => s.updateTask)
   const drift = useStore((s) => s.settings.drift)
   const folders = useStore((s) => s.folders)
   const leave = useLeaveClass(task)
-  const m = useMemo(() => motion(task.id), [task.id])
+  const m = useMemo(() => motion(key), [key])
   const fresh = useRef(Date.now() - task.createdAt < 1500).current
-  const hue = useMemo(() => bubbleHue(task, folders), [folders, task])
+  const scope = useStore((s) => s.scope)
+  const hue = useMemo(() => bubbleHue(task, folders, scope), [folders, task, scope])
+  const extras = useExtraHues(task)
 
   const outer = useRef<HTMLDivElement>(null)
   const jig = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    api.register(task.id, outer.current, jig.current)
-    return () => api.register(task.id, null, null)
-  }, [api, task.id])
+    api.register(key, outer.current, jig.current)
+    return () => api.register(key, null, null)
+  }, [api, key])
 
   const toClient = useCallback(
     (fx: number, fy: number) => {
@@ -57,15 +67,15 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
   const { onPointerDown } = useFloatDrag(
     task,
     api.container,
-    () => api.getFrac(task.id),
+    () => api.getFrac(key),
     (x, y) => api.isFree() && update(task.id, { x, y }),
     {
       toClient,
       fromClient,
       clamp: { minX: -3, maxX: 4, minY: -3, maxY: 4 },
-      onGrab: () => api.grab(task.id),
-      onDrag: (fx, fy) => api.drag(task.id, fx, fy),
-      onRelease: (committed) => api.release(task.id, committed),
+      onGrab: () => api.grab(key),
+      onDrag: (fx, fy) => api.drag(key, fx, fy),
+      onRelease: (committed) => api.release(key, committed),
     },
   )
 
@@ -76,7 +86,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
     <div
       ref={outer}
       data-node
-      data-task-id={task.id}
+      data-task-id={key}
       className="absolute left-0 top-0 will-change-transform"
       style={{ width: r * 2, height: r * 2, transform: `translate(${start.x - r}px, ${start.y - r}px)` }}
     >
@@ -96,7 +106,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
                 if (mode === 'off') return
                 e.stopPropagation()
                 if (mode === 'delete') {
-                  api.ripple(task.id)
+                  api.ripple(key)
                   useStore.getState().deleteTask(task.id)
                 }
               }}
@@ -106,9 +116,9 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
               onKeyDown={(e) => e.key === 'Enter' && useStore.getState().select(task.id)}
               aria-label={task.title || (task.image ? 'Picture' : undefined)}
               className={`pad ${task.image ? `pad-photo ${task.imageTint === false ? 'untinted' : ''}` : ''} group relative flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center rounded-full px-3 pb-9 pt-6 text-center outline-none transition-[opacity,transform,filter] duration-500 hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-lilac-500 ${
-                done ? 'opacity-55 saturate-50' : ''
+                lit ? 'ring-2 ring-lilac-500 ring-offset-2 ' : ''}${done ? 'opacity-55 saturate-50' : ''
               } ${match === false ? 'opacity-[0.22] saturate-[0.4]' : match ? 'search-hit' : ''}`}
-              style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), ...(task.image ? { '--photo': `url("${task.image}")` } : {}) } as React.CSSProperties}
+              style={{ '--h': Math.max(0, hue), '--s': satOf(hue), '--u': effectiveUrgency(task), ...colorVars(null, effectiveUrgency(task), extras), ...(task.image ? { '--photo': `url("${task.image}")` } : {}) } as React.CSSProperties}
             >
               {(task.title || !task.image) && <TitleFit text={task.title || 'Untitled'} font={`${font}px`} lineHeight={1.15} done={done} watch={r} />}
               {r >= 58 && plannedDate(task) && (
@@ -117,6 +127,7 @@ export const Lily = memo(function Lily({ task, r, api, start, match }: { task: T
                 </span>
               )}
               <BubbleChrome task={task} r={r} hideImageOnlyCheckbox />
+              <GroupDots task={task} className="pointer-events-none absolute bottom-[9%] left-1/2 -translate-x-1/2" />
             </div>
           </div>
         </div>

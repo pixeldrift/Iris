@@ -11,7 +11,8 @@ import { SegmentedToggle } from '../ui/SegmentedToggle'
 import { Popover } from '../ui/Popover'
 import { IconCube, IconFrameAll, IconLevel, IconSliders } from '../ui/icons'
 import { Tip } from '../ui/Tip'
-import { registerSceneAnchor, registerSceneTaskAt } from '../ui/taskAt'
+import { realId } from '../core/instances'
+import { registerSceneAnchor, registerScenePulse, registerSceneTaskAt } from '../ui/taskAt'
 import { detectCapabilities } from './capabilities'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { buildContent, NONE, sameLayout } from './content'
@@ -44,7 +45,8 @@ export default function SpatialView() {
   const allTasks = useStore((s) => s.tasks)
   const folders = useStore((s) => s.folders)
 
-  const content = useMemo(() => buildContent(visible, allTasks, folders, stored), [visible, allTasks, folders, stored])
+  const scope = useStore((s) => s.scope)
+  const content = useMemo(() => buildContent(visible, allTasks, folders, stored, undefined, scope), [visible, allTasks, folders, stored, scope])
   const contentKey = useMemo(() => `${content.clusters.map((c) => c.id).join('|')}::${content.tasks.map((t) => t.id).join('|')}`, [content.clusters, content.tasks])
   // a place worked out for something new is kept, so it is the same next time
   useEffect(() => {
@@ -150,7 +152,7 @@ export default function SpatialView() {
   const arrangeAndFrame = () => {
     const el = host.current
     const aspect = el && el.clientHeight > 0 ? el.clientWidth / el.clientHeight : 1
-    setLayout(buildContent(visible, allTasks, folders, stored, aspect).layout)
+    setLayout(buildContent(visible, allTasks, folders, stored, aspect, scope).layout)
     window.setTimeout(() => scene.current?.frameAll(), 160) // (after the scene has taken the new places)
   }
 
@@ -292,9 +294,11 @@ export default function SpatialView() {
     let sc: SpatialScene
     try {
       sc = new SpatialScene(host.current, track.current, {
-        onOpen: (id) => select(id),
-        onToggle: (id) => toggleDone(id),
-        onIncrement: (id) => {
+        // (what a card says is its own key: an item shown in several groups has a card in each, all of them the one item)
+        onOpen: (id) => select(realId(id)),
+        onToggle: (id) => toggleDone(realId(id)),
+        onIncrement: (rawId) => {
+          const id = realId(rawId)
           const task = useStore.getState().tasks.find((t) => t.id === id)
           if (!task?.tally || task.status === 'done' || task.tally.done >= task.tally.total) return
           setTally(id, { ...task.tally, done: task.tally.done + 1 })
@@ -325,7 +329,11 @@ export default function SpatialView() {
       return
     }
     scene.current = sc
-    registerSceneTaskAt((x, y) => sc.taskAt(x, y))
+    registerSceneTaskAt((x, y) => {
+      const k = sc.taskAt(x, y)
+      return k ? realId(k) : null
+    })
+    registerScenePulse((id) => sc.pulseTask(id))
     registerSceneAnchor((id) => {
       const p = sc.screenPoint('task', id)
       return p ? { x: p.x + 40, y: p.y - 14 } : null
@@ -351,6 +359,7 @@ export default function SpatialView() {
     return () => {
       document.removeEventListener('visibilitychange', onVis)
       registerSceneTaskAt(null)
+      registerScenePulse(null)
       registerSceneAnchor(null)
       sc.dispose() // (also lets go of the camera and the sky)
       scene.current = null
@@ -403,6 +412,21 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setContent(shownContent)
   }, [shownContent])
+  // the item whose details are open is lit wherever it shows (in every group it is in)
+  const selectedId = useStore((s) => s.selectedId)
+  useEffect(() => {
+    scene.current?.setSelected(selectedId)
+  }, [selectedId, phase, simple, shownContent])
+  // a group's tag was clicked in an item's details: the camera turns to that group
+  const focusReq = useStore((s) => s.focusReq)
+  const lastFocus = useRef(0)
+  useEffect(() => {
+    if (!focusReq || focusReq.at === lastFocus.current) return
+    lastFocus.current = focusReq.at
+    const own = shownContent.clusters.some((c) => c.id === focusReq.folderId) ? focusReq.folderId : shownContent.tasks.find((t) => t.id === focusReq.taskId)?.cluster
+    if (own) scene.current?.focusCluster(own)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusReq])
   useEffect(() => {
     scene.current?.setLinks(links)
   }, [links, phase, simple])
@@ -738,10 +762,10 @@ export default function SpatialView() {
           <ul className="sr-only" aria-label="Tasks in your workspace">
             {content.tasks.map((t) => (
               <li key={t.id}>
-                <button type="button" onClick={() => select(t.id)}>
+                <button type="button" onClick={() => select(t.taskId)}>
                   {t.title || 'Untitled'}
                 </button>
-                <button type="button" onClick={() => toggleDone(t.id)}>
+                <button type="button" onClick={() => toggleDone(t.taskId)}>
                   {t.done ? 'Mark not completed' : 'Mark completed'}: {t.title}
                 </button>
               </li>

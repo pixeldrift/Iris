@@ -3,6 +3,8 @@ import { addDays, dayHint, dayLabel, diffDays, fromISO, MONTHS, monthGrid, ordin
 import { fuzzyRank, fuzzyScore, sameName } from './fuzzy'
 import { canReparent, descendantIds, pathLabel, placeInTree } from './folders'
 import { setDayEnds, graceToday } from './dayend'
+import { groupLook, MAX_DOTS } from './looks'
+import { groupOfKey, instancesOf, realId } from './instances'
 import { completedDateMatches, filterTasks, isLate, isOverdue, scopeMatcher, formatTime, habitStreak, sortTasks, urgencyForDue, weightOf } from './tasks'
 import { seedData } from './seed'
 import { alertLabel, dueAlerts, dueReminders, eventStart, eventStartsFor, formatReminder, hasPendingReminder, reminderPresets } from './reminders'
@@ -1242,5 +1244,55 @@ describe('a night owl\'s day (grace) and the Overdue filter', () => {
     const only = (ts: ReturnType<typeof mk>[]) => ts.filter(scopeMatcher({ type: 'overdue' }, [])).map((t) => t.id)
     expect(only([late, ended, coming, done, undated, habit])).toEqual(['a', 'b'])
     expect([late, ended, coming, done, undated, habit].filter(isLate).length).toBe(2)
+  })
+})
+
+describe('the colours an item in several groups wears', () => {
+  const folders = [
+    { id: 'a', name: 'A', parentId: null, hue: 10, shape: 'blossom', sort: 0, createdAt: 0 },
+    { id: 'b', name: 'B', parentId: null, hue: 120, shape: 'blossom', sort: 1, createdAt: 0 },
+    { id: 'c', name: 'C', parentId: 'b', hue: 220, shape: 'blossom', sort: 2, createdAt: 0 },
+    { id: 'd', name: 'D', parentId: null, hue: 300, shape: 'blossom', sort: 3, createdAt: 0 },
+  ] as never[]
+  const t = { folderIds: ['a', 'b', 'c', 'd'], personIds: [] as string[], tagOrder: ['a', 'd', 'c', 'b'] }
+  it('the main colour is the group given first; the others follow in tag order', () => {
+    const l = groupLook(t, folders)
+    expect(l.main?.id).toBe('a')
+    expect(l.extras.map((f) => f.id)).toEqual(['d', 'c', 'b'])
+    // reordering the tags only reorders the extras
+    expect(groupLook({ ...t, tagOrder: ['d', 'b', 'a', 'c'] }, folders).main?.id).toBe('a')
+  })
+  it('a group being viewed comes first for the items in it, and the one given first becomes an extra', () => {
+    const l = groupLook(t, folders, { type: 'folder', id: 'd' })
+    expect(l.main?.id).toBe('d')
+    expect(l.extras.map((f) => f.id)).toEqual(['a', 'c', 'b'])
+    // viewing a group whose subgroup the item is in: the subgroup leads
+    expect(groupLook({ folderIds: ['a', 'c'], personIds: [], tagOrder: [] }, folders, { type: 'folder', id: 'b' }).main?.id).toBe('c')
+    // an item not in the viewed group is unchanged
+    expect(groupLook({ folderIds: ['a'], personIds: [], tagOrder: [] }, folders, { type: 'folder', id: 'd' }).main?.id).toBe('a')
+  })
+  it('no groups, no colours; at most four others are listed', () => {
+    expect(groupLook({ folderIds: [], personIds: [], tagOrder: [] }, folders)).toEqual({ main: null, extras: [] })
+    const many = Array.from({ length: 7 }, (_, i) => ({ id: `g${i}`, name: `G${i}`, parentId: null, hue: i * 30, shape: 'blossom', sort: i, createdAt: 0 })) as never[]
+    expect(groupLook({ folderIds: many.map((f: { id: string }) => f.id), personIds: [], tagOrder: [] }, many).extras).toHaveLength(MAX_DOTS)
+  })
+})
+
+describe('where an item in several groups shows', () => {
+  const folders = [
+    { id: 'a', name: 'A', parentId: null, hue: 10, shape: 'blossom', sort: 0, createdAt: 0 },
+    { id: 'b', name: 'B', parentId: 'a', hue: 120, shape: 'blossom', sort: 1, createdAt: 0 },
+    { id: 'c', name: 'C', parentId: null, hue: 220, shape: 'blossom', sort: 2, createdAt: 0 },
+  ] as never[]
+  it('has an instance in each group, the first keyed by the item itself', () => {
+    expect(instancesOf({ id: 't', folderIds: ['a', 'c'] }, folders)).toEqual([{ key: 't', folderId: 'a' }, { key: 't@c', folderId: 'c' }])
+    expect(instancesOf({ id: 't', folderIds: [] }, folders)).toEqual([{ key: 't', folderId: 'none' }])
+    expect(realId('t@c')).toBe('t')
+    expect(groupOfKey('t@c')).toBe('c')
+    expect(groupOfKey('t')).toBeUndefined()
+  })
+  it('while a group is viewed, only the places inside it show', () => {
+    expect(instancesOf({ id: 't', folderIds: ['c', 'b'] }, folders, { type: 'folder', id: 'a' })).toEqual([{ key: 't@b', folderId: 'b' }])
+    expect(instancesOf({ id: 't', folderIds: ['c', 'b'] }, folders, { type: 'all' }).length).toBe(2)
   })
 })

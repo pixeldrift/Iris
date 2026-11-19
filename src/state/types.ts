@@ -107,6 +107,9 @@ export interface UiSlice {
   setPlayGate: (g: PlayGate) => void
   setView: (v: ViewId) => void
   select: (id: string | null) => void
+  /** Asked for by clicking a group's tag in an item's details: every view brings that group (and the item) into view and highlights it. Not saved. */
+  focusReq: { folderId: string; taskId: string; at: number } | null
+  focusGroup: (folderId: string, taskId: string) => void
   setSidebar: (open: boolean) => void
   /** What is typed in the search box (not saved). Views filter or highlight by it. */
   search: string
@@ -148,6 +151,8 @@ export interface TasksSlice {
   /** Move unfinished tasks planned for past days to their next available day. */
   rollover: () => void
   /** Dragging a bubble into another pond cluster re-tags it to match. */
+  /** An item's membership of one group moves to another (its other groups are untouched). */
+  moveMembership: (taskId: string, from: string, to: string) => void
   assignToGroup: (taskId: string, mode: PondGroup, key: string) => void
   /** Throw away a task that was only being set up in the quick-add box. */
   discardDraft: (id: string) => void

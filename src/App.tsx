@@ -21,6 +21,7 @@ import { Sidebar } from './ui/Sidebar'
 import { TaskDetail } from './ui/TaskDetail'
 import { TopBar } from './ui/TopBar'
 import { OverdueBar } from './ui/OverdueBar'
+import { FocusHost } from './ui/FocusHost'
 import { Board } from './ui/views/Board'
 import { CalendarView } from './ui/views/Calendar'
 import { ListView } from './ui/views/ListView'
@@ -152,6 +153,7 @@ export default function App() {
       <ContactPromptHost />
       <ReminderHost />
       <NoticesHost />
+      <FocusHost />
       <LandscapeInput />
       <AccountHost />
       <SettingsDialog />

@@ -12,10 +12,10 @@ import { useDnd, useDropTarget } from '../dnd'
 import { IconChevronDown, IconClose, IconPencil, IconPlus } from '../icons'
 import { Popover } from '../Popover'
 import { ScrollFade } from '../ScrollFade'
-import { colorVars, useTaskHue } from '../taskColor'
+import { colorVars, useExtraHues, useTaskHue } from '../taskColor'
 import { useIsMobile } from '../useMedia'
 import { useLeaveClass, useVisibleTasks } from '../useVisible'
-import { CountBubble, Dim, DoneButton, DueChip, FolderChips, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, TallyIncrement, useTaskDrag } from '../shared'
+import { CountBubble, Dim, DoneButton, DueChip, FolderChips, GroupDots, ItemBadges, GripDots, GripHandle, PlaceChip, SlotLine, TallyIncrement, useTaskDrag } from '../shared'
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -24,6 +24,7 @@ function Card({ task }: { task: Task }) {
   const onPointerDown = useTaskDrag(task, el)
   const leave = useLeaveClass(task, true)
   const hue = useTaskHue(task)
+  const extras = useExtraHues(task)
   return (
     <Dim id={task.id}>
       <div
@@ -31,12 +32,13 @@ function Card({ task }: { task: Task }) {
         data-lift-id={`task:${task.id}`}
         {...rowKeys(() => useStore.getState().select(task.id))}
         onPointerDown={(e) => onPointerDown(e)}
-        style={colorVars(hue, effectiveUrgency(task))}
+        style={colorVars(hue, effectiveUrgency(task), extras)}
         className={`tint lift-on-press rise-in group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-lilac-400 rounded-2xl px-2.5 py-2 transition hover:-translate-y-0.5 ${leave}`}
       >
         <div className="flex items-start gap-2 pr-5">
           <DoneButton task={task} size={20} />
           <p className={`min-w-0 flex-1 text-[0.92rem] leading-snug ${isDoneNow(task) ? 'text-ink-faint line-through' : ''}`}>{task.title || 'Untitled'}</p>
+          <GroupDots task={task} className="mt-1.5" />
           <TallyIncrement task={task} compact />
         </div>
         {/* the handle sits at the right edge, level with the checkbox */}

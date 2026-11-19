@@ -7,6 +7,7 @@ import { addDays, diffDays, fromISO, MONTHS, today } from '../../core/dates'
 import { formatClock } from '../../core/locale'
 import { spanOf, effectiveUrgency } from '../../core/tasks'
 import type { Task } from '../../core/types'
+import { groupLook } from '../../core/looks'
 import { useStore } from '../../state/store'
 import { IconChevron } from '../icons'
 import { Tip } from '../Tip'
@@ -269,7 +270,8 @@ export function Timeline() {
       for (let m = step; m < DAY_MIN; m += step) hourMarks.push({ key: `${d}:${m}`, x: d * dayW + (m / DAY_MIN) * dayW, label: formatClock(Math.floor(m / 60), m % 60) })
   }
 
-  const hueOf = (t: Task) => folders.find((f) => f.id === t.folderIds[0])?.hue ?? 285
+  const scopeNow = useStore((s) => s.scope)
+  const hueOf = (t: Task) => groupLook(t, folders, scopeNow).main?.hue ?? 285
   const nav = 'grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/60'
   const lines = [`linear-gradient(90deg, rgb(var(--lr-300)/.22) 1px, transparent 1px)`]
   const sizes = [`${dayW}px 100%`]

@@ -253,6 +253,12 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           get().showToast(`Carried ${moves.size} unfinished ${moves.size === 1 ? 'task' : 'tasks'} forward`)
         }
       },
+      moveMembership: (taskId, from, to) => {
+        const t = get().tasks.find((x) => x.id === taskId)
+        if (!t || from === to) return
+        const swap = (list: string[]) => [...new Set(list.map((x) => (x === from ? to : x)))]
+        get().updateTask(taskId, { folderIds: swap(t.folderIds), tagOrder: swap(tagsOf(t).map((x) => x.id)) })
+      },
       assignToGroup: (taskId, mode, key) => {
         const s = get()
         const t = s.tasks.find((x) => x.id === taskId)

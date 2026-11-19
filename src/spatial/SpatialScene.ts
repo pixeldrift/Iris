@@ -28,6 +28,7 @@ import {
 } from 'three'
 import { edgeDots } from '../core/edges'
 import { popupWasOpen } from '../ui/popupGuard'
+import { realId } from '../core/instances'
 import { CARD_PLANE, HUB_PX, cardImage, drawCard, drawHub, drawPlate, type CardInfo, type HubInfo } from './cards'
 import type { EnvironmentProvider } from './environment'
 import { descendantsOf } from '../core/tree'
@@ -42,7 +43,10 @@ export interface SceneCluster extends HubInfo {
   parent: string | null
 }
 export interface SceneTask extends CardInfo {
+  /** This card's own key: the item's id for the place it shows in its first group, `id@group` for each other place. */
   id: string
+  /** The item itself (what a tap opens, ticks, or tags). */
+  taskId: string
   cluster: string
 }
 export interface SceneContent {
@@ -337,7 +341,7 @@ export class SpatialScene {
     // Keep full-resolution card textures: images are also opened full-screen, so shrinking the source texture makes them visibly chunky.
     for (const t of c.tasks) {
       seen.add(t.id)
-      const key = `${t.title}|${t.hue}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${t.imageUrl ?? ''}|${t.tally?.done ?? ''}/${t.tally?.total ?? ''}`
+      const key = `${this.selectedReal === t.taskId ? 's' : ''}|${t.title}|${t.hue}|${(t.extras ?? []).join(",")}|${t.done}|${t.due ?? ''}|${t.progress ?? ''}|${t.imageUrl ?? ''}|${t.tally?.done ?? ''}/${t.tally?.total ?? ''}`
       let n = this.tasks.get(t.id)
       if (!n) {
         const cv = document.createElement('canvas')
@@ -356,7 +360,7 @@ export class SpatialScene {
       }
       if (n.key !== key) {
         const image = cardImage(t.imageUrl, () => { n!.key = ''; this.setContent(this.content) })
-        drawCard(n.tex.image as HTMLCanvasElement, { ...t, image }, 1)
+        drawCard(n.tex.image as HTMLCanvasElement, { ...t, image, selected: this.selectedReal === t.taskId }, 1)
         n.tex.needsUpdate = true
         n.key = key
       }
@@ -476,7 +480,7 @@ export class SpatialScene {
         const [x, y, z] = taskWorld(tv, cp)
         n.mesh.position.set(x, y, z)
         n.mesh.rotation.set(cp.rx ?? 0, cp.ry, tp.rot ?? 0)
-        n.mesh.scale.setScalar(cp.scale ?? 1)
+        n.mesh.scale.setScalar((cp.scale ?? 1) * this.bump(t.id))
         n.mesh.renderOrder = 2
       }
     }
@@ -735,6 +739,26 @@ export class SpatialScene {
     this.focusTween = { t0: performance.now(), from: [t.yaw, t.pitch], to: [yaw - this.tracking.sensorYaw(), pitch] }
     this.events.onFocus?.(id)
   }
+  private selectedReal: string | null = null
+  /** The item open in the details is lit on every card it has. */
+  setSelected(id: string | null) {
+    if (id === this.selectedReal) return
+    this.selectedReal = id
+    this.setContent(this.content)
+  }
+  /** A card swells once and settles (a group's tag was clicked in its details). */
+  pulseTask(id: string) {
+    this.pulse = { id, t0: performance.now() }
+    this.dirty = true
+  }
+  private pulse?: { id: string; t0: number }
+  private bump(id: string): number {
+    const p = this.pulse
+    if (!p || p.id !== realId(id)) return 1
+    const k = (performance.now() - p.t0) / 900
+    if (k >= 1) return 1
+    return 1 + 0.18 * Math.sin(Math.PI * k)
+  }
   /** Turn to a loose card. */
   focusTask(id: string) {
     if (this.wall) return
@@ -858,7 +882,7 @@ export class SpatialScene {
 
   /** Where something is on the screen (client coordinates), so a test can press on it. Only used by the end-to-end tests. */
   screenPoint(kind: 'task' | 'hub' | 'plate', id: string): { x: number; y: number } | null {
-    const mesh = (kind === 'task' ? this.tasks.get(id)?.mesh : kind === 'hub' ? this.hubs.get(id)?.mesh : this.plates.get(id))
+    const mesh = (kind === 'task' ? (this.tasks.get(id) ?? [...this.tasks].find(([k]) => k.startsWith(`${id}@`))?.[1])?.mesh : kind === 'hub' ? this.hubs.get(id)?.mesh : this.plates.get(id))
     if (!mesh) return null
     const p = mesh.position.clone().project(this.camera)
     const r = this.renderer.domElement.getBoundingClientRect()
@@ -993,6 +1017,11 @@ export class SpatialScene {
       this.place()
     }
     if (this.rz || this.slotAlpha > 0 || this.slotTarget()) this.stepResize(now)
+    if (this.pulse) {
+      if (now - this.pulse.t0 > 950) this.pulse = undefined
+      this.place()
+      this.dirty = true
+    }
     if (this.rig) this.dirty = true // (the camera picture moves all the time: draw every frame)
     if (this.bend) {
       const b = this.bend
