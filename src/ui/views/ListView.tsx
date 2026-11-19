@@ -351,7 +351,7 @@ export function ListView() {
                     className={`transition-transform duration-200 ${isFolded ? '' : 'rotate-90'}`}
                     fill="currentColor"
                   >
-                    <path d="M6 2.5 30 12 6 21.5Z" />
+                    <path d="M6 2.5 24 12 6 21.5Z" />
                   </svg>
                 </button>
                 {group && <Flower hue={group.hue} shape={group.shape} size={18} />}
