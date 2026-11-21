@@ -29,7 +29,7 @@ test.describe('the list sorted by group', () => {
     const prev = (await page.locator('[data-card-id]').first().boundingBox())!
     expect(prev).toBeTruthy()
     const lifeBox = (await life.boundingBox())!
-    const above = await life.evaluate((el) => (el.previousElementSibling as HTMLElement | null)?.getBoundingClientRect().bottom ?? 0)
+    const above = await life.evaluate((el) => (el.parentElement?.previousElementSibling as HTMLElement | null)?.getBoundingClientRect().bottom ?? 0)
     expect(lifeBox.y - above).toBeGreaterThanOrEqual(16)
   })
 
@@ -48,4 +48,39 @@ test.describe('the list sorted by group', () => {
     await page.getByRole('button', { name: 'Show Life' }).click()
     await expect(items().first()).toBeVisible()
   })
+
+  test('the twirl sits over the checkboxes and the flowers share one column', async ({ page }) => {
+    await byGroup(page)
+    const mid = async (l: ReturnType<typeof page.locator>) => {
+      const b = (await l.first().boundingBox())!
+      return Math.round(b.x + b.width / 2)
+    }
+    const twirl = await mid(page.locator('[data-group-head] button').first())
+    const check = await mid(page.locator('[data-card-id] .well-circle').first())
+    expect(Math.abs(twirl - check)).toBeLessThanOrEqual(1)
+    const headFlower = await mid(page.locator('[data-group-head] span.grid').first())
+    const rowFlower = await mid(page.locator('[data-card-id] span.grid.h-5.w-5').first())
+    expect(Math.abs(headFlower - rowFlower)).toBeLessThanOrEqual(1)
+  })
+
+  test('folding slides the rows shut and only what is below them moves', async ({ page }) => {
+    await byGroup(page)
+    const above = page.locator('[data-card-id]').first()
+    const top = (await above.boundingBox())!.y
+    await page.getByRole('button', { name: 'Fold Life' }).click()
+    await page.waitForTimeout(120)
+    expect(Math.abs((await above.boundingBox())!.y - top)).toBeLessThanOrEqual(1)
+    await expect(page.locator('[data-card-id]').filter({ hasText: 'Call grandma' })).toHaveCount(0)
+  })
+})
+
+test('the sort menu shows a faint 2nd beside the others, and lights the one chosen', async ({ page }) => {
+  await byGroup(page)
+  await page.getByRole('button', { name: /▾/ }).first().click()
+  const badges = page.getByRole('button', { name: /second sort|first sort/ })
+  await expect(badges.filter({ hasText: '1st' })).toHaveCount(1)
+  const faint = badges.filter({ hasText: '2nd' })
+  expect(await faint.count()).toBeGreaterThan(2)
+  await faint.first().click()
+  await expect(page.getByRole('button', { name: /^Remove .* as the second sort/ })).toHaveCount(1)
 })
