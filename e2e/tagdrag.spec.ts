@@ -142,6 +142,36 @@ test.describe('reordering the entries of a list', () => {
     await page.keyboard.press('ArrowUp')
     await expect.poll(async () => ((await taskNamed(page, 'Groceries'))?.items ?? []).map((i: { text: string }) => i.text)).toEqual(['Milk', 'Eggs', 'Bread'])
   })
+
+  test('the style toggle sits at the left with no label, and an entry can be nested by dragging sideways or with the arrow keys', async ({ page }) => {
+    await listTask(page)
+    await expect(page.getByText('Marked with', { exact: true })).toHaveCount(0)
+    const toggle = (await page.getByRole('radiogroup', { name: 'Marked with' }).boundingBox())!
+    const first = (await page.locator('li[data-reorder-row]').first().boundingBox())!
+    expect(Math.abs(toggle.x - first.x)).toBeLessThan(12)
+    const depths = async () => ((await taskNamed(page, 'Groceries'))?.items ?? []).map((i: { depth?: number }) => i.depth ?? 0)
+    await page.locator('[data-item-grip]').nth(1).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect.poll(depths).toEqual([0, 1, 0])
+    await page.keyboard.press('ArrowLeft')
+    await expect.poll(depths).toEqual([0, 0, 0])
+    // dragged out to the right, under the row above
+    const g = await centre(page.locator('[data-item-grip]').nth(2))
+    await page.mouse.move(g.x, g.y)
+    await page.mouse.down()
+    await page.mouse.move(g.x + 6, g.y + 2, { steps: 2 })
+    await page.mouse.move(g.x + 40, g.y + 2, { steps: 8 })
+    await page.mouse.up()
+    await expect.poll(depths).toEqual([0, 0, 1])
+    await expect(page.locator('li[data-reorder-row]').nth(2)).toHaveCSS('margin-left', '24px')
+  })
+
+  test('"Checked last" puts ticked entries at the bottom', async ({ page }) => {
+    await listTask(page)
+    await page.getByRole('button', { name: 'Checked last' }).click()
+    await page.getByRole('checkbox', { name: 'Completed: Milk' }).click()
+    await expect.poll(async () => ((await taskNamed(page, 'Groceries'))?.items ?? []).map((i: { text: string }) => i.text)).toEqual(['Bread', 'Eggs', 'Milk'])
+  })
 })
 
 test.describe('where the tags are in the details', () => {

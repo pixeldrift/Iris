@@ -32,6 +32,8 @@ export interface ListItem {
   id: string
   text: string
   done: boolean
+  /** How far in it sits (0 or absent: at the left): the entries after it that are deeper are inside it. */
+  depth?: number
 }
 export type TaskStatus = 'todo' | 'doing' | 'done'
 
@@ -53,6 +55,8 @@ export interface Task {
   /** The entries of a `list` (a grocery list, say), and how they are marked. */
   items: ListItem[]
   listStyle: ListStyle
+  /** A checklist keeps its checked entries at the bottom. */
+  listDoneLast?: boolean
   /** Events: start and end time (`HH:MM`, 24h) on the day it is planned for, and where it is. */
   time: string | null
   endTime: string | null

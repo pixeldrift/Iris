@@ -1,7 +1,10 @@
 import * as sound from '../audio/engine'
-import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
 import type { ListItem, ListStyle, Task } from '../core/types'
+import { blockOf, checkedLast, depthOf, moveBlock, numbering, tidyDepths } from '../core/listitems'
+import { useFlip } from './flip'
+import { Gap } from './sidebar/parts'
+import { useCarried, useGapDepth, useRowDrag } from './sidebar/rowDrag'
 import { useStore } from '../state/store'
 import { percentOfCount } from '../core/progress'
 import { IconCheckHint, IconClose, IconPlus } from './icons'
@@ -18,6 +21,98 @@ const STYLES: { id: ListStyle; label: string }[] = [
 
 const EXAMPLES = ['Milk', 'Bread', 'Eggs']
 
+const INDENT = 24
+
+function EndGap({ listId }: { listId: string }) {
+  const depth = useGapDepth(listId, null)
+  return <Gap open={depth !== null} inset={(depth ?? 0) * INDENT} />
+}
+
+/** One entry of a checklist: its marker, its text, and a grip to carry it (with what is inside it) somewhere else. */
+function ChecklistRow({ listId, it, items, number, style, hue, onDone, onText, onRemove, onDrop, onKey }: { listId: string; it: ListItem; items: ListItem[]; number: number; style: ListStyle; hue: number | null; onDone: (done: boolean) => void; onText: (t: string) => void; onRemove: () => void; onDrop: (beforeId: string | null, depth: number) => void; onKey: (k: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight') => void }) {
+  const row = useRef<HTMLLIElement>(null)
+  const d = depthOf(it)
+  const block = blockOf(items, it.id)
+  const carried = useCarried(it.id)
+  const gap = useGapDepth(listId, it.id)
+  const drag = useRowDrag({ listId, type: 'item', id: it.id, label: it.text || 'Item', row, followers: block.slice(1), hierarchy: { depth: d, step: INDENT }, onDrop: ({ beforeId, depth }) => onDrop(beforeId, depth) })
+  return (
+    <>
+      <Gap open={gap !== null} inset={(gap ?? 0) * INDENT} />
+      <li
+        ref={row}
+        data-reorder-row={it.id}
+        data-reorder-depth={d}
+        data-lift-id={`item:${it.id}`}
+        data-flip={it.id}
+        onPointerDown={(e) => {
+          // (the text box and the buttons keep their own presses; the rest of the row picks it up)
+          if ((e.target as HTMLElement).closest('input,button')) return
+          drag(e)
+        }}
+        style={{ marginLeft: d * INDENT }}
+        className={`group flex items-center gap-2 rounded-lg transition-opacity ${carried ? 'bg-white/50 opacity-40 ring-1 ring-lilac-300/70' : ''}`}
+      >
+        {style === 'check' ? (
+          <button
+            role="checkbox"
+            aria-checked={it.done}
+            aria-label={`Completed: ${it.text}`}
+            onClick={() => onDone(!it.done)}
+            style={checkVars(hue)}
+            className={`well-circle grid h-[1.15rem] w-[1.15rem] shrink-0 place-items-center rounded-full transition ${it.done ? 'is-on text-white' : 'text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
+          >
+            {it.done ? <span className="text-[0.6rem] leading-none">✓</span> : <span className="opacity-55"><IconCheckHint size={11} /></span>}
+          </button>
+        ) : style === 'bullet' ? (
+          <span aria-hidden className="grid w-[1.15rem] shrink-0 place-items-center text-[1.6rem] leading-none text-lilac-500">
+            {d % 2 ? '◦' : '•'}
+          </span>
+        ) : (
+          <span aria-hidden className="w-[1.15rem] shrink-0 text-center text-sm tabular-nums text-lilac-500">
+            {number}.
+          </span>
+        )}
+        <input
+          value={it.text}
+          onChange={(e) => onText(e.target.value)}
+          aria-label={`Item ${it.text || ''}`.trim()}
+          className={`min-w-0 flex-1 rounded-lg bg-transparent px-1.5 py-1 text-sm outline-none focus:bg-white/60 ${style === 'check' && it.done ? 'text-ink-faint line-through' : ''}`}
+        />
+        {items.length > 1 && (
+          <button
+            type="button"
+            data-item-grip={it.id}
+            aria-label={`Move ${it.text || 'this item'} (arrow keys move it; right and left indent it)`}
+            title="Drag to reorder or nest"
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              drag(e, true)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') (e.preventDefault(), onKey(e.key))
+            }}
+            className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-ink-faint transition hover:bg-white/60 active:cursor-grabbing"
+          >
+            <span aria-hidden className="grid grid-cols-2 gap-[3px]">
+              {[0, 1, 2, 3, 4, 5].map((k) => (
+                <span key={k} className="emboss-dot" />
+              ))}
+            </span>
+          </button>
+        )}
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${it.text}`}
+          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint opacity-60 transition hover:bg-white/70 hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 ${items.length > 1 ? 'ml-3' : ''}`}
+        >
+          <IconClose size={12} />
+        </button>
+      </li>
+    </>
+  )
+}
+
 /** The entries of a list task: tick them, rename them, add more. Numbers are automatic. */
 export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoFocusFirst?: boolean }) {
   const update = useStore((s) => s.updateTask)
@@ -31,60 +126,39 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
   }, [autoFocusFirst, items.length])
   const setProgress = useStore((s) => s.setProgress)
   const hue = useTaskHue(task)
-  const set = (next: ListItem[]) => {
+  const set = (list: ListItem[]) => {
+    const next = task.listDoneLast && task.listStyle === 'check' ? checkedLast(tidyDepths(list)) : tidyDepths(list)
     update(task.id, { items: next })
     // ticking things off sets how far along the list is (ticked out of all), and the list moves to the column that reaches
     if (task.listStyle === 'check' && next.length > 0) setProgress(task.id, percentOfCount(next.filter((i) => i.done).length, next.length))
   }
   const patch = (id: string, p: Partial<ListItem>) => set(items.map((i) => (i.id === id ? { ...i, ...p } : i)))
 
-  // Reordering: a grip on each entry (kept well away from the delete button). Holding it and moving up or down takes the entry past its neighbours as the
-  // pointer crosses them; the arrow keys do the same from the grip. The entries are shown in the new order while it is held and kept when it is let go.
-  const rows = useRef(new Map<string, HTMLLIElement>())
-  const [moving, setMoving] = useState<{ id: string; order: string[]; x: number; y: number } | null>(null)
-  const shown = moving ? moving.order.map((id) => items.find((i) => i.id === id)).filter((i): i is ListItem => !!i) : items
-  const startMove = (e: React.PointerEvent, id: string) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    const mids = new Map([...rows.current].map(([k, el]) => [k, el.getBoundingClientRect()] as const).map(([k, r]) => [k, r.top + r.height / 2] as const))
-    const ids = items.map((i) => i.id)
-    let order = ids
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    document.body.classList.add('dragging')
-    const at = (y: number) => {
-      const others = ids.filter((x) => x !== id)
-      const before = others.filter((x) => (mids.get(x) ?? 0) < y).length
-      return [...others.slice(0, before), id, ...others.slice(before)]
-    }
-    const move = (ev: PointerEvent) => {
-      order = at(ev.clientY)
-      setMoving({ id, order, x: ev.clientX, y: ev.clientY })
-    }
-    const end = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', end)
-      window.removeEventListener('pointercancel', end)
-      document.body.classList.remove('dragging')
-      setMoving(null)
-      if (order.some((x, i) => x !== ids[i])) {
-        sound.drop()
-        set(order.map((x) => items.find((i) => i.id === x)!))
-      }
-    }
-    setMoving({ id, order, x: e.clientX, y: e.clientY })
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', end)
-    window.addEventListener('pointercancel', end)
-  }
-  const nudge = (id: string, by: -1 | 1) => {
+  // Reordering is the sidebar's own drag (see sidebar/rowDrag): the row is lifted, a line shows the gap, the others glide aside; sideways travel puts an entry
+  // inside the one above it (or back out), as with groups. The arrow keys do the same from the grip: up and down to move, right and left to indent or outdent.
+  const listRef = useRef<HTMLUListElement>(null)
+  useFlip(listRef)
+  const drop = (id: string, beforeId: string | null, depth: number) => set(moveBlock(items, id, beforeId, depth))
+  const nudge = (id: string, key: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight') => {
     const at = items.findIndex((i) => i.id === id)
-    const to = at + by
-    if (at < 0 || to < 0 || to >= items.length) return
-    const next = [...items]
-    next.splice(to, 0, ...next.splice(at, 1))
-    set(next)
+    if (at < 0) return
+    const d = depthOf(items[at])
+    if (key === 'ArrowRight') {
+      if (at > 0 && d < depthOf(items[at - 1]) + 1) set(items.map((i) => (blockOf(items, id).includes(i.id) ? { ...i, depth: depthOf(i) + 1 } : i)))
+    } else if (key === 'ArrowLeft') {
+      if (d > 0) set(items.map((i) => (blockOf(items, id).includes(i.id) ? { ...i, depth: depthOf(i) - 1 } : i)))
+    } else {
+      // one visible place up or down, past a whole neighbouring block
+      const block = blockOf(items, id)
+      const rest = items.filter((i) => !block.includes(i.id))
+      const here = rest.findIndex((_, k) => k >= at) < 0 ? rest.length : rest.findIndex((_, k) => k >= at)
+      const to = key === 'ArrowUp' ? here - 1 : here + 1
+      if (to < 0 || to > rest.length) return
+      drop(id, rest[to]?.id ?? null, d)
+    }
     requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-item-grip="${id}"]`)?.focus())
   }
+  const numbers = numbering(items)
 
   const commit = () => {
     const el = add.current
@@ -100,9 +174,22 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-ink-soft">Marked with</span>
+      <div className="flex items-center gap-2">
         <SegmentedToggle label="Marked with" value={task.listStyle} options={STYLES} onChange={(v) => update(task.id, { listStyle: v })} />
+        {task.listStyle === 'check' && (
+          <button
+            type="button"
+            aria-pressed={!!task.listDoneLast}
+            title="Keep checked items at the bottom"
+            onClick={() => {
+              const on = !task.listDoneLast
+              update(task.id, { listDoneLast: on, ...(on ? { items: checkedLast(tidyDepths(items)) } : {}) })
+            }}
+            className={`ml-auto whitespace-nowrap rounded-full px-3 py-1 text-xs transition ${task.listDoneLast ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`}
+          >
+            Checked last
+          </button>
+        )}
       </div>
       <div className="well mt-2 flex items-center gap-1 rounded-xl px-2 py-1">
         <IconPlus size={14} />
@@ -133,79 +220,38 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
         <ul aria-label="Example entries" onClick={() => (setTouched(true), requestAnimationFrame(() => add.current?.focus()))} className="mt-2 cursor-text space-y-1 opacity-50">
           {EXAMPLES.map((e, n) => (
             <li key={e} className="flex items-center gap-2 px-0.5 py-1 text-sm italic">
-              {task.listStyle === 'check' ? <span aria-hidden className="h-[1.15rem] w-[1.15rem] shrink-0 rounded-full border border-lilac-300" /> : <span aria-hidden className="w-[1.15rem] shrink-0 text-center tabular-nums text-lilac-500">{task.listStyle === 'bullet' ? '•' : `${n + 1}.`}</span>}
+              {task.listStyle === 'check' ? <span aria-hidden className="h-[1.15rem] w-[1.15rem] shrink-0 rounded-full border border-lilac-300" /> : <span aria-hidden className={`w-[1.15rem] shrink-0 text-center tabular-nums text-lilac-500 ${task.listStyle === 'bullet' ? 'text-[1.6rem] leading-none' : ''}`}>{task.listStyle === 'bullet' ? '•' : `${n + 1}.`}</span>}
               {e}
             </li>
           ))}
         </ul>
       )}
-      <ul className="mt-2 space-y-1">
-        {shown.map((it, n) => (
-          <li key={it.id} ref={(el) => void (el ? rows.current.set(it.id, el) : rows.current.delete(it.id))} className={`group flex items-center gap-2 rounded-lg transition-opacity ${moving?.id === it.id ? 'bg-white/50 opacity-60 ring-1 ring-lilac-300/70' : ''}`}>
-            {task.listStyle === 'check' ? (
-              <button
-                role="checkbox"
-                aria-checked={it.done}
-                aria-label={`Completed: ${it.text}`}
-                onClick={() => {
-                  if (it.done) sound.tickUndone()
-                  else sound.tickDone()
-                  patch(it.id, { done: !it.done })
-                }}
-                style={checkVars(hue)}
-                className={`well-circle grid h-[1.15rem] w-[1.15rem] shrink-0 place-items-center rounded-full transition ${it.done ? 'is-on text-white' : 'text-[color:var(--chk-ring,var(--color-lilac-400))]'}`}
-              >
-                {it.done ? <span className="text-[0.6rem] leading-none">✓</span> : <span className="opacity-55"><IconCheckHint size={11} /></span>}
-              </button>
-            ) : (
-              <span aria-hidden className="w-[1.15rem] shrink-0 text-center text-sm tabular-nums text-lilac-500">
-                {task.listStyle === 'bullet' ? '•' : `${n + 1}.`}
-              </span>
-            )}
-            <input
-              value={it.text}
-              onChange={(e) => patch(it.id, { text: e.target.value })}
-              aria-label={`Item ${n + 1}`}
-              className={`min-w-0 flex-1 rounded-lg bg-transparent px-1.5 py-1 text-sm outline-none focus:bg-white/60 ${task.listStyle === 'check' && it.done ? 'text-ink-faint line-through' : ''}`}
-            />
-            {/* the grip: just a few dots, the same kind as the grab dots elsewhere. Pressed and held, it moves the entry; a gap separates it from the delete button */}
-            {items.length > 1 && (
-              <button
-                type="button"
-                data-item-grip={it.id}
-                aria-label={`Move ${it.text || 'this item'} (arrow keys move it up or down)`}
-                title="Drag to reorder"
-                onPointerDown={(e) => startMove(e, it.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowUp') (e.preventDefault(), nudge(it.id, -1))
-                  else if (e.key === 'ArrowDown') (e.preventDefault(), nudge(it.id, 1))
-                }}
-                className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-ink-faint transition hover:bg-white/60 active:cursor-grabbing"
-              >
-                <span aria-hidden className="grid grid-cols-2 gap-[3px]">
-                  {[0, 1, 2, 3, 4, 5].map((d) => (
-                    <span key={d} className="emboss-dot" />
-                  ))}
-                </span>
-              </button>
-            )}
-            <button
-              onClick={() => set(items.filter((x) => x.id !== it.id))}
-              aria-label={`Remove ${it.text}`}
-              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-ink-faint opacity-60 transition hover:bg-white/70 hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 ${items.length > 1 ? 'ml-3' : ''}`}
-            >
-              <IconClose size={12} />
-            </button>
-          </li>
+      <ul ref={listRef} data-reorder-list={`items:${task.id}`} className="mt-2 space-y-1">
+        {items.map((it, n) => (
+          <ChecklistRow
+            key={it.id}
+            listId={`items:${task.id}`}
+            it={it}
+            items={items}
+            number={numbers[n]}
+            style={task.listStyle}
+            hue={hue}
+            onDone={(done) => {
+              if (done) sound.tickDone()
+              else sound.tickUndone()
+              patch(it.id, { done })
+            }}
+            onText={(text) => patch(it.id, { text })}
+            onRemove={() => set(items.filter((x) => x.id !== it.id))}
+            onDrop={(beforeId, depth) => {
+              sound.drop()
+              drop(it.id, beforeId, depth)
+            }}
+            onKey={(k) => nudge(it.id, k)}
+          />
         ))}
+        <EndGap listId={`items:${task.id}`} />
       </ul>
-      {moving &&
-        createPortal(
-          <div className="pointer-events-none fixed z-[var(--z-drag)] max-w-[240px] truncate rounded-full border border-white/70 bg-white/85 px-3 py-1 text-sm text-ink shadow-[0_8px_30px_rgba(132,83,180,0.28)] backdrop-blur-md" style={{ left: moving.x + 14, top: moving.y + 10 }}>
-            {items.find((i) => i.id === moving.id)?.text || 'Item'}
-          </div>,
-          document.body,
-        )}
     </div>
   )
 }

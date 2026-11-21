@@ -3,7 +3,7 @@ import type { Person } from '../../core/types'
 import { useStore } from '../../state/store'
 import { useDnd, useDropTarget } from '../dnd'
 import { useFlip } from '../flip'
-import { useGapOpen, useRowDrag } from './rowDrag'
+import { reordered, useGapOpen, useRowDrag } from './rowDrag'
 import { openPerson } from '../PeopleDialogs'
 import { Tip } from '../Tip'
 import { IconHeart, IconPencil } from '../icons'
@@ -25,7 +25,17 @@ export function PersonRow({ person, count, ids, onOrder, onNudge }: { person: Pe
   const row = useRef<HTMLDivElement>(null)
   const carried = useDnd((d) => d.drag?.payload.type === 'person' && d.drag.payload.id === person.id)
   const gap = useGapOpen('favorites', person.id)
-  const drag = useRowDrag({ listId: 'favorites', type: 'person', id: person.id, label: person.name, row, ids, onOrder })
+  const drag = useRowDrag({
+    listId: 'favorites',
+    type: 'person',
+    id: person.id,
+    label: person.name,
+    row,
+    onDrop: ({ beforeId }) => {
+      const next = reordered(ids, person.id, beforeId)
+      if (next.some((x, i) => x !== ids[i])) onOrder(next)
+    },
+  })
   // someone in a shared group with you: a purple ring when they have the app open, grey when not
   useShare((s) => s.shares)
   const live = presenceOf(person.link?.userId)

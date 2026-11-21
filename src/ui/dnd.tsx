@@ -8,7 +8,7 @@ import { lifter } from './lift'
  * `dropTask` decides what each kind means. Folder rows reuse it to re-parent.
  */
 export interface Payload {
-  type: 'task' | 'folder' | 'section' | 'person'
+  type: 'task' | 'folder' | 'section' | 'person' | 'item'
   id: string
 }
 

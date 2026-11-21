@@ -37,11 +37,12 @@ export function Collapse({ open, children }: { open: boolean; children: React.Re
   )
 }
 
-export function Gap({ open }: { open: boolean; id?: string; indent?: number; line?: boolean }) {
+export function Gap({ open, inset = 0 }: { open: boolean; id?: string; indent?: number; line?: boolean; /** how far in (px) the line starts: a nested slot */ inset?: number }) {
   return (
     <div aria-hidden data-gap className="pointer-events-none relative z-10 h-0">
       <div
-        className={`absolute inset-x-1 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgb(var(--lr-500)/0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
+        style={{ left: 4 + inset }}
+        className={`absolute right-1 top-[-0.1rem] h-[0.22rem] rounded-full bg-lilac-500 shadow-[0_0_8px_rgb(var(--lr-500)/0.55)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0'}`}
       />
     </div>
   )
