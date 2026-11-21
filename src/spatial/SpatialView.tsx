@@ -32,9 +32,11 @@ import type { EnvironmentKind, TrackingStatus } from './types'
 export default function SpatialView() {
   const caps = useMemo(detectCapabilities, [])
   // (not the whole store: the layout changes with every drag, and this view does not need to redraw for it)
-  const { environment, tracking: trackPref, view, seen, tipSeen, links, edgeDots2d, edgeDots3d, tidy, curve, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, edgeDots2d: s.edgeDots2d, edgeDots3d: s.edgeDots3d, tidy: s.tidy, curve: s.curve, collapsed: s.collapsed, wallSteady: s.wallSteady })))
+  const { environment, tracking: trackPref, view, seen, tipSeen, links, edgeDots2d, edgeDots3d, tidy, attached, curve, collapsed, wallSteady } = useSpatial(useShallow((s) => ({ environment: s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, edgeDots2d: s.edgeDots2d, edgeDots3d: s.edgeDots3d, tidy: s.tidy, attached: s.attached, curve: s.curve, collapsed: s.collapsed, wallSteady: s.wallSteady })))
   const [fov, setFov] = useState<number>(FOV.start)
   const [fitTick, setFitTick] = useState(0)
+  const dotsRef = useRef<HTMLDivElement | null>(null)
+  const [dotsHost, setDotsHost] = useState<HTMLDivElement | null>(null)
   const stored = useSpatial((s) => s.layout)
   const setLayout = useSpatial((s) => s.setLayout)
   const prefs = useSpatial((s) => s.set)
@@ -149,11 +151,12 @@ export default function SpatialView() {
   live.current = shownContent
 
   // Frame all (Wall): lay the groups out for the shape of the screen (wide in landscape, tall in portrait), then bring them all into view
-  const arrangeAndFrame = () => {
+  const arrangeAndFrame = (fresh = false) => {
     const el = host.current
     const aspect = el && el.clientHeight > 0 ? el.clientWidth / el.clientHeight : 1
-    setLayout(buildContent(visible, allTasks, folders, stored, aspect, scope).layout)
-    window.setTimeout(() => scene.current?.frameAll(), 160) // (after the scene has taken the new places)
+    // (clean up forgets where everything was put and lays it out afresh; both choose the shape that best fills this screen)
+    setLayout(buildContent(visible, allTasks, folders, fresh ? { clusters: {}, tasks: {} } : stored, aspect, scope).layout)
+    window.setTimeout(() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll()), 160) // (after the scene has taken the new places)
   }
 
   /* ---------- starting: the first call must be inside the tap (iOS asks for motion permission only from one) ---------- */
@@ -294,6 +297,7 @@ export default function SpatialView() {
     let sc: SpatialScene
     try {
       sc = new SpatialScene(host.current, track.current, {
+        dotsHost: dotsRef.current,
         // (what a card says is its own key: an item shown in several groups has a card in each, all of them the one item)
         onOpen: (id) => select(realId(id)),
         onToggle: (id) => toggleDone(realId(id)),
@@ -444,6 +448,9 @@ export default function SpatialView() {
   useEffect(() => {
     scene.current?.setTidy(tidy)
   }, [tidy, phase, simple])
+  useEffect(() => {
+    if (scene.current) scene.current.attached = attached
+  }, [attached, phase, simple])
   // leaving: stop the sensors
   useEffect(
     () => () => {
@@ -459,10 +466,12 @@ export default function SpatialView() {
   const statusText = simple || !where ? how : `${where} · ${how}`
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
+    <div className="relative h-full w-full rounded-[2rem] border border-white/70 shadow-[0_20px_60px_-24px_rgb(var(--lr-700)/0.35)]" aria-label="Spatial workspace" role="region">
+      {/* (everything is clipped to the rounded frame, except the dots for what is out of view: they sit on the frame's own line) */}
+      <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
       {/* where the camera or sky goes sits behind the canvas, in the same box */}
       <div ref={host} className={`${simple ? 'space-plain' : 'space-grid'} absolute inset-0`} />
-      {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} edgeDots={edgeDots2d} />}
+      {phase === 'running' && simple && <StaticCanvas content={shownContent} layout={stored} fitTick={fitTick} edgeDots={edgeDots2d} dotsHost={dotsHost} />}
 
       {introOpen && (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 p-5 backdrop-blur-sm">
@@ -640,6 +649,13 @@ export default function SpatialView() {
               </label>
               <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal ${fade('row')}`}>
                 <span>
+                  Subgroups stay attached
+                  <span className="block text-[0.68rem] text-ink-faint">they move with their group; off, every group moves on its own</span>
+                </span>
+                <input type="checkbox" checked={attached} onChange={(e) => prefs({ attached: e.target.checked })} className="h-4 w-4 accent-[var(--color-lilac-500)]" />
+              </label>
+              <label className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1 py-1 font-normal ${fade('row')}`}>
+                <span>
                   Indicate off-screen tasks
                   <span className="block text-[0.68rem] text-ink-faint">little dots at the edge point to what is out of view ({simple ? 'in 2D' : 'in 3D'})</span>
                 </span>
@@ -709,7 +725,7 @@ export default function SpatialView() {
                     </button>
                   </Tip>
                   <Tip label="Frame all">
-                    <button type="button" aria-label="Frame all" onClick={arrangeAndFrame} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
+                    <button type="button" aria-label="Frame all" onClick={() => arrangeAndFrame()} className="glass-soft grid h-10 w-10 touch-none select-none place-items-center rounded-full text-ink-soft transition hover:bg-white/80 active:scale-95">
                       <IconFrameAll size={22} />
                     </button>
                   </Tip>
@@ -720,10 +736,7 @@ export default function SpatialView() {
               </button>}
               {!wall && <button
                 type="button"
-                onClick={() => {
-                  useSpatial.getState().resetLayout()
-                  setTimeout(() => (simple ? setFitTick((n) => n + 1) : scene.current?.frameAll()), 400)
-                }}
+                onClick={() => arrangeAndFrame(true)}
                 className="whitespace-nowrap rounded-full bg-white/80 px-3.5 py-1.5 text-sm text-ink-soft shadow-md backdrop-blur transition hover:bg-white"
               >
                 Clean up
@@ -773,6 +786,8 @@ export default function SpatialView() {
           </ul>
         </>
       )}
+      </div>
+      <div ref={(el) => { dotsRef.current = el; if (el !== dotsHost) setDotsHost(el) }} aria-hidden={false} className="pointer-events-none absolute inset-0 z-[3] [&>*]:pointer-events-auto" />
     </div>
   )
 }

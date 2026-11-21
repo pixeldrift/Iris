@@ -12,6 +12,7 @@ import type { SceneCluster, SceneTask } from './SpatialScene'
 import type { SpatialContent } from './content'
 import { addInGroup, addLoose, dropOutside, endCarry, reparentGroup, retagTask, showCarry } from './actions'
 import { descendantsOf } from '../core/tree'
+import { createPortal } from 'react-dom'
 import { edgeDots } from '../core/edges'
 import { LOOSE, MAX_COLS, MAX_ROWS, cellH, cellW, detent, ensureLayout, minSizeOf, nearestFreeSlot, repose, resizeCluster, separate, settled, slotAt, snapCluster, snapFree, springStep, tidyClusters, tidyEverything, type Edge, type Spring } from './layout'
 import { useSpatial } from './store'
@@ -79,9 +80,10 @@ function FlatRow({ t, extra }: { t: SceneTask; extra?: React.CSSProperties }) {
  * the open to leave it floating; drag a group by its name or box to move it, or onto another name to put it inside; hover over a folded
  * name and it opens to show you where things go; tap a name to turn to it, the twirl to fold it.
  */
-export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = true }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number; edgeDots?: boolean }) {
+export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = true, dotsHost = null }: { content: SpatialContent; layout: SpatialLayoutData; fitTick?: number; edgeDots?: boolean; dotsHost?: HTMLElement | null }) {
   const toggleCollapsed = useSpatial((s) => s.toggleCollapsed)
   const tidy = useSpatial((s) => s.tidy)
+  const attached = useSpatial((s) => s.attached)
   const drawLines = useSpatial((s) => s.links)
   const box = useRef<HTMLDivElement>(null)
   const [v, setV] = useState({ x: 0, y: 0, k: 1 })
@@ -173,7 +175,9 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
     return out
   }, [content, L, inGrid])
   const kidsOf = (id: string): Set<string> => descendantsOf(content.clusters, id)
-  const carriedKids = useMemo(() => (carry?.kind === 'group' ? kidsOf(carry.id) : new Set<string>()), [carry?.kind, carry?.id, content]) // eslint-disable-line react-hooks/exhaustive-deps
+  // (the subgroups that travel along with a carried group: none when groups are free-floating)
+  const followersOf = (id: string): Set<string> => (attached ? kidsOf(id) : new Set<string>())
+  const carriedKids = useMemo(() => (carry?.kind === 'group' ? followersOf(carry.id) : new Set<string>()), [carry?.kind, carry?.id, content, attached]) // eslint-disable-line react-hooks/exhaustive-deps
   const at = (id: string): Box | undefined => {
     const b = places.get(id)
     if (!b) return undefined
@@ -202,7 +206,7 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
   const fit = () => {
     const r = box.current?.getBoundingClientRect()
     if (!r) return
-    const pad = 48
+    const pad = Math.min(48, Math.max(14, Math.min(r.width, r.height) * 0.05)) // (a phone has no room to spare)
     const k = Math.min(1.4, Math.max(0.2, Math.min((r.width - pad * 2) / (bounds.x1 - bounds.x0), (r.height - pad * 2) / (bounds.y1 - bounds.y0))))
     setV({ k, x: (r.width - (bounds.x1 - bounds.x0) * k) / 2 - bounds.x0 * k, y: (r.height - (bounds.y1 - bounds.y0) * k) / 2 - bounds.y0 * k })
   }
@@ -332,14 +336,14 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
       const top = c.y - c.dy
       const moved = repose(p, (left + b.w / 2) / (PX * p.r), -(top / PY) - 1.2 * K)
       const next = { ...L.clusters, [c.id]: moved }
-      for (const k of kidsOf(c.id)) next[k] = repose(L.clusters[k], L.clusters[k].a + (moved.a - p.a), L.clusters[k].y + (moved.y - p.y))
+      for (const k of followersOf(c.id)) next[k] = repose(L.clusters[k], L.clusters[k].a + (moved.a - p.a), L.clusters[k].y + (moved.y - p.y))
       if (tidy) {
         // keep tidy: the group snaps to the grid (its subgroups keeping their places around it), and the others make room
         const p1 = snapCluster(moved)
-        for (const k of kidsOf(c.id)) next[k] = repose(next[k], next[k].a + (p1.a - moved.a), next[k].y + (p1.y - moved.y))
+        for (const k of followersOf(c.id)) next[k] = repose(next[k], next[k].a + (p1.a - moved.a), next[k].y + (p1.y - moved.y))
         next[c.id] = p1
-        writeLayout({ ...L, clusters: tidyClusters(next, new Set([c.id, ...kidsOf(c.id)])) })
-      } else writeLayout({ ...L, clusters: separate(next, new Set([c.id, ...kidsOf(c.id)])) })
+        writeLayout({ ...L, clusters: tidyClusters(next, new Set([c.id, ...followersOf(c.id)])) })
+      } else writeLayout({ ...L, clusters: separate(next, new Set([c.id, ...followersOf(c.id)])) })
     }
     closeSprung(over)
   }
@@ -371,12 +375,29 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
         { scale: v.k, tx: v.x, ty: v.y },
         size.w,
         size.h,
-        { inset: 14 },
+        { inset: -0.5 },
       )
     : []
   dotShown.current = new Set(dots.map((d) => d.id))
 
   const row = (t: SceneTask, extra?: React.CSSProperties) => <FlatRow key={t.id} t={t} extra={extra} />
+
+  const dotButtons = (
+    <>
+      {dots.map((d) => (
+        <button
+          key={d.id}
+          type="button"
+          className="edge-dot still absolute"
+          aria-label={d.id.startsWith('task:') ? 'A task out of view this way: go to it' : 'A group out of view this way: go to it'}
+          title={d.id.startsWith('task:') ? 'A task out of view this way' : 'A group out of view this way'}
+          style={{ left: d.x, top: d.y, width: 11, height: 11, translate: '-50% -50%', borderRadius: 9999, ['--h' as string]: String(Math.max(0, d.hue)), ['--s' as string]: d.hue < 0 ? '0' : '1' }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => (d.id.startsWith('task:') ? setV({ k: v.k, x: size.w / 2 - d.at.x * v.k, y: size.h / 2 - d.at.y * v.k }) : focus(d.id))}
+        />
+      ))}
+    </>
+  )
 
   return (
     <div
@@ -631,7 +652,7 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
                 className={`mb-2 flex cursor-grab items-center gap-1.5 rounded-full px-1 font-display text-2xl font-bold italic transition-colors ${lit ? 'bg-white/80 ring-2 ring-white' : ''}`}
                 style={{ color: `hsl(${hue},50%,36%)`, textShadow: '0 0 8px rgba(255,255,255,0.95)' }}
               >
-                <button type="button" aria-expanded={!c.collapsed} aria-label={`${c.collapsed ? 'Show' : 'Fold'} ${c.name}`} onClick={() => toggleCollapsed(c.id)} className="grid h-6 w-5 shrink-0 place-items-center text-[0.7rem] not-italic opacity-75">
+                <button type="button" aria-expanded={!c.collapsed} aria-label={`${c.collapsed ? 'Show' : 'Fold'} ${c.name}`} onClick={() => toggleCollapsed(c.id)} className="grid h-9 w-8 shrink-0 place-items-center text-[2.1rem] leading-none not-italic opacity-75">
                   {c.collapsed ? '▸' : '▾'}
                 </button>
                 <Flower hue={c.hue} shape={c.shape} size={22} />
@@ -709,18 +730,7 @@ export function StaticCanvas({ content, layout, fitTick = 0, edgeDots: dotsOn = 
           })()}
         {content.tasks.length === 0 && <p className="p-6 text-sm text-ink-faint">Nothing to show here yet.</p>}
       </div>
-      {dots.map((d) => (
-        <button
-          key={d.id}
-          type="button"
-          className="edge-dot still absolute z-[3]"
-          aria-label={d.id.startsWith('task:') ? 'A task out of view this way: go to it' : 'A group out of view this way: go to it'}
-          title={d.id.startsWith('task:') ? 'A task out of view this way' : 'A group out of view this way'}
-          style={{ left: d.x, top: d.y, width: 11, height: 11, translate: '-50% -50%', borderRadius: 9999, ['--h' as string]: String(Math.max(0, d.hue)), ['--s' as string]: d.hue < 0 ? '0' : '1' }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => (d.id.startsWith('task:') ? setV({ k: v.k, x: size.w / 2 - d.at.x * v.k, y: size.h / 2 - d.at.y * v.k }) : focus(d.id))}
-        />
-      ))}
+      {dotsHost ? createPortal(dotButtons, dotsHost) : dotButtons}
       <div data-ui className="absolute bottom-3 right-3 z-10">
         <ZoomControl onZoom={(f) => zoomAt(f, centre().x, centre().y)} />
       </div>

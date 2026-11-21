@@ -133,7 +133,7 @@ export function separate(clusters: Record<string, ClusterPlacement>, pinned: Rea
 /** The cluster id of a task that is in no group: it is not in a box, it sits on the wall wherever it was put. */
 export const LOOSE = 'none'
 
-export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: { span?: number } = {}): SpatialLayoutData {
+export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: { span?: number; stack?: boolean } = {}): SpatialLayoutData {
   let clusters: Record<string, ClusterPlacement> = {}
   const tasks: Record<string, TaskPlacement> = {}
   // places are kept for anything that still exists, shown or not (hidden for now, or filtered out)
@@ -181,7 +181,10 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: 
         if (par) kids.set(par, [...(kids.get(par) ?? []), s])
         else roots.push(s)
       }
-      const width = (s: (typeof sized)[number]): number => Math.max(widthOf(s.cols), (kids.get(s.c.id) ?? []).reduce((t, k) => t + width(k), 0))
+      // (stacked: a group's subgroups go in a column under it instead of side by side, which is narrower and taller: for portrait screens)
+      const stack = !!opts.stack
+      const width = (s: (typeof sized)[number]): number =>
+        stack ? Math.max(widthOf(s.cols), ...(kids.get(s.c.id) ?? []).map(width)) : Math.max(widthOf(s.cols), (kids.get(s.c.id) ?? []).reduce((t, k) => t + width(k), 0))
       const bands: (typeof sized)[] = []
       let band: typeof sized = []
       let used = 0
@@ -197,15 +200,22 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: 
       }
       if (band.length) bands.push(band)
       // rows: every group at the same depth in a band shares a row, as tall as its tallest
-      type Spot = { s: (typeof sized)[number]; x: number; level: number }
+      type Spot = { s: (typeof sized)[number]; x: number; level: number; col: number; yOff?: number }
       const spots: Spot[][] = []
       const levelH: number[][] = []
       for (const roots of bands) {
         const list: Spot[] = []
         const total = roots.reduce((t, r) => t + width(r), 0)
+        let rootAt = 0
+        let down = 0
+        const layStack = (s: (typeof sized)[number], left: number, w: number) => {
+          list.push({ s, x: left + w / 2, level: down++, col: rootAt })
+          for (const k of kids.get(s.c.id) ?? []) layStack(k, left, w)
+        }
         const lay = (s: (typeof sized)[number], left: number, level: number) => {
           const w = width(s)
-          list.push({ s, x: left + w / 2, level })
+          if (stack) return layStack(s, left, w)
+          list.push({ s, x: left + w / 2, level, col: rootAt })
           let at = left + (w - (kids.get(s.c.id) ?? []).reduce((t, k) => t + width(k), 0)) / 2
           for (const k of kids.get(s.c.id) ?? []) {
             lay(k, at, level + 1)
@@ -214,11 +224,21 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: 
         }
         let at = -total / 2
         for (const r of roots) {
+          down = 0
           lay(r, at, 0)
+          rootAt++
           at += width(r)
         }
         const hs: number[] = []
-        for (const sp of list) hs[sp.level] = Math.max(hs[sp.level] ?? 0, heightOf(sp.s.rows))
+        if (stack) {
+          // each column runs down on its own; the band is as tall as its tallest column
+          const used = new Map<number, number>()
+          for (const sp of list) {
+            sp.yOff = used.get(sp.col) ?? 0
+            used.set(sp.col, sp.yOff + heightOf(sp.s.rows))
+          }
+          hs[0] = Math.max(...used.values())
+        } else for (const sp of list) hs[sp.level] = Math.max(hs[sp.level] ?? 0, heightOf(sp.s.rows))
         spots.push(list)
         levelH.push(hs)
       }
@@ -232,8 +252,8 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: 
           rowY[lv] = y
           y -= h
         })
-        for (const sp of spots[bi]) clusters[sp.s.c.id] = place(sp.x / WORLD.ring, sp.s.r, sp.s.cols, sp.s.rows, rowY[sp.level], sp.s.c.parent, tier + sp.level, sp.s.c.depth)
-        tier += levelH[bi].length
+        for (const sp of spots[bi]) clusters[sp.s.c.id] = place(sp.x / WORLD.ring, sp.s.r, sp.s.cols, sp.s.rows, sp.yOff !== undefined ? rowY[0] - sp.yOff : rowY[sp.level], sp.s.c.parent, tier + sp.level, sp.s.c.depth)
+        tier += stack ? Math.max(...spots[bi].map((sp) => sp.level + 1)) : levelH[bi].length
         y -= GAP
       })
     } else {
@@ -318,24 +338,34 @@ export function ensureLayout(prev: SpatialLayoutData, input: LayoutInput, opts: 
  */
 export function arrangeFor(prev: SpatialLayoutData, input: LayoutInput, aspect: number): SpatialLayoutData {
   const ring = WORLD.ring
-  const measure = (l: SpatialLayoutData) => {
+  // how big everything can be drawn on this screen (width over height is `aspect`): the groups, and the loose cards in their tray, all in view
+  const fit = (l: SpatialLayoutData) => {
     const cs = Object.values(l.clusters)
     if (!cs.length) return null
-    const left = Math.min(...cs.map((c) => c.a * ring - widthOf(c.cols) / 2))
-    const right = Math.max(...cs.map((c) => c.a * ring + widthOf(c.cols) / 2))
-    const top = Math.max(...cs.map((c) => c.y + 1.2 * K))
-    const bottom = Math.min(...cs.map((c) => c.y - heightOf(c.rows ?? 1)))
-    return { left, right, top, bottom, aspect: (right - left) / Math.max(1, top - bottom) }
+    let left = Math.min(...cs.map((c) => c.a * ring - widthOf(c.cols) / 2))
+    let right = Math.max(...cs.map((c) => c.a * ring + widthOf(c.cols) / 2))
+    let top = Math.max(...cs.map((c) => c.y + 1.2 * K))
+    let bottom = Math.min(...cs.map((c) => c.y - heightOf(c.rows ?? 1)))
+    for (const t of Object.values(l.tasks)) {
+      if (!t.free || t.c !== LOOSE) continue
+      left = Math.min(left, t.free.a * ring - cellW / 2)
+      right = Math.max(right, t.free.a * ring + cellW / 2)
+      top = Math.max(top, t.free.y + cellH / 2)
+      bottom = Math.min(bottom, t.free.y - cellH / 2)
+    }
+    return Math.min(Math.max(0.2, aspect) / Math.max(1, right - left), 1 / Math.max(1, top - bottom))
   }
   const from = { clusters: {}, tasks: prev.tasks }
-  let best: { l: SpatialLayoutData; err: number } | null = null
-  for (const span of [0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2, 2.6, 3.2, 4, 5]) {
-    const l = ensureLayout(from, input, { span })
-    const m = measure(l)
-    if (!m) return l
-    const err = Math.abs(Math.log(m.aspect / Math.max(0.2, aspect)))
-    if (!best || err < best.err - 1e-9) best = { l, err }
-  }
+  let best: { l: SpatialLayoutData; scale: number } | null = null
+  // the family tree (subgroups side by side under their group) and the column way (stacked under it), each with several band widths:
+  // the one that can be drawn biggest on this screen is kept
+  for (const stack of [false, true])
+    for (const span of [0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2, 2.6, 3.2, 4, 5, 6.5, 8]) {
+      const l = ensureLayout(from, input, { span, stack })
+      const scale = fit(l)
+      if (scale === null) return l
+      if (!best || scale > best.scale * 1.0001) best = { l, scale }
+    }
   const laid = best!.l
   // loose cards that now lie on a group go back to the tray (a place is made for them again)
   const tasks: Record<string, TaskPlacement> = { ...laid.tasks }

@@ -55,6 +55,8 @@ export interface SceneContent {
   layout: SpatialLayoutData
 }
 export interface SceneEvents {
+  /** Where the dots for what is out of view are put: a layer over the frame (not clipped by it), so they can sit on its line. */
+  dotsHost?: HTMLElement | null
   onOpen(taskId: string): void
   onToggle(taskId: string): void
   onIncrement?(taskId: string): void
@@ -216,12 +218,14 @@ export class SpatialScene {
   private focusTween?: { t0: number; from: [number, number]; to: [number, number]; fov?: [number, number] }
   private pointers = new Map<number, { x: number; y: number }>()
   private press?: { id: number; x: number; y: number; t0: number; hit: Hit | null; mode: 'pending' | 'look' | 'task' | 'cluster' }
-  private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3; kids: Set<string> }
+  private carry?: { kind: 'task' | 'cluster'; id: string; plane: Plane; offset: Vector3; hover: string | null; pos: Vector3; kids: Set<string>; follow: Set<string> }
   private pinch?: { d: number; fov: number; zoom: number; mx: number; my: number }
   private disposed = false
   /** Wall mode's side of the scene (the world -> screen map, the scan effect, pins, zoom, level), when the camera is finding a surface. */
   private rig?: WallRig
   /** Soft glowing dots on the frame for groups out of view (the Pond's edge dots, here for the room around you). */
+  /** Subgroups travel with the group they belong to when it is moved (off: each group is moved on its own). */
+  attached = true
   private dotEls = new Map<string, HTMLButtonElement>()
 
   constructor(
@@ -1151,7 +1155,7 @@ export class SpatialScene {
       // a dot that is showing stays until its group is well back in view, so one hovering at the edge never flickers
       return [{ id: c.id, x: sx, y: sy, r: this.dotEls.has(c.id) && !this.dotEls.get(c.id)!.classList.contains('leaving') ? -40 : c.id.startsWith('task:') ? 30 : 60, hue: c.hue }]
     })
-    const dots = edgeDots(pts, { scale: 1, tx: 0, ty: 0 }, W, H, { inset: 14 })
+    const dots = edgeDots(pts, { scale: 1, tx: 0, ty: 0 }, W, H, { inset: -0.5 })
     const now = new Set(dots.map((d) => d.id))
     for (const d of dots) {
       let el = this.dotEls.get(d.id)
@@ -1167,7 +1171,7 @@ export class SpatialScene {
         const id = d.id
         el.addEventListener('click', () => (isTask ? this.focusTask(id.slice(5)) : this.focusCluster(id)))
         el.addEventListener('pointerdown', (e) => e.stopPropagation())
-        this.host.appendChild(el)
+        ;(this.events.dotsHost ?? this.host).appendChild(el)
         this.dotEls.set(d.id, el)
       }
       el.classList.remove('leaving')
@@ -1340,7 +1344,7 @@ export class SpatialScene {
     const plane = new Plane().setFromNormalAndCoplanarPoint(dir.clone().negate(), from)
     this.raycaster.setFromCamera(this.ndc(e), this.camera)
     const at = this.raycaster.ray.intersectPlane(plane, new Vector3())
-    this.carry = { kind, id, plane, offset: at ? from.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? descendantsOf(this.content.clusters, id) : new Set() }
+    this.carry = { kind, id, plane, offset: at ? from.clone().sub(at) : new Vector3(), hover: null, pos: mesh.position.clone(), kids: kind === 'cluster' ? descendantsOf(this.content.clusters, id) : new Set(), follow: kind === 'cluster' && this.attached ? descendantsOf(this.content.clusters, id) : new Set() }
     if (kind === 'task') {
       mesh.position.copy(from)
       mesh.quaternion.copy(this.camera.quaternion)
@@ -1492,7 +1496,7 @@ export class SpatialScene {
       // its subgroups (and theirs) travel with it, keeping their places around it
       const da = moved.a - cur.a
       const dy = moved.y - cur.y
-      for (const k of c.kids) {
+      for (const k of c.follow) {
         const kc = clusters[k]
         if (!kc) continue
         clusters[k] = repose(kc, kc.a + da, kc.y + dy)
@@ -1603,7 +1607,7 @@ export class SpatialScene {
         this.layout = withRadius(this.content.layout, this.radius)
         this.events.onReparent?.(c.id, into)
       } else {
-        const moved = new Set([c.id, ...c.kids])
+        const moved = new Set([c.id, ...c.follow])
         if (this.tidy) {
           // keep tidy: the group (and its subgroups, keeping their places around it) settle onto the grid, the others making room
           const base = fromRadius(this.layout, this.radius)
@@ -1614,7 +1618,7 @@ export class SpatialScene {
             const da = p1.a - p0.a
             const dy = p1.y - p0.y
             clusters[c.id] = p1
-            for (const k of c.kids) if (clusters[k]) clusters[k] = repose(clusters[k], clusters[k].a + da, clusters[k].y + dy)
+            for (const k of c.follow) if (clusters[k]) clusters[k] = repose(clusters[k], clusters[k].a + da, clusters[k].y + dy)
           }
           const tidied = { ...base, clusters: tidyClusters(clusters, moved) }
           this.layout = withRadius(tidied, this.radius)

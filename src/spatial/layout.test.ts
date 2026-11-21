@@ -337,6 +337,25 @@ describe('a flat wall', () => {
   })
 })
 
+describe('clean up on a tall screen', () => {
+  it('stacks subgroups under their group, so a family of groups fits a portrait screen', () => {
+    const ids = ['a', 'a1', 'a2', 'a3', 'b', 'b1', 'b2', 'b3']
+    const inp = input(Object.fromEntries(ids.map((id) => [id, [`${id}-t1`, `${id}-t2`]])), {
+      clusters: ids.map((id, i) => ({ id, parent: id.length > 1 ? id[0] : null, depth: id.length > 1 ? 1 : 0, order: i })),
+    })
+    const box = (l: SpatialLayoutData) => {
+      const cs = Object.values(l.clusters)
+      return (Math.max(...cs.map((c) => c.a * WORLD.ring)) - Math.min(...cs.map((c) => c.a * WORLD.ring))) / Math.max(1, Math.max(...cs.map((c) => c.y)) - Math.min(...cs.map((c) => c.y)))
+    }
+    const tall = arrangeFor(empty, inp, 0.5)
+    const wide = arrangeFor(empty, inp, 2.2)
+    expect(box(tall)).toBeLessThan(1)
+    expect(box(tall)).toBeLessThanOrEqual(box(wide))
+    // a subgroup sits below its group, in the same column
+    expect(tall.clusters.a1.y).toBeLessThan(tall.clusters.a.y)
+  })
+})
+
 describe('the curve of the wall', () => {
   it('0 is flat, more wraps closer, and a radius survives the round trip', () => {
     expect(radiusFromCurve(0)).toBe(FLAT_R)

@@ -21,6 +21,8 @@ interface SpatialState {
   /** Little dots along the edge of the screen pointing to groups and loose cards that are out of view: one choice for the flat view and one for 3D. */
   edgeDots2d: boolean
   edgeDots3d: boolean
+  /** Subgroups move along with the group they belong to (the default); off, every group is moved on its own. */
+  attached: boolean
   /** "Keep tidy": things let go in Space snap to a grid, so it stays organised. */
   tidy: boolean
   /** How curved the wall is (0 flat … 100 wraps round you); null is Automatic: flat while the camera holds a surface, gently curved otherwise. */
@@ -31,7 +33,7 @@ interface SpatialState {
   collapsed: Record<string, true>
   toggleCollapsed: (id: string) => void
   setLayout: (l: SpatialLayoutData) => void
-  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'view' | 'seen' | 'tipSeen' | 'links' | 'edgeDots2d' | 'edgeDots3d' | 'tidy' | 'curve' | 'wallSteady'>>) => void
+  set: (p: Partial<Pick<SpatialState, 'environment' | 'tracking' | 'view' | 'seen' | 'tipSeen' | 'links' | 'edgeDots2d' | 'edgeDots3d' | 'tidy' | 'attached' | 'curve' | 'wallSteady'>>) => void
   /** Forget where things were put (they are laid out afresh). */
   resetLayout: () => void
 }
@@ -49,6 +51,7 @@ export const useSpatial = create<SpatialState>()(
       edgeDots2d: true,
       edgeDots3d: true,
       tidy: true,
+      attached: true,
       curve: null,
       wallSteady: 0.15,
       collapsed: {},
@@ -84,7 +87,7 @@ export const useSpatial = create<SpatialState>()(
         return s as never
       },
       // the camera is never started by itself: it comes back as the virtual room until the person asks for it again
-      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, edgeDots2d: s.edgeDots2d, edgeDots3d: s.edgeDots3d, tidy: s.tidy, curve: s.curve, wallSteady: s.wallSteady, collapsed: s.collapsed }),
+      partialize: (s) => ({ layout: s.layout, environment: s.environment === 'camera' ? 'virtual' : s.environment, tracking: s.tracking, view: s.view, seen: s.seen, tipSeen: s.tipSeen, links: s.links, edgeDots2d: s.edgeDots2d, edgeDots3d: s.edgeDots3d, tidy: s.tidy, attached: s.attached, curve: s.curve, wallSteady: s.wallSteady, collapsed: s.collapsed }),
     },
   ),
 )
