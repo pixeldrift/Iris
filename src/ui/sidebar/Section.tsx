@@ -102,8 +102,6 @@ export function ScopeRow(props: {
   count: number
   hideZero?: boolean
   sub?: string
-  /** leave room where a group row has its drag handle, so the count bubbles line up with the groups above */
-  handleGap?: boolean
   /** the filter this row is, so it can be added to the ones already on (shift/⌘-click, long press) */
   part?: Scope
 }) {
@@ -127,7 +125,8 @@ export function ScopeRow(props: {
       <span className="truncate">{props.label}</span>
       {props.sub && <span className="text-xs text-ink-faint">{props.sub}</span>}
       <Count n={props.count} hideZero={props.hideZero} />
-      {props.handleGap && <span aria-hidden className="w-7 shrink-0" />}
+      {/* where the other rows have a drag handle: the counts all end in one column */}
+      <span aria-hidden className="w-5 shrink-0" />
     </button>
   )
 }

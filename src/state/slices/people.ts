@@ -47,8 +47,12 @@ export const createPeopleSlice = (set: SetState, get: GetState): PeopleSlice => 
           get().showToast(`The sidebar keeps ${MAX_FAVORITES} favorites. Unheart someone to make room.`)
           return
         }
-        set((s) => ({ people: s.people.map((x) => (x.id === id ? { ...x, favorite: !x.favorite } : x)) }))
+        // a newly hearted person joins the end of the sidebar's list
+        const last = Math.max(-1, ...get().people.filter((x) => x.favorite).map((x) => x.favOrder ?? -1))
+        set((s) => ({ people: s.people.map((x) => (x.id === id ? { ...x, favorite: !x.favorite, ...(x.favorite ? {} : { favOrder: last + 1 }) } : x)) }))
       },
+      setFavoriteOrder: (ids) =>
+        set((s) => ({ people: s.people.map((x) => (ids.includes(x.id) ? { ...x, favOrder: ids.indexOf(x.id) } : x)) })),
       deletePerson: (id) =>
         set((s) => ({
           people: s.people.filter((p) => p.id !== id),

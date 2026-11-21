@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { addDays, dayHint, ordinalSuffix, today, weekdayName } from '../core/dates'
 import { childrenOf, descendantIds } from '../core/folders'
-import { MAX_FAVORITES } from '../core/people'
+import { favoritesOf, MAX_FAVORITES } from '../core/people'
 import { hasPart, pickOnly } from '../core/scope'
 import { taskOnDate } from '../core/recurrence'
 import { useStore } from '../state/store'
@@ -22,7 +22,7 @@ import { Disclosure, Gap, rowBase } from './sidebar/parts'
 import { askName } from './NameDialog'
 import { ScopeRow, Section, weekMonths } from './sidebar/Section'
 import { CompletedSection } from './sidebar/CompletedSection'
-import { PersonRow } from './sidebar/PersonRow'
+import { FavoritePeople } from './sidebar/PersonRow'
 import { useFolderSlot } from './sidebar/folderSlot'
 import { FolderNode } from './sidebar/FolderNode'
 
@@ -189,9 +189,7 @@ export function Sidebar() {
           </Tip>
         }
       >
-        {people.filter((p) => p.favorite && !p.isMe).slice(0, MAX_FAVORITES).map((p) => (
-          <PersonRow key={p.id} person={p} count={live.filter((t) => t.personIds.includes(p.id)).length} />
-        ))}
+        <FavoritePeople people={favoritesOf(people).slice(0, MAX_FAVORITES)} counts={(id) => live.filter((t) => t.personIds.includes(id)).length} />
         {people.some((p) => p.favorite && !p.isMe) ? null : <p className="px-3 py-1.5 text-sm text-ink-faint">Heart people in your address book to keep them here.</p>}
         <ScopeRow active={scope.type === 'contacts'} onClick={() => setScope({ type: 'contacts' })} icon={<IconBook />} label="Address book" count={people.length} />
       </Section>
@@ -271,7 +269,6 @@ export function Sidebar() {
           dropId="inbox"
           icon={<IconInbox />}
           label="Unsorted"
-          handleGap
           count={live.filter((t) => t.folderIds.length === 0).length}
         />
       </Section>

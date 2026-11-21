@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFromLine, understandLine } from '../quickCreate'
 import * as sound from '../../audio/engine'
 import { useRowSwipe } from '../swipe'
 import { isDoneNow } from '../../core/recurrence'
 import { useFlip } from '../flip'
+import { Collapse } from '../sidebar/parts'
 import { ScrollFade } from '../ScrollFade'
 import { sortTasks, effectiveUrgency } from '../../core/tasks'
 import type { SortKey, Task } from '../../core/types'
@@ -120,6 +121,30 @@ function Row({ task, selected, selecting, onToggle, fresh = false }: { task: Tas
   )
 }
 
+/**
+ * A group's rows, folded away or shown again: they slide shut (and open) with a fade, and only what is below moves. They stay on the page
+ * while closing and leave it when the slide is over; opening puts them on the page shut first, then lets them slide out.
+ */
+function FoldBody({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open)
+  const [show, setShow] = useState(open)
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      const f = requestAnimationFrame(() => requestAnimationFrame(() => setShow(true)))
+      return () => cancelAnimationFrame(f)
+    }
+    setShow(false)
+    const t = window.setTimeout(() => setMounted(false), 320)
+    return () => window.clearTimeout(t)
+  }, [open])
+  return (
+    <Collapse open={show}>
+      {mounted && <div className={`space-y-2 pt-2 transition duration-300 ${show ? 'translate-y-0' : '-translate-y-3'}`}>{children}</div>}
+    </Collapse>
+  )
+}
+
 export function ListView() {
   const visible = useVisibleTasks()
   const sortKey = useStore((s) => s.settings.sortKey)
@@ -193,6 +218,18 @@ export function ListView() {
   const [menu, setMenu] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   useFlip(listRef)
+  // sorted by group the rows come in runs, one per group, each under its heading (otherwise it is one run, with no heading)
+  const segments = useMemo(() => {
+    const out: { key: string; groupId: string; grouped: boolean; items: typeof rows }[] = []
+    for (const t of rows) {
+      const groupId = t.folderIds[0] ?? '__ungrouped'
+      const last = out[out.length - 1]
+      if (sortKey === 'group' && (!last || last.groupId !== groupId)) out.push({ key: `${groupId}:${out.length}`, groupId, grouped: true, items: [t] })
+      else if (last) last.items.push(t)
+      else out.push({ key: 'all', groupId, grouped: false, items: [t] })
+    }
+    return out
+  }, [rows, sortKey])
   // carry a row to where it should go: a line shows the spot, and dropping puts it there (and the list follows "My order")
   const { slot, props: dropProps } = useDropSlot('list', listRef, [rows])
   const anchor = useRef<HTMLButtonElement>(null)
@@ -241,12 +278,12 @@ export function ListView() {
                     if (primary) return
                     set('sortSecondaryKey', secondary ? null : x.id)
                   }}
-                  className={`mr-1 min-w-[3.25rem] rounded-lg px-2 py-1 text-[0.68rem] font-semibold transition ${primary ? 'bg-lilac-500 text-white' : secondary ? 'bg-lilac-100 text-lilac-700 ring-1 ring-lilac-300' : 'text-ink-faint hover:bg-white/70'}`}
+                  className={`mr-1.5 min-w-[1.9rem] rounded-md px-1.5 py-px text-center text-[0.6rem] font-semibold leading-4 transition ${primary ? 'bg-lilac-500 text-white' : secondary ? 'bg-lilac-100 text-lilac-700 ring-1 ring-lilac-300' : 'text-ink-faint/50 hover:bg-white/70 hover:text-ink-faint'}`}
                   aria-label={primary ? `${x.label} is the first sort` : secondary ? `Remove ${x.label} as the second sort` : `Use ${x.label} as the second sort`}
                   aria-pressed={primary || secondary}
                   title={primary ? 'Primary sort' : secondary ? 'Tap to remove secondary sort' : 'Tap to use as secondary sort'}
                 >
-                  {primary ? '1st' : secondary ? '2nd' : ''}
+                  {primary ? '1st' : '2nd'}
                 </button>
               </div>
             )
@@ -326,22 +363,20 @@ export function ListView() {
       <div className="-mr-2 mt-3 flex min-h-0 flex-1 flex-col">
       <ScrollFade className="pr-2">
       <div ref={listRef} {...dropProps} className="space-y-2 py-1">
-        {rows.map((t, i) => {
-          const groupId = t.folderIds[0] ?? '__ungrouped'
-          const previousGroupId = i > 0 ? (rows[i - 1].folderIds[0] ?? '__ungrouped') : groupId
-          const starts = sortKey === 'group' && (i === 0 || groupId !== previousGroupId)
-          const group = folders.find((f) => f.id === groupId)
-          const isFolded = sortKey === 'group' && folded.has(groupId)
+        {segments.map((seg, si) => {
+          const group = folders.find((f) => f.id === seg.groupId)
+          const isFolded = seg.grouped && folded.has(seg.groupId)
+          const groupId = seg.groupId
           return (
-          <Fragment key={t.id}>
-            {starts && (
-              <div data-group-head={groupId} className={`flex items-center gap-2 px-1.5 ${i > 0 ? 'mt-5' : 'mt-1'}`}>
+          <div key={seg.key}>
+            {seg.grouped && (
+              <div data-group-head={groupId} className={`flex items-center gap-2.5 pl-3 pr-1.5 ${si > 0 ? 'mt-5' : 'mt-1'}`}>
                 <button
                   type="button"
                   onClick={() => toggleFold(groupId)}
                   aria-expanded={!isFolded}
                   aria-label={`${isFolded ? 'Show' : 'Fold'} ${group?.name ?? 'Unsorted'}`}
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60"
+                  className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full text-ink-soft transition hover:bg-white/60"
                 >
                   <svg
                     aria-hidden
@@ -354,7 +389,8 @@ export function ListView() {
                     <path d="M6 2.5 24 12 6 21.5Z" />
                   </svg>
                 </button>
-                {group && <Flower hue={group.hue} shape={group.shape} size={18} />}
+                {/* (the triangle sits over the checkboxes and the flower over the rows' flowers) */}
+                {group && <span className="grid h-5 w-5 shrink-0 place-items-center"><Flower hue={group.hue} shape={group.shape} size={18} /></span>}
                 <span className="min-w-0 truncate font-display text-lg font-bold italic" style={{ color: group ? `hsl(${Math.max(0, group.hue)},50%,36%)` : undefined }}>
                   {group?.name ?? 'Unsorted'}
                 </span>
@@ -364,14 +400,16 @@ export function ListView() {
                 <span aria-hidden className="ml-1 h-px flex-1 bg-ink-faint/20" />
               </div>
             )}
-            {!isFolded && (
-              <div data-card-id={t.id} className="relative">
-                {slot && slot.before === t.id && <SlotLine at="top" />}
-                <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
-                {slot && slot.before === null && i === rows.length - 1 && <SlotLine at="bottom" />}
-              </div>
-            )}
-          </Fragment>
+            <FoldBody open={!isFolded}>
+              {seg.items.map((t) => (
+                <div key={t.id} data-card-id={t.id} className="relative">
+                  {slot && slot.before === t.id && <SlotLine at="top" />}
+                  <Row task={t} selected={picked.has(t.id)} selecting={selecting} onToggle={() => toggle(t.id)} fresh={justAdded.has(t.id)} />
+                  {slot && slot.before === null && t.id === rows[rows.length - 1].id && <SlotLine at="bottom" />}
+                </div>
+              ))}
+            </FoldBody>
+          </div>
           )
         })}
         {rows.length === 0 && <EmptyState>Nothing here yet. Still water.</EmptyState>}
