@@ -19,12 +19,14 @@ export function useDropSlot(target: string, list: React.RefObject<HTMLElement | 
       if (dragY > r.top + r.height / 2) index++
       else break
     }
-    return { index, before: rows[index]?.dataset.cardId ?? null, ids: rows.map((c) => c.dataset.cardId!) }
+    const own = dragId ? [...list.current.querySelectorAll<HTMLElement>('[data-card-id]')].findIndex((e) => e.dataset.cardId === dragId) : -1
+    return { index, before: rows[index]?.dataset.cardId ?? null, ids: rows.map((c) => c.dataset.cardId!), own: own < 0 ? undefined : own }
   }, [dragY, dragId, ...deps]) // eslint-disable-line react-hooks/exhaustive-deps
   const ids = slot?.ids.join(',')
   useEffect(() => {
-    if (slot) useBoardSlot.setState({ target, index: slot.index, ids: slot.ids })
+    if (slot) useBoardSlot.setState({ target, index: slot.index, ids: slot.ids, own: slot.own })
     else if (useBoardSlot.getState().target === target) useBoardSlot.setState({ target: null, index: 0, ids: [] })
-  }, [slot?.index, ids, target]) // eslint-disable-line react-hooks/exhaustive-deps
-  return { slot, over, active, props }
+  }, [slot?.index, slot?.own, ids, target]) // eslint-disable-line react-hooks/exhaustive-deps
+  // (a list is a place to put things in order, not a thing that swallows them: a card let go over it lands, it does not shrink into it)
+  return { slot, over, active, props: { ...props, 'data-drop-container': '' } }
 }

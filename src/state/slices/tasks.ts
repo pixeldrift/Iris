@@ -365,6 +365,8 @@ export const createTasksSlice = (set: SetState, get: GetState): TasksSlice => ({
           case 'list': {
             // dropped in the list view: where it lands among the others, as the new order (the list then follows "My order")
             if (!hint) return false
+            // let go in the slot it came from: nothing moves, and the sort is left as it was
+            if (hint.own !== undefined && hint.own === hint.index) return true
             const order = hint.ids.filter((id) => id !== taskId)
             const at = Math.max(0, Math.min(order.length, hint.index))
             const merged = [...order.slice(0, at), taskId, ...order.slice(at)]

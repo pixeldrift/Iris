@@ -179,7 +179,7 @@ export const lifter = {
       }
 
       old.wrap.remove()
-      const t = target ? document.querySelector(`[data-drop="${target}"]:not([aria-hidden])`) : null
+      const t = target ? document.querySelector(`[data-drop="${target}"]:not([aria-hidden]):not([data-drop-container])`) : null
       if (t) {
         // dropped on something that tags it: the copy shrinks into the target
         const tr = t.getBoundingClientRect()

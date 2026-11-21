@@ -272,8 +272,8 @@ export function useTaskDrag(task: Task, el: React.RefObject<HTMLElement | null>,
     onEnd: ({ target }) => {
       // dropped in a Progress column: where in it, if the column said (otherwise it goes to the top)
       const slot = useBoardSlot.getState()
-      useBoardSlot.setState({ target: null, index: 0, ids: [] })
-      if (target) useStore.getState().dropTask(task.id, target, slot.target === target ? { index: slot.index, ids: slot.ids } : undefined)
+      useBoardSlot.setState({ target: null, index: 0, ids: [], own: undefined })
+      if (target) useStore.getState().dropTask(task.id, target, slot.target === target ? { index: slot.index, ids: slot.ids, own: slot.own } : undefined)
     },
   })
 }
