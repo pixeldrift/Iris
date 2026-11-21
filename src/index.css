@@ -738,3 +738,7 @@ img { -webkit-user-drag: none; user-drag: none; }
 .swipe[data-done='true'] .swipe-strike { transform-origin: right; }
 .swipe[data-dir='right'] .swipe-strike, .swipe[data-phase='check'] .swipe-strike { opacity: 1; }
 .swipe[data-phase='drag'] .swipe-strike { transition: none; }
+
+/* a carried group shows the indent / outdent symbol where its flower is: the flower steps aside */
+.lift-flower { transition: opacity 0.15s; }
+[data-hinted] .lift-flower { opacity: 0; }

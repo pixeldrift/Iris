@@ -78,6 +78,8 @@ function badge(wrap: HTMLElement, kind: 'in' | 'out' | null) {
     b.dataset.hint = kind
     b.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[kind]}</svg>`
   }
+  // (the symbol takes the flower's place: the flower is not needed while carrying)
+  wrap.toggleAttribute('data-hinted', !!kind)
   b.style.opacity = kind ? '0.5' : '0'
   b.style.transform = kind ? 'scale(1)' : 'scale(0.6)'
 }

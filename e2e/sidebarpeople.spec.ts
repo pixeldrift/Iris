@@ -14,7 +14,7 @@ test.describe('people in the sidebar and the address book', () => {
   })
 
   test('favorites can be moved with their grips, and the order stays', async ({ page }) => {
-    const names = () => page.locator('[data-person-row]').evaluateAll((els) => els.map((e) => e.textContent ?? ''))
+    const names = () => page.locator('[data-reorder-row]').evaluateAll((els) => els.map((e) => e.textContent ?? ''))
     await page.getByRole('button', { name: /Address book/ }).click()
     await page.getByRole('button', { name: /^Favorite / }).first().click()
     await page.getByRole('button', { name: 'Everything' }).first().click()
@@ -38,5 +38,25 @@ test.describe('people in the sidebar and the address book', () => {
     const lastOf = (n: string) => n.trim().split(/\s+/).pop()!.toLowerCase()
     const keys = last.map(lastOf)
     expect([...keys].sort((a, b) => a.localeCompare(b))).toEqual(keys)
+  })
+
+  test('favorites are carried like groups: lifted, a line shows the gap, and they land in the new place', async ({ page }) => {
+    await page.getByRole('button', { name: /Address book/ }).click()
+    for (let n = 0; n < 3; n++) await page.getByRole('button', { name: /^Favorite / }).first().click()
+    await page.getByRole('button', { name: 'Everything' }).first().click()
+    const names = () => page.locator('[data-reorder-row]').evaluateAll((els) => els.map((e) => e.textContent ?? ''))
+    const before = await names()
+    expect(before.length).toBeGreaterThan(2)
+    const rows = page.locator('[data-reorder-row]')
+    const a = (await rows.nth(0).boundingBox())!
+    const c = (await rows.nth(2).boundingBox())!
+    await page.mouse.move(a.x + 60, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + 60, a.y + a.height + 10, { steps: 4 })
+    await page.mouse.move(a.x + 60, c.y + c.height - 2, { steps: 8 })
+    await expect(page.locator('[data-gap] > div.opacity-100')).toHaveCount(1)
+    await page.mouse.up()
+    await expect.poll(names).not.toEqual(before)
+    expect((await names())[0]).toBe(before[1])
   })
 })
