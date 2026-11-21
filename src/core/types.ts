@@ -178,6 +178,8 @@ export interface Person {
   hue: number
   /** Hearted people are the ones kept as shortcuts in the sidebar. */
   favorite: boolean
+  /** Where a favorite sits in the sidebar (lower comes first); people without one follow in the order they were added. */
+  favOrder?: number
   /** Any number of further phone numbers, emails, addresses, links or notes (Home, Work, Mobile…). */
   extras?: PersonExtra[]
   /** `YYYY-MM-DD`, or `--MM-DD` when the year isn't known. */

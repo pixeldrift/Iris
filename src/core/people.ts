@@ -103,6 +103,23 @@ export function parseVCards(text: string): ParsedContact[] {
 /** The sidebar holds seven rows under People: up to this many hearted people, plus the Address book. */
 export const MAX_FAVORITES = 6
 
+/** The favorites in the order the sidebar shows them: by hand where it was set, otherwise as added. */
+export function favoritesOf<T extends { favorite: boolean; isMe?: boolean; favOrder?: number }>(people: T[]): T[] {
+  return people
+    .map((p, i) => [p, i] as const)
+    .filter(([p]) => p.favorite && !p.isMe)
+    .sort(([a, i], [b, j]) => (a.favOrder ?? Infinity) - (b.favOrder ?? Infinity) || i - j)
+    .map(([p]) => p)
+}
+
+export type NameSort = 'first' | 'last'
+/** What the address book sorts and files someone under: the first name or the last (a one-word name counts as both). */
+export function sortName(p: { name: string; first?: string; last?: string }, by: NameSort): string {
+  const n = p.first !== undefined || p.last !== undefined ? { first: p.first ?? '', last: p.last ?? '' } : splitName(p.name)
+  const [a, b] = by === 'first' ? [n.first, n.last] : [n.last || n.first, n.last ? n.first : '']
+  return `${a} ${b}`.trim() || p.name
+}
+
 export const fullName = (first: string, last: string) => `${first.trim()} ${last.trim()}`.trim()
 
 /** "Sarah Lee" -> Sarah / Lee; "Dr. Anita Rao Patel" -> "Dr. Anita Rao" / Patel; "Madonna" -> Madonna / "". */

@@ -4,7 +4,7 @@ import { fuzzyScore } from '../../core/fuzzy'
 import { useStore } from '../../state/store'
 import { IconHeart, IconLink, IconPlus } from '../icons'
 import { openPerson } from '../PeopleDialogs'
-import { allCategories, wantsLetters } from '../../core/people'
+import { allCategories, sortName, wantsLetters, type NameSort } from '../../core/people'
 import { SegmentedToggle } from '../SegmentedToggle'
 import { Avatar, CountBubble } from '../shared'
 import { Tip } from '../Tip'
@@ -21,6 +21,21 @@ export function AddressBook() {
   const setScope = useStore((s) => s.setScope)
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string | null>(null)
+  const [by, setBy] = useState<NameSort>(() => {
+    try {
+      return localStorage.getItem('lilac-book-sort') === 'last' ? 'last' : 'first'
+    } catch {
+      return 'first'
+    }
+  })
+  const pickBy = (v: NameSort) => {
+    setBy(v)
+    try {
+      localStorage.setItem('lilac-book-sort', v)
+    } catch {
+      /* not remembered */
+    }
+  }
   const cats = allCategories(people)
   // judged on the whole book, so the headings don't come and go as you search or filter
   const letters = wantsLetters(people)
@@ -29,8 +44,8 @@ export function AddressBook() {
     const t = q.trim()
     const inCat = cat ? people.filter((p) => (p.categories ?? []).some((c) => c.toLowerCase() === cat.toLowerCase())) : people
     const list = t ? inCat.filter((p) => `${p.name} ${p.company ?? ''} ${p.email} ${p.phone} ${(p.extras ?? []).map((x) => x.value).join(' ')}`.toLowerCase().includes(t.toLowerCase()) || fuzzyScore(t, p.name) >= 0.6) : inCat
-    return [...list].sort((a, b) => a.name.localeCompare(b.name))
-  }, [people, q, cat])
+    return [...list].sort((a, b) => sortName(a, by).localeCompare(sortName(b, by)))
+  }, [people, q, cat, by])
   // how many open tasks each person has, counted once rather than for every row
   const open = useMemo(() => {
     const m = new Map<string, number>()
@@ -40,11 +55,11 @@ export function AddressBook() {
   const groups = useMemo(() => {
     const m = new Map<string, typeof rows>()
     for (const p of rows) {
-      const k = (p.name[0] ?? '#').toUpperCase()
+      const k = (sortName(p, by)[0] ?? '#').toUpperCase()
       m.set(k, [...(m.get(k) ?? []), p])
     }
     return [...m]
-  }, [rows])
+  }, [rows, by])
 
   return (
     <div className="glass flex h-full min-h-0 flex-col rounded-[2rem] p-4 md:p-5">
@@ -70,6 +85,10 @@ export function AddressBook() {
             <IconPlus size={16} />
           </button>
         </Tip>
+      </div>
+      <div className="mt-2 flex items-center gap-2 text-xs text-ink-soft">
+        <span>Sort by</span>
+        <SegmentedToggle label="Sort by" value={by} options={[{ id: 'first', label: 'First name' }, { id: 'last', label: 'Last name' }]} onChange={(v) => pickBy(v as NameSort)} />
       </div>
       <div className="scroll-soft mt-2 min-h-0 flex-1 overflow-y-auto">
         {groups.map(([letter, list]) => (

@@ -104,6 +104,31 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
         <span className="text-xs font-medium text-ink-soft">Marked with</span>
         <SegmentedToggle label="Marked with" value={task.listStyle} options={STYLES} onChange={(v) => update(task.id, { listStyle: v })} />
       </div>
+      <div className="well mt-2 flex items-center gap-1 rounded-xl px-2 py-1">
+        <IconPlus size={14} />
+        <input
+          ref={add}
+          autoFocus={autoFocusFirst}
+          aria-label="Add item"
+          placeholder="Add an item…"
+          onFocus={() => setTouched(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commit()
+            }
+          }}
+          onBlur={commit}
+          className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-ink-faint"
+        />
+        {/* (pressing these must not take focus off the box first: leaving it adds what is typed, which would make "clear" add it) */}
+        <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={clear} aria-label="Clear" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70">
+          <IconClose size={12} />
+        </button>
+        <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => { commit(); add.current?.focus() }} aria-label="Add" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-500 text-lg leading-none text-white shadow-sm transition hover:bg-lilac-600">
+          <span aria-hidden>↵</span>
+        </button>
+      </div>
       {preview && (
         <ul aria-label="Example entries" onClick={() => (setTouched(true), requestAnimationFrame(() => add.current?.focus()))} className="mt-2 cursor-text space-y-1 opacity-50">
           {EXAMPLES.map((e, n) => (
@@ -181,31 +206,6 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
           </div>,
           document.body,
         )}
-      <div className="well mt-2 flex items-center gap-1 rounded-xl px-2 py-1">
-        <IconPlus size={14} />
-        <input
-          ref={add}
-          autoFocus={autoFocusFirst}
-          aria-label="Add item"
-          placeholder="Add an item…"
-          onFocus={() => setTouched(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              commit()
-            }
-          }}
-          onBlur={commit}
-          className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-ink-faint"
-        />
-        {/* (pressing these must not take focus off the box first: leaving it adds what is typed, which would make "clear" add it) */}
-        <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={clear} aria-label="Clear" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-white/70">
-          <IconClose size={12} />
-        </button>
-        <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => { commit(); add.current?.focus() }} aria-label="Add" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lilac-500 text-lg leading-none text-white shadow-sm transition hover:bg-lilac-600">
-          <span aria-hidden>↵</span>
-        </button>
-      </div>
     </div>
   )
 }

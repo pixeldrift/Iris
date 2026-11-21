@@ -185,6 +185,8 @@ export interface PeopleSlice {
   savePerson: (p: Partial<Person> & { name: string }) => string
   deletePerson: (id: string) => void
   togglePersonFavorite: (id: string) => void
+  /** Put the sidebar's favorites in this order. */
+  setFavoriteOrder: (ids: string[]) => void
   /** Make sure the signed-in person has their own contact entry (the same id on every device). */
   ensureMe: (user: { id: string; name: string; email: string }) => void
 }
