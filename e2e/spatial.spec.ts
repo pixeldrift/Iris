@@ -157,7 +157,10 @@ test.describe('spatial workspace', () => {
       const host = els[0]?.parentElement?.getBoundingClientRect()
       return !host || els.every((e) => {
         const r = e.getBoundingClientRect()
-        return r.left >= host.left - 2 && r.right <= host.right + 2 && r.top >= host.top - 2 && r.bottom <= host.bottom + 2
+        // (centred on the frame's own line: the middle of the dot is on the edge, so half of it is outside)
+        const x = r.left + r.width / 2
+        const y = r.top + r.height / 2
+        return x >= host.left - 2 && x <= host.right + 2 && y >= host.top - 2 && y <= host.bottom + 2
       })
     })
     expect(on).toBe(true)
