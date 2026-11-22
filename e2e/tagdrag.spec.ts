@@ -36,12 +36,15 @@ test.describe('tags in the task details', () => {
     const first = await centre(chips.nth(0))
     const second = await centre(chips.nth(1))
     const firstBox = (await chips.nth(0).boundingBox())!
+    const before = await chips.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.tagChip))
     await page.mouse.move(second.x - 6, second.y)
     await page.mouse.down()
     await page.mouse.move(second.x - 20, second.y + 2, { steps: 4 })
     await page.mouse.move(firstBox.x + 3, first.y, { steps: 8 }) // (the left end of the first tag: in front of it)
-    // The tag being displaced should animate into its new slot rather than snapping across the row.
-    await expect.poll(async () => chips.locator('[data-tag-chip="life"]').evaluate((el) => el.getAnimations().some((a) => a.playState === 'running'))).toBe(true)
+    // the tags hold still while one is carried: a line shows where it would land, and it goes in front of the first
+    await expect(page.locator('[data-tag-marker]')).toHaveCount(1)
+    await expect(chips.nth(0)).toHaveAttribute('data-tag-chip', /.+/)
+    expect(await chips.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.tagChip))).toEqual(before)
     await page.mouse.up()
     await expect.poll(async () => (await taskNamed(page, 'Study group'))?.tagOrder?.[0]).toBe('demo-writing')
     // the groups themselves are untouched
