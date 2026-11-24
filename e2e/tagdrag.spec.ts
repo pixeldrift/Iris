@@ -169,11 +169,21 @@ test.describe('reordering the entries of a list', () => {
     await expect(page.locator('li[data-reorder-row]').nth(2)).toHaveCSS('margin-left', '24px')
   })
 
-  test('"Checked last" puts ticked entries at the bottom', async ({ page }) => {
+  test('ticked entries sink to the bottom by themselves, "Checked last" can be switched off, and a new entry goes at the top', async ({ page }) => {
     await listTask(page)
-    await page.getByRole('button', { name: 'Checked last' }).click()
+    const texts = async () => ((await taskNamed(page, 'Groceries'))?.items ?? []).map((i: { text: string }) => i.text)
+    await expect(page.getByRole('button', { name: 'Checked last' })).toHaveAttribute('aria-pressed', 'true')
     await page.getByRole('checkbox', { name: 'Completed: Milk' }).click()
-    await expect.poll(async () => ((await taskNamed(page, 'Groceries'))?.items ?? []).map((i: { text: string }) => i.text)).toEqual(['Bread', 'Eggs', 'Milk'])
+    await expect.poll(texts).toEqual(['Bread', 'Eggs', 'Milk'])
+    // a new entry is the first one, above the unticked ones (and so in view)
+    const box = page.getByLabel('Task details').getByLabel('Add item')
+    await box.fill('Tea')
+    await box.press('Enter')
+    await expect.poll(texts).toEqual(['Tea', 'Bread', 'Eggs', 'Milk'])
+    // switched off, ticking leaves things where they are
+    await page.getByRole('button', { name: 'Checked last' }).click()
+    await page.getByRole('checkbox', { name: 'Completed: Tea' }).click()
+    await expect.poll(texts).toEqual(['Tea', 'Bread', 'Eggs', 'Milk'])
   })
 })
 

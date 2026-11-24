@@ -126,12 +126,21 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
   }, [autoFocusFirst, items.length])
   const setProgress = useStore((s) => s.setProgress)
   const hue = useTaskHue(task)
+  // checked entries sink to the bottom unless that has been switched off
+  const doneLast = task.listStyle === 'check' && (task.listDoneLast ?? true)
   const set = (list: ListItem[]) => {
-    const next = task.listDoneLast && task.listStyle === 'check' ? checkedLast(tidyDepths(list)) : tidyDepths(list)
+    const next = doneLast ? checkedLast(tidyDepths(list)) : tidyDepths(list)
     update(task.id, { items: next })
     // ticking things off sets how far along the list is (ticked out of all), and the list moves to the column that reaches
     if (task.listStyle === 'check' && next.length > 0) setProgress(task.id, percentOfCount(next.filter((i) => i.done).length, next.length))
   }
+  // a list made before this (or one edited elsewhere) is put in order too
+  useEffect(() => {
+    if (!doneLast) return
+    const sorted = checkedLast(tidyDepths(task.items))
+    if (sorted !== task.items) update(task.id, { items: sorted })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doneLast, task.items])
   const patch = (id: string, p: Partial<ListItem>) => set(items.map((i) => (i.id === id ? { ...i, ...p } : i)))
 
   // Reordering is the sidebar's own drag (see sidebar/rowDrag): the row is lifted, a line shows the gap, the others glide aside; sideways travel puts an entry
@@ -163,7 +172,8 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
   const commit = () => {
     const el = add.current
     if (!el || !el.value.trim()) return
-    set([...items, { id: uid(), text: el.value.trim(), done: false }])
+    // (the newest goes at the top, where it is in view however long the list is)
+    set([{ id: uid(), text: el.value.trim(), done: false }, ...items])
     sound.drop()
     el.value = ''
   }
@@ -179,13 +189,13 @@ export function ListEditor({ task, autoFocusFirst = false }: { task: Task; autoF
         {task.listStyle === 'check' && (
           <button
             type="button"
-            aria-pressed={!!task.listDoneLast}
+            aria-pressed={doneLast}
             title="Keep checked items at the bottom"
             onClick={() => {
-              const on = !task.listDoneLast
+              const on = !doneLast
               update(task.id, { listDoneLast: on, ...(on ? { items: checkedLast(tidyDepths(items)) } : {}) })
             }}
-            className={`ml-auto whitespace-nowrap rounded-full px-3 py-1 text-xs transition ${task.listDoneLast ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`}
+            className={`ml-auto whitespace-nowrap rounded-full px-3 py-1 text-xs transition ${doneLast ? 'bg-lilac-500 text-white shadow shadow-lilac-500/30' : 'glass-soft text-ink-soft hover:bg-white/70'}`}
           >
             Checked last
           </button>
