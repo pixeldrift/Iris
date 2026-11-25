@@ -218,3 +218,18 @@ create table if not exists images (
   created_at   timestamptz not null default now(),
   primary key (workspace_id, id)
 );
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- Bug reports and feature requests sent from the app's menu (signed in). Kept here first, so none is ever lost; the server then also
+-- opens a GitHub issue and/or posts to a chat webhook (if configured) so it reaches you. `context` is only what the person chose to include.
+create table if not exists feedback (
+  id         bigserial primary key,
+  user_id    text not null,
+  kind       text not null,
+  message    text not null,
+  app_build  text,
+  context    jsonb,
+  issue_url  text,
+  created_at timestamptz not null default now()
+);
+create index if not exists feedback_user_time on feedback (user_id, created_at desc);

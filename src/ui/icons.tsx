@@ -226,6 +226,13 @@ export const IconThought = (p: P) => (
     <circle cx="4.2" cy="21.2" r="0.8" />
   </Svg>
 )
+/** A speech bubble with a spark: "tell us something". */
+export const IconFeedback = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-7L8 20v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5Z" />
+    <path d="M12 8.6v3.2M12 13.6v.1" />
+  </Svg>
+)
 export const IconBell = (p: P) => (
   <Svg {...p}>
     <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15L6 16.5Z" />

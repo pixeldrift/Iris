@@ -122,3 +122,16 @@ IndexedDB (`src/sync/images.ts`) and, when signed in, in the `images` table (Pos
 `/api/image` (`PUT` to add, `GET` to read; `ws=me` means your own). Other devices fetch it when a picture is opened full screen,
 showing the preview meanwhile. Run the latest `db/schema.sql` to create the table. Pictures are not yet removed from the
 database when the item holding them is deleted.
+
+## Bug reports and feature requests
+
+The account menu has "Report a bug or request a feature" (signed in only). The form posts to `/api/feedback`, which:
+
+1. **keeps the report** in the `feedback` table first (run the new part of `db/schema.sql` in the Neon SQL editor), so none is lost;
+2. **tells the owner**, best effort, by whichever of these are set on the server (Vercel project settings):
+   - `GITHUB_FEEDBACK_TOKEN` and `GITHUB_FEEDBACK_REPO` (`owner/name`): opens an issue labelled `bug` or `enhancement` (and `from-app`). Use a
+     fine-grained token limited to that one repository with "Issues: read and write". The issue holds only the person's words, the app build and
+     any details they left on, never their name or email. If the repository is public, so is the report.
+   - `FEEDBACK_WEBHOOK_URL`: a Discord or Slack incoming webhook, which lands on your phone at once.
+
+A person can send five reports an hour. Nothing is emailed: Vercel functions have no mail server, so nothing here needs one.

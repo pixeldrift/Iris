@@ -11,10 +11,11 @@ import { acceptToken, startShare } from '../sync/share'
 import { openNotices } from './notices'
 import { openVerify, sendCode, VerifyDialog } from './VerifyDialog'
 import { askConfirm, Modal } from './dialogs'
-import { IconBell, IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
+import { IconBell, IconFeedback, IconGear, IconPerson, IconRepeat, IconSignOut } from './icons'
 import { openPerson } from './PeopleDialogs'
 import { Popover } from './Popover'
 import { openSettings } from './SettingsDialog'
+import { openFeedback } from './FeedbackDialog'
 import { useStore } from '../state/store'
 
 const useAuthDialog = create<{ open: boolean; mode: 'in' | 'up' }>(() => ({ open: false, mode: 'in' }))
@@ -279,6 +280,15 @@ function AccountMenu() {
           }}
         >
           <IconGear size={16} /> My settings
+        </button>
+        <button
+          className={item}
+          onClick={() => {
+            setMenu(false)
+            openFeedback()
+          }}
+        >
+          <IconFeedback size={16} /> Report a bug or request a feature
         </button>
         <div aria-hidden className="mx-2.5 my-1 h-px bg-ink-faint/20" />
         <button
